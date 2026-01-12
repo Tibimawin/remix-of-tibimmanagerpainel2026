@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
@@ -254,13 +255,33 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
 
             {/* Modo de Tipo (Singular/Plural) */}
             <div className="hidden md:flex items-center space-x-2 bg-card/50 backdrop-blur-sm rounded-xl px-3 py-2 border border-border/40">
-              <span className={`text-xs ${mode === 'singular' ? 'font-semibold' : ''}`}>Thiago</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className={`text-xs cursor-help ${mode === 'singular' ? 'font-semibold' : ''}`}>Thiago</span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-semibold mb-1">Modo Thiago</p>
+                  <p className="text-xs text-muted-foreground">
+                    Formato singular para tipos de conteúdo. Ideal para bases de dados com nomenclatura no singular (ex: Filme, Serie, Anime).
+                  </p>
+                </TooltipContent>
+              </Tooltip>
               <Switch
                 checked={mode === 'plural'}
                 onCheckedChange={(checked) => setMode(checked ? 'plural' : 'singular')}
                 className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted"
               />
-              <span className={`text-xs ${mode === 'plural' ? 'font-semibold' : ''}`}>Francisco</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className={`text-xs cursor-help ${mode === 'plural' ? 'font-semibold' : ''}`}>Francisco</span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-semibold mb-1">Modo Francisco</p>
+                  <p className="text-xs text-muted-foreground">
+                    Formato plural para tipos de conteúdo. Ideal para bases de dados com nomenclatura no plural (ex: Filmes, Series, Animes). Habilita recursos extras como Categorias Anime e Canais de TV.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
             </div>
 
             {/* Controle de Tema */}
