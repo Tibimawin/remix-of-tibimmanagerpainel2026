@@ -259,9 +259,9 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
             <div className="hidden md:flex items-center space-x-2 bg-card/50 backdrop-blur-sm rounded-xl px-3 py-2 border border-border/40">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className={`flex items-center gap-1 cursor-help ${mode === 'singular' ? 'text-primary' : 'text-muted-foreground'}`}>
-                    <UserCircle className="h-4 w-4" />
-                    <span className={`text-xs ${mode === 'singular' ? 'font-semibold' : ''}`}>Thiago</span>
+                  <div className={`flex items-center gap-1 cursor-help transition-all duration-300 ${mode === 'singular' ? 'text-primary scale-110' : 'text-muted-foreground scale-100 opacity-60'}`}>
+                    <UserCircle className={`h-4 w-4 transition-transform duration-300 ${mode === 'singular' ? 'rotate-0' : 'rotate-12'}`} />
+                    <span className={`text-xs transition-all duration-300 ${mode === 'singular' ? 'font-semibold' : 'font-normal'}`}>Thiago</span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
@@ -274,13 +274,13 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
               <Switch
                 checked={mode === 'plural'}
                 onCheckedChange={(checked) => setMode(checked ? 'plural' : 'singular')}
-                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted"
+                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted transition-all duration-300"
               />
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className={`flex items-center gap-1 cursor-help ${mode === 'plural' ? 'text-primary' : 'text-muted-foreground'}`}>
-                    <Users className="h-4 w-4" />
-                    <span className={`text-xs ${mode === 'plural' ? 'font-semibold' : ''}`}>Francisco</span>
+                  <div className={`flex items-center gap-1 cursor-help transition-all duration-300 ${mode === 'plural' ? 'text-primary scale-110' : 'text-muted-foreground scale-100 opacity-60'}`}>
+                    <Users className={`h-4 w-4 transition-transform duration-300 ${mode === 'plural' ? 'rotate-0' : '-rotate-12'}`} />
+                    <span className={`text-xs transition-all duration-300 ${mode === 'plural' ? 'font-semibold' : 'font-normal'}`}>Francisco</span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
