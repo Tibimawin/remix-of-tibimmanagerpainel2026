@@ -660,13 +660,13 @@ const M3UImporter = () => {
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="singular" id="mode-singular" />
                 <Label htmlFor="mode-singular" className="cursor-pointer">
-                  Filme/Serie (Padrão)
+                  Thiago (Padrão)
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="plural" id="mode-plural" />
                 <Label htmlFor="mode-plural" className="cursor-pointer">
-                  Filmes/Series
+                  Francisco
                 </Label>
               </div>
             </RadioGroup>

@@ -254,13 +254,13 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
 
             {/* Modo de Tipo (Singular/Plural) */}
             <div className="hidden md:flex items-center space-x-2 bg-card/50 backdrop-blur-sm rounded-xl px-3 py-2 border border-border/40">
-              <span className={`text-xs ${mode === 'singular' ? 'font-semibold' : ''}`}>Filme/Serie</span>
+              <span className={`text-xs ${mode === 'singular' ? 'font-semibold' : ''}`}>Thiago</span>
               <Switch
                 checked={mode === 'plural'}
                 onCheckedChange={(checked) => setMode(checked ? 'plural' : 'singular')}
                 className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted"
               />
-              <span className={`text-xs ${mode === 'plural' ? 'font-semibold' : ''}`}>Filmes/Series</span>
+              <span className={`text-xs ${mode === 'plural' ? 'font-semibold' : ''}`}>Francisco</span>
             </div>
 
             {/* Controle de Tema */}
