@@ -34,6 +34,7 @@ import { AdminSystemUpdates } from '@/components/AdminSystemUpdates';
 import AdminPlanosSolicitados from '@/pages/AdminPlanosSolicitados';
 import AdminOverviewMetrics from '@/components/AdminOverviewMetrics';
 import { SecurityCenter } from '@/components/SecurityCenter';
+import { AdminSeasonalTheme } from '@/components/AdminSeasonalTheme';
 import { AdminRegistrationControl } from '@/components/AdminRegistrationControl';
 import { AdminSidebar, AdminView } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
@@ -400,6 +401,8 @@ const AdminDashboard = () => {
         return <AdminReferrals />;
       case 'system-updates':
         return <AdminSystemUpdates />;
+      case 'seasonal-theme':
+        return <AdminSeasonalTheme />;
       default:
         return <div className="text-foreground">Selecione uma opção do menu</div>;
     }

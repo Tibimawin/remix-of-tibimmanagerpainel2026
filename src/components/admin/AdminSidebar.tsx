@@ -4,10 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import {
   Shield, Users, Activity, Calendar, BarChart, Package, Bell,
   UserPlus, CreditCard, Crown, UserCheck, MessageCircle,
-  Settings, RefreshCw, LogOut, Tag, AlertTriangle, Megaphone, Sparkles
+  Settings, RefreshCw, LogOut, Tag, AlertTriangle, Megaphone, Sparkles, Palette
 } from 'lucide-react';
 
-export type AdminView = 'overview' | 'users' | 'activity' | 'date-logs' | 'metrics' | 'products' | 'notifications' | 'user-management' | 'firebase-users' | 'registration-control' | 'chat' | 'import-config' | 'plans' | 'plan-requests' | 'user-permissions' | 'series-correction' | 'suporte-prioritario' | 'security-center' | 'offers' | 'announcements' | 'whatsapp' | 'maintenance' | 'access-expired-config' | 'expiration-notifications' | 'user-action-history' | 'referrals' | 'system-updates';
+export type AdminView = 'overview' | 'users' | 'activity' | 'date-logs' | 'metrics' | 'products' | 'notifications' | 'user-management' | 'firebase-users' | 'registration-control' | 'chat' | 'import-config' | 'plans' | 'plan-requests' | 'user-permissions' | 'series-correction' | 'suporte-prioritario' | 'security-center' | 'offers' | 'announcements' | 'whatsapp' | 'maintenance' | 'access-expired-config' | 'expiration-notifications' | 'user-action-history' | 'referrals' | 'system-updates' | 'seasonal-theme';
 
 interface AdminSidebarProps {
   activeView: AdminView;
@@ -44,6 +44,7 @@ const menuItems = [
   { id: 'whatsapp', label: 'WhatsApp Config', icon: MessageCircle, category: 'settings' },
   { id: 'maintenance', label: 'Modo Manutenção', icon: AlertTriangle, category: 'settings' },
   { id: 'access-expired-config', label: 'Mensagem Acesso Expirado', icon: Shield, category: 'settings' },
+  { id: 'seasonal-theme', label: '🎨 Tema Sazonal', icon: Palette, category: 'settings', isNew: true },
   { id: 'import-config', label: 'Config. Importação', icon: Settings, category: 'settings' },
   { id: 'series-correction', label: 'Corrigir Séries', icon: RefreshCw, category: 'settings' },
   { id: 'chat', label: 'Suporte ao Vivo', icon: MessageCircle, category: 'support' },
