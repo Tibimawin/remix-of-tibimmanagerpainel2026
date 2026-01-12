@@ -20,7 +20,9 @@ import {
   Crown,
   Sun,
   Moon,
-  Zap
+  Zap,
+  UserCircle,
+  Users
 } from 'lucide-react';
 import UserNotifications from '../UserNotifications';
 import GlobalSearch from '../GlobalSearch';
@@ -257,7 +259,10 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
             <div className="hidden md:flex items-center space-x-2 bg-card/50 backdrop-blur-sm rounded-xl px-3 py-2 border border-border/40">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className={`text-xs cursor-help ${mode === 'singular' ? 'font-semibold' : ''}`}>Thiago</span>
+                  <div className={`flex items-center gap-1 cursor-help ${mode === 'singular' ? 'text-primary' : 'text-muted-foreground'}`}>
+                    <UserCircle className="h-4 w-4" />
+                    <span className={`text-xs ${mode === 'singular' ? 'font-semibold' : ''}`}>Thiago</span>
+                  </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
                   <p className="font-semibold mb-1">Modo Thiago</p>
@@ -273,7 +278,10 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
               />
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className={`text-xs cursor-help ${mode === 'plural' ? 'font-semibold' : ''}`}>Francisco</span>
+                  <div className={`flex items-center gap-1 cursor-help ${mode === 'plural' ? 'text-primary' : 'text-muted-foreground'}`}>
+                    <Users className="h-4 w-4" />
+                    <span className={`text-xs ${mode === 'plural' ? 'font-semibold' : ''}`}>Francisco</span>
+                  </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
                   <p className="font-semibold mb-1">Modo Francisco</p>
