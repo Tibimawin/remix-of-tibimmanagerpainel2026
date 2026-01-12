@@ -81,6 +81,47 @@ const steps: Step[] = [
     disableBeacon: true,
   },
   {
+    target: '[data-tour="type-mode"]',
+    content: (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg flex items-center justify-center">
+            <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+          </div>
+          <h3 className="font-semibold text-foreground">Modos Thiago & Francisco</h3>
+        </div>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          O sistema possui dois modos de operação que alteram como os tipos de conteúdo são exibidos:
+        </p>
+        <div className="space-y-2 mt-3">
+          <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/20">
+            <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">👤 Modo Thiago (Singular)</p>
+            <p className="text-xs text-muted-foreground">
+              Formato singular para tipos de conteúdo (ex: Filme, Serie, Anime). 
+              Menu mais enxuto, ideal para bases com nomenclatura singular.
+            </p>
+          </div>
+          <div className="bg-purple-500/10 rounded-lg p-3 border border-purple-500/20">
+            <p className="text-xs font-medium text-purple-600 dark:text-purple-400 mb-1">👥 Modo Francisco (Plural)</p>
+            <p className="text-xs text-muted-foreground">
+              Formato plural para tipos de conteúdo (ex: Filmes, Series, Animes). 
+              Habilita recursos extras como Categorias Anime e Canais de TV.
+            </p>
+          </div>
+        </div>
+        <div className="bg-muted/50 rounded-lg p-3 mt-3">
+          <p className="text-xs text-muted-foreground">
+            🔄 <strong>Alternância:</strong> Use o switch na barra superior para trocar entre os modos
+          </p>
+        </div>
+      </div>
+    ),
+    placement: 'bottom',
+    disableBeacon: true,
+  },
+  {
     target: '[data-tour="add-content"]',
     content: (
       <div className="space-y-3">

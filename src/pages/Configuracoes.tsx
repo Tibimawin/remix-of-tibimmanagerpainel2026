@@ -22,6 +22,18 @@ import { useNavigate } from 'react-router-dom';
 const TutorialSettings: React.FC = () => {
   const { restartOnboarding } = useOnboarding();
   const navigate = useNavigate();
+  
+  // Verificar status do tutorial
+  const hasCompleted = localStorage.getItem('onboarding-completed') === 'true';
+  const hasSkipped = localStorage.getItem('onboarding-skipped') === 'true';
+  
+  const getTutorialStatus = () => {
+    if (hasCompleted) return { label: 'Completado', color: 'bg-green-500', icon: '✓' };
+    if (hasSkipped) return { label: 'Pulado', color: 'bg-yellow-500', icon: '⏭️' };
+    return { label: 'Pendente', color: 'bg-blue-500', icon: '⏳' };
+  };
+  
+  const status = getTutorialStatus();
 
   const handleRestartTutorial = () => {
     restartOnboarding();
@@ -44,10 +56,31 @@ const TutorialSettings: React.FC = () => {
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex flex-col space-y-4">
+          {/* Status do Tutorial */}
+          <div className="bg-muted/50 rounded-lg p-4 border border-border/40">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium text-foreground mb-1">Status do Tutorial</h4>
+                <p className="text-sm text-muted-foreground">
+                  {hasCompleted 
+                    ? 'Você completou o tutorial com sucesso!' 
+                    : hasSkipped 
+                      ? 'Você pulou o tutorial anteriormente.'
+                      : 'O tutorial ainda não foi iniciado.'}
+                </p>
+              </div>
+              <Badge className={`${status.color} text-white px-3 py-1`}>
+                <span className="mr-1">{status.icon}</span>
+                {status.label}
+              </Badge>
+            </div>
+          </div>
+
           <div className="bg-muted/50 rounded-lg p-4 border border-border/40">
             <h4 className="font-medium text-foreground mb-2">Sobre o Tutorial</h4>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              O tutorial interativo guia você pelas principais funcionalidades do painel administrativo. 
+              O tutorial interativo guia você pelas principais funcionalidades do painel administrativo, 
+              incluindo navegação, gestão de conteúdo, modos de operação (Thiago/Francisco) e configurações. 
               Ele é exibido automaticamente para novos usuários, mas você pode reiniciá-lo a qualquer momento.
             </p>
           </div>
@@ -70,7 +103,7 @@ const TutorialSettings: React.FC = () => {
           </div>
 
           <div className="text-xs text-muted-foreground">
-            <p>💡 <strong>Dica:</strong> O tutorial cobre navegação, gestão de conteúdo e configurações do sistema.</p>
+            <p>💡 <strong>Dica:</strong> O tutorial cobre navegação, gestão de conteúdo, modos Thiago/Francisco e configurações do sistema.</p>
           </div>
         </div>
       </CardContent>
