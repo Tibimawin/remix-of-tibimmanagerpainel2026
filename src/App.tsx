@@ -25,6 +25,7 @@ import Conteudos from "./pages/Conteudos";
 import Episodios from "./pages/Episodios";
 import Banners from "./pages/Banners";
 import Categorias from "./pages/Categorias";
+import CategoriasTV from "./pages/CategoriasTV";
 import Duplicados from "./pages/Duplicados";
 import DuplicadosEpisodios from "./pages/DuplicadosEpisodios";
 import Usuarios from "./pages/Usuarios";
@@ -167,6 +168,14 @@ const App = () => {
                                 <SimpleProtectedRoute>
                                   <Layout>
                                     <Categorias />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/categorias-tv" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <CategoriasTV />
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />

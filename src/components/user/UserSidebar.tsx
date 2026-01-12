@@ -157,6 +157,15 @@ const menuItems: MenuItem[] = [
     feature: 'categorias'
   },
   {
+    id: 'categorias-tv',
+    label: 'Categorias TV',
+    href: '/categorias-tv',
+    icon: Tv,
+    category: 'content',
+    description: 'Categorias de canais de TV',
+    feature: 'categorias-tv'
+  },
+  {
     id: 'duplicados',
     label: 'Duplicados',
     href: '/duplicados',
