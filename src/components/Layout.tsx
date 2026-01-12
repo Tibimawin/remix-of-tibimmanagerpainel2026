@@ -7,6 +7,7 @@ import { OnboardingTour } from './OnboardingTour';
 import { ErrorBoundary } from './ErrorBoundary';
 import ExpirationWarningBanner from './ExpirationWarningBanner';
 import { AIAssistant } from './AIAssistant';
+import { SeasonalThemeBanner, SeasonalThemeEffects } from './seasonal/SeasonalThemeWrapper';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useEnhancedActionHistory } from '@/hooks/useEnhancedActionHistory';
 import { useActionNotifier } from '@/hooks/useActionNotifier';
@@ -132,6 +133,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               onRenewClick={() => window.location.href = '/precos'}
             />
 
+            {/* 🎨 Banner de Tema Sazonal */}
+            <SeasonalThemeBanner />
 
             <ErrorBoundary>
               {children}
@@ -145,6 +148,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         {/* Assistente IA */}
         <AIAssistant />
 
+        {/* 🎨 Efeitos do Tema Sazonal (partículas e decorações) */}
+        <SeasonalThemeEffects />
 
         {/* Tutorial de Onboarding */}
         <OnboardingTour />
