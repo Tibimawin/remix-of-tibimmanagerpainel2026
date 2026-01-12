@@ -24,6 +24,30 @@ export const SeasonalDecorations: React.FC<SeasonalDecorationsProps> = ({ config
           bottomRight: '🎉',
           topEmoji: '⭐'
         };
+      case 'carnival':
+        return {
+          topLeft: '🎭',
+          topRight: '💃',
+          bottomLeft: '🎺',
+          bottomRight: '🎊',
+          topEmoji: '🎉'
+        };
+      case 'valentines':
+        return {
+          topLeft: '💕',
+          topRight: '💘',
+          bottomLeft: '🌹',
+          bottomRight: '❤️',
+          topEmoji: '💖'
+        };
+      case 'sao_joao':
+        return {
+          topLeft: '🌽',
+          topRight: '🎆',
+          bottomLeft: '🪗',
+          bottomRight: '🔥',
+          topEmoji: '🎇'
+        };
       case 'easter':
         return {
           topLeft: '🐰',

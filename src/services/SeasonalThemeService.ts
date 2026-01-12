@@ -6,6 +6,9 @@ export type SeasonalThemeType =
   | 'new_year' 
   | 'easter' 
   | 'halloween' 
+  | 'carnival'
+  | 'sao_joao'
+  | 'valentines'
   | 'custom' 
   | 'none';
 
@@ -96,6 +99,30 @@ export const SeasonalThemeService = {
         particleEmoji: '🎊',
         bannerMessage: '🎆 Feliz Ano Novo! Que venha um ano incrível! 🎇',
         bannerEmoji: '🎆'
+      },
+      carnival: {
+        name: 'Carnaval',
+        primaryColor: '#f97316',
+        secondaryColor: '#ec4899',
+        particleEmoji: '🎭',
+        bannerMessage: '🎉 É Carnaval! Vamos celebrar com alegria! 💃',
+        bannerEmoji: '🎊'
+      },
+      valentines: {
+        name: 'Dia dos Namorados',
+        primaryColor: '#ec4899',
+        secondaryColor: '#f43f5e',
+        particleEmoji: '❤️',
+        bannerMessage: '💕 Feliz Dia dos Namorados! Amor no ar! 💘',
+        bannerEmoji: '💖'
+      },
+      sao_joao: {
+        name: 'São João',
+        primaryColor: '#f59e0b',
+        secondaryColor: '#ea580c',
+        particleEmoji: '🔥',
+        bannerMessage: '🎆 Viva São João! Arraiá com muita alegria! 🌽',
+        bannerEmoji: '🎇'
       },
       easter: {
         name: 'Páscoa',

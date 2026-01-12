@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Sparkles, Snowflake, PartyPopper, Egg, Ghost, Palette, 
-  Eye, EyeOff, Save, RotateCcw 
+  Eye, EyeOff, Save, RotateCcw, Heart, Flame, Music
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSeasonalTheme } from '@/hooks/useSeasonalTheme';
@@ -17,6 +17,9 @@ import { SeasonalThemeType } from '@/services/SeasonalThemeService';
 const themeIcons: Record<SeasonalThemeType, React.ReactNode> = {
   christmas: <Snowflake className="w-5 h-5" />,
   new_year: <PartyPopper className="w-5 h-5" />,
+  carnival: <Music className="w-5 h-5" />,
+  valentines: <Heart className="w-5 h-5" />,
+  sao_joao: <Flame className="w-5 h-5" />,
   easter: <Egg className="w-5 h-5" />,
   halloween: <Ghost className="w-5 h-5" />,
   custom: <Palette className="w-5 h-5" />,
@@ -26,6 +29,9 @@ const themeIcons: Record<SeasonalThemeType, React.ReactNode> = {
 const themeColors: Record<SeasonalThemeType, string> = {
   christmas: 'from-red-500 to-green-500',
   new_year: 'from-yellow-500 to-purple-500',
+  carnival: 'from-orange-500 to-pink-500',
+  valentines: 'from-pink-500 to-red-500',
+  sao_joao: 'from-amber-500 to-orange-600',
   easter: 'from-pink-400 to-purple-400',
   halloween: 'from-orange-500 to-purple-700',
   custom: 'from-blue-500 to-purple-500',
