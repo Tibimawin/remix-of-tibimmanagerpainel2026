@@ -1,7 +1,42 @@
 import React from 'react';
 import Joyride, { Step, CallBackProps, STATUS } from 'react-joyride';
+import confetti from 'canvas-confetti';
 import { useOnboarding } from '@/hooks/useOnboarding';
 
+const triggerConfetti = () => {
+  // Primeiro disparo - explosão central
+  confetti({
+    particleCount: 100,
+    spread: 70,
+    origin: { y: 0.6 }
+  });
+
+  // Segundo disparo - lados
+  setTimeout(() => {
+    confetti({
+      particleCount: 50,
+      angle: 60,
+      spread: 55,
+      origin: { x: 0 }
+    });
+    confetti({
+      particleCount: 50,
+      angle: 120,
+      spread: 55,
+      origin: { x: 1 }
+    });
+  }, 150);
+
+  // Terceiro disparo - chuva de confete
+  setTimeout(() => {
+    confetti({
+      particleCount: 150,
+      spread: 100,
+      origin: { y: 0.3 },
+      colors: ['#ff6b00', '#ff9500', '#ffc107', '#4caf50', '#2196f3', '#9c27b0']
+    });
+  }, 300);
+};
 const steps: Step[] = [
   {
     target: 'body',
@@ -217,6 +252,7 @@ export const OnboardingTour: React.FC = () => {
     // Handle completion
     if (status === STATUS.FINISHED) {
       console.log('Tutorial finished successfully');
+      triggerConfetti();
       completeOnboarding();
       return;
     }
