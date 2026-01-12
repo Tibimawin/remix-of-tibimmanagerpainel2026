@@ -2,11 +2,15 @@ import { useConfig } from '../contexts/ConfigContext';
 import { logger } from '@/utils/logger';
 import BASEROW_PROXY_CONFIG from '@/config/proxyConfig';
 
+// Chave anônima do Supabase para autenticação na Edge Function
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
 export class BaserowService {
   private apiToken: string;
   private baseUrl: string;
   // 🔧 Detecção automática de ambiente (desenvolvimento/produção)
   private proxyUrl = BASEROW_PROXY_CONFIG.ACTIVE_PROXY_URL;
+  private isUsingSupabase = BASEROW_PROXY_CONFIG.isUsingSupabase();
 
   constructor(apiToken: string, baseUrl: string) {
     this.apiToken = apiToken;
@@ -16,7 +20,7 @@ export class BaserowService {
     console.log(`🌐 BaserowService inicializado:`, {
       proxyUrl: this.proxyUrl,
       environment: BASEROW_PROXY_CONFIG.getEnvironment(),
-      usingVercel: true
+      usingSupabase: this.isUsingSupabase
     });
   }
 
@@ -30,8 +34,8 @@ export class BaserowService {
     logger.debug('Fazendo requisição ao Baserow', { method, needsProxy: this.needsProxy() });
 
     if (this.needsProxy()) {
-      // 🔧 Usando Vercel Serverless Function
-      console.log('🌐 [BaserowService] Requisição via VERCEL PROXY:', {
+      const proxyType = this.isUsingSupabase ? 'SUPABASE EDGE FUNCTION' : 'VERCEL PROXY';
+      console.log(`🌐 [BaserowService] Requisição via ${proxyType}:`, {
         method,
         proxyUrl: this.proxyUrl,
         originalUrl: originalUrl,
@@ -49,7 +53,7 @@ export class BaserowService {
         body: options.body || null
       };
 
-      console.log('📦 [BaserowService] Payload para Vercel:', {
+      console.log('📦 [BaserowService] Payload para proxy:', {
         url: proxyPayload.url,
         method: proxyPayload.method,
         hasToken: !!proxyPayload.token,
@@ -57,11 +61,20 @@ export class BaserowService {
         hasBody: !!proxyPayload.body
       });
 
+      // Headers - adiciona apikey para Supabase Edge Function
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      // Adicionar autenticação Supabase se estiver usando Edge Function
+      if (this.isUsingSupabase && SUPABASE_ANON_KEY) {
+        headers['apikey'] = SUPABASE_ANON_KEY;
+        headers['Authorization'] = `Bearer ${SUPABASE_ANON_KEY}`;
+      }
+
       const response = await fetch(this.proxyUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(proxyPayload)
       });
 
