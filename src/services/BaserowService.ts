@@ -1,9 +1,7 @@
 import { useConfig } from '../contexts/ConfigContext';
 import { logger } from '@/utils/logger';
 import BASEROW_PROXY_CONFIG from '@/config/proxyConfig';
-
-// Chave anônima do Supabase para autenticação na Edge Function
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+import { supabase } from '@/integrations/supabase/client';
 
 export class BaserowService {
   private apiToken: string;
@@ -34,8 +32,50 @@ export class BaserowService {
     logger.debug('Fazendo requisição ao Baserow', { method, needsProxy: this.needsProxy() });
 
     if (this.needsProxy()) {
-      const proxyType = this.isUsingSupabase ? 'SUPABASE EDGE FUNCTION' : 'VERCEL PROXY';
-      console.log(`🌐 [BaserowService] Requisição via ${proxyType}:`, {
+      const proxyPayload = {
+        url: originalUrl,
+        method: method,
+        token: this.apiToken,
+        body: options.body || null
+      };
+
+      // Usar supabase.functions.invoke para Supabase Edge Function (evita CORS)
+      if (this.isUsingSupabase) {
+        console.log(`🌐 [BaserowService] Requisição via SUPABASE (functions.invoke):`, {
+          method,
+          originalUrl: originalUrl,
+          tokenPreview: this.apiToken.substring(0, 15) + '...',
+        });
+
+        console.log('📦 [BaserowService] Payload para Supabase:', {
+          url: proxyPayload.url,
+          method: proxyPayload.method,
+          hasToken: !!proxyPayload.token,
+          hasBody: !!proxyPayload.body
+        });
+
+        const { data, error } = await supabase.functions.invoke('baserow-proxy', {
+          body: proxyPayload
+        });
+
+        if (error) {
+          console.error('❌ [BaserowService] Erro na Edge Function:', error);
+          throw new Error(`Edge Function error: ${error.message}`);
+        }
+
+        // Retornar um objeto Response-like para manter compatibilidade
+        return {
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => data,
+          text: async () => JSON.stringify(data),
+        } as Response;
+      }
+
+      // Usar fetch direto para Vercel Serverless
+      console.log(`🌐 [BaserowService] Requisição via VERCEL PROXY:`, {
         method,
         proxyUrl: this.proxyUrl,
         originalUrl: originalUrl,
@@ -46,14 +86,7 @@ export class BaserowService {
         bodyPreview: options.body ? (options.body as string).substring(0, 150) : 'N/A'
       });
 
-      const proxyPayload = {
-        url: originalUrl,
-        method: method,
-        token: this.apiToken,
-        body: options.body || null
-      };
-
-      console.log('📦 [BaserowService] Payload para proxy:', {
+      console.log('📦 [BaserowService] Payload para Vercel:', {
         url: proxyPayload.url,
         method: proxyPayload.method,
         hasToken: !!proxyPayload.token,
@@ -61,20 +94,11 @@ export class BaserowService {
         hasBody: !!proxyPayload.body
       });
 
-      // Headers - adiciona apikey para Supabase Edge Function
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-
-      // Adicionar autenticação Supabase se estiver usando Edge Function
-      if (this.isUsingSupabase && SUPABASE_ANON_KEY) {
-        headers['apikey'] = SUPABASE_ANON_KEY;
-        headers['Authorization'] = `Bearer ${SUPABASE_ANON_KEY}`;
-      }
-
       const response = await fetch(this.proxyUrl, {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(proxyPayload)
       });
 
