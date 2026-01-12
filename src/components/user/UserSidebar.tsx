@@ -542,6 +542,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
               ? "w-20"
               : "w-80"
         )}
+        data-tour="sidebar"
       >
         {/* Header */}
         <div className="p-6 border-b border-border/40 backdrop-blur-sm">
@@ -614,7 +615,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                           {hasAccess ? (
                             <>
                               {hasChildren ? (
-                                <div>
+                                <div {...(item.id === 'configuracoes' ? { 'data-tour': 'settings' } : {})}>
                                   <button
                                     onClick={() => toggleMenu(item.id)}
                                     className={cn(
@@ -697,6 +698,8 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                                       : "text-muted-foreground hover:text-foreground hover:bg-gradient-to-r hover:from-accent/10 hover:to-primary/5 hover:border hover:border-accent/20 hover:shadow-soft"
                                   )}
                                   title={isCollapsed && !isMobile ? item.label : undefined}
+                                  {...(item.id === 'conteudos' ? { 'data-tour': 'add-content' } : {})}
+                                  {...(item.id === 'configuracoes' ? { 'data-tour': 'settings' } : {})}
                                 >
                                   <Icon className={cn(
                                     "w-5 h-5 flex-shrink-0 transition-all duration-300",
