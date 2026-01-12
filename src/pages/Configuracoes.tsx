@@ -322,7 +322,12 @@ const Configuracoes = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="categoriasTV">Tabela de Categorias TV</Label>
+                    <Label htmlFor="categoriasTV" className="flex items-center gap-2">
+                      Tabela de Categorias TV
+                      <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs px-1.5 py-0.5 animate-pulse">
+                        NOVO
+                      </Badge>
+                    </Label>
                     <Input
                       id="categoriasTV"
                       placeholder="ID da tabela"
@@ -332,7 +337,12 @@ const Configuracoes = () => {
                   </div>
                   {mode === 'plural' && (
                     <div>
-                      <Label htmlFor="categoriasAnime">Tabela de Categorias Anime</Label>
+                      <Label htmlFor="categoriasAnime" className="flex items-center gap-2">
+                        Tabela de Categorias Anime
+                        <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs px-1.5 py-0.5 animate-pulse">
+                          NOVO
+                        </Badge>
+                      </Label>
                       <Input
                         id="categoriasAnime"
                         placeholder="ID da tabela"
@@ -370,7 +380,12 @@ const Configuracoes = () => {
                   </div>
                   {mode === 'plural' && (
                     <div>
-                      <Label htmlFor="canaisTv">Tabela de Canais de TV</Label>
+                      <Label htmlFor="canaisTv" className="flex items-center gap-2">
+                        Tabela de Canais de TV
+                        <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs px-1.5 py-0.5 animate-pulse">
+                          NOVO
+                        </Badge>
+                      </Label>
                       <Input
                         id="canaisTv"
                         placeholder="ID da tabela"
