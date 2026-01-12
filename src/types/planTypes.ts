@@ -43,6 +43,7 @@ export const AVAILABLE_FEATURES: FeatureAccess[] = [
   { id: 'banners', name: 'Gerenciar Banners', description: 'Criar e editar banners do sistema' },
 
   { id: 'categorias', name: 'Gerenciar Categorias', description: 'Organizar e editar categorias' },
+  { id: 'categorias-tv', name: 'Categorias TV', description: 'Gerenciar categorias de canais de TV' },
 
   // Ferramentas
   { id: 'duplicados', name: 'Verificar Duplicados', description: 'Encontrar conteúdos duplicados' },
