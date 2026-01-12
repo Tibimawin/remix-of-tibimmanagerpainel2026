@@ -165,33 +165,33 @@ export const OnboardingTour: React.FC = () => {
   const { 
     shouldShowOnboarding, 
     completeOnboarding, 
-    skipOnboarding,
-    currentStep,
-    setCurrentStep
+    skipOnboarding
   } = useOnboarding();
 
   const handleJoyrideCallback = (data: CallBackProps) => {
-    const { status, action, index, type } = data;
+    const { status, action, type } = data;
     
-    console.log('Joyride callback:', { status, action, index, type });
+    console.log('Joyride callback:', { status, action, type });
     
-    // Handle completion or skip
+    // Handle completion
     if (status === STATUS.FINISHED) {
-      console.log('Tutorial finished');
+      console.log('Tutorial finished successfully');
       completeOnboarding();
       return;
     }
     
-    if (status === STATUS.SKIPPED) {
-      console.log('Tutorial skipped');
+    // Handle skip
+    if (status === STATUS.SKIPPED || action === 'skip') {
+      console.log('Tutorial skipped by user');
       skipOnboarding();
       return;
     }
 
-    // Update current step based on Joyride's current index
-    if (type === 'step:after' || action === 'next' || action === 'prev') {
-      console.log('Updating step from', currentStep, 'to', index);
-      setCurrentStep(index);
+    // Handle close button or escape
+    if (action === 'close') {
+      console.log('Tutorial closed');
+      skipOnboarding();
+      return;
     }
   };
 
@@ -207,6 +207,7 @@ export const OnboardingTour: React.FC = () => {
       showProgress
       showSkipButton
       callback={handleJoyrideCallback}
+      stepIndex={undefined}
       styles={{
         options: {
           primaryColor: 'hsl(var(--primary))',
@@ -284,12 +285,16 @@ export const OnboardingTour: React.FC = () => {
         next: 'Próximo',
         skip: 'Pular Tutorial',
       }}
-      disableCloseOnEsc
-      disableOverlayClose
-      hideCloseButton
+      disableCloseOnEsc={false}
+      disableOverlayClose={false}
+      hideCloseButton={false}
       scrollToFirstStep
       disableOverlay={false}
       disableScrolling={false}
+      spotlightClicks={false}
+      floaterProps={{
+        disableAnimation: false,
+      }}
     />
   );
 };
