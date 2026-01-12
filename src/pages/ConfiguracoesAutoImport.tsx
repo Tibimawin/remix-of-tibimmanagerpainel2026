@@ -378,7 +378,7 @@ export default function ConfiguracoesAutoImport() {
                                     <div className="flex items-center justify-between p-4 border border-gray-700 rounded-lg bg-[#121212]">
                                         <div>
                                             <p className="text-white font-medium">
-                                                {config?.typeFormat === 'plural' ? 'Filmes/Series' : 'Filme/Serie'}
+                                                {config?.typeFormat === 'plural' ? 'Francisco' : 'Thiago'}
                                             </p>
                                             <p className="text-sm text-gray-400 mt-1">
                                                 {config?.typeFormat === 'plural'

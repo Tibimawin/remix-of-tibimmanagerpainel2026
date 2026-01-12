@@ -13,7 +13,7 @@ interface AutoImportSchedule {
     nextRun: string;
     lastCheckTimestamp: string;
     lastCheckContentCount: number;
-    typeFormat?: 'singular' | 'plural'; // Formato do Tipo (Filme/Serie ou Filmes/Series)
+    typeFormat?: 'singular' | 'plural'; // Formato do Tipo (Thiago ou Francisco)
     preferences: {
         contentTypes: string[];
         categories: string[];
