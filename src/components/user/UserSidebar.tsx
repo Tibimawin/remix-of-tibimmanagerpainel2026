@@ -45,6 +45,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useTypeMode } from '@/contexts/TypeModeContext';
 
 type BadgeType = 'new' | 'alert' | 'info' | 'count';
 
@@ -474,11 +475,23 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
   const location = useLocation();
   const { logout } = useSimpleAuth();
   const { hasPrioritySupport, hasFeature } = useUserPermissions();
+  const { mode } = useTypeMode();
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
     configuracoes: true // Configurações aberto por padrão
   });
 
-  const groupedMenuItems = menuItems
+  // Itens que só aparecem no modo plural (Francisco)
+  const pluralOnlyItems = ['categorias-anime', 'categorias-tv', 'importar-canais-tv'];
+
+  // Filtrar itens baseado no modo
+  const filteredMenuItems = menuItems.filter(item => {
+    if (mode === 'singular' && pluralOnlyItems.includes(item.id)) {
+      return false;
+    }
+    return true;
+  });
+
+  const groupedMenuItems = filteredMenuItems
     .reduce((acc, item) => {
       if (!acc[item.category]) {
         acc[item.category] = [];
