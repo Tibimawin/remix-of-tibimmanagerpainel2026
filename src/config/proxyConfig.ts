@@ -1,39 +1,57 @@
 /**
  * Configuração centralizada do Proxy Baserow
  * 
- * Prioriza Supabase Edge Function (funciona em todos os ambientes).
- * Fallback para Vercel Serverless Function em produção.
+ * Detecta automaticamente o ambiente:
+ * - Produção Vercel: usa /api/baserow-proxy (Vercel Serverless)
+ * - Preview Lovable: usa Supabase Edge Function
  */
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
+// Detectar se está rodando no Vercel (produção) ou Lovable preview
+const isVercelProduction = () => {
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    // Vercel production deploys ou custom domains (não lovable.app)
+    return hostname.includes('vercel.app') || 
+           (!hostname.includes('lovable.app') && !hostname.includes('localhost'));
+};
+
 export const BASEROW_PROXY_CONFIG = {
-    // Supabase Edge Function (funciona em todos os ambientes)
+    // Supabase Edge Function
     SUPABASE_PROXY_URL: SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/baserow-proxy` : null,
     
-    // Vercel Serverless Function (só funciona em produção Vercel)
+    // Vercel Serverless Function
     VERCEL_PROXY_URL: '/api/baserow-proxy',
 
-    // URL ativa - prioriza Supabase
+    // URL ativa - depende do ambiente
     get ACTIVE_PROXY_URL() {
+        // No Vercel production, usar Vercel Serverless
+        if (isVercelProduction()) {
+            console.log('🌐 [PROXY] Ambiente Vercel detectado, usando Serverless Function:', this.VERCEL_PROXY_URL);
+            return this.VERCEL_PROXY_URL;
+        }
+        
+        // No Lovable preview ou dev, usar Supabase Edge Function
         if (this.SUPABASE_PROXY_URL) {
-            console.log('🌐 [PROXY] Usando Supabase Edge Function:', this.SUPABASE_PROXY_URL);
+            console.log('🌐 [PROXY] Ambiente Lovable/Dev detectado, usando Supabase Edge Function:', this.SUPABASE_PROXY_URL);
             return this.SUPABASE_PROXY_URL;
         }
-        console.log('🌐 [PROXY] Usando Vercel Serverless Function:', this.VERCEL_PROXY_URL);
+        
+        // Fallback para Vercel
+        console.log('🌐 [PROXY] Fallback para Vercel Serverless Function:', this.VERCEL_PROXY_URL);
         return this.VERCEL_PROXY_URL;
     },
 
     // Verifica se está usando Supabase
     isUsingSupabase() {
-        return !!this.SUPABASE_PROXY_URL;
+        return !isVercelProduction() && !!this.SUPABASE_PROXY_URL;
     },
 
     // Ambiente
     getEnvironment() {
-        const isProduction = import.meta.env.PROD ||
-            window.location.hostname !== 'localhost';
-        return isProduction ? 'production' : 'development';
+        if (isVercelProduction()) return 'vercel-production';
+        if (typeof window !== 'undefined' && window.location.hostname.includes('lovable.app')) return 'lovable-preview';
+        return 'development';
     }
 };
 
