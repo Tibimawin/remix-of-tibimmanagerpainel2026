@@ -285,7 +285,7 @@ const Configuracoes = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
+                  <div className="space-y-1">
                     <Label htmlFor="conteudos">Tabela de Conteúdos</Label>
                     <Input
                       id="conteudos"
@@ -293,8 +293,9 @@ const Configuracoes = () => {
                       value={formData.tableIds.conteudos}
                       onChange={(e) => handleInputChange('tableIds.conteudos', e.target.value)}
                     />
+                    <p className="text-xs text-muted-foreground">Filmes, séries e outros conteúdos principais</p>
                   </div>
-                  <div>
+                  <div className="space-y-1">
                     <Label htmlFor="episodios">Tabela de Episódios</Label>
                     <Input
                       id="episodios"
@@ -302,9 +303,10 @@ const Configuracoes = () => {
                       value={formData.tableIds.episodios}
                       onChange={(e) => handleInputChange('tableIds.episodios', e.target.value)}
                     />
+                    <p className="text-xs text-muted-foreground">Episódios de séries e animes</p>
                   </div>
 
-                  <div>
+                  <div className="space-y-1">
                     <Label htmlFor="banners">Tabela de Banners</Label>
                     <Input
                       id="banners"
@@ -312,8 +314,9 @@ const Configuracoes = () => {
                       value={formData.tableIds.banners}
                       onChange={(e) => handleInputChange('tableIds.banners', e.target.value)}
                     />
+                    <p className="text-xs text-muted-foreground">Banners promocionais e destaques</p>
                   </div>
-                  <div>
+                  <div className="space-y-1">
                     <Label htmlFor="categorias">Tabela de Categorias</Label>
                     <Input
                       id="categorias"
@@ -321,8 +324,9 @@ const Configuracoes = () => {
                       value={formData.tableIds.categorias}
                       onChange={(e) => handleInputChange('tableIds.categorias', e.target.value)}
                     />
+                    <p className="text-xs text-muted-foreground">Categorias gerais de conteúdo (Ação, Comédia, etc.)</p>
                   </div>
-                  <div>
+                  <div className="space-y-1">
                     <Label htmlFor="categoriasTV" className="flex items-center gap-2">
                       Tabela de Categorias TV
                       <Tooltip>
@@ -342,9 +346,10 @@ const Configuracoes = () => {
                       value={formData.tableIds.categoriasTV}
                       onChange={(e) => handleInputChange('tableIds.categoriasTV', e.target.value)}
                     />
+                    <p className="text-xs text-muted-foreground">Categorias específicas para canais de TV</p>
                   </div>
                   {mode === 'plural' && (
-                    <div>
+                    <div className="space-y-1">
                       <Label htmlFor="categoriasAnime" className="flex items-center gap-2">
                         Tabela de Categorias Anime
                         <Tooltip>
@@ -364,9 +369,10 @@ const Configuracoes = () => {
                         value={formData.tableIds.categoriasAnime}
                         onChange={(e) => handleInputChange('tableIds.categoriasAnime', e.target.value)}
                       />
+                      <p className="text-xs text-muted-foreground">Categorias específicas para animes (Shonen, Seinen, etc.)</p>
                     </div>
                   )}
-                  <div>
+                  <div className="space-y-1">
                     <Label htmlFor="usuarios">Tabela de Usuários</Label>
                     <Input
                       id="usuarios"
@@ -374,8 +380,9 @@ const Configuracoes = () => {
                       value={formData.tableIds.usuarios}
                       onChange={(e) => handleInputChange('tableIds.usuarios', e.target.value)}
                     />
+                    <p className="text-xs text-muted-foreground">Dados de usuários e assinaturas</p>
                   </div>
-                  <div>
+                  <div className="space-y-1">
                     <Label htmlFor="sessoes">Tabela de Sessões</Label>
                     <Input
                       id="sessoes"
@@ -383,8 +390,9 @@ const Configuracoes = () => {
                       value={formData.tableIds.sessoes}
                       onChange={(e) => handleInputChange('tableIds.sessoes', e.target.value)}
                     />
+                    <p className="text-xs text-muted-foreground">Sessões ativas e controle de acesso</p>
                   </div>
-                  <div>
+                  <div className="space-y-1">
                     <Label htmlFor="plataformas">Tabela de Plataformas</Label>
                     <Input
                       id="plataformas"
@@ -392,9 +400,10 @@ const Configuracoes = () => {
                       value={formData.tableIds.plataformas}
                       onChange={(e) => handleInputChange('tableIds.plataformas', e.target.value)}
                     />
+                    <p className="text-xs text-muted-foreground">Plataformas de streaming disponíveis</p>
                   </div>
                   {mode === 'plural' && (
-                    <div>
+                    <div className="space-y-1">
                       <Label htmlFor="canaisTv" className="flex items-center gap-2">
                         Tabela de Canais de TV
                         <Tooltip>
@@ -414,6 +423,7 @@ const Configuracoes = () => {
                         value={formData.tableIds.canaisTv}
                         onChange={(e) => handleInputChange('tableIds.canaisTv', e.target.value)}
                       />
+                      <p className="text-xs text-muted-foreground">Canais de TV ao vivo e IPTV</p>
                     </div>
                   )}
                 </div>
