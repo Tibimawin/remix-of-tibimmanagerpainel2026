@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { useBaserowService } from '@/services/BaserowService';
 import { useConfig } from '@/contexts/ConfigContext';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ImageOff, Image } from 'lucide-react';
 
 interface EditCategoriaAnimeDialogProps {
   open: boolean;
@@ -32,6 +32,7 @@ export const EditCategoriaAnimeDialog: React.FC<EditCategoriaAnimeDialogProps> =
 }) => {
   const [formData, setFormData] = useState<any>({});
   const [saving, setSaving] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const { config } = useConfig();
   const baserowService = useBaserowService();
 
@@ -42,6 +43,7 @@ export const EditCategoriaAnimeDialog: React.FC<EditCategoriaAnimeDialogProps> =
         filteredData[field] = item[field] ?? "";
       });
       setFormData(filteredData);
+      setImageError(false);
     }
   }, [item]);
 
@@ -51,6 +53,9 @@ export const EditCategoriaAnimeDialog: React.FC<EditCategoriaAnimeDialogProps> =
       ...prev,
       [name]: value
     }));
+    if (name === 'Capa') {
+      setImageError(false);
+    }
   };
 
   const handleSave = async () => {
@@ -78,7 +83,7 @@ export const EditCategoriaAnimeDialog: React.FC<EditCategoriaAnimeDialogProps> =
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
           <DialogTitle>Editar Categoria Anime</DialogTitle>
           <DialogDescription>
@@ -108,7 +113,10 @@ export const EditCategoriaAnimeDialog: React.FC<EditCategoriaAnimeDialogProps> =
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="Capa">Capa</Label>
+            <Label htmlFor="Capa" className="flex items-center gap-2">
+              <Image className="w-4 h-4" />
+              Capa
+            </Label>
             <Input
               id="Capa"
               name="Capa"
@@ -116,6 +124,26 @@ export const EditCategoriaAnimeDialog: React.FC<EditCategoriaAnimeDialogProps> =
               onChange={handleInputChange}
               placeholder="URL da imagem de capa"
             />
+            {/* Preview da imagem */}
+            {formData.Capa && (
+              <div className="mt-2">
+                {!imageError ? (
+                  <div className="relative inline-block">
+                    <img
+                      src={formData.Capa}
+                      alt="Preview da capa"
+                      className="w-32 h-32 object-cover rounded-lg border border-border shadow-sm"
+                      onError={() => setImageError(true)}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-destructive">
+                    <ImageOff className="w-4 h-4" />
+                    <span>Não foi possível carregar a imagem</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="grid gap-2">
             <Label htmlFor="Tipo">Tipo</Label>

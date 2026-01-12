@@ -3,7 +3,7 @@ import { DataTable } from '@/components/DataTable';
 import { EditCategoriaAnimeDialog } from '@/components/EditCategoriaAnimeDialog';
 import { CreateCategoriaAnimeDialog } from '@/components/CreateCategoriaAnimeDialog';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, ImageOff } from 'lucide-react';
 
 const CategoriasAnime = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -19,6 +19,50 @@ const CategoriasAnime = () => {
     { label: 'Tipo (A-Z)', value: 'Tipo_asc' },
     { label: 'Tipo (Z-A)', value: 'Tipo_desc' },
   ];
+
+  // Formatter para mostrar preview da imagem de capa
+  const formatters = {
+    Capa: (value: string) => {
+      if (!value) {
+        return (
+          <div className="flex items-center justify-center w-12 h-12 bg-muted rounded-md">
+            <ImageOff className="w-5 h-5 text-muted-foreground" />
+          </div>
+        );
+      }
+      return (
+        <div className="relative group">
+          <img
+            src={value}
+            alt="Capa"
+            className="w-12 h-12 object-cover rounded-md border border-border cursor-pointer transition-transform hover:scale-105"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              target.nextElementSibling?.classList.remove('hidden');
+            }}
+          />
+          <div className="hidden flex items-center justify-center w-12 h-12 bg-muted rounded-md">
+            <ImageOff className="w-5 h-5 text-muted-foreground" />
+          </div>
+          {/* Tooltip com imagem maior */}
+          <div className="absolute left-full ml-2 top-0 z-50 hidden group-hover:block">
+            <div className="bg-popover border border-border rounded-lg shadow-lg p-1">
+              <img
+                src={value}
+                alt="Preview"
+                className="w-48 h-48 object-cover rounded-md"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.parentElement?.classList.add('hidden');
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+  };
 
   const handleEdit = (item: any) => {
     setSelectedItem(item);
@@ -54,6 +98,7 @@ const CategoriasAnime = () => {
         description="Categorias disponíveis para animes"
         tableKey="categoriasAnime"
         columns={columns}
+        formatters={formatters}
         sortOptions={sortOptions}
         defaultSort="Nome_asc"
         onEdit={handleEdit}
