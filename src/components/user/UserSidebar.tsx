@@ -163,7 +163,8 @@ const menuItems: MenuItem[] = [
     icon: Tv,
     category: 'content',
     description: 'Categorias de canais de TV',
-    feature: 'categorias-tv'
+    feature: 'categorias-tv',
+    badge: { type: 'new' }
   },
   {
     id: 'duplicados',
