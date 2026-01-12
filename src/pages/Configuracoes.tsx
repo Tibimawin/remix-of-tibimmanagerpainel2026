@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield, Film, Tv, Image, FolderOpen, Users, Calendar, LayoutGrid, Play } from 'lucide-react';
+import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield, Film, Tv, Image, FolderOpen, Users, Calendar, LayoutGrid, Play, RotateCcw, HelpCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
@@ -15,6 +15,68 @@ import { PermissionGate } from '@/components/PermissionGate';
 import { Badge } from '@/components/ui/badge';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import UserSecuritySettings from '@/components/UserSecuritySettings';
+import { useOnboarding } from '@/hooks/useOnboarding';
+import { useNavigate } from 'react-router-dom';
+
+// Componente para configurações do Tutorial
+const TutorialSettings: React.FC = () => {
+  const { restartOnboarding } = useOnboarding();
+  const navigate = useNavigate();
+
+  const handleRestartTutorial = () => {
+    restartOnboarding();
+    toast.success('Tutorial reiniciado! Redirecionando para o Dashboard...');
+    setTimeout(() => {
+      navigate('/dashboard');
+    }, 1000);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <HelpCircle className="h-5 w-5" />
+          Tutorial do Sistema
+        </CardTitle>
+        <CardDescription>
+          Gerencie o tutorial interativo do painel administrativo
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex flex-col space-y-4">
+          <div className="bg-muted/50 rounded-lg p-4 border border-border/40">
+            <h4 className="font-medium text-foreground mb-2">Sobre o Tutorial</h4>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              O tutorial interativo guia você pelas principais funcionalidades do painel administrativo. 
+              Ele é exibido automaticamente para novos usuários, mas você pode reiniciá-lo a qualquer momento.
+            </p>
+          </div>
+
+          <div className="bg-gradient-to-r from-primary/5 to-orange-500/5 rounded-lg p-4 border border-primary/20">
+            <h4 className="font-medium text-foreground mb-2 flex items-center gap-2">
+              <RotateCcw className="h-4 w-4 text-primary" />
+              Reiniciar Tutorial
+            </h4>
+            <p className="text-sm text-muted-foreground mb-4">
+              Deseja rever o tutorial completo? Clique no botão abaixo para reiniciar o guia interativo.
+            </p>
+            <Button 
+              onClick={handleRestartTutorial}
+              className="bg-gradient-to-r from-primary to-orange-500 hover:from-primary/90 hover:to-orange-500/90"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Reiniciar Tutorial
+            </Button>
+          </div>
+
+          <div className="text-xs text-muted-foreground">
+            <p>💡 <strong>Dica:</strong> O tutorial cobre navegação, gestão de conteúdo e configurações do sistema.</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const Configuracoes = () => {
   const { config, updateConfig, loading: configLoading } = useConfig();
@@ -224,7 +286,7 @@ const Configuracoes = () => {
 
         {/* Abas de Configurações */}
         <Tabs defaultValue="api" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="api" className="flex items-center gap-2">
               <Key className="h-4 w-4" />
               Configurações de API
@@ -232,6 +294,10 @@ const Configuracoes = () => {
             <TabsTrigger value="security" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               Segurança da Conta
+            </TabsTrigger>
+            <TabsTrigger value="tutorial" className="flex items-center gap-2">
+              <HelpCircle className="h-4 w-4" />
+              Tutorial
             </TabsTrigger>
           </TabsList>
 
@@ -515,6 +581,10 @@ const Configuracoes = () => {
 
           <TabsContent value="security" className="mt-6">
             <UserSecuritySettings />
+          </TabsContent>
+
+          <TabsContent value="tutorial" className="mt-6">
+            <TutorialSettings />
           </TabsContent>
         </Tabs>
 
