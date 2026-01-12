@@ -330,15 +330,17 @@ const Configuracoes = () => {
                       onChange={(e) => handleInputChange('tableIds.categoriasTV', e.target.value)}
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="categoriasAnime">Tabela de Categorias Anime</Label>
-                    <Input
-                      id="categoriasAnime"
-                      placeholder="ID da tabela"
-                      value={formData.tableIds.categoriasAnime}
-                      onChange={(e) => handleInputChange('tableIds.categoriasAnime', e.target.value)}
-                    />
-                  </div>
+                  {mode === 'plural' && (
+                    <div>
+                      <Label htmlFor="categoriasAnime">Tabela de Categorias Anime</Label>
+                      <Input
+                        id="categoriasAnime"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.categoriasAnime}
+                        onChange={(e) => handleInputChange('tableIds.categoriasAnime', e.target.value)}
+                      />
+                    </div>
+                  )}
                   <div>
                     <Label htmlFor="usuarios">Tabela de Usuários</Label>
                     <Input
