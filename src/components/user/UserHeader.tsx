@@ -256,7 +256,7 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
             )}
 
             {/* Modo de Tipo (Singular/Plural) */}
-            <div className="hidden md:flex items-center space-x-2 bg-card/50 backdrop-blur-sm rounded-xl px-3 py-2 border border-border/40">
+            <div className="hidden md:flex items-center space-x-2 bg-card/50 backdrop-blur-sm rounded-xl px-3 py-2 border border-border/40" data-tour="type-mode">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className={`flex items-center gap-1 cursor-help transition-all duration-300 ${mode === 'singular' ? 'text-primary scale-110' : 'text-muted-foreground scale-100 opacity-60'}`}>
