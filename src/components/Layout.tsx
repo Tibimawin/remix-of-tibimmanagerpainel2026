@@ -7,9 +7,6 @@ import { OnboardingTour } from './OnboardingTour';
 import { ErrorBoundary } from './ErrorBoundary';
 import ExpirationWarningBanner from './ExpirationWarningBanner';
 import { AIAssistant } from './AIAssistant';
-import { ChristmasSnow } from './ChristmasSnow';
-import { ChristmasDecorations } from './ChristmasDecorations';
-import { ChristmasBanner } from './ChristmasBanner';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useEnhancedActionHistory } from '@/hooks/useEnhancedActionHistory';
 import { useActionNotifier } from '@/hooks/useActionNotifier';
@@ -135,8 +132,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               onRenewClick={() => window.location.href = '/precos'}
             />
 
-            {/* 🎄 Banner de Natal */}
-            <ChristmasBanner />
 
             <ErrorBoundary>
               {children}
@@ -150,11 +145,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         {/* Assistente IA */}
         <AIAssistant />
 
-        {/* 🎄 Decorações de Natal */}
-        <ChristmasDecorations />
-
-        {/* ❄️ Neve Caindo */}
-        <ChristmasSnow />
 
         {/* Tutorial de Onboarding */}
         <OnboardingTour />
