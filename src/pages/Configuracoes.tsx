@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
 import { useUserConfig } from '@/hooks/useUserConfig';
@@ -324,9 +325,16 @@ const Configuracoes = () => {
                   <div>
                     <Label htmlFor="categoriasTV" className="flex items-center gap-2">
                       Tabela de Categorias TV
-                      <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs px-1.5 py-0.5 animate-pulse">
-                        NOVO
-                      </Badge>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs px-1.5 py-0.5 animate-pulse cursor-help">
+                            NOVO
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p className="text-xs">Tabela recentemente adicionada ao sistema</p>
+                        </TooltipContent>
+                      </Tooltip>
                     </Label>
                     <Input
                       id="categoriasTV"
@@ -339,9 +347,16 @@ const Configuracoes = () => {
                     <div>
                       <Label htmlFor="categoriasAnime" className="flex items-center gap-2">
                         Tabela de Categorias Anime
-                        <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs px-1.5 py-0.5 animate-pulse">
-                          NOVO
-                        </Badge>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs px-1.5 py-0.5 animate-pulse cursor-help">
+                              NOVO
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent side="right">
+                            <p className="text-xs">Tabela recentemente adicionada ao sistema</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </Label>
                       <Input
                         id="categoriasAnime"
@@ -382,9 +397,16 @@ const Configuracoes = () => {
                     <div>
                       <Label htmlFor="canaisTv" className="flex items-center gap-2">
                         Tabela de Canais de TV
-                        <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs px-1.5 py-0.5 animate-pulse">
-                          NOVO
-                        </Badge>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs px-1.5 py-0.5 animate-pulse cursor-help">
+                              NOVO
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent side="right">
+                            <p className="text-xs">Tabela recentemente adicionada ao sistema</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </Label>
                       <Input
                         id="canaisTv"
