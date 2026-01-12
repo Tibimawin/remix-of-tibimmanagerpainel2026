@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield } from 'lucide-react';
+import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield, Film, Tv, Image, FolderOpen, Users, Calendar, LayoutGrid, Play } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
@@ -286,7 +286,10 @@ const Configuracoes = () => {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <Label htmlFor="conteudos">Tabela de Conteúdos</Label>
+                    <Label htmlFor="conteudos" className="flex items-center gap-2">
+                      <Film className="h-4 w-4 text-primary" />
+                      Tabela de Conteúdos
+                    </Label>
                     <Input
                       id="conteudos"
                       placeholder="ID da tabela"
@@ -296,7 +299,10 @@ const Configuracoes = () => {
                     <p className="text-xs text-muted-foreground">Filmes, séries e outros conteúdos principais</p>
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="episodios">Tabela de Episódios</Label>
+                    <Label htmlFor="episodios" className="flex items-center gap-2">
+                      <Play className="h-4 w-4 text-primary" />
+                      Tabela de Episódios
+                    </Label>
                     <Input
                       id="episodios"
                       placeholder="ID da tabela"
@@ -307,7 +313,10 @@ const Configuracoes = () => {
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="banners">Tabela de Banners</Label>
+                    <Label htmlFor="banners" className="flex items-center gap-2">
+                      <Image className="h-4 w-4 text-primary" />
+                      Tabela de Banners
+                    </Label>
                     <Input
                       id="banners"
                       placeholder="ID da tabela"
@@ -317,7 +326,10 @@ const Configuracoes = () => {
                     <p className="text-xs text-muted-foreground">Banners promocionais e destaques</p>
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="categorias">Tabela de Categorias</Label>
+                    <Label htmlFor="categorias" className="flex items-center gap-2">
+                      <FolderOpen className="h-4 w-4 text-primary" />
+                      Tabela de Categorias
+                    </Label>
                     <Input
                       id="categorias"
                       placeholder="ID da tabela"
@@ -328,6 +340,7 @@ const Configuracoes = () => {
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="categoriasTV" className="flex items-center gap-2">
+                      <Tv className="h-4 w-4 text-primary" />
                       Tabela de Categorias TV
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -351,6 +364,7 @@ const Configuracoes = () => {
                   {mode === 'plural' && (
                     <div className="space-y-1">
                       <Label htmlFor="categoriasAnime" className="flex items-center gap-2">
+                        <Film className="h-4 w-4 text-primary" />
                         Tabela de Categorias Anime
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -373,7 +387,10 @@ const Configuracoes = () => {
                     </div>
                   )}
                   <div className="space-y-1">
-                    <Label htmlFor="usuarios">Tabela de Usuários</Label>
+                    <Label htmlFor="usuarios" className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-primary" />
+                      Tabela de Usuários
+                    </Label>
                     <Input
                       id="usuarios"
                       placeholder="ID da tabela"
@@ -383,7 +400,10 @@ const Configuracoes = () => {
                     <p className="text-xs text-muted-foreground">Dados de usuários e assinaturas</p>
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="sessoes">Tabela de Sessões</Label>
+                    <Label htmlFor="sessoes" className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-primary" />
+                      Tabela de Sessões
+                    </Label>
                     <Input
                       id="sessoes"
                       placeholder="ID da tabela"
@@ -393,7 +413,10 @@ const Configuracoes = () => {
                     <p className="text-xs text-muted-foreground">Sessões ativas e controle de acesso</p>
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="plataformas">Tabela de Plataformas</Label>
+                    <Label htmlFor="plataformas" className="flex items-center gap-2">
+                      <LayoutGrid className="h-4 w-4 text-primary" />
+                      Tabela de Plataformas
+                    </Label>
                     <Input
                       id="plataformas"
                       placeholder="ID da tabela"
@@ -405,6 +428,7 @@ const Configuracoes = () => {
                   {mode === 'plural' && (
                     <div className="space-y-1">
                       <Label htmlFor="canaisTv" className="flex items-center gap-2">
+                        <Tv className="h-4 w-4 text-primary" />
                         Tabela de Canais de TV
                         <Tooltip>
                           <TooltipTrigger asChild>
