@@ -44,6 +44,7 @@ export const AVAILABLE_FEATURES: FeatureAccess[] = [
 
   { id: 'categorias', name: 'Gerenciar Categorias', description: 'Organizar e editar categorias' },
   { id: 'categorias-tv', name: 'Categorias TV', description: 'Gerenciar categorias de canais de TV' },
+  { id: 'categorias-anime', name: 'Categorias Anime', description: 'Gerenciar categorias de animes' },
 
   // Ferramentas
   { id: 'duplicados', name: 'Verificar Duplicados', description: 'Encontrar conteúdos duplicados' },

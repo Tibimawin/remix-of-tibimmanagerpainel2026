@@ -33,6 +33,7 @@ const Configuracoes = () => {
       banners: config?.tableIds?.banners || '',
       categorias: config?.tableIds?.categorias || '',
       categoriasTV: config?.tableIds?.categoriasTV || '',
+      categoriasAnime: config?.tableIds?.categoriasAnime || '',
       usuarios: config?.tableIds?.usuarios || '',
       sessoes: config?.tableIds?.sessoes || '',
       plataformas: config?.tableIds?.plataformas || '',
@@ -52,6 +53,7 @@ const Configuracoes = () => {
           banners: config.tableIds?.banners || '',
           categorias: config.tableIds?.categorias || '',
           categoriasTV: config.tableIds?.categoriasTV || '',
+          categoriasAnime: config.tableIds?.categoriasAnime || '',
           usuarios: config.tableIds?.usuarios || '',
           sessoes: config.tableIds?.sessoes || '',
           plataformas: config.tableIds?.plataformas || '',
@@ -326,6 +328,15 @@ const Configuracoes = () => {
                       placeholder="ID da tabela"
                       value={formData.tableIds.categoriasTV}
                       onChange={(e) => handleInputChange('tableIds.categoriasTV', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="categoriasAnime">Tabela de Categorias Anime</Label>
+                    <Input
+                      id="categoriasAnime"
+                      placeholder="ID da tabela"
+                      value={formData.tableIds.categoriasAnime}
+                      onChange={(e) => handleInputChange('tableIds.categoriasAnime', e.target.value)}
                     />
                   </div>
                   <div>
