@@ -1,0 +1,174 @@
+import { getMessaging, getToken, onMessage, Messaging } from 'firebase/messaging';
+import { app } from '@/config/firebase';
+import { toast } from 'sonner';
+
+interface NotificationPayload {
+  title: string;
+  body: string;
+  icon?: string;
+  badge?: string;
+  tag?: string;
+  data?: Record<string, any>;
+}
+
+class PushNotificationService {
+  private messaging: Messaging | null = null;
+  private vapidKey = 'BKhPXj8vQ7mVZ_9x8fM3N-7c2pJ4bR6nT8yU3vW5zX0qA1bC2dE3fG4hI5jK6lM7nO8pQ9rS0tU1vW2xY3zA4B'; // Será substituída pela real
+
+  async initialize() {
+    try {
+      if (!('serviceWorker' in navigator)) {
+        console.warn('Service Workers não suportados neste navegador');
+        return false;
+      }
+
+      if (!('Notification' in window)) {
+        console.warn('Notificações não suportadas neste navegador');
+        return false;
+      }
+
+      // Registrar Service Worker
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      console.log('Service Worker registrado:', registration);
+
+      this.messaging = getMessaging(app);
+      
+      // Listener para mensagens em foreground
+      onMessage(this.messaging, (payload) => {
+        console.log('Mensagem recebida em foreground:', payload);
+        this.showNotification(payload);
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Erro ao inicializar notificações:', error);
+      return false;
+    }
+  }
+
+  async requestPermission(): Promise<boolean> {
+    try {
+      const permission = await Notification.requestPermission();
+      
+      if (permission === 'granted') {
+        console.log('Permissão de notificação concedida');
+        await this.getDeviceToken();
+        return true;
+      } else {
+        console.log('Permissão de notificação negada');
+        toast.error('Permissão negada', {
+          description: 'Você não receberá notificações push.'
+        });
+        return false;
+      }
+    } catch (error) {
+      console.error('Erro ao solicitar permissão:', error);
+      return false;
+    }
+  }
+
+  async getDeviceToken(): Promise<string | null> {
+    try {
+      if (!this.messaging) {
+        await this.initialize();
+      }
+
+      if (!this.messaging) {
+        throw new Error('Messaging não inicializado');
+      }
+
+      const token = await getToken(this.messaging, {
+        vapidKey: this.vapidKey
+      });
+
+      if (token) {
+        console.log('Token FCM obtido:', token);
+        // Salvar token no localStorage e/ou Supabase
+        localStorage.setItem('fcm_token', token);
+        return token;
+      } else {
+        console.log('Não foi possível obter token FCM');
+        return null;
+      }
+    } catch (error) {
+      console.error('Erro ao obter token FCM:', error);
+      return null;
+    }
+  }
+
+  async sendNotification(notification: NotificationPayload): Promise<boolean> {
+    try {
+      // Em produção, isso seria enviado para o backend que usa o FCM Admin SDK
+      // Por enquanto, vamos criar uma notificação local
+      if (Notification.permission === 'granted') {
+        const notif = new Notification(notification.title, {
+          body: notification.body,
+          icon: notification.icon || '/favicon.ico',
+          badge: notification.badge || '/favicon.ico',
+          tag: notification.tag,
+          data: notification.data,
+          requireInteraction: false,
+          silent: false
+        });
+
+        notif.onclick = () => {
+          window.focus();
+          notif.close();
+        };
+
+        // Auto-close após 5 segundos
+        setTimeout(() => notif.close(), 5000);
+
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Erro ao enviar notificação:', error);
+      return false;
+    }
+  }
+
+  private showNotification(payload: any) {
+    const { notification, data } = payload;
+    
+    toast.info(notification?.title || 'Nova notificação', {
+      description: notification?.body,
+      duration: 5000
+    });
+
+    // Também mostrar notificação nativa
+    if (Notification.permission === 'granted' && notification) {
+      new Notification(notification.title, {
+        body: notification.body,
+        icon: notification.icon || '/favicon.ico'
+      });
+    }
+  }
+
+  async notifyAction(action: string, details: string, userId?: string) {
+    const notification: NotificationPayload = {
+      title: '🔔 Nova Ação no Painel',
+      body: `${action}: ${details}`,
+      icon: '/favicon.ico',
+      tag: `action-${Date.now()}`,
+      data: {
+        action,
+        details,
+        userId,
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    await this.sendNotification(notification);
+  }
+
+  getPermissionStatus(): NotificationPermission {
+    return Notification.permission;
+  }
+
+  isSupported(): boolean {
+    return 'Notification' in window && 'serviceWorker' in navigator;
+  }
+}
+
+export const pushNotificationService = new PushNotificationService();

@@ -1,0 +1,4 @@
+# Force clean install on Vercel
+node_modules
+.next
+dist

@@ -1,0 +1,10 @@
+project_id = "kuszskrqzxwpzsmfsjwg"
+
+[functions.baserow-proxy]
+verify_jwt = false
+
+[functions.maxplus-proxy]
+verify_jwt = false
+
+[functions.tmdb-metadata]
+verify_jwt = false

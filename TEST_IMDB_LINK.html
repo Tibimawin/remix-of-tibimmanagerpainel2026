@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Manual de Links IMDB</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        h1 {
+            color: #00ff88;
+            text-align: center;
+        }
+
+        .input-section {
+            background: #2a2a2a;
+            padding: 30px;
+            border-radius: 12px;
+            margin: 30px 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            background: #1a1a1a;
+            border: 2px solid #444;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: #00ff88;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #00dd77;
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .results {
+            margin-top: 30px;
+        }
+
+        .server-result {
+            background: #2a2a2a;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .server-url {
+            font-family: monospace;
+            font-size: 12px;
+            color: #aaa;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 15px;
+        }
+
+        .status {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 12px;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .status.testing {
+            background: #ffa500;
+            color: #000;
+        }
+
+        .status.success {
+            background: #00ff88;
+            color: #000;
+        }
+
+        .status.failed {
+            background: #ff4444;
+            color: #fff;
+        }
+
+        .summary {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .found-link {
+            background: #00ff88;
+            color: #000;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            word-break: break-all;
+        }
+
+        .examples {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .examples h3 {
+            color: #00ff88;
+            margin-bottom: 15px;
+        }
+
+        .example-item {
+            padding: 10px;
+            background: #1a1a1a;
+            margin: 5px 0;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .example-item:hover {
+            background: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔍 Teste Manual de Links IMDB</h1>
+    <p style="text-align: center; color: #aaa;">Teste se um filme específico existe nos servidores</p>
+
+    <div class="examples">
+        <h3>📋 Exemplos de IMDb IDs para testar:</h3>
+        <div class="example-item" onclick="testExample('tt0133093', 'Matrix (1999)')">
+            <strong>tt0133093</strong> - Matrix (1999) - Muito provável de existir ✅
+        </div>
+        <div class="example-item" onclick="testExample('tt1375666', 'Inception (2010)')">
+            <strong>tt1375666</strong> - Inception (2010) - Muito provável de existir ✅
+        </div>
+        <div class="example-item" onclick="testExample('tt0468569', 'O Cavaleiro das Trevas (2008)')">
+            <strong>tt0468569</strong> - O Cavaleiro das Trevas (2008) - Muito provável de existir ✅
+        </div>
+        <div class="example-item" onclick="testExample('tt13732354', 'Aurora Teagarden (2021)')">
+            <strong>tt13732354</strong> - Aurora Teagarden (2021) - Filme de nicho, improvável ❌
+        </div>
+    </div>
+
+    <div class="input-section">
+        <label>IMDb ID (ex: tt0133093)</label>
+        <input type="text" id="imdbId" placeholder="tt0133093" value="">
+
+        <label>Nome do Filme (opcional - apenas para referência)</label>
+        <input type="text" id="movieName" placeholder="Matrix">
+
+        <button onclick="testMovie()" id="testBtn">🔍 Testar Filme</button>
+    </div>
+
+    <div id="summary" class="summary" style="display: none;">
+        <h2>Resultados</h2>
+        <p id="summaryText"></p>
+    </div>
+
+    <div id="foundLink" class="found-link" style="display: none;">
+        <strong>✅ LINK ENCONTRADO!</strong><br>
+        <a id="linkUrl" href="" target="_blank" style="color: #000; font-weight: bold;"></a>
+    </div>
+
+    <div id="results" class="results"></div>
+
+    <script>
+        const SERVIDORES = [
+            'http://fhd1.oneplayer.site/toktergfer32tgdsvsdven/FHD1/',
+            'http://fhd4.oneplayer.site/343rt342wtg34wetg34retg4rghy5rh/FHD4/',
+            'http://fhd5.oneplayer.site/45y5ty5rtg345ert45r3t345ty345/FHD5/',
+            'http://hd5.oneplayer.site/FHD5/'
+        ];
+
+        let foundLink = null;
+
+        function testExample(imdbId, name) {
+            document.getElementById('imdbId').value = imdbId;
+            document.getElementById('movieName').value = name;
+            testMovie();
+        }
+
+        async function testMovie() {
+            const imdbId = document.getElementById('imdbId').value.trim();
+            const movieName = document.getElementById('movieName').value.trim() || imdbId;
+
+            if (!imdbId) {
+                alert('Digite um IMDb ID!');
+                return;
+            }
+
+            const testBtn = document.getElementById('testBtn');
+            const results = document.getElementById('results');
+            const summary = document.getElementById('summary');
+            const foundLinkDiv = document.getElementById('foundLink');
+
+            testBtn.disabled = true;
+            testBtn.textContent = 'Testando...';
+            results.innerHTML = '';
+            summary.style.display = 'none';
+            foundLinkDiv.style.display = 'none';
+            foundLink = null;
+
+            let successCount = 0;
+            let failCount = 0;
+
+            // Testar DUB primeiro
+            results.innerHTML += '<h3 style="color: #00ff88; margin-top: 20px;">Testando DUB...</h3>';
+
+            for (const servidor of SERVIDORES) {
+                const url = `${servidor}${imdbId}.mp4`;
+                const resultDiv = createResultDiv(url, servidor);
+                results.appendChild(resultDiv);
+
+                const success = await verificarVideo(url);
+
+                if (success) {
+                    resultDiv.querySelector('.status').textContent = '✅ FUNCIONA!';
+                    resultDiv.querySelector('.status').className = 'status success';
+                    successCount++;
+                    foundLink = url;
+                    break; // Encontrou, pode parar
+                } else {
+                    resultDiv.querySelector('.status').textContent = '❌ Não existe';
+                    resultDiv.querySelector('.status').className = 'status failed';
+                    failCount++;
+                }
+            }
+
+            // Se não encontrou DUB, tentar LEG
+            if (!foundLink) {
+                results.innerHTML += '<h3 style="color: #ffa500; margin-top: 20px;">DUB não encontrado. Testando LEG...</h3>';
+
+                for (const servidor of SERVIDORES) {
+                    const url = `${servidor}${imdbId}LEG.mp4`;
+                    const resultDiv = createResultDiv(url, servidor);
+                    results.appendChild(resultDiv);
+
+                    const success = await verificarVideo(url);
+
+                    if (success) {
+                        resultDiv.querySelector('.status').textContent = '✅ FUNCIONA!';
+                        resultDiv.querySelector('.status').className = 'status success';
+                        successCount++;
+                        foundLink = url;
+                        break;
+                    } else {
+                        resultDiv.querySelector('.status').textContent = '❌ Não existe';
+                        resultDiv.querySelector('.status').className = 'status failed';
+                        failCount++;
+                    }
+                }
+            }
+
+            // Mostrar resultado
+            summary.style.display = 'block';
+            if (foundLink) {
+                document.getElementById('summaryText').innerHTML =
+                    `<strong style="color: #00ff88;">✅ Filme "${movieName}" ENCONTRADO!</strong>`;
+                foundLinkDiv.style.display = 'block';
+                document.getElementById('linkUrl').href = foundLink;
+                document.getElementById('linkUrl').textContent = foundLink;
+            } else {
+                document.getElementById('summaryText').innerHTML =
+                    `<strong style="color: #ff4444;">❌ Filme "${movieName}" NÃO EXISTE em nenhum servidor</strong><br>
+                    <small>Testados ${failCount} servidores em DUB e LEG</small>`;
+            }
+
+            testBtn.disabled = false;
+            testBtn.textContent = '🔍 Testar Outro Filme';
+        }
+
+        function createResultDiv(url, servidor) {
+            const div = document.createElement('div');
+            div.className = 'server-result';
+            div.innerHTML = `
+                <span class="server-url">${url}</span>
+                <span class="status testing">Testando...</span>
+            `;
+            return div;
+        }
+
+        async function verificarVideo(url) {
+            return new Promise((resolve) => {
+                const video = document.createElement('video');
+                video.src = url;
+                video.preload = 'metadata';
+
+                const timeout = setTimeout(() => {
+                    video.remove();
+                    resolve(false);
+                }, 5000);
+
+                video.onloadedmetadata = () => {
+                    clearTimeout(timeout);
+                    video.remove();
+                    resolve(true);
+                };
+
+                video.onerror = () => {
+                    clearTimeout(timeout);
+                    video.remove();
+                    resolve(false);
+                };
+
+                video.load();
+            });
+        }
+    </script>
+</body>
+
+</html>
