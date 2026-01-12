@@ -12,6 +12,7 @@ interface Config {
     episodios: string;
     banners: string;
     categorias: string;
+    categoriasTV: string;
     usuarios: string;
     sessoes: string;
     plataformas: string;
@@ -36,6 +37,7 @@ export const defaultConfig: Config = {
     episodios: '',
     banners: '',
     categorias: '',
+    categoriasTV: '',
     usuarios: '',
     sessoes: '',
     plataformas: '',
@@ -57,7 +59,10 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         baseUrl: userConfig.baseUrl || '',
         conteudosTableId: userConfig.tableIds?.conteudos || '',
         episodiosTableId: userConfig.tableIds?.episodios || '',
-        tableIds: userConfig.tableIds || defaultConfig.tableIds,
+        tableIds: {
+          ...defaultConfig.tableIds,
+          ...userConfig.tableIds,
+        },
       };
       
       setConfig(syncedConfig);
@@ -103,7 +108,10 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           baseUrl: userConfig.baseUrl || '',
           conteudosTableId: userConfig.tableIds?.conteudos || '',
           episodiosTableId: userConfig.tableIds?.episodios || '',
-          tableIds: userConfig.tableIds || defaultConfig.tableIds,
+          tableIds: {
+            ...defaultConfig.tableIds,
+            ...userConfig.tableIds,
+          },
         };
         setConfig(revertedConfig);
       }

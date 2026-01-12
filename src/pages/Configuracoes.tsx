@@ -31,8 +31,8 @@ const Configuracoes = () => {
       conteudos: config?.tableIds?.conteudos || '',
       episodios: config?.tableIds?.episodios || '',
       banners: config?.tableIds?.banners || '',
-
       categorias: config?.tableIds?.categorias || '',
+      categoriasTV: config?.tableIds?.categoriasTV || '',
       usuarios: config?.tableIds?.usuarios || '',
       sessoes: config?.tableIds?.sessoes || '',
       plataformas: config?.tableIds?.plataformas || '',
@@ -50,8 +50,8 @@ const Configuracoes = () => {
           conteudos: config.tableIds?.conteudos || '',
           episodios: config.tableIds?.episodios || '',
           banners: config.tableIds?.banners || '',
-
           categorias: config.tableIds?.categorias || '',
+          categoriasTV: config.tableIds?.categoriasTV || '',
           usuarios: config.tableIds?.usuarios || '',
           sessoes: config.tableIds?.sessoes || '',
           plataformas: config.tableIds?.plataformas || '',
@@ -317,6 +317,15 @@ const Configuracoes = () => {
                       placeholder="ID da tabela"
                       value={formData.tableIds.categorias}
                       onChange={(e) => handleInputChange('tableIds.categorias', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="categoriasTV">Tabela de Categorias TV</Label>
+                    <Input
+                      id="categoriasTV"
+                      placeholder="ID da tabela"
+                      value={formData.tableIds.categoriasTV}
+                      onChange={(e) => handleInputChange('tableIds.categoriasTV', e.target.value)}
                     />
                   </div>
                   <div>
