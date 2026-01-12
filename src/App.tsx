@@ -26,6 +26,7 @@ import Episodios from "./pages/Episodios";
 import Banners from "./pages/Banners";
 import Categorias from "./pages/Categorias";
 import CategoriasTV from "./pages/CategoriasTV";
+import CategoriasAnime from "./pages/CategoriasAnime";
 import Duplicados from "./pages/Duplicados";
 import DuplicadosEpisodios from "./pages/DuplicadosEpisodios";
 import Usuarios from "./pages/Usuarios";
@@ -176,6 +177,14 @@ const App = () => {
                                 <SimpleProtectedRoute>
                                   <Layout>
                                     <CategoriasTV />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/categorias-anime" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <CategoriasAnime />
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />

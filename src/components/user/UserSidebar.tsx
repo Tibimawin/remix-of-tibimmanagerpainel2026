@@ -167,6 +167,16 @@ const menuItems: MenuItem[] = [
     badge: { type: 'new' }
   },
   {
+    id: 'categorias-anime',
+    label: 'Categorias Anime',
+    href: '/categorias-anime',
+    icon: Film,
+    category: 'content',
+    description: 'Categorias de animes',
+    feature: 'categorias-anime',
+    badge: { type: 'new' }
+  },
+  {
     id: 'duplicados',
     label: 'Duplicados',
     href: '/duplicados',

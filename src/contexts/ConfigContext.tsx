@@ -13,6 +13,7 @@ interface Config {
     banners: string;
     categorias: string;
     categoriasTV: string;
+    categoriasAnime: string;
     usuarios: string;
     sessoes: string;
     plataformas: string;
@@ -38,6 +39,7 @@ export const defaultConfig: Config = {
     banners: '',
     categorias: '',
     categoriasTV: '',
+    categoriasAnime: '',
     usuarios: '',
     sessoes: '',
     plataformas: '',
