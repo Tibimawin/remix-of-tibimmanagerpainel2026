@@ -264,8 +264,8 @@ export const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
           </div>
 
           {/* Navigation */}
-          <ScrollArea className="flex-1 p-3">
-            <div className="space-y-4">
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="space-y-4 p-3">
               {Object.entries(groupedMenuItems).map(([category, items]) => {
                 const CategoryIcon = categoryIcons[category];
 
