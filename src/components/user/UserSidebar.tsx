@@ -481,7 +481,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
   });
 
   // Itens que só aparecem no modo plural (Francisco)
-  const pluralOnlyItems = ['categorias-anime', 'categorias-tv', 'importar-canais-tv'];
+  const pluralOnlyItems = ['categorias-anime', 'categorias-tv'];
 
   // Filtrar itens baseado no modo
   const filteredMenuItems = menuItems.filter(item => {
