@@ -4,67 +4,70 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 🌿 GLASSMORPHISM DESIGN SYSTEM - EMERALD EDITION */
+/* 🌿 GLASSMORPHISM DESIGN SYSTEM - DYNAMIC COLORS */
 @layer base {
   :root {
+    /* Dynamic Primary Hue - controlled via JavaScript */
+    --primary-hue: 160;
+    
     --background: 140 15% 97%;
-    --foreground: 160 25% 10%;
+    --foreground: calc(var(--primary-hue)) 25% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 160 25% 10%;
+    --card-foreground: calc(var(--primary-hue)) 25% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 160 25% 10%;
-    --primary: 152 76% 42%;
+    --popover-foreground: calc(var(--primary-hue)) 25% 10%;
+    --primary: calc(var(--primary-hue)) 76% 42%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 160 20% 94%;
-    --secondary-foreground: 160 25% 20%;
-    --muted: 150 15% 92%;
-    --muted-foreground: 160 15% 45%;
-    --accent: 165 70% 50%;
+    --secondary: calc(var(--primary-hue)) 20% 94%;
+    --secondary-foreground: calc(var(--primary-hue)) 25% 20%;
+    --muted: calc(var(--primary-hue) - 10) 15% 92%;
+    --muted-foreground: calc(var(--primary-hue)) 15% 45%;
+    --accent: calc(var(--primary-hue) + 13) 70% 50%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 150 20% 88%;
-    --input: 150 20% 88%;
-    --ring: 152 76% 42%;
+    --border: calc(var(--primary-hue) - 10) 20% 88%;
+    --input: calc(var(--primary-hue) - 10) 20% 88%;
+    --ring: calc(var(--primary-hue)) 76% 42%;
     --radius: 1rem;
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 160 25% 15%;
-    --sidebar-primary: 152 76% 42%;
+    --sidebar-foreground: calc(var(--primary-hue)) 25% 15%;
+    --sidebar-primary: calc(var(--primary-hue)) 76% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 160 50% 95%;
-    --sidebar-accent-foreground: 160 25% 15%;
-    --sidebar-border: 150 20% 90%;
-    --sidebar-ring: 152 76% 42%;
+    --sidebar-accent: calc(var(--primary-hue)) 50% 95%;
+    --sidebar-accent-foreground: calc(var(--primary-hue)) 25% 15%;
+    --sidebar-border: calc(var(--primary-hue) - 10) 20% 90%;
+    --sidebar-ring: calc(var(--primary-hue)) 76% 42%;
   }
 
   .dark {
-    --background: 160 30% 6%;
-    --foreground: 150 20% 95%;
-    --card: 160 25% 9%;
-    --card-foreground: 150 20% 95%;
-    --popover: 160 25% 9%;
-    --popover-foreground: 150 20% 95%;
-    --primary: 152 76% 50%;
-    --primary-foreground: 160 30% 5%;
-    --secondary: 160 20% 14%;
-    --secondary-foreground: 150 20% 90%;
-    --muted: 160 20% 15%;
-    --muted-foreground: 150 15% 60%;
-    --accent: 165 70% 55%;
-    --accent-foreground: 160 30% 5%;
+    --background: calc(var(--primary-hue)) 30% 6%;
+    --foreground: calc(var(--primary-hue) - 10) 20% 95%;
+    --card: calc(var(--primary-hue)) 25% 9%;
+    --card-foreground: calc(var(--primary-hue) - 10) 20% 95%;
+    --popover: calc(var(--primary-hue)) 25% 9%;
+    --popover-foreground: calc(var(--primary-hue) - 10) 20% 95%;
+    --primary: calc(var(--primary-hue)) 76% 50%;
+    --primary-foreground: calc(var(--primary-hue)) 30% 5%;
+    --secondary: calc(var(--primary-hue)) 20% 14%;
+    --secondary-foreground: calc(var(--primary-hue) - 10) 20% 90%;
+    --muted: calc(var(--primary-hue)) 20% 15%;
+    --muted-foreground: calc(var(--primary-hue) - 10) 15% 60%;
+    --accent: calc(var(--primary-hue) + 13) 70% 55%;
+    --accent-foreground: calc(var(--primary-hue)) 30% 5%;
     --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 160 20% 18%;
-    --input: 160 20% 18%;
-    --ring: 152 76% 50%;
-    --sidebar-background: 160 30% 7%;
-    --sidebar-foreground: 150 20% 92%;
-    --sidebar-primary: 152 76% 50%;
-    --sidebar-primary-foreground: 160 30% 5%;
-    --sidebar-accent: 160 25% 12%;
-    --sidebar-accent-foreground: 150 20% 92%;
-    --sidebar-border: 160 20% 15%;
-    --sidebar-ring: 152 76% 50%;
+    --border: calc(var(--primary-hue)) 20% 18%;
+    --input: calc(var(--primary-hue)) 20% 18%;
+    --ring: calc(var(--primary-hue)) 76% 50%;
+    --sidebar-background: calc(var(--primary-hue)) 30% 7%;
+    --sidebar-foreground: calc(var(--primary-hue) - 10) 20% 92%;
+    --sidebar-primary: calc(var(--primary-hue)) 76% 50%;
+    --sidebar-primary-foreground: calc(var(--primary-hue)) 30% 5%;
+    --sidebar-accent: calc(var(--primary-hue)) 25% 12%;
+    --sidebar-accent-foreground: calc(var(--primary-hue) - 10) 20% 92%;
+    --sidebar-border: calc(var(--primary-hue)) 20% 15%;
+    --sidebar-ring: calc(var(--primary-hue)) 76% 50%;
   }
 }
 
