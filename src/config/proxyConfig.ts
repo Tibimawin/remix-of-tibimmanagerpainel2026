@@ -15,19 +15,19 @@ const shouldUseVercelProxy = () => {
     
     const hostname = window.location.hostname;
     
-    // Lovable preview (development) - usa Supabase Edge Function
+    // Lovable preview - usa Supabase Edge Function
     if (hostname.includes('lovableproject.com')) {
-        console.log('🌐 [PROXY] Ambiente: Lovable Preview (lovableproject.com)');
+        console.log('🌐 [PROXY] Ambiente: Lovable Preview');
         return false;
     }
     
-    // Lovable published site - usa /api/baserow-proxy
+    // Lovable published site - usa Supabase Edge Function (não tem /api no Lovable)
     if (hostname.includes('lovable.app')) {
-        console.log('🌐 [PROXY] Ambiente: Lovable Published (lovable.app) - usando Vercel proxy');
-        return true;
+        console.log('🌐 [PROXY] Ambiente: Lovable Published - usando Supabase Edge Function');
+        return false;
     }
     
-    // Vercel production
+    // Vercel production - usa Vercel Serverless
     if (hostname.includes('vercel.app')) {
         console.log('🌐 [PROXY] Ambiente: Vercel Production');
         return true;
@@ -39,8 +39,8 @@ const shouldUseVercelProxy = () => {
         return true;
     }
     
-    // Custom domain - usar Vercel proxy
-    console.log('🌐 [PROXY] Ambiente: Custom domain ou outro -', hostname);
+    // Custom domain - provavelmente Vercel, usar Vercel proxy
+    console.log('🌐 [PROXY] Ambiente: Custom domain -', hostname);
     return true;
 };
 
