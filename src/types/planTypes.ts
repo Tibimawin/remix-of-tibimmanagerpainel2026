@@ -87,5 +87,8 @@ export const AVAILABLE_FEATURES: FeatureAccess[] = [
   // Extras
   { id: 'export', name: 'Exportar Dados', description: 'Exportar dados do sistema' },
   { id: 'logs', name: 'Logs do Sistema', description: 'Visualizar logs do sistema' },
-  { id: 'clean-data', name: 'Limpeza de Dados', description: 'Remover todos os registros de uma tabela do Baserow' }
+  { id: 'clean-data', name: 'Limpeza de Dados', description: 'Remover todos os registros de uma tabela do Baserow' },
+  
+  // Segurança
+  { id: 'gestao-dispositivos', name: 'Gestão de Dispositivos', description: 'Gerenciar dispositivos conectados e limites por usuário' }
 ];
