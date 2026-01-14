@@ -1,17 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+// Last updated: 2026-01-14T16:25:00Z - Force redeploy for CORS fix
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-requested-with',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-requested-with, accept, origin',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
   'Access-Control-Max-Age': '86400',
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests - MUST return 200 with null body
+  console.log(`📨 [BASEROW-PROXY] Request: ${req.method} from ${req.headers.get('origin') || 'unknown'}`);
+  
+  // Handle CORS preflight requests - MUST return 200 with empty body
   if (req.method === 'OPTIONS') {
-    console.log('✅ [BASEROW-PROXY] OPTIONS preflight request');
-    return new Response(null, { 
+    console.log('✅ [BASEROW-PROXY] OPTIONS preflight - returning 200 with CORS headers');
+    return new Response('', { 
       status: 200,
       headers: corsHeaders 
     });
