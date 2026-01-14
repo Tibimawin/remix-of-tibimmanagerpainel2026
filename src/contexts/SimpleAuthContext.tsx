@@ -152,6 +152,20 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         } else {
           await FirebaseUserService.recordLogin(user.uid);
         }
+        
+        // ✅ Registrar dispositivo automaticamente no login
+        try {
+          const { DeviceManagementService } = await import('@/services/DeviceManagementService');
+          await DeviceManagementService.registerDevice(
+            user.uid,
+            user.email || '',
+            user.displayName || user.email?.split('@')[0] || 'Usuário'
+          );
+          console.log('📱 Dispositivo registrado automaticamente no login');
+        } catch (deviceError) {
+          console.warn('Não foi possível registrar dispositivo:', deviceError);
+          // Não bloqueia o login se falhar
+        }
       } catch (error: any) {
         // ✅ QUOTA EXCEDIDA: Não é crítico!
         // Login funciona SEM Firestore
@@ -245,6 +259,20 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           await FirebaseUserService.createUserRecord(defaultUserData);
         } else {
           await FirebaseUserService.recordLogin(user.uid);
+        }
+        
+        // ✅ Registrar dispositivo automaticamente no login com Google
+        try {
+          const { DeviceManagementService } = await import('@/services/DeviceManagementService');
+          await DeviceManagementService.registerDevice(
+            user.uid,
+            user.email || '',
+            user.displayName || user.email?.split('@')[0] || 'Usuário'
+          );
+          console.log('📱 Dispositivo registrado automaticamente no login Google');
+        } catch (deviceError) {
+          console.warn('Não foi possível registrar dispositivo:', deviceError);
+          // Não bloqueia o login se falhar
         }
       } catch (error: any) {
         // ✅ QUOTA EXCEDIDA: Login funciona normalmente!
