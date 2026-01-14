@@ -66,20 +66,82 @@ const detectOS = (userAgent: string): string => {
 };
 
 export const DeviceManagementService = {
-  // Registrar novo dispositivo
-  async registerDevice(userId: string, userEmail: string, userName: string): Promise<UserDevice> {
-    try {
+  // Gerar fingerprint único do dispositivo (persistente no localStorage)
+  getDeviceFingerprint(userId: string): string {
+    const storageKey = `device_fingerprint_${userId}`;
+    let fingerprint = localStorage.getItem(storageKey);
+    
+    if (!fingerprint) {
+      // Criar fingerprint baseado em características do dispositivo
       const userAgent = navigator.userAgent;
-      const deviceId = `${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const screenInfo = `${screen.width}x${screen.height}x${screen.colorDepth}`;
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const language = navigator.language;
       
-      // Buscar IP
+      // Hash simples das características
+      const rawFingerprint = `${userId}_${userAgent}_${screenInfo}_${timezone}_${language}`;
+      fingerprint = `${userId}_${this.simpleHash(rawFingerprint)}`;
+      
+      localStorage.setItem(storageKey, fingerprint);
+    }
+    
+    return fingerprint;
+  },
+
+  // Hash simples para criar fingerprint
+  simpleHash(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(36);
+  },
+
+  // Registrar ou atualizar dispositivo (OTIMIZADO - evita writes desnecessários)
+  async registerDevice(userId: string, userEmail: string, userName: string): Promise<UserDevice | null> {
+    try {
+      const deviceId = this.getDeviceFingerprint(userId);
+      const deviceRef = doc(db, 'userDevices', deviceId);
+      
+      // Verificar se dispositivo já existe
+      const existingDoc = await getDoc(deviceRef);
+      
+      if (existingDoc.exists()) {
+        // ✅ Dispositivo já registrado - apenas atualizar lastActivity
+        // Limitar updates para no máximo 1 por hora
+        const existingData = existingDoc.data() as UserDevice;
+        const lastActivity = new Date(existingData.lastActivity);
+        const now = new Date();
+        const hoursDiff = (now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60);
+        
+        if (hoursDiff >= 1) {
+          await updateDoc(deviceRef, {
+            lastActivity: now.toISOString()
+          });
+          console.log('📱 Atividade do dispositivo atualizada (1 write)');
+        } else {
+          console.log('📱 Dispositivo já ativo recentemente (0 writes)');
+        }
+        
+        return { ...existingData, id: deviceId };
+      }
+      
+      // ✅ Novo dispositivo - criar registro
+      const userAgent = navigator.userAgent;
+      
+      // Buscar IP (com timeout curto)
       let ip = 'Desconhecido';
       try {
-        const response = await fetch('https://api.ipify.org?format=json');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const response = await fetch('https://api.ipify.org?format=json', { signal: controller.signal });
+        clearTimeout(timeoutId);
         const data = await response.json();
         ip = data.ip;
       } catch (e) {
-        console.log('Não foi possível obter o IP');
+        console.log('IP não obtido (timeout ou erro)');
       }
 
       const device: UserDevice = {
@@ -97,8 +159,8 @@ export const DeviceManagementService = {
         isActive: true
       };
 
-      await setDoc(doc(db, 'userDevices', deviceId), device);
-      console.log('Dispositivo registrado:', deviceId);
+      await setDoc(deviceRef, device);
+      console.log('📱 Novo dispositivo registrado (1 write):', deviceId);
       
       return device;
     } catch (error) {
