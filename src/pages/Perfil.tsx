@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { LogOut, User, Calendar, Clock, Smartphone, Hash, Mail, Monitor, Shield } from 'lucide-react';
 import UserSecuritySettings from '@/components/UserSecuritySettings';
+import UserDevices from '@/components/UserDevices';
 
 interface UserDetails {
   id: string;
@@ -249,14 +250,18 @@ const Perfil = () => {
 
           {/* Abas do Perfil */}
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="profile" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
-                Informações da Conta
+                <span className="hidden sm:inline">Conta</span>
+              </TabsTrigger>
+              <TabsTrigger value="devices" className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4" />
+                <span className="hidden sm:inline">Dispositivos</span>
               </TabsTrigger>
               <TabsTrigger value="security" className="flex items-center gap-2">
                 <Shield className="h-4 w-4" />
-                Segurança
+                <span className="hidden sm:inline">Segurança</span>
               </TabsTrigger>
             </TabsList>
 
@@ -295,6 +300,10 @@ const Perfil = () => {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="devices" className="mt-6">
+              <UserDevices />
             </TabsContent>
 
             <TabsContent value="security" className="mt-6">
