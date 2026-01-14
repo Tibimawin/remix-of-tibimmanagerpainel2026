@@ -38,7 +38,8 @@ import {
   ChevronDown,
   Bell,
   AlertCircle,
-  Info
+  Info,
+  Smartphone
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -360,6 +361,16 @@ const menuItems: MenuItem[] = [
         category: 'settings',
         description: 'Configurações de segurança',
         feature: 'configuracoes'
+      },
+      {
+        id: 'gestao-dispositivos',
+        label: 'Gestão de Dispositivos',
+        href: '/gestao-dispositivos',
+        icon: Smartphone,
+        category: 'settings',
+        description: 'Gerenciar dispositivos conectados',
+        feature: 'gestao-dispositivos',
+        badge: { type: 'new' }
       }
     ]
   },

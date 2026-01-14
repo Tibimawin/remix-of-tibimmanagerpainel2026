@@ -66,6 +66,7 @@ import ConfiguracoesSeguranca from "./pages/ConfiguracoesSeguranca";
 import ImportarConteudo from "./pages/ImportarConteudo";
 import OfertaDetalhes from "./pages/OfertaDetalhes";
 import ConfiguracoesAutoImport from "./pages/ConfiguracoesAutoImport";
+import GestaoDispositivos from "./pages/GestaoDispositivos";
 import { UpdateNotificationModal } from "./components/UpdateNotificationModal";
 
 
@@ -411,6 +412,16 @@ const App = () => {
                                   <Layout>
                                     <PermissionGate feature="historico-acoes">
                                       <HistoricoAcoes />
+                                    </PermissionGate>
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/gestao-dispositivos" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <PermissionGate feature="gestao-dispositivos">
+                                      <GestaoDispositivos />
                                     </PermissionGate>
                                   </Layout>
                                 </SimpleProtectedRoute>
