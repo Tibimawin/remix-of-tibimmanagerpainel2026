@@ -1,723 +1,190 @@
-/* Importar fontes modernas do Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Manrope:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Design system Netflix - Tema Escuro e Claro */
+/* 🌿 GLASSMORPHISM DESIGN SYSTEM - EMERALD EDITION */
 @layer base {
   :root {
-    /* TEMA CLARO - Neo classic com roxo/azul elétrico */
-    --background: 0 0% 100%;
-    /* Branco */
-    --foreground: 230 21% 15%;
-    /* Cinza escuro azulado */
+    --background: 140 15% 97%;
+    --foreground: 160 25% 10%;
     --card: 0 0% 100%;
-    /* Branco */
-    --card-foreground: 230 21% 15%;
-    /* Cinza escuro azulado */
+    --card-foreground: 160 25% 10%;
     --popover: 0 0% 100%;
-    /* Branco */
-    --popover-foreground: 230 21% 15%;
-    /* Cinza escuro azulado */
-    --primary: 260 84% 60%;
-    /* Roxo vibrante */
+    --popover-foreground: 160 25% 10%;
+    --primary: 152 76% 42%;
     --primary-foreground: 0 0% 100%;
-    /* Branco */
-    --secondary: 200 100% 97%;
-    /* Azul muito claro */
-    --secondary-foreground: 230 21% 20%;
-    /* Cinza escuro azulado */
-    --muted: 220 14% 96%;
-    /* Cinza claro */
-    --muted-foreground: 220 14% 40%;
-    /* Cinza médio */
-    --accent: 200 98% 55%;
-    /* Azul elétrico */
+    --secondary: 160 20% 94%;
+    --secondary-foreground: 160 25% 20%;
+    --muted: 150 15% 92%;
+    --muted-foreground: 160 15% 45%;
+    --accent: 165 70% 50%;
     --accent-foreground: 0 0% 100%;
-    /* Branco */
     --destructive: 0 84% 60%;
-    /* Vermelho para erros */
     --destructive-foreground: 0 0% 100%;
-    /* Branco */
-    --border: 220 14% 90%;
-    /* Cinza claro */
-    --input: 220 14% 90%;
-    /* Cinza claro */
-    --ring: 260 84% 60%;
-    /* Roxo vibrante */
-    --radius: 0.75rem;
-    /* 12px */
-
+    --border: 150 20% 88%;
+    --input: 150 20% 88%;
+    --ring: 152 76% 42%;
+    --radius: 1rem;
     --sidebar-background: 0 0% 100%;
-    /* Branco */
-    --sidebar-foreground: 230 21% 15%;
-    /* Cinza escuro azulado */
-    --sidebar-primary: 260 84% 60%;
-    /* Roxo vibrante */
+    --sidebar-foreground: 160 25% 15%;
+    --sidebar-primary: 152 76% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
-    /* Branco */
-    --sidebar-accent: 200 100% 97%;
-    /* Azul muito claro */
-    --sidebar-accent-foreground: 230 21% 20%;
-    /* Cinza escuro azulado */
-    --sidebar-border: 220 14% 90%;
-    /* Cinza claro */
-    --sidebar-ring: 260 84% 60%;
-    /* Roxo vibrante */
+    --sidebar-accent: 160 50% 95%;
+    --sidebar-accent-foreground: 160 25% 15%;
+    --sidebar-border: 150 20% 90%;
+    --sidebar-ring: 152 76% 42%;
   }
 
   .dark {
-    /* TEMA ESCURO - Neo classic com contraste suave */
-    --background: 235 16% 12%;
-    /* Cinza carvão */
-    --foreground: 0 0% 98%;
-    /* Branco */
-    --card: 235 16% 16%;
-    /* Cinza escuro */
-    --card-foreground: 0 0% 98%;
-    /* Branco */
-    --popover: 235 16% 16%;
-    /* Cinza escuro */
-    --popover-foreground: 0 0% 98%;
-    /* Branco */
-    --primary: 260 84% 60%;
-    /* Roxo vibrante */
-    --primary-foreground: 0 0% 100%;
-    /* Branco */
-    --secondary: 235 16% 20%;
-    /* Cinza acinzentado */
-    --secondary-foreground: 0 0% 98%;
-    /* Branco */
-    --muted: 235 16% 18%;
-    /* Cinza muito escuro */
-    --muted-foreground: 0 0% 70%;
-    /* Cinza claro */
-    --accent: 200 98% 55%;
-    /* Azul elétrico */
-    --accent-foreground: 0 0% 100%;
-    /* Branco */
-    --destructive: 0 63% 31%;
-    /* Vermelho escuro */
-    --destructive-foreground: 0 0% 98%;
-    /* Branco */
-    --border: 235 16% 20%;
-    /* Cinza acinzentado */
-    --input: 235 16% 20%;
-    /* Cinza acinzentado */
-    --ring: 260 84% 60%;
-    /* Roxo vibrante */
-
-    --sidebar-background: 235 16% 10%;
-    /* Cinza muito escuro */
-    --sidebar-foreground: 0 0% 98%;
-    /* Branco */
-    --sidebar-primary: 260 84% 60%;
-    /* Roxo vibrante */
-    --sidebar-primary-foreground: 0 0% 100%;
-    /* Branco */
-    --sidebar-accent: 235 16% 20%;
-    /* Cinza acinzentado */
-    --sidebar-accent-foreground: 0 0% 98%;
-    /* Branco */
-    --sidebar-border: 235 16% 20%;
-    /* Cinza acinzentado */
-    --sidebar-ring: 260 84% 60%;
-    /* Roxo vibrante */
+    --background: 160 30% 6%;
+    --foreground: 150 20% 95%;
+    --card: 160 25% 9%;
+    --card-foreground: 150 20% 95%;
+    --popover: 160 25% 9%;
+    --popover-foreground: 150 20% 95%;
+    --primary: 152 76% 50%;
+    --primary-foreground: 160 30% 5%;
+    --secondary: 160 20% 14%;
+    --secondary-foreground: 150 20% 90%;
+    --muted: 160 20% 15%;
+    --muted-foreground: 150 15% 60%;
+    --accent: 165 70% 55%;
+    --accent-foreground: 160 30% 5%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 160 20% 18%;
+    --input: 160 20% 18%;
+    --ring: 152 76% 50%;
+    --sidebar-background: 160 30% 7%;
+    --sidebar-foreground: 150 20% 92%;
+    --sidebar-primary: 152 76% 50%;
+    --sidebar-primary-foreground: 160 30% 5%;
+    --sidebar-accent: 160 25% 12%;
+    --sidebar-accent-foreground: 150 20% 92%;
+    --sidebar-border: 160 20% 15%;
+    --sidebar-ring: 152 76% 50%;
   }
 }
 
-@layer base {
-  * {
-    @apply border-border;
-    box-sizing: border-box;
-  }
+*, *::before, *::after { box-sizing: border-box; }
 
-  html {
-    min-height: 100vh;
-    width: 100vw;
-    overflow-x: hidden !important;
-    font-family: 'Outfit', 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
-  }
-
-  body {
-    @apply bg-background text-foreground;
-    font-family: 'Outfit', 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    min-height: 100vh;
-    width: 100vw;
-    overflow-x: hidden !important;
-    background-color: hsl(var(--background));
-    background-image:
-      radial-gradient(1000px circle at 10% 10%, hsl(var(--primary) / 0.07), transparent),
-      radial-gradient(800px circle at 90% 20%, hsl(var(--accent) / 0.07), transparent);
-    color: hsl(var(--foreground));
-    margin: 0;
-    padding: 0;
-    font-weight: 400;
-    line-height: 1.6;
-    font-size: 14px;
-    position: relative;
-  }
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Garantir que div root use o tema limpo */
-#root,
-.lovable-root {
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  min-height: 100vh;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  width: 100vw;
-  overflow-x: hidden !important;
-  min-height: 100vh;
+  background-image: 
+    radial-gradient(ellipse 100% 80% at 50% -20%, hsl(var(--primary) / 0.08), transparent),
+    radial-gradient(ellipse 60% 50% at 100% 100%, hsl(var(--accent) / 0.05), transparent);
+  background-attachment: fixed;
 }
 
-/* Design system Natal 🎄✨ */
-@layer components {
-  .modern-card {
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
-    border-radius: 16px;
-    box-shadow:
-      0 4px 6px -1px rgb(0 0 0 / 0.3),
-      0 2px 4px -2px rgb(0 0 0 / 0.2),
-      0 0 20px 0 hsl(48 100% 50% / 0.1);
-    /* Brilho dourado */
-    transition: all 0.2s ease-in-out;
-    position: relative;
-    overflow: hidden;
-  }
+#root { min-height: 100vh; }
 
-  .modern-card:hover {
-    box-shadow:
-      0 8px 25px -5px rgb(196 30 58 / 0.25),
-      /* Brilho vermelho natal */
-      0 4px 6px -2px rgb(0 0 0 / 0.3),
-      0 0 30px 0 hsl(48 100% 50% / 0.2);
-    /* Brilho dourado intenso */
-    border-color: hsl(var(--primary) / 0.4);
-  }
-
-  /* Efeito de brilho natalino nos cards */
-  .modern-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg,
-        transparent,
-        hsl(48 100% 50% / 0.1),
-        transparent);
-    transition: left 0.5s ease-in-out;
-  }
-
-  .modern-card:hover::before {
-    left: 100%;
-  }
-
-  .modern-header {
-    background: hsl(var(--background) / 0.95);
-    backdrop-filter: blur(20px);
-    border-bottom: 1px solid hsl(var(--border));
-    box-shadow:
-      0 2px 8px 0 rgb(0 0 0 / 0.3),
-      0 0 15px 0 hsl(355 75% 50% / 0.1);
-    /* Brilho vermelho sutil */
-    position: sticky;
-    top: 0;
-    z-index: 50;
-  }
-
-  .modern-sidebar {
-    background: hsl(var(--sidebar-background));
-    border-right: 1px solid hsl(var(--sidebar-border));
-    box-shadow:
-      2px 0 15px 0 rgb(0 0 0 / 0.3),
-      0 0 20px 0 hsl(48 100% 50% / 0.05);
-    /* Brilho dourado lateral */
-    position: relative;
-  }
-
-  /* Decoração de Natal na sidebar */
-  .modern-sidebar::before {
-    content: '🎄';
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    font-size: 24px;
-    animation: christmas-sparkle 2s ease-in-out infinite;
-  }
-
-  .modern-button {
-    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8));
-    color: hsl(var(--primary-foreground));
-    border: 1px solid hsl(var(--primary));
-    border-radius: 12px;
-    box-shadow:
-      0 2px 4px 0 rgb(0 0 0 / 0.2),
-      0 0 10px 0 hsl(var(--primary) / 0.3);
-    /* Brilho vermelho */
-    transition: all 0.2s ease-in-out;
-    font-weight: 500;
-    font-size: 14px;
-    line-height: 1.4;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .modern-button:hover {
-    background: linear-gradient(135deg, hsl(var(--primary) / 0.9), hsl(var(--primary) / 0.7));
-    box-shadow:
-      0 4px 12px 0 rgb(196 30 58 / 0.4),
-      0 0 20px 0 hsl(48 100% 50% / 0.3);
-    /* Brilho dourado ao hover */
-    transform: translateY(-1px);
-  }
-
-  .modern-button:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 4px 0 rgb(0 0 0 / 0.2);
-  }
-
-  .modern-input {
-    background: hsl(var(--background));
-    border: 1px solid hsl(var(--border));
-    border-radius: 12px;
-    box-shadow:
-      0 2px 4px 0 rgb(0 0 0 / 0.1),
-      0 0 8px 0 hsl(140 55% 40% / 0.05);
-    /* Brilho verde sutil */
-    transition: all 0.2s ease-in-out;
-    font-weight: 400;
-    font-size: 14px;
-    padding: 12px 16px;
-    color: hsl(var(--foreground));
-  }
-
-  .modern-input:focus {
-    border-color: hsl(var(--primary));
-    box-shadow:
-      0 0 0 3px hsl(var(--primary) / 0.2),
-      0 2px 4px 0 rgb(0 0 0 / 0.1),
-      0 0 15px 0 hsl(355 75% 50% / 0.2);
-    /* Brilho vermelho no foco */
-    outline: none;
-  }
-
-  .modern-nav-item {
-    display: flex;
-    align-items: center;
-    padding: 12px 16px;
-    border-radius: 12px;
-    font-weight: 500;
-    font-size: 14px;
-    transition: all 0.2s ease-in-out;
-    position: relative;
-    margin-bottom: 4px;
-    color: hsl(var(--muted-foreground));
-    text-decoration: none;
-  }
-
-  .modern-nav-item:hover {
-    background: hsl(var(--accent) / 0.15);
-    /* Dourado suave */
-    color: hsl(var(--accent-foreground));
-    transform: translateX(4px);
-    box-shadow: 0 0 10px 0 hsl(48 100% 50% / 0.2);
-    /* Brilho dourado */
-  }
-
-  .modern-nav-item.active {
-    background: linear-gradient(135deg, hsl(var(--primary) / 0.2), hsl(var(--primary) / 0.1));
-    color: hsl(var(--primary));
-    border: 1px solid hsl(var(--primary) / 0.3);
-    font-weight: 600;
-    box-shadow: 0 0 15px 0 hsl(355 75% 50% / 0.2);
-    /* Brilho vermelho */
-  }
-
-  .modern-nav-item.active::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    height: 20px;
-    width: 3px;
-    background: hsl(var(--primary));
-    border-radius: 2px;
-    box-shadow: 0 0 8px 0 hsl(var(--primary));
-    /* Brilho */
-  }
-
-  .modern-badge {
-    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8));
-    color: hsl(var(--primary-foreground));
-    font-weight: 600;
-    font-size: 12px;
-    padding: 4px 8px;
-    border-radius: 8px;
-    box-shadow:
-      0 2px 4px 0 rgb(0 0 0 / 0.2),
-      0 0 10px 0 hsl(var(--primary) / 0.4);
-    /* Brilho vermelho */
-    border: 1px solid hsl(var(--primary) / 0.3);
-  }
-
-  .modern-table {
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow:
-      0 4px 6px -1px rgb(0 0 0 / 0.2),
-      0 0 15px 0 hsl(48 100% 50% / 0.08);
-    /* Brilho dourado suave */
-  }
-
-  .modern-table th {
-    background: hsl(var(--muted));
-    font-weight: 600;
-    font-size: 12px;
-    color: hsl(var(--muted-foreground));
-    padding: 16px;
-    border-bottom: 1px solid hsl(var(--border));
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .modern-table td {
-    padding: 14px 16px;
-    border-bottom: 1px solid hsl(var(--border) / 0.5);
-    color: hsl(var(--card-foreground));
-    font-size: 14px;
-  }
-
-  .modern-table tr:hover {
-    background: hsl(var(--muted) / 0.3);
-    box-shadow: inset 0 0 10px 0 hsl(48 100% 50% / 0.1);
-    /* Brilho dourado interno */
-  }
-
-  /* Scrollbar moderno natalino */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, hsl(355 75% 50% / 0.5), hsl(140 55% 40% / 0.4));
-    /* Gradiente vermelho-verde */
-    border-radius: 3px;
-    transition: all 0.2s ease;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, hsl(355 75% 50% / 0.8), hsl(48 100% 50% / 0.6));
-    /* Vermelho-dourado */
-  }
-
-  /* Custom scrollbar para sidebar */
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: hsl(48 100% 50% / 0.3);
-    /* Dourado suave */
-    border-radius: 2px;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: hsl(48 100% 50% / 0.6);
-    /* Dourado intenso */
-  }
+/* 🔮 Glassmorphism */
+.glass-card {
+  background: hsl(var(--card) / 0.7);
+  backdrop-filter: blur(20px);
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 32px hsl(var(--primary) / 0.1);
+  transition: all 0.3s ease;
 }
-
-/* Tipografia moderna */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  font-family: 'Work Sans', 'Inter', sans-serif;
-  font-weight: 700;
-  line-height: 1.3;
-  color: hsl(var(--foreground));
-  letter-spacing: -0.025em;
-  margin: 0;
-}
-
-h1 {
-  font-size: 2.25rem;
-  font-weight: 800;
-  color: hsl(var(--foreground));
-  text-shadow: 0 0 20px hsl(48 100% 50% / 0.2);
-  /* Brilho dourado nos títulos */
-}
-
-h2 {
-  font-size: 1.875rem;
-  font-weight: 700;
-}
-
-h3 {
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-h4 {
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-p,
-span,
-div {
-  font-family: 'Inter', sans-serif;
-  font-weight: 400;
-  line-height: 1.6;
-  color: hsl(var(--foreground));
-}
-
-/* Melhorias responsivas */
-@media (max-width: 768px) {
-
-  html,
-  body {
-    font-size: 13px;
-  }
-
-  h1 {
-    font-size: 1.875rem;
-  }
-
-  h2 {
-    font-size: 1.5rem;
-  }
-
-  h3 {
-    font-size: 1.25rem;
-  }
-
-  h4 {
-    font-size: 1.125rem;
-  }
-
-  .modern-card {
-    border-radius: 12px;
-    margin: 4px;
-  }
-
-  .modern-nav-item {
-    padding: 10px 14px;
-    font-size: 13px;
-  }
-
-  .modern-input {
-    padding: 10px 14px;
-    font-size: 13px;
-  }
-
-  .modern-button {
-    font-size: 13px;
-    padding: 10px 16px;
-  }
-}
-
-/* Animações suaves com tema natalino */
-@keyframes modern-fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes modern-slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes modern-pulse {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.7;
-  }
-}
-
-/* Animação de brilho natalino */
-@keyframes christmas-sparkle {
-
-  0%,
-  100% {
-    transform: scale(1) rotate(0deg);
-    filter: brightness(1);
-  }
-
-  50% {
-    transform: scale(1.1) rotate(10deg);
-    filter: brightness(1.3);
-  }
-}
-
-.modern-animate-in {
-  animation: modern-fadeIn 0.3s ease-out;
-}
-
-.modern-slide-in {
-  animation: modern-slideIn 0.25s ease-out;
-}
-
-.modern-pulse {
-  animation: modern-pulse 2s ease-in-out infinite;
-}
-
-/* Estados de loading modernos com tema natalino */
-.modern-loading {
-  background: linear-gradient(90deg,
-      hsl(355 75% 50% / 0.2) 0%,
-      hsl(48 100% 50% / 0.3) 50%,
-      hsl(140 55% 40% / 0.2) 100%);
-  /* Gradiente natalino */
-  background-size: 200% 100%;
-  animation: modern-shimmer 1.2s infinite;
-  border-radius: 8px;
-}
-
-@keyframes modern-shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-/* Focus states acessíveis com brilho natalino */
-*:focus-visible {
-  outline: 2px solid hsl(var(--primary));
-  outline-offset: 2px;
-  border-radius: 4px;
-  box-shadow: 0 0 10px 0 hsl(var(--primary) / 0.4);
-  /* Brilho vermelho */
-}
-
-/* Utilitários para acessibilidade */
-.text-high-contrast {
-  color: hsl(var(--foreground)) !important;
-  font-weight: 500;
-}
-
-.bg-high-contrast {
-  background: hsl(var(--card)) !important;
-  border: 1px solid hsl(var(--border));
-}
-
-/* Sombras minimalistas com toque natalino */
-.shadow-minimal {
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-}
-
-.shadow-soft {
-  box-shadow:
-    0 4px 6px -1px rgb(0 0 0 / 0.1),
-    0 0 8px 0 hsl(48 100% 50% / 0.1);
-  /* Brilho dourado */
-}
-
-.shadow-medium {
-  box-shadow:
-    0 10px 15px -3px rgb(0 0 0 / 0.1),
-    0 0 15px 0 hsl(48 100% 50% / 0.15);
-  /* Brilho dourado */
-}
-
-/* Gradientes sutis natalinos */
-.gradient-soft {
-  background: linear-gradient(135deg,
-      hsl(var(--background)) 0%,
-      hsl(140 30% 95%) 100%);
-  /* Verde suave */
-}
-
-.gradient-primary {
-  background: linear-gradient(135deg,
-      hsl(355 75% 50% / 0.1) 0%,
-      hsl(48 100% 50% / 0.05) 100%);
-  /* Vermelho-dourado */
-}
-
-/* Estados de hover aprimorados */
-.hover-lift {
-  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-}
-
-.hover-lift:hover {
+.glass-card:hover {
   transform: translateY(-2px);
-  box-shadow:
-    0 4px 6px -1px rgb(0 0 0 / 0.1),
-    0 0 12px 0 hsl(48 100% 50% / 0.2);
-  /* Brilho dourado ao levantar */
+  box-shadow: 0 12px 40px hsl(var(--primary) / 0.15);
 }
 
-/* Animações para logs em tempo real */
-.animate-pulse-once {
-  animation: pulseOnce 1s ease-in-out;
+.glass-header {
+  background: hsl(var(--card) / 0.8);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.5s ease-in-out;
+/* Floating Sidebar */
+.sidebar-trigger {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 51;
+  width: 20px;
+  height: 80px;
+  cursor: pointer;
+}
+.sidebar-trigger::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  width: 4px;
+  height: 40px;
+  background: linear-gradient(180deg, hsl(var(--primary)), hsl(var(--accent)));
+  border-radius: 0 4px 4px 0;
+  opacity: 0.5;
+  transition: all 0.3s ease;
+}
+.sidebar-trigger:hover::before {
+  width: 6px;
+  height: 50px;
+  opacity: 1;
+  box-shadow: 0 0 20px hsl(var(--primary) / 0.5);
 }
 
-@keyframes pulseOnce {
+/* Orbs */
+.orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: -1;
+}
+.orb-primary { width: 400px; height: 400px; background: hsl(var(--primary)); top: -200px; right: -100px; }
+.orb-accent { width: 300px; height: 300px; background: hsl(var(--accent)); bottom: -150px; left: -100px; }
 
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.7;
-    transform: scale(1.02);
-  }
+/* Typography */
+h1, h2, h3, h4, h5, h6 { font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 600; }
+.gradient-text {
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-@keyframes fadeIn {
-  0% {
-    opacity: 0;
-  }
-
-  100% {
-    opacity: 1;
-  }
+/* Animations */
+@keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 20px hsl(var(--primary) / 0.3); } 50% { box-shadow: 0 0 40px hsl(var(--primary) / 0.5); } }
+.animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+.hover-lift { transition: all 0.3s ease; }
+.hover-lift:hover { transform: translateY(-4px); box-shadow: 0 20px 40px hsl(var(--primary) / 0.2); }
+.gradient-glow::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+  filter: blur(12px);
+  opacity: 0.4;
+  border-radius: inherit;
+  z-index: -1;
 }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--primary) / 0.3); border-radius: 3px; }
+
+/* Legacy compatibility */
+.modern-card { @apply glass-card; }
+.modern-header { @apply glass-header; }
+.shadow-soft { box-shadow: 0 8px 32px hsl(var(--primary) / 0.1); }
+
+@keyframes accordion-down { from { height: 0; } to { height: var(--radix-accordion-content-height); } }
+@keyframes accordion-up { from { height: var(--radix-accordion-content-height); } to { height: 0; } }
+.animate-accordion-down { animation: accordion-down 0.2s ease-out; }
+.animate-accordion-up { animation: accordion-up 0.2s ease-out; }
