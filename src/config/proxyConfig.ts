@@ -8,28 +8,37 @@
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://kuszskrqzxwpzsmfsjwg.supabase.co';
 
-// Detectar se está rodando no Vercel (produção) ou Lovable preview
+// Detectar ambiente para decidir qual proxy usar
 const getEnvironmentType = () => {
     if (typeof window === 'undefined') return 'server';
-    
+
     const hostname = window.location.hostname;
-    
-    // Lovable preview
-    if (hostname.includes('lovable.app')) return 'lovable-preview';
-    
+
     // Localhost/development
     if (hostname === 'localhost' || hostname === '127.0.0.1') return 'development';
-    
+
+    // Lovable preview domains: id-preview--<uuid>.lovable.app
+    if (hostname.startsWith('id-preview--') && hostname.endsWith('.lovable.app')) return 'lovable-preview';
+
+    // Lovable published domains: <project>.lovable.app
+    if (hostname.endsWith('.lovable.app')) return 'lovable-production';
+
     // Vercel preview/production
     if (hostname.includes('vercel.app')) return 'vercel';
-    
+
     // Custom domain (assume production on Vercel)
     return 'vercel-production';
 };
 
+// Ambientes que devem usar o proxy Vercel (/api/baserow-proxy)
 const isVercelProduction = () => {
     const env = getEnvironmentType();
-    return env === 'vercel' || env === 'vercel-production';
+    return (
+        env === 'vercel' ||
+        env === 'vercel-production' ||
+        env === 'lovable-production' ||
+        env === 'lovable-preview'
+    );
 };
 
 export const BASEROW_PROXY_CONFIG = {
@@ -55,8 +64,10 @@ export const BASEROW_PROXY_CONFIG = {
     },
 
     // Verifica se está usando Supabase
+    // - Somente em localhost/dev (quando /api/baserow-proxy pode não existir)
+    // - Em preview/published/produção: sempre usar Vercel Serverless (/api)
     isUsingSupabase() {
-        return !isVercelProduction();
+        return this.getEnvironment() === 'development';
     },
 
     // Ambiente

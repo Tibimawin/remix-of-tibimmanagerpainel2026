@@ -1,8 +1,9 @@
 /**
  * Utilitário para fazer requisições via proxy Baserow
- * Funciona automaticamente em qualquer ambiente:
- * - Lovable Preview: usa supabase.functions.invoke
- * - Vercel Production: usa fetch direto para /api/baserow-proxy
+ *
+ * Estratégia atual:
+ * - Preview/Produção (Lovable/Vercel): usa /api/baserow-proxy (Serverless)
+ * - Localhost: usa supabase.functions.invoke (Edge Function)
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -78,23 +79,56 @@ export async function makeProxyRequest(payload: ProxyPayload): Promise<ProxyResp
         body: JSON.stringify(payload)
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
 
-      if (!response.ok || data.error) {
+      const data = isJson ? await response.json() : await response.text();
+
+      if (!response.ok) {
+        console.error('❌ [ProxyRequest] Erro HTTP no Vercel Proxy:', {
+          status: response.status,
+          statusText: response.statusText,
+          data
+        });
+        return {
+          ok: false,
+          status: response.status,
+          data: null,
+          error: isJson && (data as any)?.error
+            ? (data as any).error
+            : `Proxy retornou ${response.status} (${response.statusText})`
+        };
+      }
+
+      if (isJson && (data as any)?.error) {
         console.error('❌ [ProxyRequest] Erro no Vercel Proxy:', data);
         return {
           ok: false,
           status: response.status,
           data: null,
-          error: data.error || `Erro ${response.status}`
+          error: (data as any).error
+        };
+      }
+
+      if (!isJson) {
+        console.error('❌ [ProxyRequest] Vercel Proxy retornou resposta não-JSON:', {
+          status: response.status,
+          statusText: response.statusText,
+          preview: String(data).substring(0, 300)
+        });
+        return {
+          ok: false,
+          status: 502,
+          data: null,
+          error: 'Proxy retornou resposta inválida (não-JSON)'
         };
       }
 
       console.log('✅ [ProxyRequest] Sucesso via Vercel');
       return {
         ok: true,
-        status: 200,
-        data: data
+        status: response.status,
+        data
       };
     }
   } catch (error: any) {
