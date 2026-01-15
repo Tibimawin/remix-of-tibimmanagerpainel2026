@@ -10,7 +10,7 @@ import { useConfig } from '@/contexts/ConfigContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { PermissionGate } from '@/components/PermissionGate';
 import { useTypeMode } from '@/contexts/TypeModeContext';
-import { BASEROW_PROXY_CONFIG } from '@/config/proxyConfig';
+import { testBaserowConnection } from '@/utils/proxyRequest';
 import {
   Download,
   Settings,
@@ -124,38 +124,17 @@ const ImportacaoAutomatica = () => {
 
     try {
       setTesting(true);
-      const originalUrl = `${userConfig.baseUrl}/api/database/rows/table/${userConfig.contentTableId}/?user_field_names=true&size=1`;
+      
+      const result = await testBaserowConnection(
+        userConfig.baseUrl,
+        userConfig.apiToken,
+        userConfig.contentTableId
+      );
 
-      let response;
-      if (userConfig.baseUrl.startsWith('http://')) {
-        // 🔧 Usar proxy local configurado
-        const proxyPayload = {
-          url: originalUrl,
-          method: 'GET',
-          token: userConfig.apiToken,
-          body: null
-        };
-
-        response = await fetch(BASEROW_PROXY_CONFIG.ACTIVE_PROXY_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(proxyPayload)
-        });
+      if (result.success) {
+        toast.success(`Conexão bem-sucedida! ${result.count || 0} conteúdos encontrados.`);
       } else {
-        response = await fetch(originalUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Token ${userConfig.apiToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
-      }
-
-      if (response.ok) {
-        const data = await response.json();
-        toast.success(`Conexão bem-sucedida! ${data.count || 0} conteúdos encontrados.`);
-      } else {
-        throw new Error(`Erro ${response.status}: ${response.statusText}`);
+        throw new Error(result.error || 'Erro desconhecido');
       }
     } catch (error) {
       console.error('Erro no teste de conexão:', error);

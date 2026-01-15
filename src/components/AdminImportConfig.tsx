@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { ImportConfig } from '@/services/AutoImportService';
 import { useUserConfig } from '@/hooks/useUserConfig';
 import { useAdminConfig } from '@/contexts/AdminConfigContext';
+import { testBaserowConnection } from '@/utils/proxyRequest';
 
 const AdminImportConfig = () => {
   const { config: userConfig, updateImportConfig, loading } = useUserConfig();
@@ -80,31 +81,16 @@ const AdminImportConfig = () => {
     try {
       setIsTestingCanais(true);
       
-      const originalUrl = `${canaisTvConfig.sourceBaseUrl}/api/database/rows/table/${canaisTvConfig.sourceTableId}/?user_field_names=true&size=1`;
-      
-      let response;
-      if (canaisTvConfig.sourceBaseUrl.startsWith('http://')) {
-        const encodedUrl = encodeURIComponent(originalUrl);
-        const proxyUrl = `https://api-baserow.vercel.app/api/baserow?token=${canaisTvConfig.sourceToken}&url=${encodedUrl}&method=GET`;
-        response = await fetch(proxyUrl, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-        });
-      } else {
-        response = await fetch(originalUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Token ${canaisTvConfig.sourceToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
-      }
+      const result = await testBaserowConnection(
+        canaisTvConfig.sourceBaseUrl,
+        canaisTvConfig.sourceToken,
+        canaisTvConfig.sourceTableId
+      );
 
-      if (response.ok) {
-        const data = await response.json();
-        toast.success(`Conexão com canais TV bem-sucedida! ${data.count || 0} canais encontrados.`);
+      if (result.success) {
+        toast.success(`Conexão com canais TV bem-sucedida! ${result.count || 0} canais encontrados.`);
       } else {
-        throw new Error(`Erro ${response.status}: ${response.statusText}`);
+        throw new Error(result.error || 'Erro desconhecido');
       }
     } catch (error) {
       console.error('Erro no teste de conexão dos canais TV:', error);
@@ -146,31 +132,16 @@ const AdminImportConfig = () => {
     try {
       setIsTesting(true);
       
-      const originalUrl = `${config.sourceBaseUrl}/api/database/rows/table/${config.contentTableId}/?user_field_names=true&size=1`;
-      
-      let response;
-      if (config.sourceBaseUrl.startsWith('http://')) {
-        const encodedUrl = encodeURIComponent(originalUrl);
-        const proxyUrl = `https://api-baserow.vercel.app/api/baserow?token=${config.sourceToken}&url=${encodedUrl}&method=GET`;
-        response = await fetch(proxyUrl, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-        });
-      } else {
-        response = await fetch(originalUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Token ${config.sourceToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
-      }
+      const result = await testBaserowConnection(
+        config.sourceBaseUrl,
+        config.sourceToken,
+        config.contentTableId
+      );
 
-      if (response.ok) {
-        const data = await response.json();
-        toast.success(`Conexão bem-sucedida! ${data.count || 0} conteúdos encontrados.`);
+      if (result.success) {
+        toast.success(`Conexão bem-sucedida! ${result.count || 0} conteúdos encontrados.`);
       } else {
-        throw new Error(`Erro ${response.status}: ${response.statusText}`);
+        throw new Error(result.error || 'Erro desconhecido');
       }
     } catch (error) {
       console.error('Erro no teste de conexão:', error);
