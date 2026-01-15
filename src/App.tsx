@@ -5,7 +5,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ConfigProvider } from "./contexts/ConfigContext";
 import { AdminConfigProvider } from "./contexts/AdminConfigContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import { CustomColorProvider } from "./contexts/CustomColorContext";
 import { TypeModeProvider } from "./contexts/TypeModeContext";
 import { SimpleAuthProvider } from "./contexts/SimpleAuthContext";
 import { UserPermissionsProvider } from "./contexts/UserPermissionsContext";
@@ -87,18 +86,17 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <ThemeProvider>
-            <CustomColorProvider>
-              <AdminAuthProvider>
-                <AdminConfigProvider>
-                  <SimpleAuthProvider>
-                    {/* ✅ UserPermissionsProvider centralizado - apenas 1 listener Firebase */}
-                    <UserPermissionsProvider>
-                      <ConfigProvider>
-                        <TypeModeProvider>
-                          <CleanupProvider>
-                            <AppWithMonitor />
-                            <UpdateNotificationModal />
-                            <Sonner />
+            <AdminAuthProvider>
+              <AdminConfigProvider>
+                <SimpleAuthProvider>
+                  {/* ✅ UserPermissionsProvider centralizado - apenas 1 listener Firebase */}
+                  <UserPermissionsProvider>
+                    <ConfigProvider>
+                      <TypeModeProvider>
+                        <CleanupProvider>
+                          <AppWithMonitor />
+                          <UpdateNotificationModal />
+                          <Sonner />
                           <BrowserRouter>
                             <Routes>
                               {/* Rota inicial - página de apresentação */}
@@ -472,11 +470,10 @@ const App = () => {
                         </CleanupProvider>
                       </TypeModeProvider>
                     </ConfigProvider>
-                    </UserPermissionsProvider>
-                  </SimpleAuthProvider>
-                </AdminConfigProvider>
-              </AdminAuthProvider>
-            </CustomColorProvider>
+                  </UserPermissionsProvider>
+                </SimpleAuthProvider>
+              </AdminConfigProvider>
+            </AdminAuthProvider>
           </ThemeProvider>
         </TooltipProvider>
       </QueryClientProvider>

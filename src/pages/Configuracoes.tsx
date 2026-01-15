@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield, Film, Tv, Image, FolderOpen, Users, Calendar, LayoutGrid, Play, RotateCcw, HelpCircle, Palette } from 'lucide-react';
+import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield, Film, Tv, Image, FolderOpen, Users, Calendar, LayoutGrid, Play, RotateCcw, HelpCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
@@ -17,9 +17,6 @@ import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import UserSecuritySettings from '@/components/UserSecuritySettings';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useNavigate } from 'react-router-dom';
-import { ColorPicker } from '@/components/ColorPicker';
-import { useCustomColor, colorOptions } from '@/contexts/CustomColorContext';
-import { useTheme } from '@/contexts/ThemeContext';
 
 // Componente para configurações do Tutorial
 const TutorialSettings: React.FC = () => {
@@ -111,85 +108,6 @@ const TutorialSettings: React.FC = () => {
         </div>
       </CardContent>
     </Card>
-  );
-};
-
-// Componente para configurações de Aparência
-const AppearanceSettings: React.FC = () => {
-  const { primaryHue, setColor } = useCustomColor();
-  const { isDark, toggleTheme } = useTheme();
-  const currentColor = colorOptions.find(c => c.hue === primaryHue);
-
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Palette className="h-5 w-5" />
-            Cor Primária
-          </CardTitle>
-          <CardDescription>
-            Escolha a cor principal do seu painel. Esta cor será aplicada em botões, links e elementos de destaque.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <ColorPicker selectedHue={primaryHue} onSelectColor={setColor} />
-          
-          <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50 border border-border/50">
-            <div 
-              className="w-16 h-16 rounded-xl shadow-lg"
-              style={{ 
-                background: `linear-gradient(135deg, hsl(${primaryHue}, 70%, 50%), hsl(${primaryHue}, 80%, 35%))` 
-              }}
-            />
-            <div>
-              <p className="font-medium text-foreground">
-                {currentColor?.name || 'Cor Customizada'}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Cor selecionada atualmente
-              </p>
-            </div>
-          </div>
-
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p>💡 <strong>Dica:</strong> A cor escolhida será aplicada automaticamente em todo o painel.</p>
-            <p>🎨 As cores são otimizadas para funcionar bem tanto no modo claro quanto no escuro.</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {isDark ? '🌙' : '☀️'}
-            Tema do Sistema
-          </CardTitle>
-          <CardDescription>
-            Alterne entre o modo claro e escuro do painel
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-border/50">
-            <div>
-              <p className="font-medium text-foreground">
-                Modo {isDark ? 'Escuro' : 'Claro'}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {isDark ? 'Interface com cores escuras para reduzir cansaço visual' : 'Interface clara e luminosa'}
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => toggleTheme(!isDark)}
-              className="gap-2"
-            >
-              {isDark ? '☀️ Ativar Modo Claro' : '🌙 Ativar Modo Escuro'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
   );
 };
 
@@ -401,18 +319,14 @@ const Configuracoes = () => {
 
         {/* Abas de Configurações */}
         <Tabs defaultValue="api" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="api" className="flex items-center gap-2">
               <Key className="h-4 w-4" />
-              <span className="hidden sm:inline">Configurações de</span> API
-            </TabsTrigger>
-            <TabsTrigger value="appearance" className="flex items-center gap-2">
-              <Palette className="h-4 w-4" />
-              Aparência
+              Configurações de API
             </TabsTrigger>
             <TabsTrigger value="security" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
-              Segurança
+              Segurança da Conta
             </TabsTrigger>
             <TabsTrigger value="tutorial" className="flex items-center gap-2">
               <HelpCircle className="h-4 w-4" />
@@ -696,10 +610,6 @@ const Configuracoes = () => {
                 </p>
               )}
             </div>
-          </TabsContent>
-
-          <TabsContent value="appearance" className="mt-6">
-            <AppearanceSettings />
           </TabsContent>
 
           <TabsContent value="security" className="mt-6">
