@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield, Film, Tv, Image, FolderOpen, Users, Calendar, LayoutGrid, Play, RotateCcw, HelpCircle } from 'lucide-react';
+import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield, Film, Tv, Image, FolderOpen, Users, Calendar, LayoutGrid, Play, RotateCcw, HelpCircle, Palette } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
@@ -15,6 +15,7 @@ import { PermissionGate } from '@/components/PermissionGate';
 import { Badge } from '@/components/ui/badge';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import UserSecuritySettings from '@/components/UserSecuritySettings';
+import { AppearanceSettings } from '@/components/AppearanceSettings';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useNavigate } from 'react-router-dom';
 
@@ -319,18 +320,22 @@ const Configuracoes = () => {
 
         {/* Abas de Configurações */}
         <Tabs defaultValue="api" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="api" className="flex items-center gap-2">
               <Key className="h-4 w-4" />
-              Configurações de API
+              <span className="hidden sm:inline">API</span>
+            </TabsTrigger>
+            <TabsTrigger value="appearance" className="flex items-center gap-2">
+              <Palette className="h-4 w-4" />
+              <span className="hidden sm:inline">Aparência</span>
             </TabsTrigger>
             <TabsTrigger value="security" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
-              Segurança da Conta
+              <span className="hidden sm:inline">Segurança</span>
             </TabsTrigger>
             <TabsTrigger value="tutorial" className="flex items-center gap-2">
               <HelpCircle className="h-4 w-4" />
-              Tutorial
+              <span className="hidden sm:inline">Tutorial</span>
             </TabsTrigger>
           </TabsList>
 
@@ -610,6 +615,10 @@ const Configuracoes = () => {
                 </p>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="appearance" className="mt-6">
+            <AppearanceSettings />
           </TabsContent>
 
           <TabsContent value="security" className="mt-6">

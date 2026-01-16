@@ -7,6 +7,7 @@ import { AdminConfigProvider } from "./contexts/AdminConfigContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { TypeModeProvider } from "./contexts/TypeModeContext";
 import { ZoomProvider } from "./contexts/ZoomContext";
+import { CustomizationProvider } from "./contexts/CustomizationContext";
 import { SimpleAuthProvider } from "./contexts/SimpleAuthContext";
 import { UserPermissionsProvider } from "./contexts/UserPermissionsContext";
 import { CleanupProvider } from "./contexts/CleanupContext";
@@ -95,6 +96,7 @@ const App = () => {
                     <ConfigProvider>
                       <TypeModeProvider>
                         <CleanupProvider>
+                          <CustomizationProvider>
                           <ZoomProvider>
                           <AppWithMonitor />
                           <UpdateNotificationModal />
@@ -470,6 +472,7 @@ const App = () => {
                             </Routes>
                           </BrowserRouter>
                           </ZoomProvider>
+                          </CustomizationProvider>
                         </CleanupProvider>
                       </TypeModeProvider>
                     </ConfigProvider>
