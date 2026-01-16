@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Palette, Type, RotateCcw, Check, Pipette, X } from 'lucide-react';
+import { Palette, Type, RotateCcw, Check, Pipette, X, Star, Plus, Trash2, Edit2 } from 'lucide-react';
 import { useCustomization, AVAILABLE_FONTS, AVAILABLE_THEMES } from '@/contexts/CustomizationContext';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 // Cores sugeridas para escolha rápida
 const QUICK_COLORS = [
@@ -19,8 +20,24 @@ const QUICK_COLORS = [
 ];
 
 export const AppearanceSettings: React.FC = () => {
-  const { settings, setFont, setTheme, setCustomColor, setFontSize, resetToDefaults, currentFont, activeColor } = useCustomization();
+  const { 
+    settings, 
+    setFont, 
+    setTheme, 
+    setCustomColor, 
+    setFontSize, 
+    resetToDefaults, 
+    currentFont, 
+    activeColor,
+    addFavoritePalette,
+    removeFavoritePalette,
+    renameFavoritePalette,
+    applyFavoritePalette,
+  } = useCustomization();
   const [customColorInput, setCustomColorInput] = useState(settings.customColor || '#FF6B35');
+  const [newPaletteName, setNewPaletteName] = useState('');
+  const [editingPaletteId, setEditingPaletteId] = useState<string | null>(null);
+  const [editingPaletteName, setEditingPaletteName] = useState('');
 
   const handleCustomColorChange = (color: string) => {
     setCustomColorInput(color);
@@ -33,6 +50,36 @@ export const AppearanceSettings: React.FC = () => {
   const handleRemoveCustomColor = () => {
     setCustomColor(null);
     setCustomColorInput('#FF6B35');
+  };
+
+  const handleSaveToFavorites = () => {
+    const colorToSave = settings.customColor || customColorInput;
+    if (!/^#[0-9A-Fa-f]{6}$/.test(colorToSave)) {
+      toast.error('Selecione uma cor válida primeiro');
+      return;
+    }
+    addFavoritePalette(newPaletteName, colorToSave);
+    setNewPaletteName('');
+    toast.success('Cor salva nos favoritos!');
+  };
+
+  const handleStartEditing = (id: string, currentName: string) => {
+    setEditingPaletteId(id);
+    setEditingPaletteName(currentName);
+  };
+
+  const handleFinishEditing = () => {
+    if (editingPaletteId && editingPaletteName.trim()) {
+      renameFavoritePalette(editingPaletteId, editingPaletteName);
+      toast.success('Nome atualizado!');
+    }
+    setEditingPaletteId(null);
+    setEditingPaletteName('');
+  };
+
+  const handleDeletePalette = (id: string, name: string) => {
+    removeFavoritePalette(id);
+    toast.success(`"${name}" removido dos favoritos`);
   };
 
   return (
@@ -245,6 +292,104 @@ export const AppearanceSettings: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Salvar nos Favoritos */}
+          <div className="space-y-3 pt-3 border-t border-border/40">
+            <Label className="flex items-center gap-2">
+              <Star className="h-4 w-4" />
+              Salvar Cor nos Favoritos
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                value={newPaletteName}
+                onChange={(e) => setNewPaletteName(e.target.value)}
+                placeholder="Nome da cor (opcional)"
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleSaveToFavorites}
+                size="sm"
+                className="gap-1"
+                disabled={!settings.customColor && !/^#[0-9A-Fa-f]{6}$/.test(customColorInput)}
+              >
+                <Plus className="h-4 w-4" />
+                Salvar
+              </Button>
+            </div>
+          </div>
+
+          {/* Paletas Favoritas */}
+          {settings.favoritePalettes.length > 0 && (
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Star className="h-4 w-4 fill-current" />
+                Cores Favoritas ({settings.favoritePalettes.length})
+              </Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {settings.favoritePalettes.map((palette) => (
+                  <div
+                    key={palette.id}
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg border transition-all",
+                      settings.customColor === palette.color
+                        ? "border-primary bg-primary/5"
+                        : "border-border/40 hover:border-border"
+                    )}
+                  >
+                    <button
+                      onClick={() => applyFavoritePalette(palette.id)}
+                      className="w-10 h-10 rounded-lg shadow-md flex items-center justify-center transition-transform hover:scale-105"
+                      style={{ backgroundColor: palette.color }}
+                    >
+                      {settings.customColor === palette.color && (
+                        <Check className="h-5 w-5 text-white drop-shadow-md" />
+                      )}
+                    </button>
+                    
+                    <div className="flex-1 min-w-0">
+                      {editingPaletteId === palette.id ? (
+                        <Input
+                          value={editingPaletteName}
+                          onChange={(e) => setEditingPaletteName(e.target.value)}
+                          onBlur={handleFinishEditing}
+                          onKeyDown={(e) => e.key === 'Enter' && handleFinishEditing()}
+                          className="h-7 text-sm"
+                          autoFocus
+                        />
+                      ) : (
+                        <button
+                          onClick={() => applyFavoritePalette(palette.id)}
+                          className="text-left w-full"
+                        >
+                          <p className="text-sm font-medium truncate">{palette.name}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{palette.color}</p>
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        onClick={() => handleStartEditing(palette.id, palette.name)}
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDeletePalette(palette.id, palette.name)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Preview de Cor */}
           <div className="bg-muted/50 rounded-lg p-4 border border-border/40">

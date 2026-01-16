@@ -30,11 +30,19 @@ export const AVAILABLE_THEMES = [
   { id: 'cyan', name: 'Ciano', primary: '186 94% 41%', accent: '186 94% 41%' },
 ];
 
+interface FavoritePalette {
+  id: string;
+  name: string;
+  color: string; // HEX color
+  createdAt: number;
+}
+
 interface CustomizationSettings {
   fontId: string;
   themeId: string;
   customColor: string | null; // HEX color para cor personalizada
   fontSize: number; // percentage: 90, 100, 110, etc.
+  favoritePalettes: FavoritePalette[];
 }
 
 const DEFAULT_SETTINGS: CustomizationSettings = {
@@ -42,6 +50,7 @@ const DEFAULT_SETTINGS: CustomizationSettings = {
   themeId: 'default',
   customColor: null,
   fontSize: 100,
+  favoritePalettes: [],
 };
 
 interface CustomizationContextType {
@@ -54,6 +63,11 @@ interface CustomizationContextType {
   currentFont: typeof AVAILABLE_FONTS[0];
   currentTheme: typeof AVAILABLE_THEMES[0];
   activeColor: string; // HSL string da cor ativa (tema ou custom)
+  // Favoritos
+  addFavoritePalette: (name: string, color: string) => void;
+  removeFavoritePalette: (id: string) => void;
+  renameFavoritePalette: (id: string, newName: string) => void;
+  applyFavoritePalette: (id: string) => void;
 }
 
 const CustomizationContext = createContext<CustomizationContextType | undefined>(undefined);
@@ -170,6 +184,43 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
     setSettings(DEFAULT_SETTINGS);
   }, []);
 
+  // Gerenciamento de paletas favoritas
+  const addFavoritePalette = useCallback((name: string, color: string) => {
+    const newPalette: FavoritePalette = {
+      id: `palette_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      name: name.trim() || `Cor ${settings.favoritePalettes.length + 1}`,
+      color,
+      createdAt: Date.now(),
+    };
+    setSettings(prev => ({
+      ...prev,
+      favoritePalettes: [...prev.favoritePalettes, newPalette],
+    }));
+  }, [settings.favoritePalettes.length]);
+
+  const removeFavoritePalette = useCallback((id: string) => {
+    setSettings(prev => ({
+      ...prev,
+      favoritePalettes: prev.favoritePalettes.filter(p => p.id !== id),
+    }));
+  }, []);
+
+  const renameFavoritePalette = useCallback((id: string, newName: string) => {
+    setSettings(prev => ({
+      ...prev,
+      favoritePalettes: prev.favoritePalettes.map(p =>
+        p.id === id ? { ...p, name: newName.trim() } : p
+      ),
+    }));
+  }, []);
+
+  const applyFavoritePalette = useCallback((id: string) => {
+    const palette = settings.favoritePalettes.find(p => p.id === id);
+    if (palette) {
+      setCustomColor(palette.color);
+    }
+  }, [settings.favoritePalettes, setCustomColor]);
+
   const currentFont = AVAILABLE_FONTS.find(f => f.id === settings.fontId) || AVAILABLE_FONTS[0];
   const currentTheme = AVAILABLE_THEMES.find(t => t.id === settings.themeId) || AVAILABLE_THEMES[0];
   const activeColor = settings.customColor 
@@ -188,6 +239,10 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
         currentFont,
         currentTheme,
         activeColor,
+        addFavoritePalette,
+        removeFavoritePalette,
+        renameFavoritePalette,
+        applyFavoritePalette,
       }}
     >
       {children}
