@@ -82,10 +82,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <ErrorBoundary>
       <div 
-        className="min-h-screen bg-background origin-top-left transition-transform duration-200"
+        className="min-h-screen bg-background transition-all duration-200"
         style={{ 
-          transform: `scale(${zoom / 100})`,
-          width: `${10000 / zoom}%`,
+          zoom: `${zoom}%`,
         }}
       >
         <UserHeader onToggleSidebar={handleToggleSidebar} isCollapsed={isCollapsed} />
