@@ -33,12 +33,14 @@ export const AVAILABLE_THEMES = [
 interface CustomizationSettings {
   fontId: string;
   themeId: string;
+  customColor: string | null; // HEX color para cor personalizada
   fontSize: number; // percentage: 90, 100, 110, etc.
 }
 
 const DEFAULT_SETTINGS: CustomizationSettings = {
   fontId: 'system',
   themeId: 'default',
+  customColor: null,
   fontSize: 100,
 };
 
@@ -46,10 +48,12 @@ interface CustomizationContextType {
   settings: CustomizationSettings;
   setFont: (fontId: string) => void;
   setTheme: (themeId: string) => void;
+  setCustomColor: (color: string | null) => void;
   setFontSize: (size: number) => void;
   resetToDefaults: () => void;
   currentFont: typeof AVAILABLE_FONTS[0];
   currentTheme: typeof AVAILABLE_THEMES[0];
+  activeColor: string; // HSL string da cor ativa (tema ou custom)
 }
 
 const CustomizationContext = createContext<CustomizationContextType | undefined>(undefined);
@@ -71,6 +75,42 @@ const loadGoogleFonts = () => {
     link.href = `https://fonts.googleapis.com/css2?family=${fontsToLoad}:wght@300;400;500;600;700&display=swap`;
     document.head.appendChild(link);
   }
+};
+
+// Converter HEX para HSL
+const hexToHSL = (hex: string): string => {
+  // Remove o # se existir
+  hex = hex.replace(/^#/, '');
+  
+  // Parse RGB
+  const r = parseInt(hex.substring(0, 2), 16) / 255;
+  const g = parseInt(hex.substring(2, 4), 16) / 255;
+  const b = parseInt(hex.substring(4, 6), 16) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    
+    switch (max) {
+      case r:
+        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        break;
+      case g:
+        h = ((b - r) / d + 2) / 6;
+        break;
+      case b:
+        h = ((r - g) / d + 4) / 6;
+        break;
+    }
+  }
+
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 };
 
 export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -100,8 +140,11 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
     // Aplicar tamanho da fonte
     document.documentElement.style.fontSize = `${settings.fontSize}%`;
 
-    // Aplicar cor primária
-    document.documentElement.style.setProperty('--primary', theme.primary);
+    // Aplicar cor primária (custom ou do tema)
+    const primaryColor = settings.customColor 
+      ? hexToHSL(settings.customColor)
+      : theme.primary;
+    document.documentElement.style.setProperty('--primary', primaryColor);
     
     // Salvar no localStorage
     localStorage.setItem(CUSTOMIZATION_KEY, JSON.stringify(settings));
@@ -112,7 +155,11 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
   }, []);
 
   const setTheme = useCallback((themeId: string) => {
-    setSettings(prev => ({ ...prev, themeId }));
+    setSettings(prev => ({ ...prev, themeId, customColor: null })); // Limpa cor custom ao selecionar tema
+  }, []);
+
+  const setCustomColor = useCallback((customColor: string | null) => {
+    setSettings(prev => ({ ...prev, customColor }));
   }, []);
 
   const setFontSize = useCallback((fontSize: number) => {
@@ -125,6 +172,9 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
 
   const currentFont = AVAILABLE_FONTS.find(f => f.id === settings.fontId) || AVAILABLE_FONTS[0];
   const currentTheme = AVAILABLE_THEMES.find(t => t.id === settings.themeId) || AVAILABLE_THEMES[0];
+  const activeColor = settings.customColor 
+    ? hexToHSL(settings.customColor) 
+    : currentTheme.primary;
 
   return (
     <CustomizationContext.Provider
@@ -132,10 +182,12 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
         settings,
         setFont,
         setTheme,
+        setCustomColor,
         setFontSize,
         resetToDefaults,
         currentFont,
         currentTheme,
+        activeColor,
       }}
     >
       {children}
