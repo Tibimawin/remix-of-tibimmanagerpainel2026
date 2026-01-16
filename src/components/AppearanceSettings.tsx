@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Palette, Type, RotateCcw, Check, Pipette, X, Star, Plus, Trash2, Edit2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Palette, Type, RotateCcw, Check, Pipette, X, Star, Plus, Trash2, Edit2, Eye, Contrast } from 'lucide-react';
 import { useCustomization, AVAILABLE_FONTS, AVAILABLE_THEMES } from '@/contexts/CustomizationContext';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -25,7 +26,8 @@ export const AppearanceSettings: React.FC = () => {
     setFont, 
     setTheme, 
     setCustomColor, 
-    setFontSize, 
+    setFontSize,
+    setHighContrast,
     resetToDefaults, 
     currentFont, 
     activeColor,
@@ -413,6 +415,74 @@ export const AppearanceSettings: React.FC = () => {
                 style={{ backgroundColor: `hsl(${activeColor})` }}
               />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Acessibilidade */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Eye className="h-5 w-5" />
+            Acessibilidade
+          </CardTitle>
+          <CardDescription>
+            Opções para melhorar a legibilidade e acessibilidade do painel
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Modo de Alto Contraste */}
+          <div className="flex items-center justify-between p-4 rounded-lg border border-border/40 bg-muted/30">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "p-2 rounded-lg",
+                settings.highContrast ? "bg-primary text-primary-foreground" : "bg-muted"
+              )}>
+                <Contrast className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-medium">Modo de Alto Contraste</p>
+                <p className="text-sm text-muted-foreground">
+                  Aumenta o contraste das cores para melhor visibilidade
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={settings.highContrast}
+              onCheckedChange={setHighContrast}
+              aria-label="Ativar modo de alto contraste"
+            />
+          </div>
+
+          {/* Preview do Alto Contraste */}
+          {settings.highContrast && (
+            <div className="bg-black text-white rounded-lg p-4 border-2 border-white/40">
+              <p className="text-sm text-gray-300 mb-3">Modo ativo:</p>
+              <div className="space-y-2">
+                <p className="font-bold text-lg">Alto Contraste Ativado</p>
+                <p className="text-gray-200">
+                  As cores do painel foram ajustadas para máximo contraste, 
+                  facilitando a leitura para pessoas com baixa visão.
+                </p>
+                <div className="flex gap-2 mt-3">
+                  <Badge className="bg-white text-black">Badge Claro</Badge>
+                  <Badge variant="outline" className="border-white text-white">Badge Outline</Badge>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Dicas de Acessibilidade */}
+          <div className="bg-muted/50 rounded-lg p-4 border border-border/40">
+            <p className="text-sm font-medium mb-2 flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              Dicas de Acessibilidade
+            </p>
+            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+              <li>Use o tamanho de texto maior (até 130%) se precisar</li>
+              <li>O modo de alto contraste melhora a legibilidade</li>
+              <li>Escolha fontes sans-serif para melhor leitura em telas</li>
+            </ul>
           </div>
         </CardContent>
       </Card>

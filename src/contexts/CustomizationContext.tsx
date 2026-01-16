@@ -43,6 +43,7 @@ interface CustomizationSettings {
   customColor: string | null; // HEX color para cor personalizada
   fontSize: number; // percentage: 90, 100, 110, etc.
   favoritePalettes: FavoritePalette[];
+  highContrast: boolean; // Modo de alto contraste para acessibilidade
 }
 
 const DEFAULT_SETTINGS: CustomizationSettings = {
@@ -51,6 +52,7 @@ const DEFAULT_SETTINGS: CustomizationSettings = {
   customColor: null,
   fontSize: 100,
   favoritePalettes: [],
+  highContrast: false,
 };
 
 interface CustomizationContextType {
@@ -59,6 +61,7 @@ interface CustomizationContextType {
   setTheme: (themeId: string) => void;
   setCustomColor: (color: string | null) => void;
   setFontSize: (size: number) => void;
+  setHighContrast: (enabled: boolean) => void;
   resetToDefaults: () => void;
   currentFont: typeof AVAILABLE_FONTS[0];
   currentTheme: typeof AVAILABLE_THEMES[0];
@@ -160,6 +163,31 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
       : theme.primary;
     document.documentElement.style.setProperty('--primary', primaryColor);
     
+    // Aplicar modo de alto contraste
+    if (settings.highContrast) {
+      document.documentElement.classList.add('high-contrast');
+      // Cores de alto contraste para melhor acessibilidade
+      document.documentElement.style.setProperty('--background', '0 0% 0%');
+      document.documentElement.style.setProperty('--foreground', '0 0% 100%');
+      document.documentElement.style.setProperty('--card', '0 0% 5%');
+      document.documentElement.style.setProperty('--card-foreground', '0 0% 100%');
+      document.documentElement.style.setProperty('--muted', '0 0% 15%');
+      document.documentElement.style.setProperty('--muted-foreground', '0 0% 85%');
+      document.documentElement.style.setProperty('--border', '0 0% 40%');
+      document.documentElement.style.setProperty('--input', '0 0% 20%');
+    } else {
+      document.documentElement.classList.remove('high-contrast');
+      // Restaurar cores padrão do tema escuro
+      document.documentElement.style.removeProperty('--background');
+      document.documentElement.style.removeProperty('--foreground');
+      document.documentElement.style.removeProperty('--card');
+      document.documentElement.style.removeProperty('--card-foreground');
+      document.documentElement.style.removeProperty('--muted');
+      document.documentElement.style.removeProperty('--muted-foreground');
+      document.documentElement.style.removeProperty('--border');
+      document.documentElement.style.removeProperty('--input');
+    }
+    
     // Salvar no localStorage
     localStorage.setItem(CUSTOMIZATION_KEY, JSON.stringify(settings));
   }, [settings]);
@@ -178,6 +206,10 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
 
   const setFontSize = useCallback((fontSize: number) => {
     setSettings(prev => ({ ...prev, fontSize: Math.min(130, Math.max(80, fontSize)) }));
+  }, []);
+
+  const setHighContrast = useCallback((highContrast: boolean) => {
+    setSettings(prev => ({ ...prev, highContrast }));
   }, []);
 
   const resetToDefaults = useCallback(() => {
@@ -235,6 +267,7 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
         setTheme,
         setCustomColor,
         setFontSize,
+        setHighContrast,
         resetToDefaults,
         currentFont,
         currentTheme,
