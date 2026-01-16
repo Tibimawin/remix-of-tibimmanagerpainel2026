@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import UserNotifications from '../UserNotifications';
 import GlobalSearch from '../GlobalSearch';
+import { ZoomControl } from '../ZoomControl';
 
 // Mapeamento de títulos dinâmicos para cada rota
 const routeTitles: Record<string, { title: string; subtitle: string; icon?: React.ComponentType<any> }> = {
@@ -291,6 +292,9 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
                 </TooltipContent>
               </Tooltip>
             </div>
+
+            {/* Controle de Zoom */}
+            <ZoomControl />
 
             {/* Controle de Tema */}
             <div className="hidden md:flex items-center space-x-2 bg-card/50 backdrop-blur-sm rounded-xl px-3 py-2 border border-border/40">

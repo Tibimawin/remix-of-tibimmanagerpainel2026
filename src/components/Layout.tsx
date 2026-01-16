@@ -18,6 +18,7 @@ import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { Button } from '@/components/ui/button';
 import { Crown, X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useZoom } from '@/hooks/useZoom';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -33,6 +34,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { requestPermission, isSupported, getPermissionStatus } = useActionNotifier();
   const { userInfo } = useSimpleAuth();
   const isMobile = useIsMobile();
+  const { zoom } = useZoom();
 
   // Hook para executar agendamentos automaticamente
   useScheduleExecutor();
@@ -79,7 +81,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-background">
+      <div 
+        className="min-h-screen bg-background origin-top-left transition-transform duration-200"
+        style={{ 
+          transform: `scale(${zoom / 100})`,
+          width: `${10000 / zoom}%`,
+        }}
+      >
         <UserHeader onToggleSidebar={handleToggleSidebar} isCollapsed={isCollapsed} />
         <div className="flex">
           <UserSidebar isCollapsed={isCollapsed} onToggle={handleToggleSidebar} isMobile={isMobile} />
