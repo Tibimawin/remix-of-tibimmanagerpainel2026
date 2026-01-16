@@ -18,7 +18,7 @@ import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { Button } from '@/components/ui/button';
 import { Crown, X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useZoom } from '@/hooks/useZoom';
+import { useZoom } from '@/contexts/ZoomContext';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 

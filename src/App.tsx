@@ -6,6 +6,7 @@ import { ConfigProvider } from "./contexts/ConfigContext";
 import { AdminConfigProvider } from "./contexts/AdminConfigContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { TypeModeProvider } from "./contexts/TypeModeContext";
+import { ZoomProvider } from "./contexts/ZoomContext";
 import { SimpleAuthProvider } from "./contexts/SimpleAuthContext";
 import { UserPermissionsProvider } from "./contexts/UserPermissionsContext";
 import { CleanupProvider } from "./contexts/CleanupContext";
@@ -94,6 +95,7 @@ const App = () => {
                     <ConfigProvider>
                       <TypeModeProvider>
                         <CleanupProvider>
+                          <ZoomProvider>
                           <AppWithMonitor />
                           <UpdateNotificationModal />
                           <Sonner />
@@ -467,6 +469,7 @@ const App = () => {
                               <Route path="*" element={<NotFound />} />
                             </Routes>
                           </BrowserRouter>
+                          </ZoomProvider>
                         </CleanupProvider>
                       </TypeModeProvider>
                     </ConfigProvider>

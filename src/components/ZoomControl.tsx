@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
-import { useZoom } from '@/hooks/useZoom';
+import { useZoom } from '@/contexts/ZoomContext';
 
 export const ZoomControl: React.FC = () => {
   const { zoom, zoomIn, zoomOut, resetZoom, canZoomIn, canZoomOut, isDefaultZoom } = useZoom();
