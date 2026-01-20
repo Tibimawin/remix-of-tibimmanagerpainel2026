@@ -8,8 +8,8 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
-import { Palette, Type, RotateCcw, Check, Pipette, X, Star, Plus, Trash2, Edit2, Eye, Contrast } from 'lucide-react';
-import { useCustomization, AVAILABLE_FONTS, AVAILABLE_THEMES } from '@/contexts/CustomizationContext';
+import { Palette, Type, RotateCcw, Check, Pipette, X, Star, Plus, Trash2, Edit2, Eye, Contrast, Globe } from 'lucide-react';
+import { useCustomization, AVAILABLE_FONTS, AVAILABLE_THEMES, AVAILABLE_LANGUAGES } from '@/contexts/CustomizationContext';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -28,9 +28,11 @@ export const AppearanceSettings: React.FC = () => {
     setCustomColor, 
     setFontSize,
     setHighContrast,
+    setLanguage,
     resetToDefaults, 
     currentFont, 
     activeColor,
+    currentLanguage,
     addFavoritePalette,
     removeFavoritePalette,
     renameFavoritePalette,
@@ -483,6 +485,50 @@ export const AppearanceSettings: React.FC = () => {
               <li>O modo de alto contraste melhora a legibilidade</li>
               <li>Escolha fontes sans-serif para melhor leitura em telas</li>
             </ul>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Configuração de Idioma */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            Idioma
+          </CardTitle>
+          <CardDescription>
+            Selecione o idioma de exibição do painel
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Idioma do Sistema</Label>
+            <Select value={settings.language} onValueChange={setLanguage}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecione um idioma" />
+              </SelectTrigger>
+              <SelectContent>
+                {AVAILABLE_LANGUAGES.map((lang) => (
+                  <SelectItem key={lang.id} value={lang.id}>
+                    <span className="flex items-center gap-2">
+                      <span className="text-lg">{lang.flag}</span>
+                      <span>{lang.name}</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Idioma atual: {currentLanguage.flag} {currentLanguage.name}
+            </p>
+          </div>
+
+          {/* Info sobre idiomas */}
+          <div className="bg-muted/50 rounded-lg p-4 border border-border/40">
+            <p className="text-sm text-muted-foreground">
+              <strong>Nota:</strong> A mudança de idioma afetará a interface do painel. 
+              Alguns conteúdos gerados externamente podem permanecer no idioma original.
+            </p>
           </div>
         </CardContent>
       </Card>

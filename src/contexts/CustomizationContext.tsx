@@ -30,6 +30,13 @@ export const AVAILABLE_THEMES = [
   { id: 'cyan', name: 'Ciano', primary: '186 94% 41%', accent: '186 94% 41%' },
 ];
 
+// Idiomas disponíveis
+export const AVAILABLE_LANGUAGES = [
+  { id: 'pt', name: 'Português', flag: '🇧🇷' },
+  { id: 'en', name: 'English', flag: '🇺🇸' },
+  { id: 'es', name: 'Español', flag: '🇪🇸' },
+];
+
 interface FavoritePalette {
   id: string;
   name: string;
@@ -44,6 +51,7 @@ interface CustomizationSettings {
   fontSize: number; // percentage: 90, 100, 110, etc.
   favoritePalettes: FavoritePalette[];
   highContrast: boolean; // Modo de alto contraste para acessibilidade
+  language: string; // Idioma do sistema: 'pt', 'en', 'es'
 }
 
 const DEFAULT_SETTINGS: CustomizationSettings = {
@@ -53,6 +61,7 @@ const DEFAULT_SETTINGS: CustomizationSettings = {
   fontSize: 100,
   favoritePalettes: [],
   highContrast: false,
+  language: 'pt',
 };
 
 interface CustomizationContextType {
@@ -62,9 +71,11 @@ interface CustomizationContextType {
   setCustomColor: (color: string | null) => void;
   setFontSize: (size: number) => void;
   setHighContrast: (enabled: boolean) => void;
+  setLanguage: (language: string) => void;
   resetToDefaults: () => void;
   currentFont: typeof AVAILABLE_FONTS[0];
   currentTheme: typeof AVAILABLE_THEMES[0];
+  currentLanguage: typeof AVAILABLE_LANGUAGES[0];
   activeColor: string; // HSL string da cor ativa (tema ou custom)
   // Favoritos
   addFavoritePalette: (name: string, color: string) => void;
@@ -212,6 +223,10 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
     setSettings(prev => ({ ...prev, highContrast }));
   }, []);
 
+  const setLanguage = useCallback((language: string) => {
+    setSettings(prev => ({ ...prev, language }));
+  }, []);
+
   const resetToDefaults = useCallback(() => {
     setSettings(DEFAULT_SETTINGS);
   }, []);
@@ -255,6 +270,7 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
 
   const currentFont = AVAILABLE_FONTS.find(f => f.id === settings.fontId) || AVAILABLE_FONTS[0];
   const currentTheme = AVAILABLE_THEMES.find(t => t.id === settings.themeId) || AVAILABLE_THEMES[0];
+  const currentLanguage = AVAILABLE_LANGUAGES.find(l => l.id === settings.language) || AVAILABLE_LANGUAGES[0];
   const activeColor = settings.customColor 
     ? hexToHSL(settings.customColor) 
     : currentTheme.primary;
@@ -268,9 +284,11 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
         setCustomColor,
         setFontSize,
         setHighContrast,
+        setLanguage,
         resetToDefaults,
         currentFont,
         currentTheme,
+        currentLanguage,
         activeColor,
         addFavoritePalette,
         removeFavoritePalette,
