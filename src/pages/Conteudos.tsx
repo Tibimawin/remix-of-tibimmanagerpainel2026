@@ -257,8 +257,8 @@ const Conteudos = () => {
           defaultSort={selectedSort}
           onEdit={handleEdit}
           refreshTrigger={refreshTrigger}
-          // Com ordenação global, sempre ir para a primeira página
-          goToPage={'first'}
+          // Ir para a última página para mostrar os mais recentes
+          goToPage={'last'}
           skipEditDialog={true}
           bulkData={bulkData}
           bulkLoading={bulkLoading}

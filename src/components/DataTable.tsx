@@ -211,23 +211,43 @@ export const DataTable: React.FC<DataTableProps & {
   };
 
   useEffect(() => {
-    const shouldGoToSpecificPage = async () => {
-      if (goToPage === 'last' && totalPages > 1) {
-        // Primeiro carrega os dados para saber quantas páginas tem
-        await loadData(1);
-        // Depois vai para a última página
-        setPage(totalPages);
-      } else if (goToPage === 'first') {
+    const initializeData = async () => {
+      if (!isConfigured) return;
+
+      if (goToPage === 'last') {
+        const tableId = config.tableIds[tableKey as keyof typeof config.tableIds];
+        if (!tableId) return;
+
+        try {
+          setLoading(true);
+          const orderParam = getOrderParam(sortBy);
+          // Buscar primeira página só para saber o count
+          const response = await baserowService.getTableData(tableId, 1, itemsPerPage, searchTerm, orderParam);
+          const count = response.count || 0;
+          const lastPage = Math.ceil(count / itemsPerPage) || 1;
+
+          // Agora ir para a última página
+          setTotalCount(count);
+          setTotalPages(lastPage);
+          setPage(lastPage);
+
+          // Carregar dados da última página
+          const lastPageResponse = await baserowService.getTableData(tableId, lastPage, itemsPerPage, searchTerm, orderParam);
+          setData(lastPageResponse.results || []);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        // Comportamento normal - página 1
         setPage(1);
         loadData(1);
-      } else {
-        loadData();
       }
+
       loadAllDataForExport();
     };
-    
-    shouldGoToSpecificPage();
-  }, [isConfigured, refreshTrigger, tableKey, config]);
+
+    initializeData();
+  }, [isConfigured, refreshTrigger, tableKey, config, goToPage]);
 
   useEffect(() => {
     if (page !== 1 && !goToPage) {
