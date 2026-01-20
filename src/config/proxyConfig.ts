@@ -8,6 +8,10 @@
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://kuszskrqzxwpzsmfsjwg.supabase.co';
 
+// Base do proxy Vercel (necessário em domínios Lovable, onde /api/* não existe)
+// Em localhost, o Vite faz proxy de /api -> Vercel (vide vite.config.ts)
+const VERCEL_PROXY_BASE = import.meta.env.VITE_VERCEL_PROXY_BASE || 'https://tibimmanagerpain2025.vercel.app';
+
 // Detectar ambiente para decidir qual proxy usar
 const getEnvironmentType = () => {
     if (typeof window === 'undefined') return 'server';
@@ -30,37 +34,36 @@ const getEnvironmentType = () => {
     return 'vercel-production';
 };
 
-// Ambientes que devem usar o proxy Vercel (/api/baserow-proxy)
-const isVercelProduction = () => {
-    const env = getEnvironmentType();
-    return (
-        env === 'vercel' ||
-        env === 'vercel-production' ||
-        env === 'lovable-production' ||
-        env === 'lovable-preview'
-    );
+const shouldUseAbsoluteVercelUrl = (env: string) => {
+    // Em domínios Lovable, /api/* aponta para o próprio app (retorna HTML)
+    return env === 'lovable-preview' || env === 'lovable-production';
 };
 
 export const BASEROW_PROXY_CONFIG = {
-    // Supabase Edge Function URL
+    // Supabase Edge Function URL (fallback)
     SUPABASE_PROXY_URL: `${SUPABASE_URL}/functions/v1/baserow-proxy`,
-    
-    // Vercel Serverless Function
+
+    // Vercel Serverless Function (relative, funciona quando o host é Vercel/custom domain)
     VERCEL_PROXY_URL: '/api/baserow-proxy',
+
+    // Vercel Serverless Function (absolute, necessário em domínios Lovable)
+    get VERCEL_PROXY_ABSOLUTE_URL() {
+        return `${VERCEL_PROXY_BASE}${this.VERCEL_PROXY_URL}`;
+    },
 
     // URL ativa - depende do ambiente
     get ACTIVE_PROXY_URL() {
         const envType = getEnvironmentType();
-        
-        // No Vercel production/preview, usar Vercel Serverless
-        if (isVercelProduction()) {
-            console.log('🌐 [PROXY] Ambiente Vercel detectado, usando Serverless Function:', this.VERCEL_PROXY_URL);
-            return this.VERCEL_PROXY_URL;
+
+        // Preview/published em Lovable: usar URL ABSOLUTA do Vercel proxy
+        if (shouldUseAbsoluteVercelUrl(envType)) {
+            console.log('🌐 [PROXY] Ambiente Lovable detectado, usando Vercel Proxy ABSOLUTO:', this.VERCEL_PROXY_ABSOLUTE_URL);
+            return this.VERCEL_PROXY_ABSOLUTE_URL;
         }
-        
-        // No Lovable preview ou development, usar Supabase Edge Function
-        console.log(`🌐 [PROXY] Ambiente ${envType} detectado, usando Supabase Edge Function:`, this.SUPABASE_PROXY_URL);
-        return this.SUPABASE_PROXY_URL;
+
+        // Local dev: usar /api (Vite faz proxy) | Vercel: usar /api nativo
+        console.log(`🌐 [PROXY] Ambiente ${envType} detectado, usando Vercel Proxy:`, this.VERCEL_PROXY_URL);
+        return this.VERCEL_PROXY_URL;
     },
 
     // Verifica se está usando Supabase
