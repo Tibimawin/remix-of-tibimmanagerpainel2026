@@ -17,7 +17,7 @@ const Conteudos = () => {
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [selectedSort, setSelectedSort] = useState('id_asc');
+  const [selectedSort, setSelectedSort] = useState('id_desc');
   const [bulkData, setBulkData] = useState<any[] | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
