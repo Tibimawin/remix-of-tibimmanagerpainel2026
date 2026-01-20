@@ -2,8 +2,9 @@
  * Utilitário para fazer requisições via proxy Baserow
  *
  * Estratégia atual:
- * - Preview/Produção (Lovable/Vercel): usa /api/baserow-proxy (Serverless)
- * - Localhost: usa supabase.functions.invoke (Edge Function)
+ * - Vercel/custom domain: usa /api/baserow-proxy (Serverless)
+ * - Lovable preview/published: usa URL absoluta do Vercel proxy (porque /api/* retorna HTML)
+ * - Localhost: usa /api/baserow-proxy (Vite faz proxy para o Vercel)
  */
 
 import { supabase } from '@/integrations/supabase/client';
