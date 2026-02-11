@@ -69,6 +69,7 @@ import ImportarConteudo from "./pages/ImportarConteudo";
 import OfertaDetalhes from "./pages/OfertaDetalhes";
 import ConfiguracoesAutoImport from "./pages/ConfiguracoesAutoImport";
 import GestaoDispositivos from "./pages/GestaoDispositivos";
+import Assinatura from "./pages/Assinatura";
 import { UpdateNotificationModal } from "./components/UpdateNotificationModal";
 
 
@@ -112,6 +113,7 @@ const App = () => {
                               {/* Rotas de login - ambas agora dentro dos providers */}
                               <Route path="/login" element={<Login />} />
                               <Route path="/cadastro" element={<Cadastro />} />
+                              <Route path="/assinatura" element={<Assinatura />} />
                               <Route path="/admin-login" element={<AdminLogin />} />
 
                               {/* Rota do painel administrativo - protegida */}
