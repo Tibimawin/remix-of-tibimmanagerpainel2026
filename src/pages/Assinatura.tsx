@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useAssinatura } from '@/hooks/useAssinatura';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
+import PaymentHistory from '@/components/PaymentHistory';
 import { toast } from 'sonner';
 
 const Assinatura: React.FC = () => {
@@ -92,7 +93,7 @@ const Assinatura: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-6 items-start">
           {/* Plan Card */}
           <Card className="border-primary/30">
             <CardHeader>
@@ -270,6 +271,11 @@ const Assinatura: React.FC = () => {
               </Card>
             )}
           </div>
+        </div>
+
+        {/* Payment History - full width below */}
+        <div className="md:col-span-2">
+          <PaymentHistory userId={userInfo?.id} />
         </div>
       </div>
     </div>
