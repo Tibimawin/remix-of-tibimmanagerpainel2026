@@ -25,8 +25,10 @@ export interface AsaasPixQrCode {
 }
 
 async function callAsaasProxy(action: string, data?: any) {
-  // Same-origin call - Vite proxy handles routing to Supabase Edge Function
-  const url = '/api/asaas-proxy';
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isLovable = hostname.endsWith('.lovable.app') || hostname.endsWith('.lovableproject.com');
+  const VERCEL_BASE = 'https://tibimmanagerpain2025.vercel.app';
+  const url = isLovable ? `${VERCEL_BASE}/api/asaas-proxy` : '/api/asaas-proxy';
   
   console.log('[AsaasProxy] Calling:', url, 'action:', action);
   
