@@ -24,10 +24,14 @@ export interface AsaasPixQrCode {
   expirationDate: string;
 }
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
 async function callAsaasProxy(action: string, data?: any) {
-  const url = '/api/asaas-proxy';
+  // Use the Vercel production proxy to avoid CORS in preview
+  const url = 'https://tibimmanagerpain2025.vercel.app/api/asaas-proxy';
   
-  console.log('[AsaasProxy] Calling via Vercel proxy:', url, 'action:', action);
+  console.log('[AsaasProxy] Calling:', url, 'action:', action);
   
   const response = await fetch(url, {
     method: 'POST',
