@@ -26,7 +26,7 @@ export interface AsaasPixQrCode {
 
 async function callAsaasProxy(action: string, data?: any) {
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-  const isLovable = hostname.endsWith('.lovable.app') || hostname.endsWith('.lovableproject.com');
+  const isLovable = hostname.endsWith('.lovable.app') || hostname.endsWith('.lovableproject.com') || hostname.includes('lovable');
   const VERCEL_BASE = 'https://tibimmanagerpain2025.vercel.app';
   const url = isLovable ? `${VERCEL_BASE}/api/asaas-proxy` : '/api/asaas-proxy';
   
