@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, Calendar, X } from 'lucide-react';
@@ -13,6 +14,7 @@ const ExpirationWarningBanner: React.FC<ExpirationWarningBannerProps> = ({
   onRenewClick, 
   showDismiss = false 
 }) => {
+  const navigate = useNavigate();
   const { 
     hasExpirationWarning, 
     getDaysRemaining, 
@@ -64,7 +66,7 @@ const ExpirationWarningBanner: React.FC<ExpirationWarningBannerProps> = ({
         <div className="flex items-center space-x-2">
           <Button
             size="sm"
-            onClick={onRenewClick}
+            onClick={onRenewClick || (() => navigate('/assinatura'))}
             className="bg-yellow-600 hover:bg-yellow-700 text-white"
           >
             Renovar Agora

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Clock, Mail, MessageCircle } from 'lucide-react';
+import { AlertCircle, Clock, Mail, MessageCircle, CreditCard } from 'lucide-react';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { AccessExpiredConfigService, defaultConfig, type AccessExpiredConfig } from '@/services/AccessExpiredConfigService';
 
@@ -11,6 +12,7 @@ interface AccessExpiredMessageProps {
 
 const AccessExpiredMessage: React.FC<AccessExpiredMessageProps> = ({ expiryDate }) => {
   const { logout } = useSimpleAuth();
+  const navigate = useNavigate();
   const [config, setConfig] = useState<AccessExpiredConfig>(defaultConfig);
 
   useEffect(() => {
@@ -67,6 +69,14 @@ const AccessExpiredMessage: React.FC<AccessExpiredMessageProps> = ({ expiryDate 
             </div>
           </div>
 
+          <Button
+            className="w-full mb-2"
+            onClick={() => navigate('/assinatura')}
+          >
+            <CreditCard className="h-4 w-4 mr-2" />
+            Assinar Agora - R$30/mês
+          </Button>
+
           <div className="flex space-x-2">
             <Button 
               variant="outline" 
@@ -76,7 +86,7 @@ const AccessExpiredMessage: React.FC<AccessExpiredMessageProps> = ({ expiryDate 
               Verificar Novamente
             </Button>
             <Button 
-              variant="default" 
+              variant="ghost" 
               className="flex-1"
               onClick={logout}
             >
