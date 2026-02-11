@@ -22,11 +22,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        const ASAAS_API_KEY = process.env.ASAAS_API_KEY;
-        if (!ASAAS_API_KEY) {
-            console.error('❌ [ASAAS] ASAAS_API_KEY não configurada no Vercel');
-            return res.status(500).json({ error: 'ASAAS_API_KEY não configurada' });
-        }
+    const ASAAS_API_KEY = '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjE1ZGE0NDBlLWJjNjMtNDNiZi05NzBiLWRiMDZjZDg1NDJiYzo6JGFhY2hfOGU1OGRhZTYtMDEyMS00MmI3LWFiZDgtMmM3NDM2NDU5YWRk';
 
         const { action, data } = req.body;
 
