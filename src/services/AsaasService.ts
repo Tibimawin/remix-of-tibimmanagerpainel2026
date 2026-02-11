@@ -1,4 +1,5 @@
-import { supabase } from '@/integrations/supabase/client';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export interface AsaasCustomer {
   id: string;
@@ -27,19 +28,31 @@ export interface AsaasPixQrCode {
 }
 
 async function callAsaasProxy(action: string, data?: any) {
-  const { data: response, error } = await supabase.functions.invoke('asaas-proxy', {
-    body: { action, data },
+  const url = `${SUPABASE_URL}/functions/v1/asaas-proxy`;
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+    body: JSON.stringify({ action, data }),
   });
 
-  if (error) {
-    throw new Error(error.message || 'Erro ao chamar API Asaas');
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Asaas proxy error:', response.status, errorText);
+    throw new Error(`Erro ${response.status}: ${errorText}`);
   }
 
-  if (response?.errors) {
-    throw new Error(response.errors?.[0]?.description || 'Erro na API Asaas');
+  const result = await response.json();
+
+  if (result?.errors) {
+    throw new Error(result.errors?.[0]?.description || 'Erro na API Asaas');
   }
 
-  return response;
+  return result;
 }
 
 export const AsaasService = {
