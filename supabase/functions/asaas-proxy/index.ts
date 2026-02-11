@@ -1,26 +1,12 @@
-// Asaas Payment Proxy - v2
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 };
 
 const ASAAS_BASE_URL = 'https://api.asaas.com/v3';
 
-const ALLOWED_ACTIONS = [
-  'createCustomer',
-  'createPayment',
-  'getPayment',
-  'getPixQrCode',
-  'listPayments',
-  'getBalance',
-  'listSubscriptions',
-  'createSubscription',
-];
-
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -36,14 +22,20 @@ serve(async (req) => {
 
     const { action, data } = await req.json();
 
-    if (!ALLOWED_ACTIONS.includes(action)) {
+    const allowedActions = [
+      'createCustomer', 'createPayment', 'getPayment',
+      'getPixQrCode', 'listPayments', 'getBalance',
+      'listSubscriptions', 'createSubscription',
+    ];
+
+    if (!allowedActions.includes(action)) {
       return new Response(
         JSON.stringify({ error: `Ação não permitida: ${action}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const asaasHeaders = {
+    const asaasHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       'access_token': ASAAS_API_KEY,
     };
@@ -58,22 +50,18 @@ serve(async (req) => {
         method = 'POST';
         body = JSON.stringify(data);
         break;
-
       case 'createPayment':
         endpoint = '/payments';
         method = 'POST';
         body = JSON.stringify(data);
         break;
-
       case 'getPayment':
         endpoint = `/payments/${data.paymentId}`;
         break;
-
       case 'getPixQrCode':
         endpoint = `/payments/${data.paymentId}/pixQrCode`;
         break;
-
-      case 'listPayments':
+      case 'listPayments': {
         const params = new URLSearchParams();
         if (data?.customer) params.set('customer', data.customer);
         if (data?.status) params.set('status', data.status);
@@ -82,18 +70,17 @@ serve(async (req) => {
         if (data?.offset) params.set('offset', data.offset.toString());
         endpoint = `/payments?${params.toString()}`;
         break;
-
+      }
       case 'getBalance':
         endpoint = '/finance/balance';
         break;
-
-      case 'listSubscriptions':
+      case 'listSubscriptions': {
         const subParams = new URLSearchParams();
         if (data?.customer) subParams.set('customer', data.customer);
         if (data?.limit) subParams.set('limit', data.limit.toString());
         endpoint = `/subscriptions?${subParams.toString()}`;
         break;
-
+      }
       case 'createSubscription':
         endpoint = '/subscriptions';
         method = 'POST';
@@ -101,12 +88,15 @@ serve(async (req) => {
         break;
     }
 
-    const asaasResponse = await fetch(`${ASAAS_BASE_URL}${endpoint}`, {
+    const fetchOptions: RequestInit = {
       method,
       headers: asaasHeaders,
-      body: method !== 'GET' ? body : undefined,
-    });
+    };
+    if (method !== 'GET' && body) {
+      fetchOptions.body = body;
+    }
 
+    const asaasResponse = await fetch(`${ASAAS_BASE_URL}${endpoint}`, fetchOptions);
     const responseData = await asaasResponse.json();
 
     return new Response(
