@@ -1,119 +1,87 @@
-const corsHeaders: Record<string, string> = {
+// asaas-proxy v4
+const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
-  'Access-Control-Max-Age': '86400',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const ASAAS_BASE_URL = 'https://api.asaas.com/v3';
-
-Deno.serve(async (req: Request) => {
-  // Handle CORS preflight - must return 200 with headers
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
-    const ASAAS_API_KEY = Deno.env.get('ASAAS_API_KEY');
-    if (!ASAAS_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: 'ASAAS_API_KEY não configurada' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const apiKey = Deno.env.get('ASAAS_API_KEY');
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: 'ASAAS_API_KEY not set' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const { action, data } = await req.json();
+    const body = await req.json();
+    const action = body.action;
+    const data = body.data;
 
-    const allowedActions = [
-      'createCustomer', 'createPayment', 'getPayment',
-      'getPixQrCode', 'listPayments', 'getBalance',
-      'listSubscriptions', 'createSubscription',
-    ];
-
-    if (!allowedActions.includes(action)) {
-      return new Response(
-        JSON.stringify({ error: `Ação não permitida: ${action}` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const asaasHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'access_token': ASAAS_API_KEY,
-    };
-
+    const baseUrl = 'https://api.asaas.com/v3';
     let endpoint = '';
     let method = 'GET';
-    let body: string | undefined;
+    let reqBody: string | null = null;
 
-    switch (action) {
-      case 'createCustomer':
-        endpoint = '/customers';
-        method = 'POST';
-        body = JSON.stringify(data);
-        break;
-      case 'createPayment':
-        endpoint = '/payments';
-        method = 'POST';
-        body = JSON.stringify(data);
-        break;
-      case 'getPayment':
-        endpoint = `/payments/${data.paymentId}`;
-        break;
-      case 'getPixQrCode':
-        endpoint = `/payments/${data.paymentId}/pixQrCode`;
-        break;
-      case 'listPayments': {
-        const params = new URLSearchParams();
-        if (data?.customer) params.set('customer', data.customer);
-        if (data?.status) params.set('status', data.status);
-        if (data?.externalReference) params.set('externalReference', data.externalReference);
-        if (data?.limit) params.set('limit', data.limit.toString());
-        if (data?.offset) params.set('offset', data.offset.toString());
-        endpoint = `/payments?${params.toString()}`;
-        break;
-      }
-      case 'getBalance':
-        endpoint = '/finance/balance';
-        break;
-      case 'listSubscriptions': {
-        const subParams = new URLSearchParams();
-        if (data?.customer) subParams.set('customer', data.customer);
-        if (data?.limit) subParams.set('limit', data.limit.toString());
-        endpoint = `/subscriptions?${subParams.toString()}`;
-        break;
-      }
-      case 'createSubscription':
-        endpoint = '/subscriptions';
-        method = 'POST';
-        body = JSON.stringify(data);
-        break;
-    }
-
-    const fetchOptions: RequestInit = {
-      method,
-      headers: asaasHeaders,
-    };
-    if (method !== 'GET' && body) {
-      fetchOptions.body = body;
-    }
-
-    const asaasResponse = await fetch(`${ASAAS_BASE_URL}${endpoint}`, fetchOptions);
-    const responseData = await asaasResponse.json();
-
-    return new Response(
-      JSON.stringify(responseData),
-      {
-        status: asaasResponse.status,
+    if (action === 'createCustomer') {
+      endpoint = '/customers';
+      method = 'POST';
+      reqBody = JSON.stringify(data);
+    } else if (action === 'createPayment') {
+      endpoint = '/payments';
+      method = 'POST';
+      reqBody = JSON.stringify(data);
+    } else if (action === 'getPayment') {
+      endpoint = '/payments/' + data.paymentId;
+    } else if (action === 'getPixQrCode') {
+      endpoint = '/payments/' + data.paymentId + '/pixQrCode';
+    } else if (action === 'listPayments') {
+      const p = new URLSearchParams();
+      if (data && data.customer) p.set('customer', data.customer);
+      if (data && data.status) p.set('status', data.status);
+      if (data && data.externalReference) p.set('externalReference', data.externalReference);
+      endpoint = '/payments?' + p.toString();
+    } else if (action === 'getBalance') {
+      endpoint = '/finance/balance';
+    } else if (action === 'createSubscription') {
+      endpoint = '/subscriptions';
+      method = 'POST';
+      reqBody = JSON.stringify(data);
+    } else if (action === 'listSubscriptions') {
+      const sp = new URLSearchParams();
+      if (data && data.customer) sp.set('customer', data.customer);
+      endpoint = '/subscriptions?' + sp.toString();
+    } else {
+      return new Response(JSON.stringify({ error: 'Invalid action: ' + action }), {
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Erro interno';
-    console.error('Erro no asaas-proxy:', message);
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+      });
+    }
+
+    const opts: RequestInit = {
+      method,
+      headers: { 'Content-Type': 'application/json', 'access_token': apiKey },
+    };
+    if (reqBody && method !== 'GET') {
+      opts.body = reqBody;
+    }
+
+    const res = await fetch(baseUrl + endpoint, opts);
+    const resData = await res.json();
+
+    return new Response(JSON.stringify(resData), {
+      status: res.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: String(e) }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });
