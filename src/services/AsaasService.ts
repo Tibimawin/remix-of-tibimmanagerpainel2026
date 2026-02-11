@@ -1,5 +1,3 @@
-import { supabase } from '@/integrations/supabase/client';
-
 export interface AsaasCustomer {
   id: string;
   name: string;
@@ -27,22 +25,31 @@ export interface AsaasPixQrCode {
 }
 
 async function callAsaasProxy(action: string, data?: any) {
-  console.log('[AsaasProxy] Calling via SDK invoke, action:', action);
+  const url = '/api/asaas-proxy';
   
-  const { data: responseData, error } = await supabase.functions.invoke('asaas-proxy', {
-    body: { action, data },
+  console.log('[AsaasProxy] Calling via Vercel proxy:', url, 'action:', action);
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ action, data }),
   });
 
-  if (error) {
-    console.error('[AsaasProxy] SDK error:', error);
-    throw new Error(error.message || 'Erro ao chamar asaas-proxy');
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[AsaasProxy] Error:', response.status, errorText);
+    throw new Error(`Erro ${response.status}: ${errorText}`);
   }
 
-  if (responseData?.errors) {
-    throw new Error(responseData.errors?.[0]?.description || 'Erro na API Asaas');
+  const result = await response.json();
+
+  if (result?.errors) {
+    throw new Error(result.errors?.[0]?.description || 'Erro na API Asaas');
   }
 
-  return responseData;
+  return result;
 }
 
 export const AsaasService = {
