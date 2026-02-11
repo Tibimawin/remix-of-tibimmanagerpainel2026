@@ -99,10 +99,10 @@ const App = () => {
                         <CleanupProvider>
                           <CustomizationProvider>
                           <ZoomProvider>
-                          <AppWithMonitor />
-                          <UpdateNotificationModal />
-                          <Sonner />
                           <BrowserRouter>
+                            <AppWithMonitor />
+                            <UpdateNotificationModal />
+                            <Sonner />
                             <Routes>
                               {/* Rota inicial - página de apresentação */}
                               <Route path="/" element={<Apresentacao />} />
