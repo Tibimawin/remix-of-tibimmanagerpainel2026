@@ -30,6 +30,8 @@ export interface AsaasPixQrCode {
 async function callAsaasProxy(action: string, data?: any) {
   const url = `${SUPABASE_URL}/functions/v1/asaas-proxy`;
   
+  console.log('[AsaasProxy] Calling:', url, 'SUPABASE_URL:', SUPABASE_URL, 'KEY exists:', !!SUPABASE_ANON_KEY);
+  
   const response = await fetch(url, {
     method: 'POST',
     headers: {
