@@ -24,12 +24,9 @@ export interface AsaasPixQrCode {
   expirationDate: string;
 }
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
 async function callAsaasProxy(action: string, data?: any) {
-  // Use the Vercel production proxy to avoid CORS in preview
-  const url = 'https://tibimmanagerpain2025.vercel.app/api/asaas-proxy';
+  // Same-origin call - Vite proxy handles routing to Supabase Edge Function
+  const url = '/api/asaas-proxy';
   
   console.log('[AsaasProxy] Calling:', url, 'action:', action);
   
