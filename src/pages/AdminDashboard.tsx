@@ -36,6 +36,7 @@ import AdminOverviewMetrics from '@/components/AdminOverviewMetrics';
 import { SecurityCenter } from '@/components/SecurityCenter';
 import { AdminSeasonalTheme } from '@/components/AdminSeasonalTheme';
 import { AdminRegistrationControl } from '@/components/AdminRegistrationControl';
+import AdminFinancialDashboard from '@/components/AdminFinancialDashboard';
 import { AdminSidebar, AdminView } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { useMaintenanceMode } from '@/hooks/useMaintenanceMode';
@@ -403,6 +404,8 @@ const AdminDashboard = () => {
         return <AdminSystemUpdates />;
       case 'seasonal-theme':
         return <AdminSeasonalTheme />;
+      case 'financial':
+        return <AdminFinancialDashboard />;
       default:
         return <div className="text-foreground">Selecione uma opção do menu</div>;
     }

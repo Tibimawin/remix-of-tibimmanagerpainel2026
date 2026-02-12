@@ -12,6 +12,8 @@ import { toast } from 'sonner';
 import { AsaasPaymentService } from '@/services/AsaasPaymentService';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { FirebaseUserService } from '@/services/FirebaseUserService';
+import { db } from '@/config/firebase';
+import { addDoc, collection } from 'firebase/firestore';
 
 interface AsaasPixPaymentDialogProps {
   isOpen: boolean;
@@ -109,6 +111,28 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                 await FirebaseUserService.extendUserAccess(userInfo.id, accessDays);
                 console.log(`✅ Acesso estendido por ${accessDays} dias para:`, userInfo.id);
                 toast.success(`Pagamento confirmado! Acesso estendido por ${accessDays} dias.`);
+                
+                // Registrar no controle financeiro
+                try {
+                  await addDoc(collection(db, 'financialRecords'), {
+                    userId: userInfo.id,
+                    userEmail: email,
+                    userName: name,
+                    planName,
+                    planPrice,
+                    accessDays,
+                    paymentMethod: 'PIX',
+                    paymentId: firstPayment.id,
+                    status: 'confirmed',
+                    startDate: startDate.toISOString(),
+                    endDate: endDate.toISOString(),
+                    confirmedAt: new Date().toISOString(),
+                    source: 'panel'
+                  });
+                  console.log('💰 Registro financeiro salvo');
+                } catch (finErr) {
+                  console.error('Erro ao salvar registro financeiro:', finErr);
+                }
               } catch (extendError) {
                 console.error('Erro ao estender acesso:', extendError);
                 toast.success('Pagamento confirmado! Entre em contato com o suporte para ativar seu acesso.');
