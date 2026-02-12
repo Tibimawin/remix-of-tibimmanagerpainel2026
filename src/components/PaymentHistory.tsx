@@ -2,12 +2,16 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Loader2, Receipt, Download, RefreshCw, CalendarIcon, X } from 'lucide-react';
+import { Loader2, Receipt, Download, RefreshCw, CalendarIcon, X, Crown, Sparkles, CreditCard } from 'lucide-react';
 import { AsaasPaymentService } from '@/services/AsaasPaymentService';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
+import { usePlans } from '@/hooks/usePlans';
+import { Plan } from '@/types/planTypes';
+import AsaasPixPaymentDialog from '@/components/AsaasPixPaymentDialog';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -56,6 +60,20 @@ const PaymentHistory: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [showRenewModal, setShowRenewModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+  const [showPixDialog, setShowPixDialog] = useState(false);
+  const { activePlans, loading: plansLoading } = usePlans();
+
+  const parsePrice = (priceStr: string): number => {
+    return parseFloat(priceStr.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+  };
+
+  const handleSelectPlan = (plan: Plan) => {
+    setSelectedPlan(plan);
+    setShowRenewModal(false);
+    setShowPixDialog(true);
+  };
 
   const fetchPayments = async () => {
     if (!userInfo?.email) return;
@@ -180,6 +198,7 @@ const PaymentHistory: React.FC = () => {
   }
 
   return (
+    <>
     <Card>
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
@@ -189,9 +208,15 @@ const PaymentHistory: React.FC = () => {
             </div>
             Histórico de Pagamentos
           </CardTitle>
-          <Button variant="ghost" size="icon" onClick={fetchPayments}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="default" size="sm" className="gap-1.5" onClick={() => setShowRenewModal(true)}>
+              <CreditCard className="h-4 w-4" />
+              Renovar Agora
+            </Button>
+            <Button variant="ghost" size="icon" onClick={fetchPayments}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -303,6 +328,74 @@ const PaymentHistory: React.FC = () => {
         )}
       </CardContent>
     </Card>
+
+    {/* Modal de Renovação */}
+    <Dialog open={showRenewModal} onOpenChange={setShowRenewModal}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Crown className="h-5 w-5 text-primary" />
+            Escolha seu plano
+          </DialogTitle>
+        </DialogHeader>
+        {plansLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <span className="ml-2 text-muted-foreground">Carregando planos...</span>
+          </div>
+        ) : activePlans.length === 0 ? (
+          <p className="text-center text-muted-foreground py-6">Nenhum plano disponível no momento.</p>
+        ) : (
+          <div className="space-y-3">
+            {activePlans.map((plan) => {
+              const price = parsePrice(plan.price);
+              const isAnnual = price >= 300;
+              return (
+                <Card
+                  key={plan.id}
+                  className={`cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md border-2 ${isAnnual ? 'border-primary' : 'border-border'}`}
+                  onClick={() => handleSelectPlan(plan)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Crown className={`h-5 w-5 ${isAnnual ? 'text-primary' : 'text-muted-foreground'}`} />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-foreground">{plan.name}</span>
+                            {isAnnual && (
+                              <Badge variant="default" className="text-xs gap-1">
+                                <Sparkles className="h-3 w-3" /> Melhor oferta
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{plan.description}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-lg font-bold text-foreground">{plan.price}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+
+    {/* Dialog PIX */}
+    {selectedPlan && (
+      <AsaasPixPaymentDialog
+        isOpen={showPixDialog}
+        onOpenChange={setShowPixDialog}
+        planName={selectedPlan.name}
+        planPrice={parsePrice(selectedPlan.price)}
+        planDescription={selectedPlan.description || ''}
+      />
+    )}
+    </>
   );
 };
 
