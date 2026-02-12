@@ -10,7 +10,7 @@ import { usePlanRequests } from '@/hooks/usePlanRequests';
 import { useActivePlan } from '@/hooks/useActivePlan';
 import { usePlans } from '@/hooks/usePlans';
 import { Plan } from '@/types/planTypes';
-import WhatsAppQRDialog from '@/components/WhatsAppQRDialog';
+import AsaasPixPaymentDialog from '@/components/AsaasPixPaymentDialog';
 
 const PrecosInterno = () => {
   const { createPlanRequest } = usePlanRequests();
@@ -19,12 +19,13 @@ const PrecosInterno = () => {
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [userMessage, setUserMessage] = useState('');
   const [requesting, setRequesting] = useState(false);
-  const [showWhatsAppQR, setShowWhatsAppQR] = useState(false);
-  const [selectedPlanForWhatsApp, setSelectedPlanForWhatsApp] = useState<string | undefined>(undefined);
+  const [showPayment, setShowPayment] = useState(false);
+  const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<{ name: string; price: number; description: string } | null>(null);
 
   const handleChoosePlan = (plan: Plan) => {
-    setSelectedPlanForWhatsApp(plan.name);
-    setShowWhatsAppQR(true);
+    const numericPrice = parseFloat(plan.price.replace(/[^\d,]/g, '').replace(',', '.')) || 30;
+    setSelectedPlanForPayment({ name: plan.name, price: numericPrice, description: plan.description });
+    setShowPayment(true);
   };
 
   const handlePlanRequest = async () => {
@@ -193,7 +194,7 @@ const PrecosInterno = () => {
                     onClick={() => handleChoosePlan(plan)}
                     className="w-full modern-button"
                   >
-                    Falar no WhatsApp
+                    Assinar com PIX
                   </Button>
                 </CardContent>
               </Card>
@@ -214,12 +215,16 @@ const PrecosInterno = () => {
           </p>
         </div>
 
-        {/* WhatsApp QR Dialog */}
-        <WhatsAppQRDialog 
-          isOpen={showWhatsAppQR}
-          onOpenChange={setShowWhatsAppQR}
-          planName={selectedPlanForWhatsApp}
-        />
+        {/* Asaas PIX Payment Dialog */}
+        {selectedPlanForPayment && (
+          <AsaasPixPaymentDialog
+            isOpen={showPayment}
+            onOpenChange={setShowPayment}
+            planName={selectedPlanForPayment.name}
+            planPrice={selectedPlanForPayment.price}
+            planDescription={selectedPlanForPayment.description}
+          />
+        )}
       </div>
     </div>
   );
