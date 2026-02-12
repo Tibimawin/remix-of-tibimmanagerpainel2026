@@ -256,9 +256,10 @@ const Perfil = () => {
                 <User className="h-4 w-4" />
                 <span className="hidden sm:inline">Conta</span>
               </TabsTrigger>
-              <TabsTrigger value="payments" className="flex items-center gap-2">
+              <TabsTrigger value="payments" className="flex items-center gap-2 relative">
                 <Receipt className="h-4 w-4" />
                 <span className="hidden sm:inline">Pagamentos</span>
+                <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">Novo</span>
               </TabsTrigger>
               <TabsTrigger value="devices" className="flex items-center gap-2">
                 <Smartphone className="h-4 w-4" />
