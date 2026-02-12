@@ -7,10 +7,18 @@ import { PermissionGate } from '@/components/PermissionGate';
 import { useConfig } from '@/contexts/ConfigContext';
 import ExpirationWarningBanner from '@/components/ExpirationWarningBanner';
 import UserAnnouncementsBanner from '@/components/UserAnnouncementsBanner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { CreditCard, X, Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const { loading } = useUserPermissions();
   const { config, isConfigured } = useConfig();
+  const navigate = useNavigate();
+  const [showPaymentBanner, setShowPaymentBanner] = React.useState(() => {
+    return localStorage.getItem('dismiss-payment-banner') !== 'true';
+  });
 
   if (loading) {
     return (
@@ -41,6 +49,47 @@ const Dashboard = () => {
 
         {/* Anúncios do Sistema */}
         <UserAnnouncementsBanner />
+
+        {/* Banner Nova Funcionalidade - Pagamento pelo Painel */}
+        {showPaymentBanner && (
+          <Alert className="border-primary/30 bg-primary/5 relative">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                </div>
+                <AlertDescription className="text-foreground">
+                  <p className="font-semibold text-sm">🎉 Novidade! Pagamento de assinatura pelo painel</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Agora você pode renovar ou assinar seu plano diretamente pela aba de Pagamentos no seu perfil, via PIX.
+                  </p>
+                </AlertDescription>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="gap-1.5"
+                  onClick={() => navigate('/perfil')}
+                >
+                  <CreditCard className="h-3.5 w-3.5" />
+                  Ver Pagamentos
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => {
+                    setShowPaymentBanner(false);
+                    localStorage.setItem('dismiss-payment-banner', 'true');
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </Alert>
+        )}
 
         {/* Header da Página */}
         <div className="flex flex-col space-y-2">
