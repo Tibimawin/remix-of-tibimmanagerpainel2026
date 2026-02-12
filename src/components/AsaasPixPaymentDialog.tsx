@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Loader2, Copy, CheckCircle2, QrCode, User, Mail, CreditCard, AlertCircle } from 'lucide-react';
+import { Loader2, Copy, CheckCircle2, QrCode, User, Mail, CreditCard, AlertCircle, Download } from 'lucide-react';
+import jsPDF from 'jspdf';
 import { toast } from 'sonner';
 import { AsaasPaymentService } from '@/services/AsaasPaymentService';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
@@ -258,7 +259,58 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                 </div>
               </Card>
             )}
-            <Button onClick={handleClose} className="w-full">Fechar</Button>
+            <div className="flex gap-2 w-full">
+              <Button variant="outline" className="flex-1" onClick={() => {
+                const pdf = new jsPDF();
+                const now = new Date().toLocaleDateString('pt-BR');
+                
+                pdf.setFontSize(20);
+                pdf.text('Comprovante de Pagamento', 105, 30, { align: 'center' });
+                
+                pdf.setFontSize(12);
+                pdf.setTextColor(100);
+                pdf.text(`Emitido em: ${now}`, 105, 40, { align: 'center' });
+                
+                pdf.setDrawColor(200);
+                pdf.line(20, 48, 190, 48);
+                
+                pdf.setTextColor(0);
+                pdf.setFontSize(13);
+                let y = 60;
+                const items = [
+                  ['Plano', planName],
+                  ['Valor', `R$ ${planPrice.toFixed(2)}`],
+                  ['Cliente', name || userInfo?.email || '-'],
+                  ['Email', email],
+                  ['CPF', cpf],
+                  ['Início', confirmedDates?.start || '-'],
+                  ['Válido até', confirmedDates?.end || '-'],
+                  ['Status', 'PAGO ✓'],
+                ];
+                
+                items.forEach(([label, value]) => {
+                  pdf.setFont('helvetica', 'bold');
+                  pdf.text(`${label}:`, 25, y);
+                  pdf.setFont('helvetica', 'normal');
+                  pdf.text(value, 80, y);
+                  y += 10;
+                });
+                
+                pdf.setDrawColor(200);
+                pdf.line(20, y + 5, 190, y + 5);
+                
+                pdf.setFontSize(10);
+                pdf.setTextColor(130);
+                pdf.text('Documento gerado automaticamente.', 105, y + 15, { align: 'center' });
+                
+                pdf.save(`comprovante-${planName.toLowerCase().replace(/\s/g, '-')}-${now.replace(/\//g, '-')}.pdf`);
+                toast.success('Comprovante baixado!');
+              }}>
+                <Download className="h-4 w-4 mr-1" />
+                Comprovante
+              </Button>
+              <Button onClick={handleClose} className="flex-1">Fechar</Button>
+            </div>
           </div>
         )}
 
