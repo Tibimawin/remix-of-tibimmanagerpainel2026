@@ -98,9 +98,9 @@ const PrecosInterno = () => {
           </div>
         </div>
 
-        {/* Card do Plano */}
-        <div className="flex justify-center">
-          {activePlans.filter(p => p.price.includes('30')).map((plan, index) => {
+        {/* Cards de Planos */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          {activePlans.filter(p => p.price.includes('30') || p.price.includes('300')).map((plan, index) => {
             const IconComponent = getPlanIcon(plan.name);
             const color = getPlanColor(index);
             const isPopular = index === 1 && activePlans.length >= 3;
