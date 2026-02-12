@@ -103,11 +103,25 @@ export const ExpirationNotificationService = {
       try {
         const { pushNotificationService } = await import('./PushNotificationService');
         if (pushNotificationService.getPermissionStatus() === 'granted') {
+          const pushBody = `Seu plano expira em ${notification.daysRemaining} ${notification.daysRemaining === 1 ? 'dia' : 'dias'}. Renove agora!`;
           await pushNotificationService.notifyAction(
             'Renovação Necessária',
-            `Seu plano expira em ${notification.daysRemaining} ${notification.daysRemaining === 1 ? 'dia' : 'dias'}. Renove agora!`,
+            pushBody,
             notification.userId
           );
+          
+          // Salvar log do push
+          await addDoc(collection(db, 'pushNotificationLogs'), {
+            userId: notification.userId,
+            userEmail: notification.userEmail,
+            type: 'expiration_warning',
+            title: 'Renovação Necessária',
+            body: pushBody,
+            daysRemaining: notification.daysRemaining,
+            sentAt: new Date().toISOString(),
+            status: 'sent',
+            source: 'admin_check'
+          });
         }
       } catch (error) {
         logger.debug('Push notification service not available');

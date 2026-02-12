@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { pushNotificationService } from '@/services/PushNotificationService';
 import { db } from '@/config/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
 
 const LAST_PUSH_KEY = 'expiration_push_last_sent';
 
@@ -68,6 +68,20 @@ export const useExpirationMonitor = () => {
           tag: 'expiration-warning',
           data: { action: 'renew', route: '/perfil' }
         });
+
+        // Salvar log do push enviado
+        try {
+          await addDoc(collection(db, 'pushNotificationLogs'), {
+            userId: userInfo.id,
+            userEmail: userInfo.email,
+            type: 'expiration_warning',
+            title: `${urgency} Assinatura expirando`,
+            body: bodyText,
+            daysRemaining,
+            sentAt: now.toISOString(),
+            status: 'sent'
+          });
+        } catch { /* silenciar erro de log */ }
 
         localStorage.setItem(LAST_PUSH_KEY, now.toISOString());
       }

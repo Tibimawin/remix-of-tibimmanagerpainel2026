@@ -18,12 +18,13 @@ import {
   XCircle,
   Mail,
   Bell,
-  Save
+  Save,
+  Send
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ExpirationNotificationService, type ExpirationNotification } from '@/services/ExpirationNotificationService';
 import { db } from '@/config/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, orderBy, getDocs, limit } from 'firebase/firestore';
 
 export interface ExpirationPushConfig {
   enabled: boolean;
@@ -42,6 +43,8 @@ const AdminExpirationNotifications: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [pushConfig, setPushConfig] = useState<ExpirationPushConfig>(DEFAULT_PUSH_CONFIG);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [pushLogs, setPushLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   const loadNotifications = async () => {
     try {
@@ -59,6 +62,7 @@ const AdminExpirationNotifications: React.FC = () => {
   useEffect(() => {
     loadNotifications();
     loadPushConfig();
+    loadPushLogs();
   }, []);
 
   const loadPushConfig = async () => {
@@ -83,6 +87,22 @@ const AdminExpirationNotifications: React.FC = () => {
       toast.error('Erro ao salvar configuração');
     } finally {
       setSavingConfig(false);
+    }
+  };
+  const loadPushLogs = async () => {
+    try {
+      setLogsLoading(true);
+      const q = query(
+        collection(db, 'pushNotificationLogs'),
+        orderBy('sentAt', 'desc'),
+        limit(50)
+      );
+      const snapshot = await getDocs(q);
+      setPushLogs(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (error) {
+      console.error('Erro ao carregar logs push:', error);
+    } finally {
+      setLogsLoading(false);
     }
   };
 
@@ -384,6 +404,69 @@ const AdminExpirationNotifications: React.FC = () => {
                 </div>
               </div>
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Log de Push Notifications Enviadas */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Send className="h-5 w-5 text-primary" />
+                Log de Push Notifications
+              </CardTitle>
+              <CardDescription>
+                Histórico de notificações push enviadas aos usuários
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={loadPushLogs} disabled={logsLoading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${logsLoading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {logsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 animate-spin text-primary" />
+              <span className="ml-2 text-muted-foreground">Carregando logs...</span>
+            </div>
+          ) : pushLogs.length === 0 ? (
+            <div className="text-center py-8">
+              <Send className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-muted-foreground">Nenhuma notificação push enviada ainda</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {pushLogs.map((log) => (
+                <div key={log.id} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="p-1.5 bg-primary/10 rounded-md">
+                      <Bell className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-sm text-foreground truncate">{log.userEmail}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {log.daysRemaining === 0 ? 'Hoje' : log.daysRemaining === 1 ? '1 dia' : `${log.daysRemaining} dias`}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{log.body}</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 ml-3">
+                    <Badge variant="outline" className="text-xs">
+                      {log.source === 'admin_check' ? 'Admin' : 'Auto'}
+                    </Badge>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {new Date(log.sentAt).toLocaleDateString('pt-BR')} {new Date(log.sentAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>
