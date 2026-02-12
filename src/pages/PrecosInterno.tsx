@@ -98,9 +98,9 @@ const PrecosInterno = () => {
           </div>
         </div>
 
-        {/* Cards de Planos */}
-        <div className={`grid grid-cols-1 ${activePlans.length <= 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-8`}>
-          {activePlans.map((plan, index) => {
+        {/* Card do Plano */}
+        <div className="flex justify-center">
+          {activePlans.slice(0, 1).map((plan, index) => {
             const IconComponent = getPlanIcon(plan.name);
             const color = getPlanColor(index);
             const isPopular = index === 1 && activePlans.length >= 3;
