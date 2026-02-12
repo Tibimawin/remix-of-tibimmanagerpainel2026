@@ -32,6 +32,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
   const [email, setEmail] = useState(userInfo?.email || '');
   const [pixData, setPixData] = useState<{ encodedImage: string; payload: string; expirationDate: string } | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [confirmedDates, setConfirmedDates] = useState<{ start: string; end: string } | null>(null);
   const [error, setError] = useState('');
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -95,6 +96,13 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
             
             // Estender acesso: 365 dias para plano anual, 30 para mensal
             const accessDays = planPrice >= 300 ? 365 : 30;
+            const startDate = new Date();
+            const endDate = new Date();
+            endDate.setDate(endDate.getDate() + accessDays);
+            setConfirmedDates({
+              start: startDate.toLocaleDateString('pt-BR'),
+              end: endDate.toLocaleDateString('pt-BR')
+            });
             if (userInfo?.id) {
               try {
                 await FirebaseUserService.extendUserAccess(userInfo.id, accessDays);
@@ -238,6 +246,18 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
             <p className="text-muted-foreground text-center text-sm">
               Sua assinatura do plano {planName} foi ativada com sucesso.
             </p>
+            {confirmedDates && (
+              <Card className="p-4 w-full bg-muted/50 space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Início:</span>
+                  <span className="font-semibold text-foreground">{confirmedDates.start}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Válido até:</span>
+                  <span className="font-semibold text-foreground">{confirmedDates.end}</span>
+                </div>
+              </Card>
+            )}
             <Button onClick={handleClose} className="w-full">Fechar</Button>
           </div>
         )}
