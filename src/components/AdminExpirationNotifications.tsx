@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { 
   AlertTriangle, 
   Calendar, 
@@ -14,16 +16,32 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  Mail
+  Mail,
+  Bell,
+  Save
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ExpirationNotificationService, type ExpirationNotification } from '@/services/ExpirationNotificationService';
+import { db } from '@/config/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+
+export interface ExpirationPushConfig {
+  enabled: boolean;
+  daysBeforeExpiry: number;
+}
+
+const DEFAULT_PUSH_CONFIG: ExpirationPushConfig = {
+  enabled: true,
+  daysBeforeExpiry: 5,
+};
 
 const AdminExpirationNotifications: React.FC = () => {
   const [notifications, setNotifications] = useState<ExpirationNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [pushConfig, setPushConfig] = useState<ExpirationPushConfig>(DEFAULT_PUSH_CONFIG);
+  const [savingConfig, setSavingConfig] = useState(false);
 
   const loadNotifications = async () => {
     try {
@@ -40,7 +58,33 @@ const AdminExpirationNotifications: React.FC = () => {
 
   useEffect(() => {
     loadNotifications();
+    loadPushConfig();
   }, []);
+
+  const loadPushConfig = async () => {
+    try {
+      const docRef = doc(db, 'systemConfig', 'expirationPush');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setPushConfig({ ...DEFAULT_PUSH_CONFIG, ...docSnap.data() as ExpirationPushConfig });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar config push:', error);
+    }
+  };
+
+  const savePushConfig = async () => {
+    try {
+      setSavingConfig(true);
+      await setDoc(doc(db, 'systemConfig', 'expirationPush'), pushConfig);
+      toast.success('Configuração de notificação push salva!');
+    } catch (error) {
+      console.error('Erro ao salvar config push:', error);
+      toast.error('Erro ao salvar configuração');
+    } finally {
+      setSavingConfig(false);
+    }
+  };
 
   const runManualCheck = async () => {
     try {
@@ -93,6 +137,55 @@ const AdminExpirationNotifications: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Card de Configuração Push */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Bell className="h-5 w-5 text-primary" />
+            Configuração de Notificação Push
+          </CardTitle>
+          <CardDescription>
+            Defina quantos dias antes da expiração o usuário receberá uma notificação push
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-sm font-medium">Notificação Push Ativa</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">Ativar/desativar envio automático de push</p>
+            </div>
+            <Switch
+              checked={pushConfig.enabled}
+              onCheckedChange={(checked) => setPushConfig(prev => ({ ...prev, enabled: checked }))}
+            />
+          </div>
+          <Separator />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Dias antes da expiração</Label>
+              <Badge variant="secondary" className="text-sm font-mono">
+                {pushConfig.daysBeforeExpiry} {pushConfig.daysBeforeExpiry === 1 ? 'dia' : 'dias'}
+              </Badge>
+            </div>
+            <Slider
+              value={[pushConfig.daysBeforeExpiry]}
+              onValueChange={([value]) => setPushConfig(prev => ({ ...prev, daysBeforeExpiry: value }))}
+              min={1}
+              max={15}
+              step={1}
+              disabled={!pushConfig.enabled}
+            />
+            <p className="text-xs text-muted-foreground">
+              Usuários serão notificados quando faltarem {pushConfig.daysBeforeExpiry} dias ou menos para expirar
+            </p>
+          </div>
+          <Button onClick={savePushConfig} disabled={savingConfig} size="sm" className="gap-1.5">
+            {savingConfig ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Salvar Configuração
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">

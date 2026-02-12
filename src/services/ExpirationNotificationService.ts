@@ -1,5 +1,5 @@
 import { db } from '@/config/firebase';
-import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, onSnapshot, orderBy, getDoc } from 'firebase/firestore';
 import { FirebaseUserService } from './FirebaseUserService';
 import { logger } from '@/utils/logger';
 
@@ -22,10 +22,23 @@ export const ExpirationNotificationService = {
     try {
       logger.debug('Verificando usuários próximos do vencimento...');
       
+      // Ler config de dias do admin
+      let configDays = 5;
+      try {
+        const configDoc = await getDoc(doc(db, 'systemConfig', 'expirationPush'));
+        if (configDoc.exists()) {
+          const data = configDoc.data();
+          configDays = data.daysBeforeExpiry ?? 5;
+          if (data.enabled === false) {
+            logger.debug('Notificações push desabilitadas pelo admin');
+            return;
+          }
+        }
+      } catch { /* usar default */ }
+
       // Buscar todos os usuários ativos
       const users = await FirebaseUserService.getAllUsers();
       const now = new Date();
-      const fiveDaysFromNow = new Date(now.getTime() + (5 * 24 * 60 * 60 * 1000));
       
       for (const user of users) {
         if (!user.expiryDate || !user.isActive) continue;
@@ -34,7 +47,7 @@ export const ExpirationNotificationService = {
         const daysRemaining = Math.ceil((expiryDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
         
         // Se faltam 5 dias ou menos e ainda não foi criada notificação
-        if (daysRemaining <= 5 && daysRemaining >= 0) {
+        if (daysRemaining <= configDays && daysRemaining >= 0) {
           const existingNotification = await this.getExpirationNotificationByUser(user.uid);
           
           if (!existingNotification) {
