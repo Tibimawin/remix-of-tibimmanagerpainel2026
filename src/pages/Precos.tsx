@@ -7,17 +7,19 @@ import { Check, Star, Crown, Shield, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePlans } from '@/hooks/usePlans';
 import { useActivePlan } from '@/hooks/useActivePlan';
-import WhatsAppQRDialog from '@/components/WhatsAppQRDialog';
+import AsaasPixPaymentDialog from '@/components/AsaasPixPaymentDialog';
 
 const Precos = () => {
   const { activePlans, loading } = usePlans();
   const { hasActivePlan } = useActivePlan();
-  const [showWhatsAppQR, setShowWhatsAppQR] = useState(false);
-  const [selectedPlanForWhatsApp, setSelectedPlanForWhatsApp] = useState<string | undefined>(undefined);
+  const [showPayment, setShowPayment] = useState(false);
+  const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<{ name: string; price: number; description: string } | null>(null);
 
-  const handleRequestPlan = (planName: string) => {
-    setSelectedPlanForWhatsApp(planName);
-    setShowWhatsAppQR(true);
+  const handleRequestPlan = (planName: string, planPrice: string, planDescription: string) => {
+    // Extrair valor numérico do preço (ex: "R$ 30,00" -> 30)
+    const numericPrice = parseFloat(planPrice.replace(/[^\d,]/g, '').replace(',', '.')) || 30;
+    setSelectedPlanForPayment({ name: planName, price: numericPrice, description: planDescription });
+    setShowPayment(true);
   };
 
   return (
@@ -120,11 +122,11 @@ const Precos = () => {
                   </div>
 
                   <Button 
-                    onClick={() => handleRequestPlan(plan.name)}
+                    onClick={() => handleRequestPlan(plan.name, plan.price, plan.description)}
                     disabled={isCurrentPlan}
                     className={`w-full bg-${color}-600 hover:bg-${color}-700 text-white py-3 rounded-lg font-medium transition-colors ${isCurrentPlan ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                    {isCurrentPlan ? 'Plano Atual' : `[Solicitar ${plan.name}]`}
+                    {isCurrentPlan ? 'Plano Atual' : `Assinar ${plan.name}`}
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </CardContent>
@@ -175,12 +177,16 @@ const Precos = () => {
           </p>
         </div>
 
-        {/* WhatsApp QR Dialog */}
-        <WhatsAppQRDialog 
-          isOpen={showWhatsAppQR}
-          onOpenChange={setShowWhatsAppQR}
-          planName={selectedPlanForWhatsApp}
-        />
+        {/* Asaas PIX Payment Dialog */}
+        {selectedPlanForPayment && (
+          <AsaasPixPaymentDialog
+            isOpen={showPayment}
+            onOpenChange={setShowPayment}
+            planName={selectedPlanForPayment.name}
+            planPrice={selectedPlanForPayment.price}
+            planDescription={selectedPlanForPayment.description}
+          />
+        )}
       </div>
     </div>
   );
