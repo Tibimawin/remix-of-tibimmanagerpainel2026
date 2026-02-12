@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Clock, Crown, Sparkles } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle, Clock, Crown, Sparkles, CreditCard } from 'lucide-react';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { usePlans } from '@/hooks/usePlans';
 import { Plan } from '@/types/planTypes';
@@ -31,6 +32,20 @@ const AccessExpiredMessage: React.FC<AccessExpiredMessageProps> = ({ expiryDate 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="max-w-2xl w-full space-y-6">
+        {/* Banner informativo */}
+        <Alert className="border-primary/30 bg-primary/5">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <CreditCard className="h-5 w-5 text-primary" />
+            </div>
+            <AlertDescription className="text-foreground">
+              <p className="font-semibold text-sm">💳 Renove diretamente pelo painel!</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Escolha um plano abaixo e pague via PIX de forma rápida e segura.
+              </p>
+            </AlertDescription>
+          </div>
+        </Alert>
         {/* Header Card */}
         <Card>
           <CardHeader className="text-center pb-4">
