@@ -239,9 +239,10 @@ export const FirebaseUserService = {
       const user = await this.getUserById(uid);
       if (!user) throw new Error('Usuário não encontrado');
 
-      const currentExpiry = new Date(user.expiryDate);
-      const newExpiry = new Date(currentExpiry);
-      newExpiry.setDate(currentExpiry.getDate() + additionalDays);
+      // Sempre contar a partir de HOJE (data do pagamento)
+      const now = new Date();
+      const newExpiry = new Date(now);
+      newExpiry.setDate(now.getDate() + additionalDays);
 
       await this.updateUser(uid, {
         expiryDate: newExpiry.toISOString(),
