@@ -89,6 +89,22 @@ export const AsaasPaymentService = {
     return await proxyFetch(`/payments/${paymentId}`);
   },
 
+  async getCustomerPaymentsByEmail(email: string): Promise<AsaasPayment[]> {
+    try {
+      // Buscar cliente pelo email
+      const searchData = await proxyFetch(`/customers?email=${encodeURIComponent(email)}`);
+      if (!searchData.data || searchData.data.length === 0) return [];
+
+      const customerId = searchData.data[0].id;
+      // Buscar todos os pagamentos do cliente
+      const paymentsData = await proxyFetch(`/payments?customer=${customerId}&limit=50`);
+      return paymentsData.data || [];
+    } catch (error) {
+      console.error('Erro ao buscar histórico de pagamentos:', error);
+      return [];
+    }
+  },
+
   async getCustomerSubscriptions(customerId: string): Promise<AsaasSubscription[]> {
     const data = await proxyFetch(`/subscriptions?customer=${customerId}`);
     return data.data || [];

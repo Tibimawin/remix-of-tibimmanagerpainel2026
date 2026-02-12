@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
-import { LogOut, User, Calendar, Clock, Smartphone, Hash, Mail, Monitor, Shield } from 'lucide-react';
+import { LogOut, User, Calendar, Clock, Smartphone, Hash, Mail, Monitor, Shield, Receipt } from 'lucide-react';
 import UserSecuritySettings from '@/components/UserSecuritySettings';
 import UserDevices from '@/components/UserDevices';
+import PaymentHistory from '@/components/PaymentHistory';
 
 interface UserDetails {
   id: string;
@@ -250,10 +251,14 @@ const Perfil = () => {
 
           {/* Abas do Perfil */}
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="profile" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
                 <span className="hidden sm:inline">Conta</span>
+              </TabsTrigger>
+              <TabsTrigger value="payments" className="flex items-center gap-2">
+                <Receipt className="h-4 w-4" />
+                <span className="hidden sm:inline">Pagamentos</span>
               </TabsTrigger>
               <TabsTrigger value="devices" className="flex items-center gap-2">
                 <Smartphone className="h-4 w-4" />
@@ -300,6 +305,10 @@ const Perfil = () => {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="payments" className="mt-6">
+              <PaymentHistory />
             </TabsContent>
 
             <TabsContent value="devices" className="mt-6">
