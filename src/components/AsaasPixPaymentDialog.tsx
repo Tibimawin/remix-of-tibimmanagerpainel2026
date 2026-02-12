@@ -93,12 +93,13 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
           if (status.status === 'RECEIVED' || status.status === 'CONFIRMED') {
             if (pollRef.current) clearInterval(pollRef.current);
             
-            // Estender acesso do usuário por 30 dias no Firebase
+            // Estender acesso: 365 dias para plano anual, 30 para mensal
+            const accessDays = planPrice >= 300 ? 365 : 30;
             if (userInfo?.id) {
               try {
-                await FirebaseUserService.extendUserAccess(userInfo.id, 30);
-                console.log('✅ Acesso estendido por 30 dias para:', userInfo.id);
-                toast.success('Pagamento confirmado! Acesso estendido por 30 dias.');
+                await FirebaseUserService.extendUserAccess(userInfo.id, accessDays);
+                console.log(`✅ Acesso estendido por ${accessDays} dias para:`, userInfo.id);
+                toast.success(`Pagamento confirmado! Acesso estendido por ${accessDays} dias.`);
               } catch (extendError) {
                 console.error('Erro ao estender acesso:', extendError);
                 toast.success('Pagamento confirmado! Entre em contato com o suporte para ativar seu acesso.');
