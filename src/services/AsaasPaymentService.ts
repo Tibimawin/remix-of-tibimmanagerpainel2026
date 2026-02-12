@@ -1,6 +1,14 @@
 
-const ASAAS_API_KEY = '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjE1ZGE0NDBlLWJjNjMtNDNiZi05NzBiLWRiMDZjZDg1NDJiYzo6JGFhY2hfOGU1OGRhZTYtMDEyMS00MmI3LWFiZDgtMmM3NDM2NDU5YWRk';
-const ASAAS_BASE_URL = 'https://api.asaas.com/v3';
+const VERCEL_PROXY_BASE = import.meta.env.VITE_VERCEL_PROXY_BASE || 'https://tibimmanagerpain2025.vercel.app';
+
+const getProxyUrl = (): string => {
+  if (typeof window === 'undefined') return '/api/asaas-proxy';
+  const hostname = window.location.hostname;
+  if (hostname.endsWith('.lovable.app') || hostname.endsWith('.lovableproject.com')) {
+    return `${VERCEL_PROXY_BASE}/api/asaas-proxy`;
+  }
+  return '/api/asaas-proxy';
+};
 
 interface AsaasCustomer {
   id: string;
@@ -25,144 +33,72 @@ interface AsaasPayment {
   status: string;
   invoiceUrl?: string;
   bankSlipUrl?: string;
-  pixQrCodeId?: string;
-  pixTransaction?: {
-    qrCode: string;
-    pixCopiaECola: string;
-    expirationDate: string;
-  };
 }
 
-const headers = {
-  'Content-Type': 'application/json',
-  'access_token': ASAAS_API_KEY,
+const proxyFetch = async (endpoint: string, method = 'GET', body?: any) => {
+  const proxyUrl = getProxyUrl();
+  const res = await fetch(proxyUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ endpoint, method, body }),
+  });
+  const data = await res.json();
+  if (data.errors) {
+    throw new Error(data.errors[0]?.description || 'Erro na API Asaas');
+  }
+  return data;
 };
 
 export const AsaasPaymentService = {
-  // Criar ou buscar cliente
   async findOrCreateCustomer(name: string, email: string, cpfCnpj: string): Promise<AsaasCustomer> {
-    try {
-      // Buscar cliente existente por email
-      const searchRes = await fetch(`${ASAAS_BASE_URL}/customers?email=${encodeURIComponent(email)}`, { headers });
-      const searchData = await searchRes.json();
-      
-      if (searchData.data && searchData.data.length > 0) {
-        console.log('Cliente Asaas encontrado:', searchData.data[0].id);
-        return searchData.data[0];
-      }
-
-      // Criar novo cliente
-      const createRes = await fetch(`${ASAAS_BASE_URL}/customers`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ name, email, cpfCnpj }),
-      });
-      const customer = await createRes.json();
-      
-      if (customer.errors) {
-        throw new Error(customer.errors[0]?.description || 'Erro ao criar cliente');
-      }
-      
-      console.log('Cliente Asaas criado:', customer.id);
-      return customer;
-    } catch (error) {
-      console.error('Erro ao buscar/criar cliente Asaas:', error);
-      throw error;
+    // Buscar cliente existente
+    const searchData = await proxyFetch(`/customers?email=${encodeURIComponent(email)}`);
+    if (searchData.data && searchData.data.length > 0) {
+      console.log('Cliente Asaas encontrado:', searchData.data[0].id);
+      return searchData.data[0];
     }
+    // Criar novo
+    const customer = await proxyFetch('/customers', 'POST', { name, email, cpfCnpj });
+    console.log('Cliente Asaas criado:', customer.id);
+    return customer;
   },
 
-  // Criar assinatura recorrente com PIX
   async createSubscription(customerId: string, value: number, description: string): Promise<AsaasSubscription> {
-    try {
-      const res = await fetch(`${ASAAS_BASE_URL}/subscriptions`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          customer: customerId,
-          billingType: 'PIX',
-          value,
-          cycle: 'MONTHLY',
-          description,
-          nextDueDate: new Date().toISOString().split('T')[0],
-        }),
-      });
-      const subscription = await res.json();
-      
-      if (subscription.errors) {
-        throw new Error(subscription.errors[0]?.description || 'Erro ao criar assinatura');
-      }
-      
-      console.log('Assinatura criada:', subscription.id);
-      return subscription;
-    } catch (error) {
-      console.error('Erro ao criar assinatura:', error);
-      throw error;
-    }
+    const subscription = await proxyFetch('/subscriptions', 'POST', {
+      customer: customerId,
+      billingType: 'PIX',
+      value,
+      cycle: 'MONTHLY',
+      description,
+      nextDueDate: new Date().toISOString().split('T')[0],
+    });
+    console.log('Assinatura criada:', subscription.id);
+    return subscription;
   },
 
-  // Buscar QR Code PIX de uma cobrança
   async getPixQrCode(paymentId: string): Promise<{ encodedImage: string; payload: string; expirationDate: string }> {
-    try {
-      const res = await fetch(`${ASAAS_BASE_URL}/payments/${paymentId}/pixQrCode`, { headers });
-      const data = await res.json();
-      
-      if (data.errors) {
-        throw new Error(data.errors[0]?.description || 'Erro ao gerar QR Code PIX');
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('Erro ao buscar QR Code PIX:', error);
-      throw error;
-    }
+    return await proxyFetch(`/payments/${paymentId}/pixQrCode`);
   },
 
-  // Buscar cobranças de uma assinatura
   async getSubscriptionPayments(subscriptionId: string): Promise<AsaasPayment[]> {
-    try {
-      const res = await fetch(`${ASAAS_BASE_URL}/payments?subscription=${subscriptionId}`, { headers });
-      const data = await res.json();
-      return data.data || [];
-    } catch (error) {
-      console.error('Erro ao buscar cobranças:', error);
-      return [];
-    }
+    const data = await proxyFetch(`/payments?subscription=${subscriptionId}`);
+    return data.data || [];
   },
 
-  // Verificar status de um pagamento
   async getPaymentStatus(paymentId: string): Promise<AsaasPayment> {
-    try {
-      const res = await fetch(`${ASAAS_BASE_URL}/payments/${paymentId}`, { headers });
-      const data = await res.json();
-      return data;
-    } catch (error) {
-      console.error('Erro ao verificar pagamento:', error);
-      throw error;
-    }
+    return await proxyFetch(`/payments/${paymentId}`);
   },
 
-  // Listar assinaturas de um cliente
   async getCustomerSubscriptions(customerId: string): Promise<AsaasSubscription[]> {
-    try {
-      const res = await fetch(`${ASAAS_BASE_URL}/subscriptions?customer=${customerId}`, { headers });
-      const data = await res.json();
-      return data.data || [];
-    } catch (error) {
-      console.error('Erro ao buscar assinaturas:', error);
-      return [];
-    }
+    const data = await proxyFetch(`/subscriptions?customer=${customerId}`);
+    return data.data || [];
   },
 
-  // Cancelar assinatura
   async cancelSubscription(subscriptionId: string): Promise<boolean> {
     try {
-      const res = await fetch(`${ASAAS_BASE_URL}/subscriptions/${subscriptionId}`, {
-        method: 'DELETE',
-        headers,
-      });
-      return res.ok;
-    } catch (error) {
-      console.error('Erro ao cancelar assinatura:', error);
+      await proxyFetch(`/subscriptions/${subscriptionId}`, 'DELETE');
+      return true;
+    } catch {
       return false;
     }
   },
