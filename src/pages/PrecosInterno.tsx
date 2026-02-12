@@ -100,7 +100,7 @@ const PrecosInterno = () => {
 
         {/* Card do Plano */}
         <div className="flex justify-center">
-          {activePlans.slice(0, 1).map((plan, index) => {
+          {activePlans.filter(p => p.price.includes('30')).map((plan, index) => {
             const IconComponent = getPlanIcon(plan.name);
             const color = getPlanColor(index);
             const isPopular = index === 1 && activePlans.length >= 3;
