@@ -10,6 +10,7 @@ import { Loader2, Copy, CheckCircle2, QrCode, User, Mail, CreditCard, AlertCircl
 import { toast } from 'sonner';
 import { AsaasPaymentService } from '@/services/AsaasPaymentService';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
+import { FirebaseUserService } from '@/services/FirebaseUserService';
 
 interface AsaasPixPaymentDialogProps {
   isOpen: boolean;
@@ -91,8 +92,22 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
           const status = await AsaasPaymentService.getPaymentStatus(firstPayment.id);
           if (status.status === 'RECEIVED' || status.status === 'CONFIRMED') {
             if (pollRef.current) clearInterval(pollRef.current);
+            
+            // Estender acesso do usuário por 30 dias no Firebase
+            if (userInfo?.id) {
+              try {
+                await FirebaseUserService.extendUserAccess(userInfo.id, 30);
+                console.log('✅ Acesso estendido por 30 dias para:', userInfo.id);
+                toast.success('Pagamento confirmado! Acesso estendido por 30 dias.');
+              } catch (extendError) {
+                console.error('Erro ao estender acesso:', extendError);
+                toast.success('Pagamento confirmado! Entre em contato com o suporte para ativar seu acesso.');
+              }
+            } else {
+              toast.success('Pagamento confirmado!');
+            }
+            
             setStep('confirmed');
-            toast.success('Pagamento confirmado!');
           }
         } catch (e) {
           console.error('Erro no polling:', e);
