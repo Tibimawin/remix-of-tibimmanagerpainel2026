@@ -8,6 +8,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import ExpirationWarningBanner from './ExpirationWarningBanner';
 import { AIAssistant } from './AIAssistant';
 import { SeasonalThemeBanner, SeasonalThemeEffects } from './seasonal/SeasonalThemeWrapper';
+import { PlansPopup } from './PlansPopup';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useEnhancedActionHistory } from '@/hooks/useEnhancedActionHistory';
 import { useActionNotifier } from '@/hooks/useActionNotifier';
@@ -160,6 +161,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Tutorial de Onboarding */}
         <OnboardingTour />
+
+        {/* Popup de Planos para novos usuários */}
+        <PlansPopup />
       </div>
     </ErrorBoundary>
   );
