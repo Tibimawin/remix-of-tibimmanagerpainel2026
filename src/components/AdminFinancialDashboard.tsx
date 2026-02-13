@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   DollarSign, TrendingUp, Users, CreditCard, RefreshCw, Search,
-  Calendar, ArrowUpRight, ArrowDownRight, Clock, CheckCircle, BarChart3
+  Calendar, ArrowUpRight, ArrowDownRight, Clock, CheckCircle, BarChart3, ShieldCheck, Unlock
 } from 'lucide-react';
 import { db } from '@/config/firebase';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
@@ -33,6 +33,19 @@ interface FinancialRecord {
   source: string;
 }
 
+interface AutoPermissionLog {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  planName: string;
+  planId: string;
+  featuresCount: number;
+  features: string[];
+  grantedAt: string;
+  source: string;
+}
+
 const CHART_COLORS = [
   'hsl(var(--primary))',
   'hsl(var(--accent))',
@@ -43,6 +56,7 @@ const CHART_COLORS = [
 
 const AdminFinancialDashboard: React.FC = () => {
   const [records, setRecords] = useState<FinancialRecord[]>([]);
+  const [permLogs, setPermLogs] = useState<AutoPermissionLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [periodFilter, setPeriodFilter] = useState('all');
@@ -50,9 +64,12 @@ const AdminFinancialDashboard: React.FC = () => {
   const loadRecords = async () => {
     try {
       setLoading(true);
-      const q = query(collection(db, 'financialRecords'), orderBy('confirmedAt', 'desc'));
-      const snapshot = await getDocs(q);
-      setRecords(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as FinancialRecord)));
+      const [finSnapshot, permSnapshot] = await Promise.all([
+        getDocs(query(collection(db, 'financialRecords'), orderBy('confirmedAt', 'desc'))),
+        getDocs(query(collection(db, 'autoPermissionLogs'), orderBy('grantedAt', 'desc')))
+      ]);
+      setRecords(finSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as FinancialRecord)));
+      setPermLogs(permSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as AutoPermissionLog)));
     } catch (error) {
       console.error('Erro ao carregar registros financeiros:', error);
       toast.error('Erro ao carregar dados financeiros');
@@ -430,6 +447,65 @@ const AdminFinancialDashboard: React.FC = () => {
                       {new Date(record.confirmedAt).toLocaleDateString('pt-BR')}
                       {' '}
                       {new Date(record.confirmedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Log de Permissões Auto-liberadas */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-primary" />
+            Permissões Auto-liberadas após Pagamento
+          </CardTitle>
+          <CardDescription>
+            Usuários que tiveram permissões liberadas automaticamente ao confirmar o pagamento
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {permLogs.length === 0 ? (
+            <div className="text-center py-10">
+              <Unlock className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
+              <p className="text-muted-foreground text-sm">Nenhuma permissão auto-liberada ainda</p>
+              <p className="text-xs text-muted-foreground mt-1">Quando um usuário pagar, as permissões aparecerão aqui</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              {permLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className="flex items-center justify-between p-4 bg-secondary/50 rounded-xl gap-3 hover:bg-secondary/70 transition-colors"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="p-2 bg-green-500/10 rounded-lg">
+                      <ShieldCheck className="h-4 w-4 text-green-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-sm text-foreground">{log.userName}</span>
+                        <Badge variant="outline" className="text-xs">{log.planName}</Badge>
+                        <Badge className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
+                          <Unlock className="h-3 w-3 mr-1" />
+                          {log.featuresCount} features
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                        <span>{log.userEmail}</span>
+                        <span>•</span>
+                        <span>Origem: {log.source === 'payment-auto' ? 'Pagamento automático' : log.source}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(log.grantedAt).toLocaleDateString('pt-BR')}
+                      {' '}
+                      {new Date(log.grantedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                 </div>
