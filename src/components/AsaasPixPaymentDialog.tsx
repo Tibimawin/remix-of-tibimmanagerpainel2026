@@ -13,7 +13,8 @@ import { AsaasPaymentService } from '@/services/AsaasPaymentService';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { FirebaseUserService } from '@/services/FirebaseUserService';
 import { db } from '@/config/firebase';
-import { addDoc, collection } from 'firebase/firestore';
+import { addDoc, collection, doc, setDoc, getDocs, query, where } from 'firebase/firestore';
+import { usePlans } from '@/hooks/usePlans';
 
 interface AsaasPixPaymentDialogProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
   isOpen, onOpenChange, planName, planPrice, planDescription
 }) => {
   const { userInfo } = useSimpleAuth();
+  const { activePlans } = usePlans();
   const [step, setStep] = useState<Step>('form');
   const [cpf, setCpf] = useState('');
   const [name, setName] = useState('');
@@ -110,6 +112,35 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
               try {
                 await FirebaseUserService.extendUserAccess(userInfo.id, accessDays);
                 console.log(`✅ Acesso estendido por ${accessDays} dias para:`, userInfo.id);
+                
+                // 🔓 Auto-liberar permissões baseado no plano assinado
+                try {
+                  const matchedPlan = activePlans.find(p => p.name === planName);
+                  if (matchedPlan) {
+                    const endDate = new Date();
+                    endDate.setDate(endDate.getDate() + accessDays);
+                    
+                    await setDoc(doc(db, 'userPermissions', userInfo.id), {
+                      userId: userInfo.id,
+                      userEmail: userInfo.email,
+                      userName: name || userInfo.email?.split('@')[0] || 'Usuário',
+                      planId: matchedPlan.id,
+                      planName: matchedPlan.name,
+                      monthlyContentLimit: matchedPlan.monthlyContentLimit,
+                      enabledFeatures: matchedPlan.features,
+                      currentMonthUsage: 0,
+                      lastUpdated: new Date().toISOString(),
+                      expiryDate: endDate.toISOString(),
+                      isActive: true
+                    });
+                    console.log('🔓 Permissões liberadas automaticamente:', matchedPlan.features.length, 'features');
+                  } else {
+                    console.warn('⚠️ Plano não encontrado para auto-liberar permissões:', planName);
+                  }
+                } catch (permErr) {
+                  console.error('Erro ao liberar permissões:', permErr);
+                }
+                
                 toast.success(`Pagamento confirmado! Acesso estendido por ${accessDays} dias.`);
                 
                 // Registrar no controle financeiro
