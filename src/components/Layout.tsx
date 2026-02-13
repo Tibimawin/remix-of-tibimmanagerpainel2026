@@ -17,7 +17,7 @@ import { useExpirationMonitor } from '@/hooks/useExpirationMonitor';
 import { useAITracking } from '@/hooks/useAITracking';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { Button } from '@/components/ui/button';
-import { Crown, X } from 'lucide-react';
+import { Crown, X, Sparkles, Zap } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useZoom } from '@/contexts/ZoomContext';
 import { cn } from '@/lib/utils';
@@ -30,12 +30,16 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [showPrioritySupport, setShowPrioritySupport] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { hasPrioritySupport } = useUserPermissions();
+  const [showPlansPopup, setShowPlansPopup] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(() => sessionStorage.getItem('upgrade-banner-dismissed') === 'true');
+  const { hasPrioritySupport, permissions, loading: permLoading } = useUserPermissions();
   const { logAction } = useEnhancedActionHistory();
   const { requestPermission, isSupported, getPermissionStatus } = useActionNotifier();
   const { userInfo } = useSimpleAuth();
   const isMobile = useIsMobile();
   const { zoom } = useZoom();
+
+  const hasNoFeatures = !permLoading && (!permissions?.enabledFeatures || permissions.enabledFeatures.length === 0);
 
   // Hook para executar agendamentos automaticamente
   useScheduleExecutor();
@@ -144,6 +148,52 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             {/* 🎨 Banner de Tema Sazonal */}
             <SeasonalThemeBanner />
 
+            {/* 🔥 Banner de upgrade para usuários sem plano */}
+            {hasNoFeatures && !bannerDismissed && (
+              <div className="relative mb-6 rounded-xl border border-primary/20 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 p-4 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent animate-pulse pointer-events-none" />
+                <div className="relative flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 shrink-0">
+                      <Zap className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground flex items-center gap-2">
+                        Desbloqueie todas as funcionalidades
+                        <span className="inline-flex items-center rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground animate-pulse">
+                          NOVO
+                        </span>
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Assine um plano e tenha acesso completo a todos os recursos do painel.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => setShowPlansPopup(true)}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
+                    >
+                      <Sparkles className="h-4 w-4 mr-1" />
+                      Ver Planos
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setBannerDismissed(true);
+                        sessionStorage.setItem('upgrade-banner-dismissed', 'true');
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <ErrorBoundary>
               {children}
             </ErrorBoundary>
@@ -162,8 +212,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         {/* Tutorial de Onboarding */}
         <OnboardingTour />
 
-        {/* Popup de Planos para novos usuários */}
+        {/* Popup de Planos - auto-open para novos usuários */}
         <PlansPopup />
+        {/* Popup de Planos - aberto pelo banner */}
+        <PlansPopup forceOpen={showPlansPopup} onClose={() => setShowPlansPopup(false)} />
       </div>
     </ErrorBoundary>
   );
