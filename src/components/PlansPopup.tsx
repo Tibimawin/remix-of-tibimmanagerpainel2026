@@ -11,31 +11,38 @@ import { usePlans } from '@/hooks/usePlans';
 import { Plan } from '@/types/planTypes';
 import AsaasPixPaymentDialog from '@/components/AsaasPixPaymentDialog';
 
-export const PlansPopup: React.FC = () => {
+interface PlansPopupProps {
+  forceOpen?: boolean;
+  onClose?: () => void;
+}
+
+export const PlansPopup: React.FC<PlansPopupProps> = ({ forceOpen, onClose }) => {
   const { permissions, loading: permLoading } = useUserPermissions();
   const { userInfo } = useSimpleAuth();
   const { activePlans, loading: plansLoading } = usePlans();
-  const [isOpen, setIsOpen] = useState(false);
+  const [autoOpen, setAutoOpen] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{ name: string; price: number; description: string } | null>(null);
 
+  const isOpen = forceOpen !== undefined ? forceOpen : autoOpen;
+
   useEffect(() => {
+    if (forceOpen !== undefined) return; // controlled externally
     if (permLoading || plansLoading || !userInfo?.id) return;
 
-    // Show popup only if user has no features (free/basic with nothing enabled)
     const hasNoFeatures = !permissions?.enabledFeatures || permissions.enabledFeatures.length === 0;
     const dismissedKey = `plans-popup-dismissed-${userInfo.id}`;
     const wasDismissed = sessionStorage.getItem(dismissedKey);
 
     if (hasNoFeatures && !wasDismissed) {
-      // Small delay so dashboard loads first
-      const timer = setTimeout(() => setIsOpen(true), 1500);
+      const timer = setTimeout(() => setAutoOpen(true), 1500);
       return () => clearTimeout(timer);
     }
-  }, [permLoading, plansLoading, permissions, userInfo?.id]);
+  }, [permLoading, plansLoading, permissions, userInfo?.id, forceOpen]);
 
   const handleDismiss = () => {
-    setIsOpen(false);
+    setAutoOpen(false);
+    onClose?.();
     if (userInfo?.id) {
       sessionStorage.setItem(`plans-popup-dismissed-${userInfo.id}`, 'true');
     }
@@ -44,7 +51,8 @@ export const PlansPopup: React.FC = () => {
   const handleChoosePlan = (plan: Plan) => {
     const numericPrice = parseFloat(plan.price.replace(/[^\d,]/g, '').replace(',', '.')) || 30;
     setSelectedPlan({ name: plan.name, price: numericPrice, description: plan.description });
-    setIsOpen(false);
+    setAutoOpen(false);
+    onClose?.();
     setShowPayment(true);
   };
 
