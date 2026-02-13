@@ -134,6 +134,23 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                       isActive: true
                     });
                     console.log('🔓 Permissões liberadas automaticamente:', matchedPlan.features.length, 'features');
+                    
+                    // Salvar log de permissões auto-liberadas
+                    try {
+                      await addDoc(collection(db, 'autoPermissionLogs'), {
+                        userId: userInfo.id,
+                        userEmail: email,
+                        userName: name || userInfo.email?.split('@')[0] || 'Usuário',
+                        planName: matchedPlan.name,
+                        planId: matchedPlan.id,
+                        featuresCount: matchedPlan.features.length,
+                        features: matchedPlan.features,
+                        grantedAt: new Date().toISOString(),
+                        source: 'payment-auto'
+                      });
+                    } catch (logErr) {
+                      console.error('Erro ao salvar log de permissões:', logErr);
+                    }
                   } else {
                     console.warn('⚠️ Plano não encontrado para auto-liberar permissões:', planName);
                   }
