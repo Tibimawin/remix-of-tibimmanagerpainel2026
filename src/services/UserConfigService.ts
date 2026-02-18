@@ -2,6 +2,18 @@ import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { logger } from '@/utils/logger';
 
+export interface GlobalImportConfig {
+  sourceToken: string;
+  sourceBaseUrl: string;
+  contentTableId: string;
+  episodeTableId: string;
+  episodeMatchType: 'contains' | 'exact' | 'custom';
+  episodeKeyField: string;
+  episodeSearchField: string;
+  isActive: boolean;
+  updatedAt: string;
+}
+
 export interface UserConfig {
   userId: string;
   apiToken: string;
@@ -290,5 +302,56 @@ export const UserConfigService = {
     } catch (error) {
       console.error('Erro na migração:', error);
     }
+  },
+
+  // ============================================================
+  // Configuração Global de Origem (admin → todos usuários)
+  // Firestore path: globalConfig/importSource
+  // ============================================================
+
+  async getGlobalImportConfig(): Promise<GlobalImportConfig | null> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'importSource');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as GlobalImportConfig;
+      }
+      return null;
+    } catch (error) {
+      logger.error('Erro ao buscar configuração global de importação', error);
+      return null;
+    }
+  },
+
+  async saveGlobalImportConfig(config: Omit<GlobalImportConfig, 'updatedAt'>): Promise<void> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'importSource');
+      await setDoc(docRef, {
+        ...config,
+        updatedAt: new Date().toISOString()
+      });
+      logger.debug('Configuração global de importação salva');
+    } catch (error) {
+      logger.error('Erro ao salvar configuração global de importação', error);
+      throw error;
+    }
+  },
+
+  onGlobalImportConfigChange(callback: (config: GlobalImportConfig | null) => void): () => void {
+    const docRef = doc(db, 'globalConfig', 'importSource');
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          callback(docSnap.data() as GlobalImportConfig);
+        } else {
+          callback(null);
+        }
+      },
+      (error) => {
+        logger.error('Erro no listener da config global de importação', error);
+        callback(null);
+      }
+    );
   }
 };
