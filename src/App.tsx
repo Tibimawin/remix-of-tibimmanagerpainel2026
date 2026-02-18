@@ -48,7 +48,6 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminPlanosSolicitados from "./pages/AdminPlanosSolicitados";
 import NotFound from "./pages/NotFound";
 import Estatisticas from "./pages/Estatisticas";
-import FerramentasIA from "./pages/FerramentasIA";
 import AdicionarConteudo from "./pages/AdicionarConteudo";
 import Produtos from "./pages/Produtos";
 import SuporteAoVivo from "./pages/SuporteAoVivo";
@@ -332,13 +331,6 @@ const App = () => {
                                 </SimpleProtectedRoute>
                               } />
 
-                              <Route path="/ferramentas-ia" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <FerramentasIA />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
 
                               <Route path="/adicionar-conteudo" element={
                                 <SimpleProtectedRoute>

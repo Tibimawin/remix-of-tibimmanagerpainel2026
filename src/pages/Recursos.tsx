@@ -18,14 +18,6 @@ const Recursos = () => {
       color: 'text-blue-600'
     },
     {
-      id: 'ferramentas-ia',
-      title: 'Ferramentas de IA',
-      description: 'Use inteligência artificial para otimizar nomes, sinopses, tipos e categorias dos conteúdos automaticamente.',
-      icon: Bot,
-      route: '/ferramentas-ia',
-      color: 'text-purple-600'
-    },
-    {
       id: 'duplicados',
       title: 'Verificação de Duplicados',
       description: 'Encontre e gerencie conteúdos duplicados no painel.',

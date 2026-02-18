@@ -394,15 +394,6 @@ const menuItems: MenuItem[] = [
     feature: 'importar-canais-tv',
     badge: { type: 'info', text: 'BETA' }
   },
-  {
-    id: 'ferramentas-ia',
-    label: 'Ferramentas IA',
-    href: '/ferramentas-ia',
-    icon: Zap,
-    category: 'tools',
-    description: 'Ferramentas de IA',
-    feature: 'ferramentas-ia'
-  },
 
   {
     id: 'perfil',
