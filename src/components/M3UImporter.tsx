@@ -856,15 +856,15 @@ const M3UImporter = () => {
 
       {/* Dialog de Preview */}
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-w-5xl max-h-[85vh]">
-          <DialogHeader>
+        <DialogContent className="max-w-5xl h-[85vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
             <DialogTitle className="text-2xl">Preview da Importação</DialogTitle>
             <DialogDescription>
               {parsedItems.length} itens processados • Modo: {importMode === 'automatic' ? 'Automático' : 'Manual'}
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto px-6 space-y-4">
             {/* Filtros de Importação */}
             <div className="flex flex-wrap gap-4 p-4 border rounded-lg bg-muted/30">
               <Label className="w-full text-sm font-semibold text-muted-foreground">Selecione o que importar:</Label>
@@ -1091,69 +1091,70 @@ const M3UImporter = () => {
             )}
           </div>
 
-          {/* Barra de Progresso */}
-          {isImporting && (
-            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">
-                  {progress.currentType && `Importando ${progress.currentType}...`}
-                </span>
-                <span className="text-muted-foreground">
-                  {progress.current} / {progress.total} ({progress.percentage}%)
-                </span>
-              </div>
-              
-              <Progress value={progress.percentage} className="h-2" />
-              
-              {progress.currentItem && (
-                <p className="text-xs text-muted-foreground truncate">
-                  {progress.currentItem}
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t">
-            <Button variant="outline" onClick={() => setShowPreview(false)} disabled={isImporting}>
-              Cancelar
-            </Button>
-            
+          {/* Footer fixo */}
+          <div className="shrink-0 px-6 pb-6 pt-4 border-t bg-background">
+            {/* Barra de Progresso */}
             {isImporting && (
-              <Button variant="outline" onClick={handleTogglePause}>
-                {isPaused ? (
+              <div className="space-y-2 mb-4 p-3 border rounded-lg bg-muted/30">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">
+                    {progress.currentType && `Importando ${progress.currentType}...`}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {progress.current} / {progress.total} ({progress.percentage}%)
+                  </span>
+                </div>
+                <Progress value={progress.percentage} className="h-2" />
+                {progress.currentItem && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {progress.currentItem}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowPreview(false)} disabled={isImporting}>
+                Cancelar
+              </Button>
+
+              {isImporting && (
+                <Button variant="outline" onClick={handleTogglePause}>
+                  {isPaused ? (
+                    <>
+                      <PlayCircle className="h-4 w-4 mr-1" />
+                      Retomar
+                    </>
+                  ) : (
+                    <>
+                      <PauseCircle className="h-4 w-4 mr-1" />
+                      Pausar
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {isImporting && (
+                <Button variant="destructive" onClick={handleStopImport}>
+                  <StopCircle className="h-4 w-4 mr-1" />
+                  Parar
+                </Button>
+              )}
+
+              <Button onClick={handleImport} disabled={isImporting} size="lg">
+                {isImporting ? (
                   <>
-                    <PlayCircle className="h-4 w-4 mr-1" />
-                    Retomar
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    Importando...
                   </>
                 ) : (
                   <>
-                    <PauseCircle className="h-4 w-4 mr-1" />
-                    Pausar
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Confirmar Importação
                   </>
                 )}
               </Button>
-            )}
-
-            {isImporting && (
-              <Button variant="destructive" onClick={handleStopImport}>
-                <StopCircle className="h-4 w-4 mr-1" />
-                Parar
-              </Button>
-            )}
-
-            <Button onClick={handleImport} disabled={isImporting}>
-              {isImporting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  Importando...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  Confirmar Importação
-                </>
-              )}
-            </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
