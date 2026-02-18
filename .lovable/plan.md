@@ -1,96 +1,150 @@
 
-## Problema Identificado
+## Nova Página "Planos" — Gerenciamento via Baserow
 
-Atualmente, a configuração de origem (token, URL, IDs de tabela de conteúdos e episódios) está **hardcoded** em dois lugares:
+### O que será feito
 
-1. **`src/pages/ImportacaoAutomatica.tsx`** — linha 43-51 — `defaultImportConfig` com valores fixos
-2. **`src/services/AutoImportScheduleService.ts`** — linha 30-36 — `SOURCE_CONFIG` hardcoded usado na automação automática em background
+Criar uma página completa de gerenciamento de planos que lê e escreve dados numa tabela do **Baserow** (a mesma infraestrutura já usada pelo sistema). O admin configura o ID da tabela no painel admin, e a página do usuário consulta essa tabela em tempo real.
 
-O que o usuário quer: **o admin salva a configuração de origem no painel, e isso reflete automaticamente para todos os usuários** (tanto na importação manual quanto na automação).
+A tabela no Baserow terá as colunas:
+- **Tag** — Single line text
+- **Tipo** — Single line text
+- **Mes** — Single line text
+- **Valor** — Number
+- **Telas** — Number
+- **Total** — Number
+- **Adulto** — Boolean
 
 ---
 
-## Arquitetura da Solução
-
-A ideia é criar um documento único no Firebase chamado **`globalConfig/importSource`** que o admin escreve e todos os usuários leem.
+### Arquitetura
 
 ```text
-Firebase Firestore
-├── userConfigs/{userId}         ← config individual de cada usuário (destino)
-├── autoImportSchedules/{userId} ← agendamentos
-└── globalConfig/importSource    ← NOVO: config de origem global do admin
-    ├── sourceToken
-    ├── sourceBaseUrl
-    ├── contentTableId
-    ├── episodeTableId
-    ├── episodeMatchType
-    ├── episodeKeyField
-    ├── episodeSearchField
-    ├── isActive
-    └── updatedAt
+Admin Panel (AdminDashboard)
+  └── AdminSidebar → nova opção "Planos" (categoria "management")
+  └── novo componente AdminPlanosConfig
+      └── campo: ID da tabela de planos no Baserow
+      └── salva em: globalConfig/planos (Firebase)
+
+Página do Usuário (/planos)
+  └── Lê o tableId de globalConfig/planos
+  └── Busca os registros via BaserowService
+  └── Exibe tabela com colunas: Tag, Tipo, Valor, Telas, Mes, Total, Adulto
+
+Sidebar do Usuário
+  └── Nova entrada "Planos" com href="/planos"
+  └── Protegida por feature 'planos'
+
+Configurações do Usuário (/configuracoes)
+  └── Nova aba ou seção com campo do tableId de planos
+  └── (Alternativa: apenas o admin configura via Admin Panel)
 ```
 
 ---
 
-## Arquivos que serão alterados
+### Arquivos que serão criados/alterados
 
-### 1. `src/services/UserConfigService.ts`
-Adicionar dois métodos estáticos:
-- `getGlobalImportConfig()` — lê o documento `globalConfig/importSource`
-- `saveGlobalImportConfig(config)` — salva o documento `globalConfig/importSource`
-- `onGlobalImportConfigChange(callback)` — listener em tempo real
+#### 1. `src/services/UserConfigService.ts`
+Adicionar interface `GlobalPlanosConfig` e três métodos:
+- `getGlobalPlanosConfig()` — lê `globalConfig/planos`
+- `saveGlobalPlanosConfig(config)` — salva `globalConfig/planos`
+- `onGlobalPlanosConfigChange(callback)` — listener em tempo real
 
-### 2. `src/hooks/useUserConfig.ts`
-- Substituir `updateImportConfig` para salvar em `globalConfig/importSource` em vez de `userConfigs/{userId}.importConfig`
-- Adicionar novo hook separado `useGlobalImportConfig` para leitura em tempo real
+```typescript
+// Firestore path: globalConfig/planos
+export interface GlobalPlanosConfig {
+  tableId: string;       // ID da tabela de planos no Baserow
+  updatedAt: string;
+}
+```
 
-### 3. `src/components/AdminImportConfig.tsx`
-- A aba "Importação Automática" já salva via `updateImportConfig` — apenas ajustar para usar o novo destino global
-- Mostrar badge "Configuração Global" igual à aba de Canais TV
+#### 2. `src/hooks/useGlobalPlanosConfig.ts` (novo)
+Hook que consome `onGlobalPlanosConfigChange` e expõe:
+- `planosConfig` — configuração atual
+- `loading` — estado de carregamento
+- `savePlanosConfig(tableId)` — salva no Firebase
 
-### 4. `src/pages/ImportacaoAutomatica.tsx`
-- Remover o `defaultImportConfig` hardcoded
-- Carregar a config de origem do Firebase (`globalConfig/importSource`) em vez de usar valores fixos
-- Se não houver config salva, mostrar mensagem informando que o admin ainda não configurou a origem
+#### 3. `src/components/AdminPlanosConfig.tsx` (novo)
+Componente para o painel admin com:
+- Campo de input para o **Table ID da tabela de Planos** no Baserow
+- Badge "Configuração Global"
+- Botão "Testar Conexão" (verifica se o ID funciona com o token/URL do `globalConfig/importSource`)
+- Botão "Salvar"
+- Exibe data/hora do último salvamento
 
-### 5. `src/services/AutoImportScheduleService.ts`
-- Remover o `SOURCE_CONFIG` hardcoded
-- Dentro de `executeAutoImport`, buscar a config de origem do Firebase (`getGlobalImportConfig()`) antes de executar
-- Se não houver config global, logar e abortar com mensagem clara
+#### 4. `src/components/admin/AdminSidebar.tsx`
+Adicionar nova opção no menu `management`:
+```typescript
+{ id: 'planos-config', label: '📋 Configurar Planos', icon: CreditCard, category: 'management' }
+```
+E adicionar `'planos-config'` ao tipo `AdminView`.
 
----
+#### 5. `src/pages/AdminDashboard.tsx`
+- Importar `AdminPlanosConfig`
+- Adicionar `case 'planos-config': return <AdminPlanosConfig />;` no `renderContent()`
 
-## Fluxo Completo Após a Mudança
+#### 6. `src/pages/Planos.tsx` (novo)
+Página do usuário com:
+- Usa `useGlobalPlanosConfig` para obter o `tableId`
+- Usa `useBaserowService` para buscar os registros da tabela
+- Se `tableId` não configurado: exibe aviso "O administrador ainda não configurou a tabela de planos"
+- Se configurado: exibe tabela com colunas Tag, Tipo, Valor, Telas, Mes, Total, Adulto
+- Coluna **Adulto** renderizada como badge (Sim/Não)
+- Coluna **Valor** e **Total** formatadas como moeda (R$)
+- Filtro de busca por Tag ou Tipo
+- Botão de refresh manual
 
-```text
-Admin preenche campos na aba "Importação Automática"
-            ↓
-Clica "Salvar Configuração"
-            ↓
-Firebase: globalConfig/importSource ← salvo
+#### 7. `src/components/Sidebar.tsx`
+Adicionar "Planos" na lista `navigation`:
+```typescript
+{ name: 'Planos', href: '/planos', icon: CreditCard }
+```
 
-Usuário abre "Importação Automática"
-            ↓
-Lê globalConfig/importSource em tempo real
-            ↓
-Campos de origem preenchidos automaticamente (somente leitura para o usuário)
-            ↓
-Usuário clica "Importar" → usa a config global do admin
+#### 8. `src/App.tsx`
+Adicionar rota `/planos`:
+```tsx
+<Route path="/planos" element={
+  <SimpleProtectedRoute>
+    <Layout>
+      <Planos />
+    </Layout>
+  </SimpleProtectedRoute>
+} />
+```
 
-Automação em background (AutoImportScheduleService)
-            ↓
-executeAutoImport → lê globalConfig/importSource
-            ↓
-Usa token/URL/IDs configurados pelo admin
+#### 9. `src/types/planTypes.ts` — AVAILABLE_FEATURES
+Adicionar feature `'planos'` na lista para que possa ser controlada por permissões:
+```typescript
+{ id: 'planos', name: 'Planos', description: 'Visualizar tabela de planos disponíveis' }
 ```
 
 ---
 
-## Detalhes Técnicos
+### Fluxo Completo
 
-- O documento `globalConfig/importSource` é único no Firebase (não por usuário)
-- O admin escreve, todos os usuários leem — sem exposição de credenciais no código
-- `AutoImportScheduleService` já roda do lado do cliente (browser), então pode usar `getDoc` normalmente
-- Se `globalConfig/importSource` não existir ainda, exibir aviso amigável ao usuário: *"O administrador ainda não configurou a origem dos conteúdos"*
-- Na página do usuário, os campos de origem ficam visíveis mas em modo somente leitura (o usuário vê de onde vem, mas não pode editar)
-- A aba "Canais TV" já usa Firebase e não precisa mudar
+```text
+Admin acessa AdminDashboard → "Configurar Planos"
+  ↓
+Preenche o Table ID da tabela de Planos do Baserow
+  ↓
+Clica "Salvar" → Firebase: globalConfig/planos { tableId, updatedAt }
+
+Usuário acessa /planos
+  ↓
+Hook lê globalConfig/planos em tempo real
+  ↓
+Usa o token/URL de globalConfig/importSource + tableId de globalConfig/planos
+  ↓
+Requisição via BaserowService → Baserow API
+  ↓
+Exibe tabela: Tag | Tipo | Valor | Telas | Mes | Total | Adulto
+```
+
+---
+
+### Detalhes Técnicos
+
+- O token e URL do Baserow virão de `globalConfig/importSource` (já configurado), apenas o `tableId` é específico para planos
+- O componente admin reutiliza o mesmo padrão do `AdminImportConfig` existente
+- A página `/planos` usa `useBaserowService` já existente no projeto
+- A feature `'planos'` no `AVAILABLE_FEATURES` permite o admin controlar quem pode ver a página via sistema de permissões existente
+- Paginação opcional: inicialmente carrega todos os registros (tabelas de planos tendem a ser pequenas)
