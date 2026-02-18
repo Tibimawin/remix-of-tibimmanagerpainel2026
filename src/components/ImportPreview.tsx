@@ -55,7 +55,7 @@ export interface ContentPreview {
 }
 
 interface ImportPreviewProps {
-  importConfig: ImportConfig;
+  importConfig: ImportConfig | null;
   onStartImport: (selectedContents?: ContentPreview[]) => void;
   configValid: boolean;
   isImporting?: boolean;
@@ -144,6 +144,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   }, [previews, searchTerm, sortBy]);
 
   const makeApiRequest = async (url: string) => {
+    if (!importConfig) throw new Error('Configuração de origem não disponível');
     if (importConfig.sourceBaseUrl.startsWith('http://')) {
       const encodedUrl = encodeURIComponent(url);
       const proxyUrl = `https://api-baserow.vercel.app/api/baserow?token=${importConfig.sourceToken}&url=${encodedUrl}&method=GET`;
@@ -163,6 +164,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   };
 
   const fetchTypeCounts = async () => {
+    if (!importConfig) return;
     const baseUrl = `${importConfig.sourceBaseUrl}/api/database/rows/table/${importConfig.contentTableId}/?user_field_names=true&size=1`;
     
     try {
@@ -189,7 +191,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   };
 
   const fetchCategories = async () => {
-    if (!importConfig.sourceToken || !importConfig.sourceBaseUrl || !importConfig.contentTableId) {
+    if (!importConfig || !importConfig.sourceToken || !importConfig.sourceBaseUrl || !importConfig.contentTableId) {
       return;
     }
 
@@ -225,7 +227,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   };
 
   const fetchPreview = async (filterType?: 'all' | 'filme' | 'serie', category?: string, page: number = 1, options?: { forceApiPage?: number; skipInversion?: boolean }) => {
-    if (!importConfig.sourceToken || !importConfig.sourceBaseUrl || !importConfig.contentTableId) {
+    if (!importConfig || !importConfig.sourceToken || !importConfig.sourceBaseUrl || !importConfig.contentTableId) {
       return;
     }
 
@@ -298,18 +300,18 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   };
 
   useEffect(() => {
-    if (configValid) {
+    if (configValid && importConfig) {
       setCachedTotalPages(0);
       setInitialLoadDone(false);
       fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true });
       fetchTypeCounts();
       fetchCategories();
     }
-  }, [configValid, importConfig.sourceToken, importConfig.sourceBaseUrl, importConfig.contentTableId]);
+  }, [configValid, importConfig?.sourceToken, importConfig?.sourceBaseUrl, importConfig?.contentTableId]);
 
   // Fetch when filters change (reset to page 1)
   useEffect(() => {
-    if (configValid) {
+    if (configValid && importConfig) {
       setCurrentPage(1);
       setCachedTotalPages(0);
       setInitialLoadDone(false);
@@ -397,7 +399,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   };
 
-  if (!configValid) {
+  if (!configValid || !importConfig) {
     return null;
   }
 
