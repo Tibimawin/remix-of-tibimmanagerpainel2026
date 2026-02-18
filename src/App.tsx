@@ -88,9 +88,9 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <ThemeProvider>
-            <AdminAuthProvider>
-              <AdminConfigProvider>
+              <AdminAuthProvider>
                 <SimpleAuthProvider>
+                  <AdminConfigProvider>
                   {/* ✅ UserPermissionsProvider centralizado - apenas 1 listener Firebase */}
                   <UserPermissionsProvider>
                     <ConfigProvider>
@@ -472,8 +472,8 @@ const App = () => {
                       </TypeModeProvider>
                     </ConfigProvider>
                   </UserPermissionsProvider>
+                  </AdminConfigProvider>
                 </SimpleAuthProvider>
-              </AdminConfigProvider>
             </AdminAuthProvider>
           </ThemeProvider>
         </TooltipProvider>
