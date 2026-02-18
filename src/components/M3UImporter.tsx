@@ -119,6 +119,17 @@ const M3UImporter = () => {
     });
   }, [isImporting, isPaused, progress, stats]);
 
+  // ✅ Avisa o usuário ao tentar fechar a aba/navegador durante importação ativa
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isImporting) return;
+      e.preventDefault();
+      e.returnValue = 'A importação M3U está em andamento. Se sair, o processo será cancelado. Tem certeza?';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isImporting]);
+
   // Buscar prévia TMDB para itens do preview (limitado aos primeiros para não sobrecarregar)
   useEffect(() => {
     if (!showPreview || !enrichWithTMDB || !tmdbKeyConfigured) return;
