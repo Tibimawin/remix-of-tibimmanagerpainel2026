@@ -30,6 +30,11 @@ export interface UserConfig {
     episodeSearchField: string;
     isActive: boolean;
   };
+  canaisTvConfig?: {
+    sourceToken: string;
+    sourceBaseUrl: string;
+    sourceTableId: string;
+  };
   personalSettings?: {
     theme: string;
     language: string;
