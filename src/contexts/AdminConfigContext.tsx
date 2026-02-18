@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useAdminAuth } from '@/contexts/AdminAuthContext';
+import { useUserConfig } from '@/hooks/useUserConfig';
 
 interface AdminConfig {
   canaisTv: {
@@ -11,16 +11,16 @@ interface AdminConfig {
 
 interface AdminConfigContextType {
   adminConfig: AdminConfig;
-  updateAdminConfig: (config: Partial<AdminConfig>) => void;
+  updateAdminConfig: (config: Partial<AdminConfig>) => Promise<void>;
   isAdminConfigured: boolean;
   loading: boolean;
 }
 
 const defaultAdminConfig: AdminConfig = {
   canaisTv: {
-    sourceToken: 'TH0lxs0P4EzApqjqMXjEqHvtRsjemFgn',
-    sourceBaseUrl: 'http://213.199.56.115',
-    sourceTableId: '1783'
+    sourceToken: '',
+    sourceBaseUrl: '',
+    sourceTableId: ''
   }
 };
 
@@ -28,46 +28,41 @@ const AdminConfigContext = createContext<AdminConfigContextType | undefined>(und
 
 export const AdminConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [adminConfig, setAdminConfig] = useState<AdminConfig>(defaultAdminConfig);
-  const [loading, setLoading] = useState(false);
-  const { isAuthenticated } = useAdminAuth();
+  const { config: userConfig, updateCanaisTvConfig, loading } = useUserConfig();
 
+  // Sincronizar com Firebase quando userConfig carregar
   useEffect(() => {
-    if (isAuthenticated) {
-      loadAdminConfig();
+    if (userConfig?.canaisTvConfig) {
+      setAdminConfig({
+        canaisTv: {
+          sourceToken: userConfig.canaisTvConfig.sourceToken || '',
+          sourceBaseUrl: userConfig.canaisTvConfig.sourceBaseUrl || '',
+          sourceTableId: userConfig.canaisTvConfig.sourceTableId || '',
+        }
+      });
     }
-  }, [isAuthenticated]);
-
-  const loadAdminConfig = async () => {
-    setLoading(true);
-    try {
-      // Por enquanto, usar configuração padrão
-      // Futuramente pode carregar do Firebase ou outro serviço
-      const savedConfig = localStorage.getItem('admin-config');
-      if (savedConfig) {
-        setAdminConfig(JSON.parse(savedConfig));
-      }
-    } catch (error) {
-      console.error('Erro ao carregar configuração de admin:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [userConfig]);
 
   const updateAdminConfig = async (newConfig: Partial<AdminConfig>) => {
     try {
       const updated = { ...adminConfig, ...newConfig };
       setAdminConfig(updated);
-      
-      // Salvar no localStorage (futuramente pode usar Firebase)
-      localStorage.setItem('admin-config', JSON.stringify(updated));
+
+      // Salvar no Firebase
+      if (newConfig.canaisTv) {
+        await updateCanaisTvConfig(newConfig.canaisTv);
+      }
     } catch (error) {
       console.error('Erro ao salvar configuração de admin:', error);
+      throw error;
     }
   };
 
-  const isAdminConfigured = Boolean(adminConfig.canaisTv.sourceToken && 
-                                   adminConfig.canaisTv.sourceBaseUrl && 
-                                   adminConfig.canaisTv.sourceTableId);
+  const isAdminConfigured = Boolean(
+    adminConfig.canaisTv.sourceToken &&
+    adminConfig.canaisTv.sourceBaseUrl &&
+    adminConfig.canaisTv.sourceTableId
+  );
 
   return (
     <AdminConfigContext.Provider

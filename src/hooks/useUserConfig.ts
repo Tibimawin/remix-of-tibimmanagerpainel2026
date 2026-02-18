@@ -138,7 +138,6 @@ export const useUserConfig = () => {
     }
 
     try {
-      // Garantir que campos obrigatórios tenham valores padrão
       const configWithDefaults = {
         sourceToken: '',
         sourceBaseUrl: '',
@@ -156,6 +155,23 @@ export const useUserConfig = () => {
     } catch (error) {
       console.error('Erro ao salvar configurações de importação:', error);
       toast.error('Erro ao salvar configurações de importação');
+      throw error;
+    }
+  };
+
+  // Atualizar configurações de Canais TV
+  const updateCanaisTvConfig = async (canaisTvConfig: UserConfig['canaisTvConfig']) => {
+    if (!userInfo?.id) {
+      toast.error('Usuário não logado');
+      return;
+    }
+
+    try {
+      await UserConfigService.updateUserConfig(userInfo.id, { canaisTvConfig });
+      toast.success('Configuração de Canais TV salva com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar configuração de Canais TV:', error);
+      toast.error('Erro ao salvar configuração de Canais TV');
       throw error;
     }
   };
@@ -219,6 +235,7 @@ export const useUserConfig = () => {
     isConfigured,
     updateConfig,
     updateImportConfig,
+    updateCanaisTvConfig,
     updatePersonalSettings,
     initializeConfig,
     hasConfigValue
