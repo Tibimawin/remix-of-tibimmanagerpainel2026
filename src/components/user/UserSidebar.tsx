@@ -450,7 +450,8 @@ const menuItems: MenuItem[] = [
     icon: CreditCard,
     category: 'management',
     description: 'Visualizar tabela de planos',
-    feature: 'planos'
+    feature: 'planos',
+    badge: { type: 'new' as const }
   },
 ];
 
