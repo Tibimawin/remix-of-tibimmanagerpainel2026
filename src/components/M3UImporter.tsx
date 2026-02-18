@@ -95,6 +95,24 @@ const M3UImporter = () => {
     currentType: '',
     currentItem: ''
   });
+
+  // ✅ Retomada de importação
+  const RESUME_KEY = 'm3u-import-resume';
+  const [resumeState, setResumeState] = useState<{
+    parsedItems: M3UItem[];
+    ignoreDuplicates: boolean;
+    enrichWithTMDB: boolean;
+    namingMode: 'singular' | 'plural';
+    importMode: 'automatic' | 'manual';
+    importFilters: { movies: boolean; series: boolean; tv: boolean };
+    seriesStartIdx: number;
+    filmesStartIdx: number;
+    canaisStartIdx: number;
+    savedAt: string;
+  } | null>(null);
+  // índices de retomada usados durante a execução do handleImport
+  const resumeIdxRef = useRef({ series: 0, filmes: 0, canais: 0 });
+
   const { config } = useConfig();
   const baserowService = useBaserowService();
   const { addLog } = useSystemLogs();
@@ -597,13 +615,42 @@ const M3UImporter = () => {
           console.error('Erro ao buscar conteúdos existentes:', error);
         }
       }
+
+      // ✅ Inicializar índices de retomada
+      resumeIdxRef.current = { series: 0, filmes: 0, canais: 0 };
+
+      // ✅ Helper para salvar progresso no localStorage (throttled: a cada 5 itens)
+      let saveCounter = 0;
+      const saveResumeState = (seriesIdx: number, filmesIdx: number, canaisIdx: number, currentStats: ImportStats) => {
+        saveCounter++;
+        if (saveCounter % 5 !== 0) return;
+        try {
+          localStorage.setItem(RESUME_KEY, JSON.stringify({
+            parsedItems,
+            ignoreDuplicates,
+            enrichWithTMDB,
+            namingMode,
+            importMode,
+            importFilters,
+            seriesStartIdx: seriesIdx,
+            filmesStartIdx: filmesIdx,
+            canaisStartIdx: canaisIdx,
+            savedAt: new Date().toISOString(),
+            stats: currentStats,
+          }));
+        } catch { /* localStorage pode estar cheio */ }
+      };
+
       
       // 1. Importar Séries e Episódios
       if (importFilters.series) {
-        for (const series of grouped.series) {
+        for (let sIdx = resumeIdxRef.current.series; sIdx < grouped.series.length; sIdx++) {
+          const series = grouped.series[sIdx];
           if (abortRef.current) break;
           await checkPause();
-          
+          resumeIdxRef.current.series = sIdx;
+          saveResumeState(sIdx, resumeIdxRef.current.filmes, resumeIdxRef.current.canais, stats);
+
           let currentSeriesId: number | null = null;
 
           try {
@@ -696,9 +743,12 @@ const M3UImporter = () => {
       
       // 3. Importar Filmes
       if (importFilters.movies) {
-        for (const filme of grouped.filmes) {
+        for (let fIdx = resumeIdxRef.current.filmes; fIdx < grouped.filmes.length; fIdx++) {
+          const filme = grouped.filmes[fIdx];
           if (abortRef.current) break;
           await checkPause();
+          resumeIdxRef.current.filmes = fIdx;
+          saveResumeState(resumeIdxRef.current.series, fIdx, resumeIdxRef.current.canais, stats);
           
           try {
             setProgress(prev => ({
@@ -752,9 +802,12 @@ const M3UImporter = () => {
       
       // 4. Importar Canais TV
       if (importFilters.tv) {
-        for (const canal of grouped.canais) {
+        for (let cIdx = resumeIdxRef.current.canais; cIdx < grouped.canais.length; cIdx++) {
+          const canal = grouped.canais[cIdx];
           if (abortRef.current) break;
           await checkPause();
+          resumeIdxRef.current.canais = cIdx;
+          saveResumeState(resumeIdxRef.current.series, resumeIdxRef.current.filmes, cIdx, stats);
           
           try {
             setProgress(prev => ({
@@ -838,6 +891,8 @@ const M3UImporter = () => {
         description: 'Erro durante o processo de importação.'
       });
     } finally {
+      // ✅ Limpar estado salvo ao finalizar (sucesso, erro ou parada)
+      localStorage.removeItem(RESUME_KEY);
       setIsImporting(false);
       setShowPreview(false);
       setParsedItems([]);
@@ -851,6 +906,63 @@ const M3UImporter = () => {
 
   return (
     <>
+      {/* ✅ Banner de retomada de importação interrompida */}
+      {resumeState && !isImporting && (
+        <div className="mb-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 shrink-0 mt-0.5">
+                <PlayCircle className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">Importação interrompida encontrada</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {resumeState.parsedItems.length} itens · Interrompida em{' '}
+                  <span className="font-medium">
+                    {resumeState.seriesStartIdx + resumeState.filmesStartIdx + resumeState.canaisStartIdx}
+                  </span>{' '}
+                  processados · {new Date(resumeState.savedAt).toLocaleString('pt-BR')}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  setParsedItems(resumeState.parsedItems);
+                  setIgnoreDuplicates(resumeState.ignoreDuplicates);
+                  setEnrichWithTMDB(resumeState.enrichWithTMDB);
+                  setNamingMode(resumeState.namingMode);
+                  setImportMode(resumeState.importMode);
+                  setImportFilters(resumeState.importFilters);
+                  resumeIdxRef.current = {
+                    series: resumeState.seriesStartIdx,
+                    filmes: resumeState.filmesStartIdx,
+                    canais: resumeState.canaisStartIdx,
+                  };
+                  setResumeState(null);
+                  setTimeout(() => handleImport(), 100);
+                }}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                <PlayCircle className="h-4 w-4 mr-1" />
+                Continuar importação
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  localStorage.removeItem(RESUME_KEY);
+                  setResumeState(null);
+                }}
+              >
+                Descartar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Card className="netflix-card">
         <CardHeader>
           <CardTitle className="text-xl flex items-center gap-2">
