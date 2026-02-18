@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { UserConfigService } from '@/services/UserConfigService';
 import { useUserConfig } from '@/hooks/useUserConfig';
+import { useM3UImport } from '@/contexts/M3UImportContext';
 
 interface M3UItem {
   name: string;
@@ -99,9 +100,24 @@ const M3UImporter = () => {
   const { addLog } = useSystemLogs();
   const { userInfo } = useSimpleAuth();
   const { config: userConfig } = useUserConfig();
+  const { updateProgress: updateGlobalProgress, clearProgress: clearGlobalProgress } = useM3UImport();
 
   // Verificar se a chave TMDB está configurada
   const tmdbKeyConfigured = !!(userConfig as any)?.apiKeys?.tmdb;
+
+  // ✅ Espelha estado local de importação para o contexto global (barra persistente)
+  useEffect(() => {
+    updateGlobalProgress({
+      isImporting,
+      isPaused,
+      current: progress.current,
+      total: progress.total,
+      percentage: progress.percentage,
+      currentType: progress.currentType,
+      currentItem: progress.currentItem,
+      stats,
+    });
+  }, [isImporting, isPaused, progress, stats]);
 
   // Buscar prévia TMDB para itens do preview (limitado aos primeiros para não sobrecarregar)
   useEffect(() => {
