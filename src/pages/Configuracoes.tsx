@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield, Film, Tv, Image, FolderOpen, Users, Calendar, LayoutGrid, Play, RotateCcw, HelpCircle, Palette } from 'lucide-react';
+import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield, Film, Tv, Image, FolderOpen, Users, Calendar, LayoutGrid, Play, RotateCcw, HelpCircle, Palette, CreditCard } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
@@ -134,7 +134,8 @@ const Configuracoes = () => {
       usuarios: config?.tableIds?.usuarios || '',
       sessoes: config?.tableIds?.sessoes || '',
       plataformas: config?.tableIds?.plataformas || '',
-      canaisTv: config?.tableIds?.canaisTv || ''
+      canaisTv: config?.tableIds?.canaisTv || '',
+      planos: config?.tableIds?.planos || ''
     }
   });
 
@@ -154,7 +155,8 @@ const Configuracoes = () => {
           usuarios: config.tableIds?.usuarios || '',
           sessoes: config.tableIds?.sessoes || '',
           plataformas: config.tableIds?.plataformas || '',
-          canaisTv: config.tableIds?.canaisTv || ''
+          canaisTv: config.tableIds?.canaisTv || '',
+          planos: config.tableIds?.planos || ''
         }
       });
     }
@@ -554,6 +556,19 @@ const Configuracoes = () => {
                       <p className="text-xs text-muted-foreground">Canais de TV ao vivo e IPTV</p>
                     </div>
                   )}
+                  <div className="space-y-1">
+                    <Label htmlFor="planos" className="flex items-center gap-2">
+                      <CreditCard className="h-4 w-4 text-primary" />
+                      Tabela de Planos
+                    </Label>
+                    <Input
+                      id="planos"
+                      placeholder="ID da tabela"
+                      value={formData.tableIds.planos}
+                      onChange={(e) => handleInputChange('tableIds.planos', e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">Tabela com os planos de assinatura disponíveis</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
