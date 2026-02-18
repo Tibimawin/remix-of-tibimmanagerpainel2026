@@ -614,7 +614,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                     {items.map((item, index) => {
                       const Icon = item.icon;
                       const isActive = isMenuActive(item);
-                      const hasAccess = item.id === 'sistema-indicacao' || item.id === 'planos' ? true : hasFeature(item.feature);
+                      const hasAccess = item.id === 'sistema-indicacao' ? true : hasFeature(item.feature);
                       const hasChildren = item.children && item.children.length > 0;
                       const isOpen = openMenus[item.id];
 
