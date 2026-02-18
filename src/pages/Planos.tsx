@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CreditCard, Search, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
+import { CreditCard, Search, RefreshCw, AlertCircle, Loader2, Monitor, Tv, Shield, ShieldOff, Pencil, Trash2, Sparkles } from 'lucide-react';
 import { useGlobalPlanosConfig } from '@/hooks/useGlobalPlanosConfig';
 import { useConfig } from '@/contexts/ConfigContext';
 import { UserConfigService } from '@/services/UserConfigService';
@@ -25,6 +24,102 @@ interface PlanoRow {
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value ?? 0);
 
+const getTipoBadge = (tipo: string) => {
+  const t = (tipo || '').toLowerCase();
+  if (t.includes('premium')) return { label: tipo, className: 'bg-amber-500/10 text-amber-600 border-amber-500/25 dark:text-amber-400' };
+  if (t.includes('básico') || t.includes('basico') || t.includes('basic')) return { label: tipo, className: 'bg-sky-500/10 text-sky-600 border-sky-500/25 dark:text-sky-400' };
+  if (t.includes('família') || t.includes('familia') || t.includes('family')) return { label: tipo, className: 'bg-violet-500/10 text-violet-600 border-violet-500/25 dark:text-violet-400' };
+  if (t.includes('vip') || t.includes('gold')) return { label: tipo, className: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/25 dark:text-yellow-400' };
+  return { label: tipo, className: 'bg-primary/10 text-primary border-primary/20' };
+};
+
+const PlanoCard: React.FC<{ plano: PlanoRow }> = ({ plano }) => {
+  const badge = getTipoBadge(plano.Tipo);
+  return (
+    <Card className="modern-card border-border/40 hover:border-primary/30 transition-all duration-300 hover:shadow-lg group relative overflow-hidden">
+      {/* Gradiente decorativo */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-primary/10 transition-colors" />
+
+      <CardContent className="p-5 space-y-4 relative">
+        {/* Header: Tag + NOVO + Tipo */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-foreground text-base leading-tight">
+              {plano.Tag || <span className="text-muted-foreground italic text-sm">Sem tag</span>}
+            </span>
+            <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/30 text-[10px] px-1.5 py-0 animate-pulse" variant="outline">
+              <Sparkles className="w-2.5 h-2.5 mr-0.5" />
+              NOVO
+            </Badge>
+          </div>
+          {plano.Tipo && (
+            <Badge variant="outline" className={`text-xs shrink-0 ${badge.className}`}>
+              {badge.label}
+            </Badge>
+          )}
+        </div>
+
+        {/* Valores principais */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-muted/30 rounded-xl p-3 text-center">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Valor</p>
+            <p className="text-xl font-bold text-primary leading-none">{formatCurrency(plano.Valor)}</p>
+          </div>
+          <div className="bg-primary/8 rounded-xl p-3 text-center border border-primary/15">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Total</p>
+            <p className="text-xl font-bold text-foreground leading-none">{formatCurrency(plano.Total)}</p>
+          </div>
+        </div>
+
+        {/* Detalhes: Mês, Telas, Adulto */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {plano.Mes && (
+            <div className="flex items-center gap-1 bg-muted/30 rounded-lg px-2.5 py-1">
+              <CreditCard className="w-3 h-3 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">{plano.Mes}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1 bg-muted/30 rounded-lg px-2.5 py-1">
+            <Monitor className="w-3 h-3 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">{plano.Telas} {plano.Telas === 1 ? 'tela' : 'telas'}</span>
+          </div>
+          <div className={`flex items-center gap-1 rounded-lg px-2.5 py-1 ${plano.Adulto ? 'bg-destructive/10' : 'bg-green-500/10'}`}>
+            {plano.Adulto
+              ? <ShieldOff className="w-3 h-3 text-destructive" />
+              : <Shield className="w-3 h-3 text-green-500" />
+            }
+            <span className={`text-xs font-medium ${plano.Adulto ? 'text-destructive' : 'text-green-500'}`}>
+              {plano.Adulto ? 'Adulto' : 'Familiar'}
+            </span>
+          </div>
+        </div>
+
+        {/* Ações */}
+        <div className="flex gap-2 pt-1 border-t border-border/30">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex-1 h-8 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => toast.info('Edição disponível em breve.')}
+          >
+            <Pencil className="w-3 h-3 mr-1" />
+            Editar
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex-1 h-8 text-xs text-muted-foreground hover:text-destructive"
+            onClick={() => toast.info('Remoção disponível em breve.')}
+          >
+            <Trash2 className="w-3 h-3 mr-1" />
+            Eliminar
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 const Planos: React.FC = () => {
   const { planosConfig, loading: configLoading } = useGlobalPlanosConfig();
   const { config } = useConfig();
@@ -33,7 +128,6 @@ const Planos: React.FC = () => {
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  // Usar o tableId do utilizador primeiro, depois o global do admin
   const tableId = config?.tableIds?.planos || planosConfig?.tableId || '';
 
   const fetchPlanos = useCallback(async () => {
@@ -68,9 +162,7 @@ const Planos: React.FC = () => {
   }, [tableId]);
 
   useEffect(() => {
-    if (tableId) {
-      fetchPlanos();
-    }
+    if (tableId) fetchPlanos();
   }, [fetchPlanos, tableId]);
 
   const filtered = planos.filter((p) => {
@@ -98,7 +190,13 @@ const Planos: React.FC = () => {
           <CreditCard className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Planos</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground">Planos</h1>
+            <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/30 text-[10px] animate-pulse" variant="outline">
+              <Sparkles className="w-2.5 h-2.5 mr-0.5" />
+              NOVO
+            </Badge>
+          </div>
           <p className="text-sm text-muted-foreground">Tabela de planos disponíveis</p>
         </div>
         <Button
@@ -123,30 +221,16 @@ const Planos: React.FC = () => {
             <div className="text-center">
               <p className="text-foreground font-semibold text-lg">Tabela não configurada</p>
               <p className="text-muted-foreground text-sm mt-1">
-                O administrador ainda não configurou a tabela de planos.
+                Configure o ID da tabela de planos nas <strong>Configurações</strong>.
               </p>
             </div>
           </CardContent>
         </Card>
       ) : (
-        <Card className="modern-card border-border/40">
-          <CardHeader>
-            <CardTitle className="text-foreground flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-primary" />
-              Lista de Planos
-              {!isLoading && (
-                <Badge variant="outline" className="ml-2 text-xs">
-                  {filtered.length} {filtered.length === 1 ? 'plano' : 'planos'}
-                </Badge>
-              )}
-            </CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Dados carregados em tempo real do Baserow
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Search */}
-            <div className="relative">
+        <div className="space-y-4">
+          {/* Search + count */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por Tag, Tipo ou Mês..."
@@ -155,85 +239,43 @@ const Planos: React.FC = () => {
                 className="pl-9"
               />
             </div>
-
-            {/* Error */}
-            {error && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span className="text-sm">{error}</span>
-              </div>
+            {!isLoading && (
+              <Badge variant="outline" className="text-xs shrink-0">
+                {filtered.length} {filtered.length === 1 ? 'plano' : 'planos'}
+              </Badge>
             )}
+          </div>
 
-            {/* Loading */}
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-6 h-6 animate-spin text-primary mr-2" />
-                <span className="text-muted-foreground">Carregando planos...</span>
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="text-center py-12">
-                <CreditCard className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-foreground font-medium">Nenhum plano encontrado</p>
-                <p className="text-muted-foreground text-sm mt-1">
-                  {search ? 'Tente outra busca.' : 'A tabela está vazia.'}
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-lg border border-border/40">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-border/40 bg-muted/20">
-                      <TableHead className="font-semibold text-foreground">Tag</TableHead>
-                      <TableHead className="font-semibold text-foreground">Tipo</TableHead>
-                      <TableHead className="font-semibold text-foreground">Mês</TableHead>
-                      <TableHead className="font-semibold text-foreground text-right">Valor</TableHead>
-                      <TableHead className="font-semibold text-foreground text-center">Telas</TableHead>
-                      <TableHead className="font-semibold text-foreground text-right">Total</TableHead>
-                      <TableHead className="font-semibold text-foreground text-center">Adulto</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.map((plano) => (
-                      <TableRow key={plano.id} className="border-border/40 hover:bg-muted/10 transition-colors">
-                        <TableCell className="font-medium text-foreground">
-                          {plano.Tag || <span className="text-muted-foreground italic">—</span>}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {plano.Tipo || <span className="italic">—</span>}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {plano.Mes || <span className="italic">—</span>}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-foreground">
-                          {formatCurrency(plano.Valor)}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {plano.Telas}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-foreground font-semibold">
-                          {formatCurrency(plano.Total)}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge
-                            className={plano.Adulto
-                              ? 'bg-destructive/10 text-destructive border-destructive/20'
-                              : 'bg-green-500/10 text-green-500 border-green-500/20'
-                            }
-                            variant="outline"
-                          >
-                            {plano.Adulto ? 'Sim' : 'Não'}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          {/* Error */}
+          {error && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="text-sm">{error}</span>
+            </div>
+          )}
+
+          {/* Loading */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-6 h-6 animate-spin text-primary mr-2" />
+              <span className="text-muted-foreground">Carregando planos...</span>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-16">
+              <CreditCard className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-foreground font-medium">Nenhum plano encontrado</p>
+              <p className="text-muted-foreground text-sm mt-1">
+                {search ? 'Tente outra busca.' : 'A tabela está vazia.'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filtered.map((plano) => (
+                <PlanoCard key={plano.id} plano={plano} />
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
