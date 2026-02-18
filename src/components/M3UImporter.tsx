@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ import { useConfig } from '@/contexts/ConfigContext';
 import { useBaserowService } from '@/services/BaserowService';
 import { useSystemLogs } from '@/hooks/useSystemLogs';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, FileText, CheckCircle, AlertTriangle, Loader2, Film, Tv, Radio, Image, Languages, Shield, Sparkles, StopCircle, PauseCircle, PlayCircle } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertTriangle, Loader2, Film, Tv, Radio, Image, Languages, Shield, Sparkles, StopCircle, PauseCircle, PlayCircle, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { UserConfigService } from '@/services/UserConfigService';
@@ -58,6 +58,15 @@ interface SeriesGroup {
   url?: string;
 }
 
+interface TMDBPreviewCache {
+  [key: string]: {
+    poster?: string | null;
+    overview?: string;
+    rating?: string;
+    loading?: boolean;
+  };
+}
+
 const M3UImporter = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importMode, setImportMode] = useState<'automatic' | 'manual'>('automatic');
@@ -72,6 +81,8 @@ const M3UImporter = () => {
     series: true,
     tv: true
   });
+  const [tmdbPreviewCache, setTmdbPreviewCache] = useState<TMDBPreviewCache>({});
+  const [loadingTmdbPreview, setLoadingTmdbPreview] = useState(false);
   const abortRef = useRef(false);
   const [isPaused, setIsPaused] = useState(false);
   const pauseRef = useRef(false);
@@ -91,6 +102,100 @@ const M3UImporter = () => {
 
   // Verificar se a chave TMDB está configurada
   const tmdbKeyConfigured = !!(userConfig as any)?.apiKeys?.tmdb;
+
+  // Buscar prévia TMDB para itens do preview (limitado aos primeiros para não sobrecarregar)
+  useEffect(() => {
+    if (!showPreview || !enrichWithTMDB || !tmdbKeyConfigured) return;
+
+    // Agrupar inline para não depender da função definida abaixo
+    const seriesMap = new Map<string, string>();
+    const filmesArr: string[] = [];
+    parsedItems.forEach(item => {
+      if ((item.type === 'Episódio' || item.type === 'Serie') && item.seriesName) {
+        if (!seriesMap.has(item.seriesName.toLowerCase())) seriesMap.set(item.seriesName.toLowerCase(), item.seriesName);
+      } else if (item.type === 'Serie') {
+        if (!seriesMap.has(item.name.toLowerCase())) seriesMap.set(item.name.toLowerCase(), item.name);
+      } else if (item.type === 'Filme') {
+        filmesArr.push(item.name);
+      }
+    });
+
+    const itemsToFetch: { name: string; type: 'Filme' | 'Serie' }[] = [
+      ...filmesArr.slice(0, 8).map(name => ({ name, type: 'Filme' as const })),
+      ...Array.from(seriesMap.values()).slice(0, 8).map(name => ({ name, type: 'Serie' as const }))
+    ];
+
+    if (itemsToFetch.length === 0) return;
+
+    setLoadingTmdbPreview(true);
+    setTmdbPreviewCache({});
+
+    let cancelled = false;
+
+    const fetchOneTMDB = async (title: string, type: 'Filme' | 'Serie') => {
+      let tmdbKey: string | null = (userConfig as any)?.apiKeys?.tmdb || null;
+      if (!tmdbKey && userInfo?.id) {
+        try {
+          const freshConfig = await UserConfigService.getUserConfig(userInfo.id);
+          tmdbKey = (freshConfig as any)?.apiKeys?.tmdb || null;
+        } catch { /* ignore */ }
+      }
+      if (!tmdbKey) return null;
+
+      const cleanTitle = title
+        .replace(/\s*\(\d{4}\)\s*(LEG|DUB|DUBLADO|LEGENDADO)?\s*$/i, '')
+        .replace(/\s+(LEG|DUB|DUBLADO|LEGENDADO)\s*$/i, '')
+        .trim();
+      const mediaType = type === 'Serie' ? 'tv' : 'movie';
+
+      const searchRes = await fetch(`https://api.themoviedb.org/3/search/${mediaType}?api_key=${tmdbKey}&query=${encodeURIComponent(cleanTitle)}&language=pt-BR`);
+      if (!searchRes.ok) return null;
+      const searchData = await searchRes.json();
+      if (!searchData.results?.length) return null;
+      const first = searchData.results[0];
+
+      let details = first;
+      try {
+        const detRes = await fetch(`https://api.themoviedb.org/3/${mediaType}/${first.id}?api_key=${tmdbKey}&language=pt-BR`);
+        if (detRes.ok) details = await detRes.json();
+      } catch { /* ignore */ }
+
+      const vote = Number(details.vote_average || first.vote_average || 0);
+      const rating = vote > 0 ? `${vote.toFixed(1)}/10` : '';
+      const posterPath = details.poster_path || first.poster_path;
+
+      return {
+        poster: posterPath ? `https://image.tmdb.org/t/p/w92${posterPath}` : null,
+        overview: details.overview || first.overview || '',
+        rating
+      };
+    };
+
+    const fetchAll = async () => {
+      for (const item of itemsToFetch) {
+        if (cancelled) break;
+        const key = `${item.type}::${item.name}`;
+        setTmdbPreviewCache(prev => ({ ...prev, [key]: { loading: true } }));
+        try {
+          const data = await fetchOneTMDB(item.name, item.type);
+          if (!cancelled) {
+            setTmdbPreviewCache(prev => ({
+              ...prev,
+              [key]: { poster: data?.poster || null, overview: data?.overview || '', rating: data?.rating || '', loading: false }
+            }));
+          }
+        } catch {
+          if (!cancelled) setTmdbPreviewCache(prev => ({ ...prev, [key]: { loading: false } }));
+        }
+        await new Promise(r => setTimeout(r, 300));
+      }
+      if (!cancelled) setLoadingTmdbPreview(false);
+    };
+
+    fetchAll();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPreview, enrichWithTMDB, tmdbKeyConfigured]);
 
   // Parser M3U Avançado
   const parseM3UAdvanced = (content: string): M3UItem[] => {
@@ -957,41 +1062,78 @@ const M3UImporter = () => {
                 <h3 className="font-semibold flex items-center gap-2">
                   <Tv className="h-4 w-4" />
                   Séries ({grouped.series.length})
+                  {enrichWithTMDB && tmdbKeyConfigured && loadingTmdbPreview && (
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground font-normal">
+                      <Loader2 className="h-3 w-3 animate-spin" /> buscando TMDB...
+                    </span>
+                  )}
                 </h3>
-                <ScrollArea className="h-48 border rounded-lg">
+                <ScrollArea className="h-56 border rounded-lg">
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        {enrichWithTMDB && tmdbKeyConfigured && <TableHead className="w-12">Capa</TableHead>}
                         <TableHead>Nome</TableHead>
-                        <TableHead>Episódios</TableHead>
-                        <TableHead>Categoria</TableHead>
+                        <TableHead>Eps</TableHead>
+                        {enrichWithTMDB && tmdbKeyConfigured && <TableHead>Nota</TableHead>}
+                        {enrichWithTMDB && tmdbKeyConfigured && <TableHead>Sinopse</TableHead>}
+                        {!(enrichWithTMDB && tmdbKeyConfigured) && <TableHead>Categoria</TableHead>}
                         <TableHead>Idioma</TableHead>
-                        <TableHead>Capa</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {grouped.series.slice(0, 20).map((series, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-medium">{series.name}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{series.episodes.length} eps</Badge>
-                          </TableCell>
-                          <TableCell className="text-xs">{series.category || '-'}</TableCell>
-                          <TableCell>
-                            {series.language && (
-                              <Badge variant="outline" className="text-xs">
-                                <Languages className="h-3 w-3 mr-1" />
-                                {series.language}
-                              </Badge>
+                      {grouped.series.slice(0, 20).map((series, index) => {
+                        const cacheKey = `Serie::${series.name}`;
+                        const tmdb = tmdbPreviewCache[cacheKey];
+                        return (
+                          <TableRow key={index}>
+                            {enrichWithTMDB && tmdbKeyConfigured && (
+                              <TableCell className="p-1">
+                                {tmdb?.loading ? (
+                                  <div className="w-10 h-14 bg-muted rounded animate-pulse" />
+                                ) : tmdb?.poster ? (
+                                  <img src={tmdb.poster} alt={series.name} className="w-10 h-14 object-cover rounded shadow" />
+                                ) : (
+                                  <div className="w-10 h-14 bg-muted rounded flex items-center justify-center">
+                                    <Tv className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                )}
+                              </TableCell>
                             )}
-                          </TableCell>
-                          <TableCell>
-                            {series.logo && (
-                              <Image className="h-4 w-4 text-green-500" />
+                            <TableCell className="font-medium text-sm">{series.name}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className="text-xs">{series.episodes.length}</Badge>
+                            </TableCell>
+                            {enrichWithTMDB && tmdbKeyConfigured && (
+                              <TableCell className="text-xs whitespace-nowrap">
+                                {tmdb?.rating ? (
+                                  <span className="flex items-center gap-1 text-yellow-500 font-medium">
+                                    <Star className="h-3 w-3 fill-yellow-500" />{tmdb.rating}
+                                  </span>
+                                ) : tmdb?.loading ? (
+                                  <span className="text-muted-foreground">...</span>
+                                ) : '-'}
+                              </TableCell>
                             )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                            {enrichWithTMDB && tmdbKeyConfigured && (
+                              <TableCell className="text-xs text-muted-foreground max-w-xs">
+                                <span className="line-clamp-2">{tmdb?.overview || (tmdb?.loading ? '...' : '-')}</span>
+                              </TableCell>
+                            )}
+                            {!(enrichWithTMDB && tmdbKeyConfigured) && (
+                              <TableCell className="text-xs">{series.category || '-'}</TableCell>
+                            )}
+                            <TableCell>
+                              {series.language && (
+                                <Badge variant="outline" className="text-xs">
+                                  <Languages className="h-3 w-3 mr-1" />
+                                  {series.language}
+                                </Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                   {grouped.series.length > 20 && (
@@ -1009,37 +1151,74 @@ const M3UImporter = () => {
                 <h3 className="font-semibold flex items-center gap-2">
                   <Film className="h-4 w-4" />
                   Filmes ({grouped.filmes.length})
+                  {enrichWithTMDB && tmdbKeyConfigured && loadingTmdbPreview && (
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground font-normal">
+                      <Loader2 className="h-3 w-3 animate-spin" /> buscando TMDB...
+                    </span>
+                  )}
                 </h3>
-                <ScrollArea className="h-40 border rounded-lg">
+                <ScrollArea className="h-48 border rounded-lg">
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        {enrichWithTMDB && tmdbKeyConfigured && <TableHead className="w-12">Capa</TableHead>}
                         <TableHead>Nome</TableHead>
-                        <TableHead>Categoria</TableHead>
+                        {enrichWithTMDB && tmdbKeyConfigured && <TableHead>Nota</TableHead>}
+                        {enrichWithTMDB && tmdbKeyConfigured && <TableHead>Sinopse</TableHead>}
+                        {!(enrichWithTMDB && tmdbKeyConfigured) && <TableHead>Categoria</TableHead>}
                         <TableHead>Idioma</TableHead>
-                        <TableHead>Capa</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {grouped.filmes.slice(0, 15).map((filme, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-medium">{filme.name}</TableCell>
-                          <TableCell className="text-xs">{filme.category || '-'}</TableCell>
-                          <TableCell>
-                            {filme.language && (
-                              <Badge variant="outline" className="text-xs">
-                                <Languages className="h-3 w-3 mr-1" />
-                                {filme.language}
-                              </Badge>
+                      {grouped.filmes.slice(0, 15).map((filme, index) => {
+                        const cacheKey = `Filme::${filme.name}`;
+                        const tmdb = tmdbPreviewCache[cacheKey];
+                        return (
+                          <TableRow key={index}>
+                            {enrichWithTMDB && tmdbKeyConfigured && (
+                              <TableCell className="p-1">
+                                {tmdb?.loading ? (
+                                  <div className="w-10 h-14 bg-muted rounded animate-pulse" />
+                                ) : tmdb?.poster ? (
+                                  <img src={tmdb.poster} alt={filme.name} className="w-10 h-14 object-cover rounded shadow" />
+                                ) : (
+                                  <div className="w-10 h-14 bg-muted rounded flex items-center justify-center">
+                                    <Film className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                )}
+                              </TableCell>
                             )}
-                          </TableCell>
-                          <TableCell>
-                            {filme.logo && (
-                              <Image className="h-4 w-4 text-green-500" />
+                            <TableCell className="font-medium text-sm">{filme.name}</TableCell>
+                            {enrichWithTMDB && tmdbKeyConfigured && (
+                              <TableCell className="text-xs whitespace-nowrap">
+                                {tmdb?.rating ? (
+                                  <span className="flex items-center gap-1 text-yellow-500 font-medium">
+                                    <Star className="h-3 w-3 fill-yellow-500" />{tmdb.rating}
+                                  </span>
+                                ) : tmdb?.loading ? (
+                                  <span className="text-muted-foreground">...</span>
+                                ) : '-'}
+                              </TableCell>
                             )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                            {enrichWithTMDB && tmdbKeyConfigured && (
+                              <TableCell className="text-xs text-muted-foreground max-w-xs">
+                                <span className="line-clamp-2">{tmdb?.overview || (tmdb?.loading ? '...' : '-')}</span>
+                              </TableCell>
+                            )}
+                            {!(enrichWithTMDB && tmdbKeyConfigured) && (
+                              <TableCell className="text-xs">{filme.category || '-'}</TableCell>
+                            )}
+                            <TableCell>
+                              {filme.language && (
+                                <Badge variant="outline" className="text-xs">
+                                  <Languages className="h-3 w-3 mr-1" />
+                                  {filme.language}
+                                </Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                   {grouped.filmes.length > 15 && (
