@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   CreditCard, Search, RefreshCw, AlertCircle, Loader2,
-  Monitor, Shield, ShieldOff, Pencil, Trash2, Sparkles
+  Monitor, Shield, ShieldOff, Pencil, Trash2, Sparkles, Plus
 } from 'lucide-react';
 import { useGlobalPlanosConfig } from '@/hooks/useGlobalPlanosConfig';
 import { useConfig } from '@/contexts/ConfigContext';
@@ -145,6 +145,100 @@ const EditPlanoDialog: React.FC<EditPlanoDialogProps> = ({ plano, open, onClose,
   );
 };
 
+// ─── Create Dialog ────────────────────────────────────────────────────────────
+const emptyForm = (): Omit<PlanoRow, 'id'> => ({
+  Tag: '', Tipo: '', Mes: '', Valor: 0, Telas: 1, Total: 0, Adulto: false,
+});
+
+interface CreatePlanoDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onCreate: (data: Omit<PlanoRow, 'id'>) => Promise<void>;
+}
+
+const CreatePlanoDialog: React.FC<CreatePlanoDialogProps> = ({ open, onClose, onCreate }) => {
+  const [form, setForm] = useState(emptyForm());
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { if (open) setForm(emptyForm()); }, [open]);
+
+  const set = (field: keyof typeof form, value: any) =>
+    setForm(prev => ({ ...prev, [field]: value }));
+
+  const handleCreate = async () => {
+    setSaving(true);
+    try {
+      await onCreate(form);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Plus className="w-4 h-4 text-primary" />
+            Novo Plano
+          </DialogTitle>
+          <DialogDescription>Preencha os campos para criar um novo plano.</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="c-tag">Tag</Label>
+              <Input id="c-tag" value={form.Tag} onChange={e => set('Tag', e.target.value)} placeholder="Ex: Mensal" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="c-tipo">Tipo</Label>
+              <Input id="c-tipo" value={form.Tipo} onChange={e => set('Tipo', e.target.value)} placeholder="Ex: Premium" />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="c-mes">Mês / Período</Label>
+            <Input id="c-mes" value={form.Mes} onChange={e => set('Mes', e.target.value)} placeholder="Ex: 1 mês" />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="c-valor">Valor (R$)</Label>
+              <Input id="c-valor" type="number" step="0.01" value={form.Valor} onChange={e => set('Valor', parseFloat(e.target.value) || 0)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="c-total">Total (R$)</Label>
+              <Input id="c-total" type="number" step="0.01" value={form.Total} onChange={e => set('Total', parseFloat(e.target.value) || 0)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="c-telas">Telas</Label>
+              <Input id="c-telas" type="number" min="1" value={form.Telas} onChange={e => set('Telas', parseInt(e.target.value) || 1)} />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-border/40 bg-muted/20">
+            <Switch id="c-adulto" checked={form.Adulto} onCheckedChange={val => set('Adulto', val)} />
+            <div>
+              <Label htmlFor="c-adulto" className="cursor-pointer">Conteúdo Adulto</Label>
+              <p className="text-xs text-muted-foreground">Permite acesso a conteúdo adulto</p>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button onClick={handleCreate} disabled={saving || !form.Tag}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+            Criar Plano
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 // ─── Plan Card ────────────────────────────────────────────────────────────────
 interface PlanoCardProps {
   plano: PlanoRow;
@@ -256,6 +350,9 @@ const Planos: React.FC = () => {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Create state
+  const [createOpen, setCreateOpen] = useState(false);
+
   const tableId = config?.tableIds?.planos || planosConfig?.tableId || '';
 
   const getService = useCallback(async () => {
@@ -331,6 +428,28 @@ const Planos: React.FC = () => {
     }
   };
 
+  const handleCreate = async (data: Omit<PlanoRow, 'id'>) => {
+    try {
+      const service = await getService();
+      const created = await service.createRow(tableId, data);
+      const newRow: PlanoRow = {
+        id: created.id,
+        Tag: created.Tag || data.Tag,
+        Tipo: created.Tipo || data.Tipo,
+        Mes: created.Mes || data.Mes,
+        Valor: Number(created.Valor ?? data.Valor),
+        Telas: Number(created.Telas ?? data.Telas),
+        Total: Number(created.Total ?? data.Total),
+        Adulto: Boolean(created.Adulto ?? data.Adulto),
+      };
+      setPlanos(prev => [newRow, ...prev]);
+      toast.success('Plano criado com sucesso!');
+    } catch {
+      toast.error('Erro ao criar plano.');
+      throw new Error('create failed');
+    }
+  };
+
   const openEdit = (plano: PlanoRow) => { setEditingPlano(plano); setEditOpen(true); };
   const openDelete = (plano: PlanoRow) => { setDeletingPlano(plano); setDeleteOpen(true); };
 
@@ -368,16 +487,27 @@ const Planos: React.FC = () => {
           </div>
           <p className="text-sm text-muted-foreground">Tabela de planos disponíveis</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={fetchPlanos}
-          disabled={isLoading || !tableId}
-          className="ml-auto"
-        >
-          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          Atualizar
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          {tableId && (
+            <Button
+              size="sm"
+              onClick={() => setCreateOpen(true)}
+              disabled={isLoading}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Plano
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchPlanos}
+            disabled={isLoading || !tableId}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       {!tableId ? (
@@ -445,6 +575,13 @@ const Planos: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Create Dialog */}
+      <CreatePlanoDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreate={handleCreate}
+      />
 
       {/* Edit Dialog */}
       <EditPlanoDialog
