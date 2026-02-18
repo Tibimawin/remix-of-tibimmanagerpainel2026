@@ -17,6 +17,9 @@ import { useSystemLogs } from '@/hooks/useSystemLogs';
 import { supabase } from '@/integrations/supabase/client';
 import { Upload, FileText, CheckCircle, AlertTriangle, Loader2, Film, Tv, Radio, Image, Languages, Shield, Sparkles, StopCircle, PauseCircle, PlayCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
+import { UserConfigService } from '@/services/UserConfigService';
+import { useUserConfig } from '@/hooks/useUserConfig';
 
 interface M3UItem {
   name: string;
@@ -83,6 +86,11 @@ const M3UImporter = () => {
   const { config } = useConfig();
   const baserowService = useBaserowService();
   const { addLog } = useSystemLogs();
+  const { userInfo } = useSimpleAuth();
+  const { config: userConfig } = useUserConfig();
+
+  // Verificar se a chave TMDB está configurada
+  const tmdbKeyConfigured = !!(userConfig as any)?.apiKeys?.tmdb;
 
   // Parser M3U Avançado
   const parseM3UAdvanced = (content: string): M3UItem[] => {
@@ -286,43 +294,82 @@ const M3UImporter = () => {
     reader.readAsText(selectedFile);
   };
 
-  // Buscar metadados do TMDB
+  // Buscar metadados do TMDB com limpeza de título, search + details
   const fetchTMDBMetadata = async (title: string, type: 'Filme' | 'Serie') => {
     try {
-      // Tentar usar a API Key local primeiro
-      const savedKeys = localStorage.getItem('api_keys');
-      if (savedKeys) {
-        const keys = JSON.parse(savedKeys);
-        if (keys.tmdb_key) {
-          const mediaType = type === 'Serie' ? 'tv' : 'movie';
-          const searchUrl = `https://api.themoviedb.org/3/search/${mediaType}?api_key=${keys.tmdb_key}&query=${encodeURIComponent(title)}&language=pt-BR`;
-          
-          const response = await fetch(searchUrl);
-          if (response.ok) {
-            const data = await response.json();
-            if (data.results && data.results.length > 0) {
-              const result = data.results[0];
-              return {
-                title: result.title || result.name,
-                overview: result.overview,
-                rating: result.vote_average,
-                release_date: result.release_date || result.first_air_date,
-                poster: result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : null,
-                backdrop: result.backdrop_path ? `https://image.tmdb.org/t/p/original${result.backdrop_path}` : null,
-                genres: [] // Generos não vêm na busca simples, mas ok
-              };
-            }
-          }
+      // 1. Recuperar chave TMDB: primeiro do estado reativo, depois fallback ao Firestore
+      let tmdbKey: string | null = (userConfig as any)?.apiKeys?.tmdb || null;
+
+      if (!tmdbKey && userInfo?.id) {
+        try {
+          const freshConfig = await UserConfigService.getUserConfig(userInfo.id);
+          tmdbKey = (freshConfig as any)?.apiKeys?.tmdb || null;
+        } catch (e) {
+          console.warn('Fallback Firestore falhou:', e);
         }
       }
 
-      // Fallback para a Edge Function
-      const { data, error } = await supabase.functions.invoke('tmdb-metadata', {
-        body: { title, type }
-      });
-      
-      if (error) throw error;
-      return data?.metadata || null;
+      if (!tmdbKey) {
+        console.warn('Chave TMDB não configurada');
+        return null;
+      }
+
+      // 2. Limpar título antes de buscar
+      const cleanTitle = title
+        .replace(/\s*\(\d{4}\)\s*(LEG|DUB|DUBLADO|LEGENDADO)?\s*$/i, '')
+        .replace(/\s+(LEG|DUB|DUBLADO|LEGENDADO)\s*$/i, '')
+        .trim();
+
+      const mediaType = type === 'Serie' ? 'tv' : 'movie';
+
+      // 3. Chamada Search
+      const searchUrl = `https://api.themoviedb.org/3/search/${mediaType}?api_key=${tmdbKey}&query=${encodeURIComponent(cleanTitle)}&language=pt-BR`;
+      const searchResponse = await fetch(searchUrl);
+      if (!searchResponse.ok) {
+        console.error('TMDB search falhou:', searchResponse.status);
+        return null;
+      }
+
+      const searchData = await searchResponse.json();
+      if (!searchData.results || searchData.results.length === 0) return null;
+
+      const firstResult = searchData.results[0];
+
+      // 3. Chamada Details para dados completos
+      let details = firstResult;
+      try {
+        const detailsUrl = `https://api.themoviedb.org/3/${mediaType}/${firstResult.id}?api_key=${tmdbKey}&language=pt-BR`;
+        const detailsResponse = await fetch(detailsUrl);
+        if (detailsResponse.ok) {
+          details = await detailsResponse.json();
+        }
+      } catch (e) {
+        console.warn('Falha ao buscar detalhes TMDB, usando firstResult:', e);
+      }
+
+      // 4. Formatar dados retornados
+      const vote = Number(details.vote_average || firstResult.vote_average || 0);
+      const rating = vote > 0 ? `${vote.toFixed(1)}/10` : '';
+
+      const rawDate = details.release_date || details.first_air_date || firstResult.release_date || firstResult.first_air_date || '';
+      let release_date = '';
+      const dateMatch = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (dateMatch) {
+        release_date = `${dateMatch[3]}/${dateMatch[2]}/${dateMatch[1]}`;
+      }
+
+      const posterPath = details.poster_path || firstResult.poster_path;
+      const backdropPath = details.backdrop_path || firstResult.backdrop_path;
+
+      return {
+        title: details.title || details.name || firstResult.title || firstResult.name,
+        overview: details.overview || firstResult.overview || '',
+        rating,
+        release_date,
+        poster: posterPath ? `https://image.tmdb.org/t/p/w500${posterPath}` : null,
+        backdrop: backdropPath ? `https://image.tmdb.org/t/p/original${backdropPath}` : null,
+        genres: details.genres?.map((g: any) => g.name) || []
+      };
     } catch (error) {
       console.error('Erro ao buscar metadados TMDB:', error);
       return null;
@@ -356,6 +403,22 @@ const M3UImporter = () => {
         description: 'Configure os IDs das tabelas primeiro.'
       });
       return;
+    }
+
+    // 7. Aviso se TMDB ativo mas chave não configurada
+    if (enrichWithTMDB) {
+      let tmdbKey: string | null = (userConfig as any)?.apiKeys?.tmdb || null;
+      if (!tmdbKey && userInfo?.id) {
+        try {
+          const freshConfig = await UserConfigService.getUserConfig(userInfo.id);
+          tmdbKey = (freshConfig as any)?.apiKeys?.tmdb || null;
+        } catch (e) { /* ignore */ }
+      }
+      if (!tmdbKey) {
+        toast.warning('Chave TMDB não configurada', {
+          description: 'Vá em Configurações → APIs e adicione sua chave do TMDB para enriquecer os dados.'
+        });
+      }
     }
 
     setIsImporting(true);
@@ -432,7 +495,7 @@ const M3UImporter = () => {
               Idioma: series.language || 'DUBLADO',
               Views: 0,
               Temporadas: Math.max(...series.episodes.map(e => e.season || 0)),
-              Imdb: tmdbData?.rating || 0,
+              Imdb: tmdbData?.rating || '',
               'Capa de fundo': tmdbData?.backdrop || '',
               'Data de Lançamento': tmdbData?.release_date || ''
             };
@@ -525,7 +588,7 @@ const M3UImporter = () => {
               Tipo: namingMode === 'plural' ? 'Filmes' : 'Filme',
               Idioma: filme.language || 'DUBLADO',
               Views: 0,
-              Imdb: tmdbData?.rating || 0,
+              Imdb: tmdbData?.rating || '',
               'Capa de fundo': tmdbData?.backdrop || '',
               'Data de Lançamento': tmdbData?.release_date || ''
             };
@@ -727,9 +790,24 @@ const M3UImporter = () => {
             <div className="flex items-start gap-3">
               <Sparkles className="h-5 w-5 text-primary mt-0.5" />
               <div className="space-y-0.5">
-                <Label htmlFor="enrich-tmdb" className="text-base font-medium cursor-pointer">
-                  Enriquecer com TMDB
-                </Label>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="enrich-tmdb" className="text-base font-medium cursor-pointer">
+                    Enriquecer com TMDB
+                  </Label>
+                  {enrichWithTMDB && (
+                    tmdbKeyConfigured ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                        Pronto
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                        <span className="h-1.5 w-1.5 rounded-full bg-destructive" />
+                        Sem chave
+                      </span>
+                    )
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground">
                   Adiciona automaticamente sinopse, capa HD, ano, gêneros e classificação
                 </p>
