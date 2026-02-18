@@ -3,7 +3,19 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CreditCard, Search, RefreshCw, AlertCircle, Loader2, Monitor, Tv, Shield, ShieldOff, Pencil, Trash2, Sparkles } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription
+} from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+} from '@/components/ui/alert-dialog';
+import {
+  CreditCard, Search, RefreshCw, AlertCircle, Loader2,
+  Monitor, Shield, ShieldOff, Pencil, Trash2, Sparkles
+} from 'lucide-react';
 import { useGlobalPlanosConfig } from '@/hooks/useGlobalPlanosConfig';
 import { useConfig } from '@/contexts/ConfigContext';
 import { UserConfigService } from '@/services/UserConfigService';
@@ -33,15 +45,121 @@ const getTipoBadge = (tipo: string) => {
   return { label: tipo, className: 'bg-primary/10 text-primary border-primary/20' };
 };
 
-const PlanoCard: React.FC<{ plano: PlanoRow }> = ({ plano }) => {
+// ─── Edit Dialog ──────────────────────────────────────────────────────────────
+interface EditPlanoDialogProps {
+  plano: PlanoRow | null;
+  open: boolean;
+  onClose: () => void;
+  onSave: (updated: PlanoRow) => void;
+}
+
+const EditPlanoDialog: React.FC<EditPlanoDialogProps> = ({ plano, open, onClose, onSave }) => {
+  const [form, setForm] = useState<PlanoRow | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (plano) setForm({ ...plano });
+  }, [plano]);
+
+  if (!form) return null;
+
+  const set = (field: keyof PlanoRow, value: any) =>
+    setForm(prev => prev ? { ...prev, [field]: value } : prev);
+
+  const handleSave = async () => {
+    if (!form) return;
+    setSaving(true);
+    try {
+      await onSave(form);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="w-4 h-4 text-primary" />
+            Editar Plano
+          </DialogTitle>
+          <DialogDescription>Altere os campos e clique em Guardar.</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="tag">Tag</Label>
+              <Input id="tag" value={form.Tag} onChange={e => set('Tag', e.target.value)} placeholder="Ex: Mensal" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="tipo">Tipo</Label>
+              <Input id="tipo" value={form.Tipo} onChange={e => set('Tipo', e.target.value)} placeholder="Ex: Premium" />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="mes">Mês / Período</Label>
+            <Input id="mes" value={form.Mes} onChange={e => set('Mes', e.target.value)} placeholder="Ex: 1 mês" />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="valor">Valor (R$)</Label>
+              <Input id="valor" type="number" step="0.01" value={form.Valor} onChange={e => set('Valor', parseFloat(e.target.value) || 0)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="total">Total (R$)</Label>
+              <Input id="total" type="number" step="0.01" value={form.Total} onChange={e => set('Total', parseFloat(e.target.value) || 0)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="telas">Telas</Label>
+              <Input id="telas" type="number" min="1" value={form.Telas} onChange={e => set('Telas', parseInt(e.target.value) || 1)} />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-border/40 bg-muted/20">
+            <Switch
+              id="adulto"
+              checked={form.Adulto}
+              onCheckedChange={val => set('Adulto', val)}
+            />
+            <div>
+              <Label htmlFor="adulto" className="cursor-pointer">Conteúdo Adulto</Label>
+              <p className="text-xs text-muted-foreground">Permite acesso a conteúdo adulto</p>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+            Guardar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// ─── Plan Card ────────────────────────────────────────────────────────────────
+interface PlanoCardProps {
+  plano: PlanoRow;
+  onEdit: (plano: PlanoRow) => void;
+  onDelete: (plano: PlanoRow) => void;
+}
+
+const PlanoCard: React.FC<PlanoCardProps> = ({ plano, onEdit, onDelete }) => {
   const badge = getTipoBadge(plano.Tipo);
   return (
     <Card className="modern-card border-border/40 hover:border-primary/30 transition-all duration-300 hover:shadow-lg group relative overflow-hidden">
-      {/* Gradiente decorativo */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-primary/10 transition-colors" />
 
       <CardContent className="p-5 space-y-4 relative">
-        {/* Header: Tag + NOVO + Tipo */}
+        {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-bold text-foreground text-base leading-tight">
@@ -59,7 +177,7 @@ const PlanoCard: React.FC<{ plano: PlanoRow }> = ({ plano }) => {
           )}
         </div>
 
-        {/* Valores principais */}
+        {/* Valores */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-muted/30 rounded-xl p-3 text-center">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Valor</p>
@@ -71,7 +189,7 @@ const PlanoCard: React.FC<{ plano: PlanoRow }> = ({ plano }) => {
           </div>
         </div>
 
-        {/* Detalhes: Mês, Telas, Adulto */}
+        {/* Detalhes */}
         <div className="flex items-center gap-2 flex-wrap">
           {plano.Mes && (
             <div className="flex items-center gap-1 bg-muted/30 rounded-lg px-2.5 py-1">
@@ -100,7 +218,7 @@ const PlanoCard: React.FC<{ plano: PlanoRow }> = ({ plano }) => {
             variant="ghost"
             size="sm"
             className="flex-1 h-8 text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => toast.info('Edição disponível em breve.')}
+            onClick={() => onEdit(plano)}
           >
             <Pencil className="w-3 h-3 mr-1" />
             Editar
@@ -109,7 +227,7 @@ const PlanoCard: React.FC<{ plano: PlanoRow }> = ({ plano }) => {
             variant="ghost"
             size="sm"
             className="flex-1 h-8 text-xs text-muted-foreground hover:text-destructive"
-            onClick={() => toast.info('Remoção disponível em breve.')}
+            onClick={() => onDelete(plano)}
           >
             <Trash2 className="w-3 h-3 mr-1" />
             Eliminar
@@ -120,6 +238,7 @@ const PlanoCard: React.FC<{ plano: PlanoRow }> = ({ plano }) => {
   );
 };
 
+// ─── Main Page ────────────────────────────────────────────────────────────────
 const Planos: React.FC = () => {
   const { planosConfig, loading: configLoading } = useGlobalPlanosConfig();
   const { config } = useConfig();
@@ -128,19 +247,29 @@ const Planos: React.FC = () => {
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // Edit state
+  const [editingPlano, setEditingPlano] = useState<PlanoRow | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+
+  // Delete state
+  const [deletingPlano, setDeletingPlano] = useState<PlanoRow | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const tableId = config?.tableIds?.planos || planosConfig?.tableId || '';
+
+  const getService = useCallback(async () => {
+    const importConfig = await UserConfigService.getGlobalImportConfig();
+    if (!importConfig) throw new Error('Configuração de acesso ao Baserow não encontrada.');
+    return new BaserowService(importConfig.sourceToken, importConfig.sourceBaseUrl);
+  }, []);
 
   const fetchPlanos = useCallback(async () => {
     if (!tableId) return;
     setIsLoading(true);
     setError(null);
     try {
-      const importConfig = await UserConfigService.getGlobalImportConfig();
-      if (!importConfig) {
-        setError('Configuração de acesso ao Baserow não encontrada. Contacte o administrador.');
-        return;
-      }
-      const service = new BaserowService(importConfig.sourceToken, importConfig.sourceBaseUrl);
+      const service = await getService();
       const response = await service.getAllTableData(tableId);
       const rows = ((response as { results: any[]; count: number }).results || []).map((row: any) => ({
         id: row.id,
@@ -159,11 +288,51 @@ const Planos: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [tableId]);
+  }, [tableId, getService]);
 
   useEffect(() => {
     if (tableId) fetchPlanos();
   }, [fetchPlanos, tableId]);
+
+  const handleEditSave = async (updated: PlanoRow) => {
+    try {
+      const service = await getService();
+      await service.updateRow(tableId, String(updated.id), {
+        Tag: updated.Tag,
+        Tipo: updated.Tipo,
+        Mes: updated.Mes,
+        Valor: updated.Valor,
+        Telas: updated.Telas,
+        Total: updated.Total,
+        Adulto: updated.Adulto,
+      });
+      setPlanos(prev => prev.map(p => p.id === updated.id ? updated : p));
+      toast.success('Plano actualizado com sucesso!');
+    } catch {
+      toast.error('Erro ao actualizar plano.');
+      throw new Error('update failed');
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingPlano) return;
+    setDeleting(true);
+    try {
+      const service = await getService();
+      await service.deleteRow(tableId, String(deletingPlano.id));
+      setPlanos(prev => prev.filter(p => p.id !== deletingPlano.id));
+      toast.success('Plano eliminado com sucesso!');
+      setDeleteOpen(false);
+      setDeletingPlano(null);
+    } catch {
+      toast.error('Erro ao eliminar plano.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const openEdit = (plano: PlanoRow) => { setEditingPlano(plano); setEditOpen(true); };
+  const openDelete = (plano: PlanoRow) => { setDeletingPlano(plano); setDeleteOpen(true); };
 
   const filtered = planos.filter((p) => {
     const q = search.toLowerCase();
@@ -211,7 +380,6 @@ const Planos: React.FC = () => {
         </Button>
       </div>
 
-      {/* Sem configuração */}
       {!tableId ? (
         <Card className="modern-card border-border/40">
           <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
@@ -254,7 +422,7 @@ const Planos: React.FC = () => {
             </div>
           )}
 
-          {/* Loading */}
+          {/* Content */}
           {isLoading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-6 h-6 animate-spin text-primary mr-2" />
@@ -271,12 +439,48 @@ const Planos: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filtered.map((plano) => (
-                <PlanoCard key={plano.id} plano={plano} />
+                <PlanoCard key={plano.id} plano={plano} onEdit={openEdit} onDelete={openDelete} />
               ))}
             </div>
           )}
         </div>
       )}
+
+      {/* Edit Dialog */}
+      <EditPlanoDialog
+        plano={editingPlano}
+        open={editOpen}
+        onClose={() => { setEditOpen(false); setEditingPlano(null); }}
+        onSave={handleEditSave}
+      />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-destructive" />
+              Eliminar Plano
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza que quer eliminar o plano{' '}
+              <strong>"{deletingPlano?.Tag || deletingPlano?.Tipo}"</strong>?
+              Esta acção não pode ser revertida.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
