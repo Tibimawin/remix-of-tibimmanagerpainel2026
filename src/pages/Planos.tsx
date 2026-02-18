@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CreditCard, Search, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { useGlobalPlanosConfig } from '@/hooks/useGlobalPlanosConfig';
+import { useConfig } from '@/contexts/ConfigContext';
 import { UserConfigService } from '@/services/UserConfigService';
 import { BaserowService } from '@/services/BaserowService';
 import { toast } from 'sonner';
@@ -26,13 +27,17 @@ const formatCurrency = (value: number) =>
 
 const Planos: React.FC = () => {
   const { planosConfig, loading: configLoading } = useGlobalPlanosConfig();
+  const { config } = useConfig();
   const [planos, setPlanos] = useState<PlanoRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // Usar o tableId do utilizador primeiro, depois o global do admin
+  const tableId = config?.tableIds?.planos || planosConfig?.tableId || '';
+
   const fetchPlanos = useCallback(async () => {
-    if (!planosConfig?.tableId) return;
+    if (!tableId) return;
     setIsLoading(true);
     setError(null);
     try {
@@ -42,7 +47,7 @@ const Planos: React.FC = () => {
         return;
       }
       const service = new BaserowService(importConfig.sourceToken, importConfig.sourceBaseUrl);
-      const response = await service.getAllTableData(planosConfig.tableId);
+      const response = await service.getAllTableData(tableId);
       const rows = ((response as { results: any[]; count: number }).results || []).map((row: any) => ({
         id: row.id,
         Tag: row.Tag || '',
@@ -60,13 +65,13 @@ const Planos: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [planosConfig?.tableId]);
+  }, [tableId]);
 
   useEffect(() => {
-    if (planosConfig?.tableId) {
+    if (tableId) {
       fetchPlanos();
     }
-  }, [fetchPlanos, planosConfig?.tableId]);
+  }, [fetchPlanos, tableId]);
 
   const filtered = planos.filter((p) => {
     const q = search.toLowerCase();
@@ -100,7 +105,7 @@ const Planos: React.FC = () => {
           variant="outline"
           size="sm"
           onClick={fetchPlanos}
-          disabled={isLoading || !planosConfig?.tableId}
+          disabled={isLoading || !tableId}
           className="ml-auto"
         >
           <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -109,7 +114,7 @@ const Planos: React.FC = () => {
       </div>
 
       {/* Sem configuração */}
-      {!planosConfig?.tableId ? (
+      {!tableId ? (
         <Card className="modern-card border-border/40">
           <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
             <div className="w-16 h-16 bg-muted/30 rounded-full flex items-center justify-center">
