@@ -1113,21 +1113,21 @@ const M3UImporter = () => {
             </div>
           )}
 
-          <DialogFooter>
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t">
             <Button variant="outline" onClick={() => setShowPreview(false)} disabled={isImporting}>
               Cancelar
             </Button>
             
             {isImporting && (
-              <Button variant="outline" onClick={handleTogglePause} className="mr-2">
+              <Button variant="outline" onClick={handleTogglePause}>
                 {isPaused ? (
                   <>
-                    <PlayCircle className="h-4 w-4 mr-2" />
+                    <PlayCircle className="h-4 w-4 mr-1" />
                     Retomar
                   </>
                 ) : (
                   <>
-                    <PauseCircle className="h-4 w-4 mr-2" />
+                    <PauseCircle className="h-4 w-4 mr-1" />
                     Pausar
                   </>
                 )}
@@ -1135,26 +1135,26 @@ const M3UImporter = () => {
             )}
 
             {isImporting && (
-              <Button variant="destructive" onClick={handleStopImport} className="mr-2">
-                <StopCircle className="h-4 w-4 mr-2" />
+              <Button variant="destructive" onClick={handleStopImport}>
+                <StopCircle className="h-4 w-4 mr-1" />
                 Parar
               </Button>
             )}
 
-            <Button onClick={handleImport} disabled={isImporting} size="lg">
+            <Button onClick={handleImport} disabled={isImporting}>
               {isImporting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                   Importando...
                 </>
               ) : (
                 <>
-                  <CheckCircle className="h-4 w-4 mr-2" />
+                  <CheckCircle className="h-4 w-4 mr-1" />
                   Confirmar Importação
                 </>
               )}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </>
