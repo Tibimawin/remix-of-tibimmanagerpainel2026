@@ -7,7 +7,7 @@ import {
   Settings, RefreshCw, LogOut, Tag, AlertTriangle, Megaphone, Sparkles, Palette, DollarSign
 } from 'lucide-react';
 
-export type AdminView = 'overview' | 'users' | 'activity' | 'date-logs' | 'metrics' | 'products' | 'notifications' | 'user-management' | 'firebase-users' | 'registration-control' | 'chat' | 'import-config' | 'plans' | 'plan-requests' | 'user-permissions' | 'series-correction' | 'suporte-prioritario' | 'security-center' | 'offers' | 'announcements' | 'whatsapp' | 'maintenance' | 'access-expired-config' | 'expiration-notifications' | 'user-action-history' | 'referrals' | 'system-updates' | 'seasonal-theme' | 'financial';
+export type AdminView = 'overview' | 'users' | 'activity' | 'date-logs' | 'metrics' | 'products' | 'notifications' | 'user-management' | 'firebase-users' | 'registration-control' | 'chat' | 'import-config' | 'plans' | 'plan-requests' | 'user-permissions' | 'series-correction' | 'suporte-prioritario' | 'security-center' | 'offers' | 'announcements' | 'whatsapp' | 'maintenance' | 'access-expired-config' | 'expiration-notifications' | 'user-action-history' | 'referrals' | 'system-updates' | 'seasonal-theme' | 'financial' | 'planos-config';
 
 interface AdminSidebarProps {
   activeView: AdminView;
@@ -39,6 +39,7 @@ const menuItems = [
   { id: 'firebase-users', label: '🔥 Gerenciar Usuários Firebase', icon: Users, category: 'management' },
   { id: 'registration-control', label: 'Controle de Cadastro', icon: Settings, category: 'management' },
   { id: 'plans', label: 'Gerenciar Planos', icon: CreditCard, category: 'management' },
+  { id: 'planos-config', label: '📋 Configurar Planos', icon: CreditCard, category: 'management' },
   { id: 'plan-requests', label: 'Planos Solicitados', icon: Crown, category: 'management' },
   { id: 'user-permissions', label: 'Permissões de Usuário', icon: UserCheck, category: 'management' },
   { id: 'suporte-prioritario', label: 'Suporte Prioritário', icon: MessageCircle, category: 'support' },

@@ -90,5 +90,8 @@ export const AVAILABLE_FEATURES: FeatureAccess[] = [
   { id: 'clean-data', name: 'Limpeza de Dados', description: 'Remover todos os registros de uma tabela do Baserow' },
   
   // Segurança
-  { id: 'gestao-dispositivos', name: 'Gestão de Dispositivos', description: 'Gerenciar dispositivos conectados e limites por usuário' }
+  { id: 'gestao-dispositivos', name: 'Gestão de Dispositivos', description: 'Gerenciar dispositivos conectados e limites por usuário' },
+
+  // Planos
+  { id: 'planos', name: 'Planos', description: 'Visualizar tabela de planos disponíveis' }
 ];

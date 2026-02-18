@@ -68,6 +68,7 @@ import ImportarConteudo from "./pages/ImportarConteudo";
 import OfertaDetalhes from "./pages/OfertaDetalhes";
 import ConfiguracoesAutoImport from "./pages/ConfiguracoesAutoImport";
 import GestaoDispositivos from "./pages/GestaoDispositivos";
+import Planos from "./pages/Planos";
 import { UpdateNotificationModal } from "./components/UpdateNotificationModal";
 import { M3UImportProvider } from "./contexts/M3UImportContext";
 
@@ -447,6 +448,14 @@ const App = () => {
                                     <PermissionGate feature="clean-data">
                                       <LimpezaDados />
                                     </PermissionGate>
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/planos" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <Planos />
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />
