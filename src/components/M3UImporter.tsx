@@ -481,10 +481,24 @@ const M3UImporter = () => {
     }
   };
 
+  // ✅ Flag no sessionStorage para impedir logout automático durante importação
+  useEffect(() => {
+    if (isImporting) {
+      sessionStorage.setItem('m3u-import-active', 'true');
+    } else {
+      sessionStorage.removeItem('m3u-import-active');
+    }
+    return () => {
+      // Limpar flag ao desmontar o componente
+      if (!isImporting) sessionStorage.removeItem('m3u-import-active');
+    };
+  }, [isImporting]);
+
   const handleStopImport = () => {
     abortRef.current = true;
     pauseRef.current = false;
     setIsPaused(false);
+    sessionStorage.removeItem('m3u-import-active');
     toast.info('Parando importação...', {
       description: 'A importação será interrompida após o item atual.'
     });
