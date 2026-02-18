@@ -120,6 +120,10 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                     const endDate = new Date();
                     endDate.setDate(endDate.getDate() + accessDays);
                     
+                    const featuresWithPlanos = matchedPlan.features.includes('planos')
+                      ? matchedPlan.features
+                      : [...matchedPlan.features, 'planos'];
+
                     await setDoc(doc(db, 'userPermissions', userInfo.id), {
                       userId: userInfo.id,
                       userEmail: userInfo.email,
@@ -127,7 +131,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                       planId: matchedPlan.id,
                       planName: matchedPlan.name,
                       monthlyContentLimit: matchedPlan.monthlyContentLimit,
-                      enabledFeatures: matchedPlan.features,
+                      enabledFeatures: featuresWithPlanos,
                       currentMonthUsage: 0,
                       lastUpdated: new Date().toISOString(),
                       expiryDate: endDate.toISOString(),
@@ -143,8 +147,8 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                         userName: name || userInfo.email?.split('@')[0] || 'Usuário',
                         planName: matchedPlan.name,
                         planId: matchedPlan.id,
-                        featuresCount: matchedPlan.features.length,
-                        features: matchedPlan.features,
+                        featuresCount: featuresWithPlanos.length,
+                        features: featuresWithPlanos,
                         grantedAt: new Date().toISOString(),
                         source: 'payment-auto'
                       });
