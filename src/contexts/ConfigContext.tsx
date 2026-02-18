@@ -18,6 +18,7 @@ interface Config {
     sessoes: string;
     plataformas: string;
     canaisTv: string;
+    planos: string;
   };
 }
 
@@ -44,6 +45,7 @@ export const defaultConfig: Config = {
     sessoes: '',
     plataformas: '',
     canaisTv: '',
+    planos: '',
   },
 };
 
