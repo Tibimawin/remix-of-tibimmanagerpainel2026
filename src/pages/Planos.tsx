@@ -9,9 +9,6 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription
 } from '@/components/ui/dialog';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from '@/components/ui/select';
-import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from '@/components/ui/alert-dialog';
@@ -104,19 +101,8 @@ const EditPlanoDialog: React.FC<EditPlanoDialogProps> = ({ plano, open, onClose,
           </div>
 
           <div className="space-y-1.5">
-            <Label>Duração</Label>
-            <Select value={form.Mes} onValueChange={val => set('Mes', val)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecionar duração" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1 mês">1 Mês</SelectItem>
-                <SelectItem value="2 meses">2 Meses</SelectItem>
-                <SelectItem value="3 meses">Trimestral (3 meses)</SelectItem>
-                <SelectItem value="6 meses">Semestral (6 meses)</SelectItem>
-                <SelectItem value="12 meses">Anual (12 meses)</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="mes">Mês / Período</Label>
+            <Input id="mes" value={form.Mes} onChange={e => set('Mes', e.target.value)} placeholder="Ex: 1 mês" />
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -213,19 +199,8 @@ const CreatePlanoDialog: React.FC<CreatePlanoDialogProps> = ({ open, onClose, on
           </div>
 
           <div className="space-y-1.5">
-            <Label>Duração</Label>
-            <Select value={form.Mes} onValueChange={val => set('Mes', val)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecionar duração" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1 mês">1 Mês</SelectItem>
-                <SelectItem value="2 meses">2 Meses</SelectItem>
-                <SelectItem value="3 meses">Trimestral (3 meses)</SelectItem>
-                <SelectItem value="6 meses">Semestral (6 meses)</SelectItem>
-                <SelectItem value="12 meses">Anual (12 meses)</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="c-mes">Mês / Período</Label>
+            <Input id="c-mes" value={form.Mes} onChange={e => set('Mes', e.target.value)} placeholder="Ex: 1 mês" />
           </div>
 
           <div className="grid grid-cols-3 gap-3">
