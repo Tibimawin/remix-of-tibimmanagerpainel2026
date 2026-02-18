@@ -70,6 +70,7 @@ import OfertaDetalhes from "./pages/OfertaDetalhes";
 import ConfiguracoesAutoImport from "./pages/ConfiguracoesAutoImport";
 import GestaoDispositivos from "./pages/GestaoDispositivos";
 import { UpdateNotificationModal } from "./components/UpdateNotificationModal";
+import { M3UImportProvider } from "./contexts/M3UImportContext";
 
 
 const queryClient = new QueryClient();
@@ -98,6 +99,7 @@ const App = () => {
                         <CleanupProvider>
                           <CustomizationProvider>
                           <ZoomProvider>
+                          <M3UImportProvider>
                           <AppWithMonitor />
                           <UpdateNotificationModal />
                           <Sonner />
@@ -471,6 +473,7 @@ const App = () => {
                               <Route path="*" element={<NotFound />} />
                             </Routes>
                           </BrowserRouter>
+                          </M3UImportProvider>
                           </ZoomProvider>
                           </CustomizationProvider>
                         </CleanupProvider>

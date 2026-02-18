@@ -9,6 +9,7 @@ import ExpirationWarningBanner from './ExpirationWarningBanner';
 import { AIAssistant } from './AIAssistant';
 import { SeasonalThemeBanner, SeasonalThemeEffects } from './seasonal/SeasonalThemeWrapper';
 import { PlansPopup } from './PlansPopup';
+import { M3UProgressBar } from './M3UProgressBar';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useEnhancedActionHistory } from '@/hooks/useEnhancedActionHistory';
 import { useActionNotifier } from '@/hooks/useActionNotifier';
@@ -216,6 +217,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <PlansPopup />
         {/* Popup de Planos - aberto pelo banner */}
         <PlansPopup forceOpen={showPlansPopup} onClose={() => setShowPlansPopup(false)} />
+
+        {/* 📊 Barra de progresso persistente de importação M3U */}
+        <M3UProgressBar />
       </div>
     </ErrorBoundary>
   );
