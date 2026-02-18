@@ -244,10 +244,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                           isActive ? "text-primary" : "text-muted-foreground group-hover:text-sidebar-foreground"
                         )} />
                         {!isCollapsed && (
-                          <span className="ml-3 transition-opacity duration-300 font-medium flex items-center">
-                            {item.name}
+                          <span className="ml-3 transition-opacity duration-300 font-medium flex items-center gap-2 flex-1">
+                            <span className="flex-1">{item.name}</span>
+                            {item.href === '/planos' && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 animate-pulse leading-none">
+                                NOVO
+                              </span>
+                            )}
                             {showLock && (
-                              <Lock className="h-4 w-4 ml-2 text-muted-foreground" aria-label="Acesso restrito" />
+                              <Lock className="h-4 w-4 text-muted-foreground" aria-label="Acesso restrito" />
                             )}
                           </span>
                         )}
