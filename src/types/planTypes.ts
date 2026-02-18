@@ -57,7 +57,7 @@ export const AVAILABLE_FEATURES: FeatureAccess[] = [
   { id: 'importar-canais-tv', name: 'Importar Canais TV', description: 'Importar canais de TV da tabela origem' },
   { id: 'atualizacao-series', name: 'Atualização de Series', description: 'Ferramenta para atualizar informações de series automaticamente' },
   { id: 'maxplus-import', name: 'MaxPlus Importação', description: 'Importar filmes e séries da API MaxPlus' },
-  { id: 'ferramentas-ia', name: 'Ferramentas de IA', description: 'Otimização com inteligência artificial' },
+  
 
   // Gerenciamento
   { id: 'usuarios', name: 'Gerenciar Usuários', description: 'Administrar usuários do sistema' },

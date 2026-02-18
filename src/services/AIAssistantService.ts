@@ -142,19 +142,6 @@ export class AIAssistantService {
             }
 
             // ANÁLISE 5: Não usa ferramentas de IA
-            const aiToolsUsage = behaviors.filter(b => b.context === 'ai-tools').length;
-            if (aiToolsUsage === 0 && contentCreations > 5) {
-                suggestions.push({
-                    type: 'feature',
-                    title: '✨ Use IA para melhorar seus conteúdos',
-                    description: 'As Ferramentas de IA podem gerar descrições automáticas, melhorar títulos e muito mais. Experimente!',
-                    priority: 'medium',
-                    context: 'feature-discovery',
-                    actionLabel: 'Ver Ferramentas IA',
-                    actionRoute: '/ferramentas-ia',
-                    createdAt: new Date().toISOString()
-                });
-            }
 
             // ANÁLISE 6: Padrão de uso em horários específicos
             const hourlyActivity = this.analyzeHourlyPattern(behaviors);

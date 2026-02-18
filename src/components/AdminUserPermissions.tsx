@@ -54,7 +54,7 @@ const AdminUserPermissions = () => {
         price: 'R$ 129,90/mês',
         description: 'Soluções corporativas completas',
         monthlyContentLimit: -1, // Ilimitado
-        features: ['dashboard', 'conteudos', 'episodios', 'lista-m3u', 'categorias', 'banners', 'duplicados', 'duplicados-episodios', 'importacao-automatica', 'automacao', 'substituicao-urls', 'importar-m3u', 'adicionar-conteudo', 'ferramentas-ia', 'usuarios', 'sessoes', 'plataformas', 'produtos', 'estatisticas', 'relatorios-visualizacao', 'metricas-engajamento', 'recursos', 'clean-data', 'maxplus-import', 'precos-interno', 'configuracoes', 'perfil', 'suporte-ao-vivo', 'priority-support', 'export', 'logs'],
+        features: ['dashboard', 'conteudos', 'episodios', 'lista-m3u', 'categorias', 'banners', 'duplicados', 'duplicados-episodios', 'importacao-automatica', 'automacao', 'substituicao-urls', 'importar-m3u', 'adicionar-conteudo', 'usuarios', 'sessoes', 'plataformas', 'produtos', 'estatisticas', 'relatorios-visualizacao', 'metricas-engajamento', 'recursos', 'clean-data', 'maxplus-import', 'precos-interno', 'configuracoes', 'perfil', 'suporte-ao-vivo', 'priority-support', 'export', 'logs'],
         isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
