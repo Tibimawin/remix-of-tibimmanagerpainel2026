@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { ImportContentInterface } from '@/components/ImportContentInterface';
 import { useAutoImportService, ImportConfig, UserConfig, ImportContent } from '@/services/AutoImportService';
 import { useUserConfig } from '@/hooks/useUserConfig';
+import { useGlobalImportConfig } from '@/hooks/useGlobalImportConfig';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { PermissionGate } from '@/components/PermissionGate';
@@ -38,18 +39,6 @@ import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { ImportPreview, ContentPreview } from '@/components/ImportPreview';
 
-// Configuração padrão da importação automática
-const defaultImportConfig: ImportConfig = {
-  sourceToken: 'TH0lxs0P4EzApqjqMXjEqHvtRsjemFgn',
-  sourceBaseUrl: 'http://213.199.56.115',
-  contentTableId: '1894',
-  episodeTableId: '1893',
-  isActive: true,
-  episodeMatchType: 'custom',
-  episodeKeyField: 'Serie',
-  episodeSearchField: 'Nome'
-};
-
 const ImportacaoAutomatica = () => {
   const [showConfig, setShowConfig] = useState(false);
   const [showImportInterface, setShowImportInterface] = useState(false);
@@ -59,7 +48,7 @@ const ImportacaoAutomatica = () => {
     contentTableId: '',
     episodeTableId: ''
   });
-  const [importConfig, setImportConfig] = useState<ImportConfig>(defaultImportConfig);
+  const [importConfig, setImportConfig] = useState<ImportConfig | null>(null);
   const [configValid, setConfigValid] = useState(false);
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -68,6 +57,7 @@ const ImportacaoAutomatica = () => {
 
   const autoImportService = useAutoImportService();
   const { config: cloudConfig, updateConfig: updateCloudConfig, loading: cloudLoading } = useUserConfig();
+  const { globalConfig, loading: globalConfigLoading } = useGlobalImportConfig();
   const { config } = useConfig();
   const { mode: typeMode } = useTypeMode();
   const {
@@ -78,6 +68,7 @@ const ImportacaoAutomatica = () => {
     canAddMoreContent
   } = useUserPermissions();
 
+  // Carregar configuração de destino do usuário (Firebase)
   useEffect(() => {
     if (cloudConfig) {
       const cloudUserConfig: UserConfig = {
@@ -101,8 +92,25 @@ const ImportacaoAutomatica = () => {
         }
       }
     }
-    setImportConfig(defaultImportConfig);
   }, [cloudConfig]);
+
+  // Carregar configuração de origem global (definida pelo admin)
+  useEffect(() => {
+    if (globalConfig) {
+      setImportConfig({
+        sourceToken: globalConfig.sourceToken,
+        sourceBaseUrl: globalConfig.sourceBaseUrl,
+        contentTableId: globalConfig.contentTableId,
+        episodeTableId: globalConfig.episodeTableId,
+        episodeMatchType: globalConfig.episodeMatchType,
+        episodeKeyField: globalConfig.episodeKeyField,
+        episodeSearchField: globalConfig.episodeSearchField,
+        isActive: globalConfig.isActive,
+      });
+    } else if (!globalConfigLoading) {
+      setImportConfig(null);
+    }
+  }, [globalConfig, globalConfigLoading]);
 
   const validateUserConfig = (config: UserConfig) => {
     const isValid = config.apiToken && config.baseUrl && config.contentTableId;
@@ -177,6 +185,13 @@ const ImportacaoAutomatica = () => {
   };
 
   const startImport = async (selectedContents?: ContentPreview[]) => {
+    if (!importConfig) {
+      toast.error('O administrador ainda não configurou a origem dos conteúdos.', {
+        description: 'Entre em contato com o administrador do sistema.'
+      });
+      return;
+    }
+
     if (!configValid) {
       toast.error('Configure suas credenciais do Baserow antes de importar.');
       setShowConfig(true);

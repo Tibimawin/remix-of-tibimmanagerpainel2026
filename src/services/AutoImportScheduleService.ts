@@ -26,14 +26,8 @@ interface AutoImportSchedule {
 }
 
 
-// Configuração do Baserow origem (hardcoded como no ImportacaoAutomatica.tsx)
-const SOURCE_CONFIG = {
-    sourceToken: 'TH0lxs0P4EzApqjqMXjEqHvtRsjemFgn',
-    sourceBaseUrl: 'http://213.199.56.115',
-    contentTableId: '1894',
-    episodeTableId: '1893',
-    isActive: true
-};
+
+
 
 /**
  * Serviço para gerenciar importação automática de conteúdos
@@ -168,13 +162,23 @@ export class AutoImportScheduleService {
         try {
             console.log('🧪 [AUTO-IMPORT] Testando conexão com servidor de origem...');
 
+            // Buscar configuração global de origem do Firebase
+            const sourceConfig = await UserConfigService.getGlobalImportConfig();
+            if (!sourceConfig || !sourceConfig.sourceToken || !sourceConfig.sourceBaseUrl || !sourceConfig.contentTableId) {
+                return {
+                    status: 'network_error',
+                    details: '⚠️ Configuração de origem não encontrada.',
+                    solution: 'O administrador precisa configurar a origem dos conteúdos no painel admin.'
+                };
+            }
+
             // TESTE DIRETO primeiro (sem proxy) para verificar se o problema é no proxy
             console.log('🔬 [AUTO-IMPORT] Tentando conexão DIRETA ao servidor (sem proxy)...');
             try {
-                const directUrl = `${SOURCE_CONFIG.sourceBaseUrl}/api/database/rows/table/${SOURCE_CONFIG.contentTableId}/?user_field_names=true&size=1`;
+                const directUrl = `${sourceConfig.sourceBaseUrl}/api/database/rows/table/${sourceConfig.contentTableId}/?user_field_names=true&size=1`;
                 const directResponse = await fetch(directUrl, {
                     headers: {
-                        'Authorization': `Token ${SOURCE_CONFIG.sourceToken}`,
+                        'Authorization': `Token ${sourceConfig.sourceToken}`,
                         'Content-Type': 'application/json'
                     }
                 });
@@ -199,12 +203,12 @@ export class AutoImportScheduleService {
             // Agora testar via proxy (BaserowService)
             console.log('🔬 [AUTO-IMPORT] Tentando via PROXY (BaserowService)...');
             const sourceService = new BaserowService(
-                SOURCE_CONFIG.sourceToken,
-                SOURCE_CONFIG.sourceBaseUrl
+                sourceConfig.sourceToken,
+                sourceConfig.sourceBaseUrl
             );
 
             // Buscar apenas 1 registro para diagnóstico
-            const result = await sourceService.getAllTableData(SOURCE_CONFIG.contentTableId, undefined, 1);
+            const result = await sourceService.getAllTableData(sourceConfig.contentTableId, undefined, 1);
 
             if (!result || !result.results) {
                 console.error('⚠️ [AUTO-IMPORT] Diagnóstico Baserow: resposta vazia ou inválida.');
@@ -543,14 +547,23 @@ export class AutoImportScheduleService {
                 return;
             }
 
-            // 3. Buscar conteúdos do Baserow origem
+            // 3. Buscar configuração global de origem do Firebase
+            const globalSourceConfig = await UserConfigService.getGlobalImportConfig();
+            if (!globalSourceConfig || !globalSourceConfig.sourceToken || !globalSourceConfig.sourceBaseUrl || !globalSourceConfig.contentTableId) {
+                console.log(`⚠️ [AUTO-IMPORT] Configuração de origem não encontrada para ${schedule.userEmail}. Admin deve configurar em Configurações > Importação Automática.`);
+                await this.logImport(schedule.userId, runId, 'skipped', 'Configuração de origem não configurada pelo administrador');
+                await this.updateScheduleAfterRun(schedule.id, 0);
+                return;
+            }
+
+            // 4. Buscar conteúdos do Baserow origem
             const sourceService = new BaserowService(
-                SOURCE_CONFIG.sourceToken,
-                SOURCE_CONFIG.sourceBaseUrl
+                globalSourceConfig.sourceToken,
+                globalSourceConfig.sourceBaseUrl
             );
 
             const allContentsResponse = await sourceService.getAllTableData(
-                SOURCE_CONFIG.contentTableId
+                globalSourceConfig.contentTableId
             );
 
             const allContents = allContentsResponse.results || [];
@@ -840,14 +853,21 @@ export class AutoImportScheduleService {
             const seriesName = seriesContent.Titulo || seriesContent.Nome;
             console.log(`📺 [AUTO-IMPORT] Buscando episódios para: ${seriesName}`);
 
+            // Buscar configuração global de origem do Firebase
+            const globalSourceConfig = await UserConfigService.getGlobalImportConfig();
+            if (!globalSourceConfig || !globalSourceConfig.sourceToken || !globalSourceConfig.sourceBaseUrl || !globalSourceConfig.episodeTableId) {
+                console.log(`⚠️ [AUTO-IMPORT] Configuração de origem não encontrada para episódios de ${seriesName}`);
+                return;
+            }
+
             // Buscar episódios do Baserow origem
             const sourceService = new BaserowService(
-                SOURCE_CONFIG.sourceToken,
-                SOURCE_CONFIG.sourceBaseUrl
+                globalSourceConfig.sourceToken,
+                globalSourceConfig.sourceBaseUrl
             );
 
             const episodesResponse = await sourceService.getAllTableData(
-                SOURCE_CONFIG.episodeTableId,
+                globalSourceConfig.episodeTableId,
                 seriesName
             );
 

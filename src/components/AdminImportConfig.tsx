@@ -7,15 +7,15 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Save, TestTube, CheckCircle2, AlertCircle, Info, Cloud, Loader2, Tv } from 'lucide-react';
+import { Save, TestTube, Info, Cloud, Loader2, Tv, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import { ImportConfig } from '@/services/AutoImportService';
-import { useUserConfig } from '@/hooks/useUserConfig';
+import { useGlobalImportConfig } from '@/hooks/useGlobalImportConfig';
 import { useAdminConfig } from '@/contexts/AdminConfigContext';
 import { testBaserowConnection } from '@/utils/proxyRequest';
 
 const AdminImportConfig = () => {
-  const { config: userConfig, updateImportConfig, loading } = useUserConfig();
+  const { globalConfig, loading, saveGlobalImportConfig } = useGlobalImportConfig();
   const { adminConfig, updateAdminConfig, loading: adminLoading } = useAdminConfig();
   
   const [config, setConfig] = useState<ImportConfig>({
@@ -40,17 +40,17 @@ const AdminImportConfig = () => {
   const [isTestingCanais, setIsTestingCanais] = useState(false);
   const [isSavingCanais, setIsSavingCanais] = useState(false);
 
-  // Carregar configuração quando userConfig estiver disponível
+  // Carregar configuração quando globalConfig estiver disponível
   useEffect(() => {
-    if (userConfig?.importConfig) {
-      console.log('Carregando configuração de importação do Firebase:', userConfig.importConfig);
+    if (globalConfig) {
+      console.log('Carregando configuração global de importação do Firebase:', globalConfig);
       const configToLoad = {
-        ...userConfig.importConfig,
-        episodeMatchType: userConfig.importConfig.episodeMatchType as 'contains' | 'exact' | 'custom' || 'custom'
+        ...globalConfig,
+        episodeMatchType: globalConfig.episodeMatchType as 'contains' | 'exact' | 'custom' || 'custom'
       };
       setConfig(configToLoad);
     }
-  }, [userConfig]);
+  }, [globalConfig]);
 
   // Carregar configuração de canais TV quando adminConfig estiver disponível
   useEffect(() => {
@@ -159,9 +159,18 @@ const AdminImportConfig = () => {
 
     try {
       setIsSaving(true);
-      console.log('Salvando configuração de importação:', config);
+      console.log('Salvando configuração global de importação:', config);
       
-      await updateImportConfig(config);
+      await saveGlobalImportConfig({
+        sourceToken: config.sourceToken,
+        sourceBaseUrl: config.sourceBaseUrl,
+        contentTableId: config.contentTableId,
+        episodeTableId: config.episodeTableId,
+        episodeMatchType: config.episodeMatchType || 'custom',
+        episodeKeyField: config.episodeKeyField || 'Serie',
+        episodeSearchField: config.episodeSearchField || 'Nome',
+        isActive: config.isActive,
+      });
       
     } catch (error) {
       console.error('Erro ao salvar configuração:', error);
@@ -191,12 +200,12 @@ const AdminImportConfig = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="flex items-center gap-2">
-                    <Cloud className="h-4 w-4" />
-                    Sincronizado
+                    <Globe className="h-4 w-4" />
+                    Configuração Global
                   </Badge>
-                  {userConfig?.lastUpdated && (
+                  {globalConfig?.updatedAt && (
                     <Badge variant="secondary" className="text-xs">
-                      Salvo: {new Date(userConfig.lastUpdated).toLocaleString('pt-BR')}
+                      Salvo: {new Date(globalConfig.updatedAt).toLocaleString('pt-BR')}
                     </Badge>
                   )}
                 </div>
