@@ -66,6 +66,7 @@ const navigation: NavItem[] = [
   { name: 'MaxPlus Importação', href: '/maxplus-import', icon: Film },
   { name: 'Preços', href: '/precos-interno', icon: CreditCard },
   { name: 'Sistema de Indicação', href: '/sistema-indicacao', icon: TrendingUp },
+  { name: 'Planos', href: '/planos', icon: CreditCard },
   { 
     name: 'Configurações', 
     icon: Settings,

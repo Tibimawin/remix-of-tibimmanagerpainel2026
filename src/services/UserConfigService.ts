@@ -2,6 +2,11 @@ import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { logger } from '@/utils/logger';
 
+export interface GlobalPlanosConfig {
+  tableId: string;
+  updatedAt: string;
+}
+
 export interface GlobalImportConfig {
   sourceToken: string;
   sourceBaseUrl: string;
@@ -335,6 +340,57 @@ export const UserConfigService = {
       logger.error('Erro ao salvar configuração global de importação', error);
       throw error;
     }
+  },
+
+  // ============================================================
+  // Configuração Global de Planos (admin → todos usuários)
+  // Firestore path: globalConfig/planos
+  // ============================================================
+
+  async getGlobalPlanosConfig(): Promise<GlobalPlanosConfig | null> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'planos');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as GlobalPlanosConfig;
+      }
+      return null;
+    } catch (error) {
+      logger.error('Erro ao buscar configuração global de planos', error);
+      return null;
+    }
+  },
+
+  async saveGlobalPlanosConfig(config: Omit<GlobalPlanosConfig, 'updatedAt'>): Promise<void> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'planos');
+      await setDoc(docRef, {
+        ...config,
+        updatedAt: new Date().toISOString()
+      });
+      logger.debug('Configuração global de planos salva');
+    } catch (error) {
+      logger.error('Erro ao salvar configuração global de planos', error);
+      throw error;
+    }
+  },
+
+  onGlobalPlanosConfigChange(callback: (config: GlobalPlanosConfig | null) => void): () => void {
+    const docRef = doc(db, 'globalConfig', 'planos');
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          callback(docSnap.data() as GlobalPlanosConfig);
+        } else {
+          callback(null);
+        }
+      },
+      (error) => {
+        logger.error('Erro no listener da config global de planos', error);
+        callback(null);
+      }
+    );
   },
 
   onGlobalImportConfigChange(callback: (config: GlobalImportConfig | null) => void): () => void {
