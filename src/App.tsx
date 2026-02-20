@@ -56,7 +56,7 @@ import PrecosInterno from "./pages/PrecosInterno";
 import SubstituicaoURLs from "./pages/SubstituicaoURLs";
 import ListaM3U from "./pages/ListaM3U";
 import RelatoriosVisualizacao from "./pages/RelatoriosVisualizacao";
-import MetricasEngajamento from "./pages/MetricasEngajamento";
+
 import ImportarCanaisTV from "./pages/ImportarCanaisTV";
 import Ofertas from "./pages/Ofertas";
 import LimpezaDados from "./pages/LimpezaDados";
