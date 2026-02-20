@@ -390,14 +390,6 @@ const App = () => {
                                 </SimpleProtectedRoute>
                               } />
 
-                              <Route path="/metricas-engajamento" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <MetricasEngajamento />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
                               <Route path="/perfil" element={
                                 <SimpleProtectedRoute>
                                   <Layout>
