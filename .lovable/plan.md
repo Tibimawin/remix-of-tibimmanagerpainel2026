@@ -1,49 +1,32 @@
 
 
-## Corrigir Parsing de Series no M3U Importer
+## Remover funcionalidade "Lista M3U" (Gerar listas M3U)
 
-### Problema
-O parser M3U atual usa uma regex que exige **espaco entre S e E** (`S01 E01`), mas muitas listas M3U usam o formato **sem espaco** (`S01E01`). Isso faz com que entries como `3 Palavrinhas S01E01` sejam classificadas incorretamente como "Filme" em vez de "Episodio", e nao sao agrupadas por serie.
+Remover completamente a funcionalidade de gerar listas M3U personalizadas do sistema. Esta e a funcionalidade que permite ao usuario gerar/exportar listas M3U a partir dos conteudos cadastrados -- **nao** a de importar M3U.
 
-Formato da lista do usuario:
-```
-tvg-name="3 Palavrinhas S01E01" group-title="Series | Outras Produtoras"
-```
+### Arquivos a modificar
 
-### Solucao
+1. **`src/App.tsx`**
+   - Remover o import de `ListaM3U`
+   - Remover a rota `/lista-m3u`
 
-Alterar a regex de deteccao de episodios no `parseM3UAdvanced` dentro de `src/components/M3UImporter.tsx` para suportar multiplos formatos:
+2. **`src/components/Sidebar.tsx`**
+   - Remover o item `{ name: 'Lista M3U', href: '/lista-m3u', icon: FileText }`
 
-**Antes (linha 285):**
-```
-/(.*?)\s+S(\d+)\s+E(\d+)/i
-```
+3. **`src/components/user/UserSidebar.tsx`**
+   - Remover o objeto de navegacao com `id: 'lista-m3u'`
 
-**Depois:**
-```
-/(.*?)\s+S(\d+)\s*E(\d+)/i
-```
+4. **`src/components/user/UserHeader.tsx`**
+   - Remover a entrada `'/lista-m3u'` do mapa de rotas
 
-A mudanca e simples: `\s+` (espaco obrigatorio) vira `\s*` (espaco opcional) entre o numero da temporada e o E do episodio. Isso cobre ambos os formatos:
-- `S01 E01` (com espaco)
-- `S01E01` (sem espaco)
+5. **`src/components/AdminUserPermissions.tsx`**
+   - Remover `'lista-m3u'` das listas de features dos planos (Basico, Profissional, Empresarial)
 
-Alem disso, adicionar um fallback extra para o `group-title` -- quando contem "Series" ou "Serie", forcar o tipo para `Serie` mesmo antes da deteccao de episodio, garantindo que entries com `group-title="Series | ..."` sejam tratadas como serie.
+6. **`src/pages/ListaM3U.tsx`**
+   - Deletar o arquivo inteiro
 
-### Detalhes Tecnicos
+### O que NAO sera tocado
 
-**Arquivo:** `src/components/M3UImporter.tsx`
-
-1. **Linha 285** -- Atualizar regex de `\s+E` para `\s*E` para aceitar `S01E01` e `S01 E01`
-2. **Linhas 275-280** -- Melhorar deteccao de tipo pelo `group-title` para tambem verificar a URL (se contem `/series/` na URL, marcar como serie)
-3. Apos a correcao, o fluxo existente de `groupSeriesAndEpisodes` ja funciona corretamente -- ele agrupa episodios pelo `seriesName`, cria a entrada na tabela Conteudos com o nome da serie e a logo como Capa, e cadastra cada episodio na tabela Episodios com temporada e numero.
-
-### Resultado Esperado
-
-Para `3 Palavrinhas S01E02`:
-- **Nome da Serie:** `3 Palavrinhas` -> cadastrado na tabela Conteudos
-- **Capa:** valor do `tvg-logo` -> coluna Capa da tabela Conteudos
-- **Temporada:** `1` (do S01)
-- **Episodio:** `2` (do E02)
-- **Link:** URL do episodio -> cadastrado na tabela Episodios
-
+- `src/pages/ImportarM3U.tsx` -- funcionalidade de **importar** M3U permanece intacta
+- `src/components/M3UImporter.tsx` -- componente de importacao permanece
+- `src/pages/Recursos.tsx` -- a referencia la e sobre "Importar Lista M3U", nao sobre gerar, entao permanece
