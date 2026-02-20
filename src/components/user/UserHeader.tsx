@@ -45,11 +45,6 @@ const routeTitles: Record<string, { title: string; subtitle: string; icon?: Reac
     subtitle: 'Gerenciar episódios',
     icon: Menu
   },
-  '/lista-m3u': { 
-    title: 'Lista M3U', 
-    subtitle: 'Listas de reprodução',
-    icon: Menu
-  },
   '/banners': { 
     title: 'Banners', 
     subtitle: 'Gerenciar banners do sistema',

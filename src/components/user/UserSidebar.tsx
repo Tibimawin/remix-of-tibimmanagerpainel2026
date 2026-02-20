@@ -132,15 +132,6 @@ const menuItems: MenuItem[] = [
     feature: 'episodios'
   },
   {
-    id: 'lista-m3u',
-    label: 'Lista M3U',
-    href: '/lista-m3u',
-    icon: FileText,
-    category: 'content',
-    description: 'Listas de reprodução',
-    feature: 'lista-m3u'
-  },
-  {
     id: 'banners',
     label: 'Banners',
     href: '/banners',

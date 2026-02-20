@@ -54,7 +54,7 @@ import SuporteAoVivo from "./pages/SuporteAoVivo";
 import Precos from "./pages/Precos";
 import PrecosInterno from "./pages/PrecosInterno";
 import SubstituicaoURLs from "./pages/SubstituicaoURLs";
-import ListaM3U from "./pages/ListaM3U";
+
 import RelatoriosVisualizacao from "./pages/RelatoriosVisualizacao";
 
 import ImportarCanaisTV from "./pages/ImportarCanaisTV";
@@ -156,13 +156,6 @@ const App = () => {
                                 </SimpleProtectedRoute>
                               } />
 
-                              <Route path="/lista-m3u" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <ListaM3U />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
 
                               <Route path="/banners" element={
                                 <SimpleProtectedRoute>
