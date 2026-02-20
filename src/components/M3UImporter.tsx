@@ -275,14 +275,18 @@ const M3UImporter = () => {
         if (typeRaw) {
            const typeUpper = typeRaw.toUpperCase();
            if (typeUpper.includes('FILME')) type = 'Filme';
-           else if (typeUpper.includes('SERIE') || typeUpper.includes('SÉRIE')) type = 'Serie';
+           else if (typeUpper.includes('SERIE') || typeUpper.includes('SÉRIE') || typeUpper.includes('SERIES')) type = 'Serie';
            else if (typeUpper.includes('TV') || typeUpper.includes('CANAL') || typeUpper.includes('CANAIS')) type = 'TV';
+        }
+        // Fallback: se a URL contém /series/, forçar tipo Serie
+        if (type === 'Filme' && url.includes('/series/')) {
+          type = 'Serie';
         }
 
         // Detectar Episódio (Sxx Eyy)
         // Regex para capturar Nome da Série, Temporada e Episódio
         // Ex: "Big Mouth S01 E01" -> Name: "Big Mouth", S: 01, E: 01
-        const episodeMatch = name.match(/(.*?)\s+S(\d+)\s+E(\d+)/i);
+        const episodeMatch = name.match(/(.*?)\s+S(\d+)\s*E(\d+)/i);
         
         let season: number | undefined;
         let episode: number | undefined;
