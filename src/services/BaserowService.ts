@@ -311,6 +311,53 @@ export class BaserowService {
     if (!response.ok) throw new Error(`Erro ${response.status}: ${await response.text()}`);
     return true;
   }
+
+  // 🚀 Criação em lote otimizada (até 200 rows por chamada)
+  async createRowsBatch(tableId: string, rows: any[]): Promise<any[]> {
+    if (!rows.length) return [];
+
+    const MAX_BATCH_SIZE = 200;
+    const allCreated: any[] = [];
+
+    // Dividir em sub-lotes de até 200
+    for (let i = 0; i < rows.length; i += MAX_BATCH_SIZE) {
+      const chunk = rows.slice(i, i + MAX_BATCH_SIZE);
+      const endpoint = `/api/database/rows/table/${tableId}/batch/?user_field_names=true`;
+      const body = JSON.stringify({ items: chunk });
+
+      let attempt = 0;
+      const maxRetries = 3;
+
+      while (attempt < maxRetries) {
+        attempt++;
+        try {
+          logger.debug(`📦 Criando lote de ${chunk.length} registros (tentativa ${attempt})`);
+          const response = await this.makeRequest(endpoint, { method: 'POST', body });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            logger.warn(`⚠️ Erro batch-create (status ${response.status}): ${errorText}`);
+            throw new Error(`Erro ${response.status}: ${errorText}`);
+          }
+
+          const data = await response.json();
+          const created = data.items || data;
+          allCreated.push(...(Array.isArray(created) ? created : [created]));
+          break; // sucesso
+        } catch (error) {
+          logger.error(`❌ Erro na tentativa ${attempt} de batch-create:`, error);
+          if (attempt < maxRetries) {
+            await new Promise(r => setTimeout(r, 300 * attempt));
+          } else {
+            throw error;
+          }
+        }
+      }
+    }
+
+    logger.debug(`✅ Total de ${allCreated.length} registros criados em lote`);
+    return allCreated;
+  }
 }
 
 export const useBaserowService = () => {
