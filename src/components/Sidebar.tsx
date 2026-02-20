@@ -60,7 +60,7 @@ const navigation: NavItem[] = [
   { name: 'Produtos', href: '/produtos', icon: Package },
   { name: 'Estatísticas', href: '/estatisticas', icon: BarChart3 },
   { name: 'Relatórios de Visualização', href: '/relatorios-visualizacao', icon: TrendingUp },
-  { name: 'Métricas de Engajamento', href: '/metricas-engajamento', icon: Activity },
+  
   { name: 'Recursos', href: '/recursos', icon: Zap },
   { name: 'Limpeza de Dados', href: '/limpeza-dados', icon: DatabaseZap },
   { name: 'MaxPlus Importação', href: '/maxplus-import', icon: Film },
