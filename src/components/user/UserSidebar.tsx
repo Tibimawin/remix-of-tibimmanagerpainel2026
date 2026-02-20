@@ -300,15 +300,6 @@ const menuItems: MenuItem[] = [
     feature: 'relatorios-visualizacao'
   },
   {
-    id: 'metricas-engajamento',
-    label: 'Métricas',
-    href: '/metricas-engajamento',
-    icon: Activity,
-    category: 'analytics',
-    description: 'Métricas de engajamento',
-    feature: 'metricas-engajamento'
-  },
-  {
     id: 'recursos',
     label: 'Recursos',
     href: '/recursos',
