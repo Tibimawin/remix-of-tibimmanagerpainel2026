@@ -100,11 +100,6 @@ const routeTitles: Record<string, { title: string; subtitle: string; icon?: Reac
     subtitle: 'Análise de audiência e engagement',
     icon: Menu
   },
-  '/metricas-engajamento': { 
-    title: 'Métricas de Engajamento', 
-    subtitle: 'KPIs e métricas de performance',
-    icon: Menu
-  },
   '/recursos': { 
     title: 'Recursos', 
     subtitle: 'Funcionalidades disponíveis',
