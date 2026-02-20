@@ -19,7 +19,7 @@ import {
   LogOut,
   Play,
   CreditCard,
-  FileText,
+  
   TrendingUp,
   Activity,
   Trash2,
