@@ -1008,6 +1008,24 @@ const M3UImporter = () => {
             <p className="text-sm text-muted-foreground">
               Escolha quais tipos de conteúdo deseja importar da lista M3U
             </p>
+            <div className="flex justify-end gap-2 mb-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => setImportFilters({ movies: true, series: true, tv: true })}
+              >
+                Selecionar Todos
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => setImportFilters({ movies: false, series: false, tv: false })}
+              >
+                Desmarcar Todos
+              </Button>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
                 onClick={() => setImportFilters(prev => ({ ...prev, movies: !prev.movies }))}
@@ -1199,7 +1217,13 @@ const M3UImporter = () => {
           <div className="flex-1 overflow-y-auto px-6 space-y-4">
             {/* Filtros de Importação */}
             <div className="flex flex-wrap gap-4 p-4 border rounded-lg bg-muted/30">
-              <Label className="w-full text-sm font-semibold text-muted-foreground">Selecione o que importar:</Label>
+              <div className="w-full flex items-center justify-between">
+                <Label className="text-sm font-semibold text-muted-foreground">Selecione o que importar:</Label>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" className="text-xs h-6 px-2" onClick={() => setImportFilters({ movies: true, series: true, tv: true })}>Todos</Button>
+                  <Button variant="ghost" size="sm" className="text-xs h-6 px-2" onClick={() => setImportFilters({ movies: false, series: false, tv: false })}>Nenhum</Button>
+                </div>
+              </div>
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="filter-movies" 
