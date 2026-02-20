@@ -998,6 +998,76 @@ const M3UImporter = () => {
             </p>
           </div>
 
+          {/* Filtro de Tipo de Conteúdo */}
+          <div className="space-y-3">
+            <Label className="text-base font-medium">Tipo de Lista para Importar</Label>
+            <p className="text-sm text-muted-foreground">
+              Escolha quais tipos de conteúdo deseja importar da lista M3U
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                onClick={() => setImportFilters(prev => ({ ...prev, movies: !prev.movies }))}
+                className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+                  importFilters.movies
+                    ? 'border-blue-500 bg-blue-500/10 text-blue-400'
+                    : 'border-muted bg-muted/30 text-muted-foreground hover:border-muted-foreground/30'
+                }`}
+              >
+                <Film className="h-5 w-5 shrink-0" />
+                <div className="text-left">
+                  <div className="font-medium text-sm">Filmes</div>
+                  <div className="text-xs opacity-70">Importar filmes da lista</div>
+                </div>
+                <Checkbox
+                  checked={importFilters.movies}
+                  className="ml-auto pointer-events-none"
+                />
+              </button>
+              <button
+                onClick={() => setImportFilters(prev => ({ ...prev, series: !prev.series }))}
+                className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+                  importFilters.series
+                    ? 'border-purple-500 bg-purple-500/10 text-purple-400'
+                    : 'border-muted bg-muted/30 text-muted-foreground hover:border-muted-foreground/30'
+                }`}
+              >
+                <Tv className="h-5 w-5 shrink-0" />
+                <div className="text-left">
+                  <div className="font-medium text-sm">Séries</div>
+                  <div className="text-xs opacity-70">Séries e episódios</div>
+                </div>
+                <Checkbox
+                  checked={importFilters.series}
+                  className="ml-auto pointer-events-none"
+                />
+              </button>
+              <button
+                onClick={() => setImportFilters(prev => ({ ...prev, tv: !prev.tv }))}
+                className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+                  importFilters.tv
+                    ? 'border-green-500 bg-green-500/10 text-green-400'
+                    : 'border-muted bg-muted/30 text-muted-foreground hover:border-muted-foreground/30'
+                }`}
+              >
+                <Radio className="h-5 w-5 shrink-0" />
+                <div className="text-left">
+                  <div className="font-medium text-sm">Canais TV</div>
+                  <div className="text-xs opacity-70">Canais ao vivo</div>
+                </div>
+                <Checkbox
+                  checked={importFilters.tv}
+                  className="ml-auto pointer-events-none"
+                />
+              </button>
+            </div>
+            {!importFilters.movies && !importFilters.series && !importFilters.tv && (
+              <p className="text-xs text-destructive flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Selecione pelo menos um tipo de conteúdo
+              </p>
+            )}
+          </div>
+
           {/* Modo de Importação */}
           <div className="space-y-3">
             <Label className="text-base font-medium">Modo de Importação</Label>
@@ -1102,7 +1172,7 @@ const M3UImporter = () => {
           {/* Botão de Preview */}
           <Button
             onClick={handlePreviewImport}
-            disabled={!selectedFile}
+            disabled={!selectedFile || (!importFilters.movies && !importFilters.series && !importFilters.tv)}
             className="w-full"
             size="lg"
           >
