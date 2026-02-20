@@ -4,7 +4,7 @@ import { useM3UImport } from '@/contexts/M3UImportContext';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Film, Tv, Radio, List, ExternalLink, PauseCircle, PlayCircle } from 'lucide-react';
+import { Loader2, Film, Tv, Radio, List, ExternalLink, PauseCircle, PlayCircle, Zap } from 'lucide-react';
 
 const typeIcon = {
   'Filmes': Film,
@@ -59,6 +59,13 @@ export const M3UProgressBar: React.FC = () => {
                 {progress.current}/{progress.total} itens
                 {progress.percentage > 0 && ` · ${progress.percentage}%`}
               </span>
+
+              {progress.itemsPerSecond > 0 && !progress.isPaused && (
+                <Badge variant="outline" className="text-xs gap-1 border-green-500/40 text-green-500">
+                  <Zap className="h-3 w-3" />
+                  {progress.itemsPerSecond} itens/s
+                </Badge>
+              )}
 
               {progress.currentType && (
                 <span className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
