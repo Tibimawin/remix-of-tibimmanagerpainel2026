@@ -573,7 +573,7 @@ const M3UImporter = () => {
       return;
     }
 
-    // 7. Aviso se TMDB ativo mas chave não configurada
+    // Aviso se TMDB ativo mas chave não configurada
     if (enrichWithTMDB) {
       let tmdbKey: string | null = (userConfig as any)?.apiKeys?.tmdb || null;
       if (!tmdbKey && userInfo?.id) {
@@ -598,10 +598,40 @@ const M3UImporter = () => {
     let errorCount = 0;
     let duplicateCount = 0;
 
+    // 🚀 Cache TMDB por sessão para evitar buscas repetidas
+    const tmdbCache = new Map<string, any>();
+
+    const fetchTMDBCached = async (title: string, type: 'Filme' | 'Serie') => {
+      const cacheKey = `${type}::${title.toLowerCase().trim()}`;
+      if (tmdbCache.has(cacheKey)) return tmdbCache.get(cacheKey);
+      const result = await fetchTMDBMetadata(title, type);
+      tmdbCache.set(cacheKey, result);
+      return result;
+    };
+
+    // 🚀 Buscar TMDB em paralelo (até 3 simultâneos)
+    const fetchTMDBParallel = async (items: { title: string; type: 'Filme' | 'Serie' }[]) => {
+      const results: (any | null)[] = [];
+      const PARALLEL = 3;
+      for (let i = 0; i < items.length; i += PARALLEL) {
+        if (abortRef.current) break;
+        await checkPause();
+        const chunk = items.slice(i, i + PARALLEL);
+        const chunkResults = await Promise.all(
+          chunk.map(item => fetchTMDBCached(item.title, item.type))
+        );
+        results.push(...chunkResults);
+        // Delay entre chunks para respeitar rate limit TMDB (40 req/10s)
+        if (i + PARALLEL < items.length) {
+          await new Promise(r => setTimeout(r, 150));
+        }
+      }
+      return results;
+    };
+
     try {
       const grouped = groupSeriesAndEpisodes(parsedItems);
       
-      // Calcular total de itens a importar
       const totalItems = grouped.series.length + 
                         grouped.series.reduce((sum, s) => sum + s.episodes.length, 0) +
                         grouped.filmes.length + 
@@ -645,7 +675,18 @@ const M3UImporter = () => {
         } catch { /* localStorage pode estar cheio */ }
       };
 
-      
+      let processedCount = 0;
+      const updateProgressCount = (count: number, type: ImportProgress['currentType'], item: string) => {
+        processedCount += count;
+        setProgress({
+          current: processedCount,
+          total: totalItems,
+          percentage: Math.round((processedCount / totalItems) * 100),
+          currentType: type,
+          currentItem: item
+        });
+      };
+
       // 1. Importar Séries e Episódios
       if (importFilters.series) {
         for (let sIdx = resumeIdxRef.current.series; sIdx < grouped.series.length; sIdx++) {
@@ -658,24 +699,20 @@ const M3UImporter = () => {
           let currentSeriesId: number | null = null;
 
           try {
-            setProgress(prev => ({
-              ...prev,
-              current: prev.current + 1,
-              percentage: Math.round(((prev.current + 1) / prev.total) * 100),
-              currentType: 'Séries',
-              currentItem: series.name
-            }));
+            updateProgressCount(1, 'Séries', series.name);
             
             // Verificar duplicado
             if (ignoreDuplicates && existingNames.has(series.name.toLowerCase().trim())) {
               duplicateCount++;
+              // Contar episódios como processados também
+              updateProgressCount(series.episodes.length, 'Episódios', `${series.name} (duplicado)`);
               continue;
             }
             
-            // Buscar metadados do TMDB se habilitado
+            // Buscar metadados do TMDB se habilitado (usa cache)
             let tmdbData = null;
             if (enrichWithTMDB) {
-              tmdbData = await fetchTMDBMetadata(series.name, 'Serie');
+              tmdbData = await fetchTMDBCached(series.name, 'Serie');
             }
             
             let category = tmdbData?.genres?.join(', ') || series.category || '';
@@ -697,163 +734,213 @@ const M3UImporter = () => {
               'Data de Lançamento': tmdbData?.release_date || ''
             };
             
+            // Séries são criadas individualmente (precisamos do ID para vincular episódios)
             const createdSeries = await baserowService.createRow(config.tableIds.conteudos, seriesData);
             currentSeriesId = createdSeries.id;
             successCount++;
-            
-            // Pequena pausa para evitar sobrecarga
-            await new Promise(resolve => setTimeout(resolve, enrichWithTMDB ? 300 : 50));
           } catch (error) {
             console.error('Erro ao importar série:', error);
             errorCount++;
           }
 
-          // Importar episódios se a série foi criada com sucesso
+          // 🚀 Importar episódios em LOTE se a série foi criada com sucesso
           if (currentSeriesId) {
+            const EPISODE_BATCH_SIZE = 100;
+            const episodeBatches: any[][] = [];
+            let currentBatch: any[] = [];
+
             for (const episode of series.episodes) {
+              currentBatch.push({
+                Nome: episode.seriesName || series.name,
+                Temporada: episode.season || 1,
+                'Episódio': episode.episode || 1,
+                Link: episode.url,
+                Conteudo: [currentSeriesId]
+              });
+
+              if (currentBatch.length >= EPISODE_BATCH_SIZE) {
+                episodeBatches.push(currentBatch);
+                currentBatch = [];
+              }
+            }
+            if (currentBatch.length > 0) episodeBatches.push(currentBatch);
+
+            for (const batch of episodeBatches) {
               if (abortRef.current) break;
               await checkPause();
 
               try {
-                setProgress(prev => ({
-                  ...prev,
-                  current: prev.current + 1,
-                  percentage: Math.round(((prev.current + 1) / prev.total) * 100),
-                  currentType: 'Episódios',
-                  currentItem: `${series.name} - S${episode.season}E${episode.episode}`
-                }));
-                
-                const episodeData = {
-                  Nome: episode.seriesName || series.name,
-                  Temporada: episode.season || 1,
-                  Episódio: episode.episode || 1,
-                  Link: episode.url,
-                  Conteudo: [currentSeriesId]
-                };
-                
-                await baserowService.createRow(config.tableIds.episodios, episodeData);
-                successCount++;
-                
-                // Pequena pausa
-                await new Promise(resolve => setTimeout(resolve, 50));
+                updateProgressCount(batch.length, 'Episódios', `${series.name} (${batch.length} eps em lote)`);
+                await baserowService.createRowsBatch(config.tableIds.episodios, batch);
+                successCount += batch.length;
               } catch (error) {
-                console.error('Erro ao importar episódio:', error);
+                console.error(`Erro ao importar lote de episódios de ${series.name}:`, error);
+                // Fallback: tentar um por um
+                for (const epData of batch) {
+                  try {
+                    await baserowService.createRow(config.tableIds.episodios, epData);
+                    successCount++;
+                  } catch (epError) {
+                    console.error('Erro ao importar episódio individual:', epError);
+                    errorCount++;
+                  }
+                }
+              }
+            }
+          } else {
+            // Série falhou, contar episódios como processados
+            updateProgressCount(series.episodes.length, 'Episódios', `${series.name} (série falhou)`);
+          }
+        }
+      }
+      
+      // 3. 🚀 Importar Filmes em LOTE
+      if (importFilters.movies) {
+        // Filtrar duplicados primeiro
+        const filmesToImport = grouped.filmes.slice(resumeIdxRef.current.filmes).filter(filme => {
+          if (ignoreDuplicates && existingNames.has(filme.name.toLowerCase().trim())) {
+            duplicateCount++;
+            return false;
+          }
+          return true;
+        });
+
+        // Contar filmes duplicados como processados
+        const filmesSkipped = grouped.filmes.length - resumeIdxRef.current.filmes - filmesToImport.length;
+        if (filmesSkipped > 0) {
+          updateProgressCount(filmesSkipped, 'Filmes', 'Duplicados ignorados');
+        }
+
+        // Buscar TMDB em paralelo se habilitado
+        let tmdbResults: (any | null)[] = [];
+        if (enrichWithTMDB && filmesToImport.length > 0) {
+          updateProgressCount(0, 'Filmes', 'Buscando metadados TMDB...');
+          tmdbResults = await fetchTMDBParallel(
+            filmesToImport.map(f => ({ title: f.name, type: 'Filme' as const }))
+          );
+        }
+
+        // Preparar dados dos filmes e enviar em lotes
+        const FILME_BATCH_SIZE = 100;
+        const filmesData: any[] = [];
+
+        for (let i = 0; i < filmesToImport.length; i++) {
+          if (abortRef.current) break;
+          const filme = filmesToImport[i];
+          const tmdbData = tmdbResults[i] || null;
+
+          let category = tmdbData?.genres?.join(', ') || filme.category || '';
+          if (category) category += ', ';
+          category += 'Filmes';
+
+          filmesData.push({
+            Nome: tmdbData?.title || filme.name,
+            Capa: tmdbData?.poster || filme.logo || '',
+            Categoria: category,
+            Sinopse: tmdbData?.overview || '',
+            Link: filme.url,
+            Tipo: namingMode === 'plural' ? 'Filmes' : 'Filme',
+            Idioma: filme.language || 'DUBLADO',
+            Views: 0,
+            Imdb: tmdbData?.rating || '',
+            'Capa de fundo': tmdbData?.backdrop || '',
+            'Data de Lançamento': tmdbData?.release_date || ''
+          });
+        }
+
+        // Enviar em lotes
+        for (let i = 0; i < filmesData.length; i += FILME_BATCH_SIZE) {
+          if (abortRef.current) break;
+          await checkPause();
+          const batch = filmesData.slice(i, i + FILME_BATCH_SIZE);
+
+          try {
+            updateProgressCount(batch.length, 'Filmes', `Importando lote de ${batch.length} filmes...`);
+            await baserowService.createRowsBatch(config.tableIds.conteudos, batch);
+            successCount += batch.length;
+          } catch (error) {
+            console.error('Erro ao importar lote de filmes:', error);
+            // Fallback: um por um
+            for (const filmeData of batch) {
+              try {
+                await baserowService.createRow(config.tableIds.conteudos, filmeData);
+                successCount++;
+              } catch (fErr) {
+                console.error('Erro ao importar filme individual:', fErr);
                 errorCount++;
               }
             }
           }
-        }
-      }
-      
-      // 3. Importar Filmes
-      if (importFilters.movies) {
-        for (let fIdx = resumeIdxRef.current.filmes; fIdx < grouped.filmes.length; fIdx++) {
-          const filme = grouped.filmes[fIdx];
-          if (abortRef.current) break;
-          await checkPause();
-          resumeIdxRef.current.filmes = fIdx;
-          saveResumeState(resumeIdxRef.current.series, fIdx, resumeIdxRef.current.canais, stats);
-          
-          try {
-            setProgress(prev => ({
-              ...prev,
-              current: prev.current + 1,
-              percentage: Math.round(((prev.current + 1) / prev.total) * 100),
-              currentType: 'Filmes',
-              currentItem: filme.name
-            }));
-            
-            // Verificar duplicado
-            if (ignoreDuplicates && existingNames.has(filme.name.toLowerCase().trim())) {
-              duplicateCount++;
-              continue;
-            }
-            
-            // Buscar metadados do TMDB se habilitado
-            let tmdbData = null;
-            if (enrichWithTMDB) {
-              tmdbData = await fetchTMDBMetadata(filme.name, 'Filme');
-            }
-            
-            let category = tmdbData?.genres?.join(', ') || filme.category || '';
-            if (category) category += ', ';
-            category += 'Filmes';
 
-            const filmeData = {
-              Nome: tmdbData?.title || filme.name,
-              Capa: tmdbData?.poster || filme.logo || '',
-              Categoria: category,
-              Sinopse: tmdbData?.overview || '',
-              Link: filme.url,
-              Tipo: namingMode === 'plural' ? 'Filmes' : 'Filme',
-              Idioma: filme.language || 'DUBLADO',
-              Views: 0,
-              Imdb: tmdbData?.rating || '',
-              'Capa de fundo': tmdbData?.backdrop || '',
-              'Data de Lançamento': tmdbData?.release_date || ''
-            };
-            
-            await baserowService.createRow(config.tableIds.conteudos, filmeData);
-            successCount++;
-            
-            await new Promise(resolve => setTimeout(resolve, enrichWithTMDB ? 300 : 50));
-          } catch (error) {
-            console.error('Erro ao importar filme:', error);
-            errorCount++;
-          }
+          resumeIdxRef.current.filmes = resumeIdxRef.current.filmes + i + batch.length;
+          saveResumeState(resumeIdxRef.current.series, resumeIdxRef.current.filmes, resumeIdxRef.current.canais, stats);
         }
       }
       
-      // 4. Importar Canais TV
+      // 4. 🚀 Importar Canais TV em LOTE
       if (importFilters.tv) {
-        for (let cIdx = resumeIdxRef.current.canais; cIdx < grouped.canais.length; cIdx++) {
-          const canal = grouped.canais[cIdx];
+        const canaisToImport = grouped.canais.slice(resumeIdxRef.current.canais).filter(canal => {
+          if (ignoreDuplicates && existingNames.has(canal.name.toLowerCase().trim())) {
+            duplicateCount++;
+            return false;
+          }
+          return true;
+        });
+
+        const canaisSkipped = grouped.canais.length - resumeIdxRef.current.canais - canaisToImport.length;
+        if (canaisSkipped > 0) {
+          updateProgressCount(canaisSkipped, 'Canais', 'Duplicados ignorados');
+        }
+
+        const CANAL_BATCH_SIZE = 100;
+        const canaisData: any[] = [];
+
+        for (const canal of canaisToImport) {
+          if (abortRef.current) break;
+          let category = canal.category || '';
+          if (category) category += ', ';
+          category += 'TV';
+
+          canaisData.push({
+            Nome: canal.name,
+            Capa: canal.logo || '',
+            Categoria: category,
+            Link: canal.url,
+            Tipo: 'TV',
+            Idioma: 'Ao Vivo',
+            Views: 0
+          });
+        }
+
+        const targetTableId = (namingMode === 'plural' && config.tableIds.canaisTv) 
+          ? config.tableIds.canaisTv 
+          : config.tableIds.conteudos;
+
+        for (let i = 0; i < canaisData.length; i += CANAL_BATCH_SIZE) {
           if (abortRef.current) break;
           await checkPause();
-          resumeIdxRef.current.canais = cIdx;
-          saveResumeState(resumeIdxRef.current.series, resumeIdxRef.current.filmes, cIdx, stats);
-          
+          const batch = canaisData.slice(i, i + CANAL_BATCH_SIZE);
+
           try {
-            setProgress(prev => ({
-              ...prev,
-              current: prev.current + 1,
-              percentage: Math.round(((prev.current + 1) / prev.total) * 100),
-              currentType: 'Canais',
-              currentItem: canal.name
-            }));
-            
-            // Verificar duplicado
-            if (ignoreDuplicates && existingNames.has(canal.name.toLowerCase().trim())) {
-              duplicateCount++;
-              continue;
-            }
-            
-            let category = canal.category || '';
-            if (category) category += ', ';
-            category += 'TV';
-
-            const canalData = {
-              Nome: canal.name,
-              Capa: canal.logo || '',
-              Categoria: category,
-              Link: canal.url,
-              Tipo: 'TV',
-              Idioma: 'Ao Vivo',
-              Views: 0
-            };
-            
-            const targetTableId = (namingMode === 'plural' && config.tableIds.canaisTv) 
-              ? config.tableIds.canaisTv 
-              : config.tableIds.conteudos;
-
-            await baserowService.createRow(targetTableId, canalData);
-            successCount++;
-            
-            await new Promise(resolve => setTimeout(resolve, 50));
+            updateProgressCount(batch.length, 'Canais', `Importando lote de ${batch.length} canais...`);
+            await baserowService.createRowsBatch(targetTableId, batch);
+            successCount += batch.length;
           } catch (error) {
-            console.error('Erro ao importar canal:', error);
-            errorCount++;
+            console.error('Erro ao importar lote de canais:', error);
+            // Fallback: um por um
+            for (const canalData of batch) {
+              try {
+                await baserowService.createRow(targetTableId, canalData);
+                successCount++;
+              } catch (cErr) {
+                console.error('Erro ao importar canal individual:', cErr);
+                errorCount++;
+              }
+            }
           }
+
+          resumeIdxRef.current.canais = resumeIdxRef.current.canais + i + batch.length;
+          saveResumeState(resumeIdxRef.current.series, resumeIdxRef.current.filmes, resumeIdxRef.current.canais, stats);
         }
       }
 
