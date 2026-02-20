@@ -47,7 +47,7 @@ const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Conteúdos', href: '/conteudos', icon: LayoutGrid },
   { name: 'Episódios', href: '/episodios', icon: List },
-  { name: 'Lista M3U', href: '/lista-m3u', icon: FileText },
+  
   { name: 'Banners', href: '/banners', icon: Eye },
   { name: 'Categorias', href: '/categorias', icon: Edit },
   { name: 'Duplicados', href: '/duplicados', icon: Copy },
