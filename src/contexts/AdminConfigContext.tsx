@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useUserConfig } from '@/hooks/useUserConfig';
+import { UserConfigService } from '@/services/UserConfigService';
+import { logger } from '@/utils/logger';
 
 interface AdminConfig {
   canaisTv: {
@@ -28,32 +29,39 @@ const AdminConfigContext = createContext<AdminConfigContextType | undefined>(und
 
 export const AdminConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [adminConfig, setAdminConfig] = useState<AdminConfig>(defaultAdminConfig);
-  const { config: userConfig, updateCanaisTvConfig, loading } = useUserConfig();
+  const [loading, setLoading] = useState(true);
 
-  // Sincronizar com Firebase quando userConfig carregar
+  // Listener em tempo real do documento global
   useEffect(() => {
-    if (userConfig?.canaisTvConfig) {
-      setAdminConfig({
-        canaisTv: {
-          sourceToken: userConfig.canaisTvConfig.sourceToken || '',
-          sourceBaseUrl: userConfig.canaisTvConfig.sourceBaseUrl || '',
-          sourceTableId: userConfig.canaisTvConfig.sourceTableId || '',
-        }
-      });
-    }
-  }, [userConfig]);
+    const unsubscribe = UserConfigService.onGlobalCanaisTvConfigChange((config) => {
+      if (config) {
+        setAdminConfig({
+          canaisTv: {
+            sourceToken: config.sourceToken || '',
+            sourceBaseUrl: config.sourceBaseUrl || '',
+            sourceTableId: config.sourceTableId || '',
+          }
+        });
+      } else {
+        setAdminConfig(defaultAdminConfig);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const updateAdminConfig = async (newConfig: Partial<AdminConfig>) => {
     try {
       const updated = { ...adminConfig, ...newConfig };
       setAdminConfig(updated);
 
-      // Salvar no Firebase
+      // Salvar no documento global do Firestore
       if (newConfig.canaisTv) {
-        await updateCanaisTvConfig(newConfig.canaisTv);
+        await UserConfigService.saveGlobalCanaisTvConfig(newConfig.canaisTv);
       }
     } catch (error) {
-      console.error('Erro ao salvar configuração de admin:', error);
+      logger.error('Erro ao salvar configuração global de Canais TV:', error);
       throw error;
     }
   };
