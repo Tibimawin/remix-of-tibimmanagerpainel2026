@@ -409,5 +409,56 @@ export const UserConfigService = {
         callback(null);
       }
     );
+  },
+
+  // ============================================================
+  // Configuração Global de Canais TV (admin → todos usuários)
+  // Firestore path: globalConfig/canaisTvSource
+  // ============================================================
+
+  async getGlobalCanaisTvConfig(): Promise<{ sourceToken: string; sourceBaseUrl: string; sourceTableId: string; updatedAt: string } | null> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'canaisTvSource');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as { sourceToken: string; sourceBaseUrl: string; sourceTableId: string; updatedAt: string };
+      }
+      return null;
+    } catch (error) {
+      logger.error('Erro ao buscar configuração global de Canais TV', error);
+      return null;
+    }
+  },
+
+  async saveGlobalCanaisTvConfig(config: { sourceToken: string; sourceBaseUrl: string; sourceTableId: string }): Promise<void> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'canaisTvSource');
+      await setDoc(docRef, {
+        ...config,
+        updatedAt: new Date().toISOString()
+      });
+      logger.debug('Configuração global de Canais TV salva');
+    } catch (error) {
+      logger.error('Erro ao salvar configuração global de Canais TV', error);
+      throw error;
+    }
+  },
+
+  onGlobalCanaisTvConfigChange(callback: (config: { sourceToken: string; sourceBaseUrl: string; sourceTableId: string } | null) => void): () => void {
+    const docRef = doc(db, 'globalConfig', 'canaisTvSource');
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          callback(docSnap.data() as { sourceToken: string; sourceBaseUrl: string; sourceTableId: string });
+        } else {
+          callback(null);
+        }
+      },
+      (error) => {
+        logger.error('Erro no listener da config global de Canais TV', error);
+        callback(null);
+      }
+    );
   }
 };
