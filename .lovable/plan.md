@@ -1,102 +1,87 @@
 
 
-## Plano de otimizacao da importacao M3U
+## Correcao: Configuracao de Canais TV nao compartilhada entre admin e usuarios
 
-### Problema
-A importacao M3U e extremamente lenta para listas grandes porque cada item gera 1 requisicao HTTP individual ao Baserow, passando por um proxy. Com TMDB ativado, sao 3 requisicoes por item. Uma lista de 5.000 itens pode levar de 10 minutos a mais de 1 hora.
+### Problema identificado
 
-### Diagnostico detalhado
+A configuracao de origem dos Canais TV (token, URL e table ID) esta sendo salva **por usuario** no Firestore (`userConfigs/{userId}/canaisTvConfig`). Quando o admin configura no painel admin, os dados ficam apenas no documento do admin. Quando um usuario comum tenta importar canais, o sistema le o documento do proprio usuario, que nao tem essa configuracao.
 
-**Velocidades atuais estimadas:**
-- Sem TMDB: ~50-150ms por item (1 req HTTP + 50ms delay)
-- Com TMDB: ~500-800ms por item (3 reqs HTTP + 300ms delay)
-- Lista de 10.000 itens com TMDB: ~1-2 horas
+### Causa raiz
 
-**Gargalos identificados:**
-1. `createRow()` envia 1 item por vez ao Baserow
-2. O Baserow tem API de batch-create (ate 200 rows por chamada) que nao e usada
-3. Delays fixos de 50ms/300ms entre cada item
-4. TMDB faz 2 chamadas (search + details) para cada item, sem cache
+- `AdminConfigContext` usa `useUserConfig()` que le de `userConfigs/{userId}`
+- `useImportarCanaisTV` usa `useAdminConfig()` que depende do mesmo contexto per-user
+- Nao existe um documento global para Canais TV como existe para importacao automatica (`globalConfig/importSource`)
+
+### Solucao
+
+Migrar a configuracao de Canais TV para usar o mesmo padrao global ja existente no sistema, similar ao que `globalConfig/importSource` faz.
 
 ---
 
-### Mudancas propostas
+### Mudancas necessarias
 
-#### 1. Adicionar `createRowsBatch()` ao BaserowService
-Criar um novo metodo que use a API `/api/database/rows/table/{id}/batch/` do Baserow para criar ate 200 registros por chamada.
+#### 1. Adicionar funcoes globais de Canais TV no `UserConfigService`
 
-**Arquivo:** `src/services/BaserowService.ts`
-- Adicionar metodo `createRowsBatch(tableId, rows[])` que envia ate 200 rows por requisicao
-- Manter retry com backoff (similar ao `deleteRowsBatch` que ja existe)
+**Arquivo:** `src/services/UserConfigService.ts`
 
-**Impacto:** Reduz 200 requisicoes HTTP para 1 unica requisicao.
+- Adicionar `saveGlobalCanaisTvConfig(config)` que salva em `globalConfig/canaisTvSource`
+- Adicionar `getGlobalCanaisTvConfig()` para leitura pontual
+- Adicionar `onGlobalCanaisTvConfigChange(callback)` para listener em tempo real (mesmo padrao do `onGlobalImportConfigChange`)
 
-#### 2. Refatorar importacao de filmes e canais para usar batch
-Os filmes e canais sao independentes entre si, entao podem ser agrupados e enviados em lotes.
+#### 2. Atualizar o `AdminConfigContext` para ler/escrever no documento global
 
-**Arquivo:** `src/components/M3UImporter.tsx`
-- Acumular filmes em buffer de 50-100 itens
-- Enviar o buffer inteiro via `createRowsBatch()`
-- Fazer o mesmo para canais TV
-- Manter o progresso visual atualizado por lote
+**Arquivo:** `src/contexts/AdminConfigContext.tsx`
 
-**Impacto estimado:** Importacao de 1.000 filmes passa de ~2 min para ~10-20 segundos.
+- Trocar de `useUserConfig()` para ler de `globalConfig/canaisTvSource` via `UserConfigService`
+- Trocar `updateCanaisTvConfig()` para salvar no documento global
+- Todos os usuarios (admin e comuns) passarao a ler o mesmo documento
 
-#### 3. Refatorar importacao de episodios para usar batch
-Episodios de uma mesma serie podem ser agrupados e enviados em lote.
+#### 3. Atualizar `useImportarCanaisTV` (sem mudancas de interface)
 
-**Arquivo:** `src/components/M3UImporter.tsx`
-- Apos criar a serie, agrupar todos os episodios dela
-- Enviar em lotes de ate 100 episodios via `createRowsBatch()`
+**Arquivo:** `src/hooks/useImportarCanaisTV.ts`
 
-**Impacto:** Uma serie com 200 episodios passa de 200 requisicoes para 2.
+- Nenhuma mudanca necessaria no hook em si, pois ele ja consome `adminConfig` do contexto
+- A correcao no `AdminConfigContext` resolve automaticamente
 
-#### 4. Cache de TMDB por sessao
-Evitar buscas repetidas ao TMDB para itens com o mesmo titulo.
+#### 4. Atualizar a tela de configuracao admin de Canais TV
 
-**Arquivo:** `src/components/M3UImporter.tsx`
-- Criar um `Map<string, TMDBResult>` no inicio da importacao
-- Antes de chamar `fetchTMDBMetadata()`, verificar se ja foi buscado
-- Reduzir delay do TMDB de 300ms para 150ms (o rate limit do TMDB e 40 req/10s)
-
-**Impacto:** Listas com muitos episodios da mesma serie economizam dezenas de chamadas TMDB.
-
-#### 5. Buscar TMDB em paralelo (ate 3 simultaneos)
-Em vez de buscar TMDB sequencialmente, fazer ate 3 buscas em paralelo.
-
-**Arquivo:** `src/components/M3UImporter.tsx`
-- Usar `Promise.all` com chunks de 3 itens para buscar TMDB
-- Respeitar rate limit do TMDB com delay entre chunks
-
-**Impacto:** Velocidade de enriquecimento TMDB triplica.
-
-#### 6. Reduzir delays fixos
-Os delays atuais (50ms sem TMDB, 300ms com TMDB) sao conservadores demais.
-
-**Arquivo:** `src/components/M3UImporter.tsx`
-- Sem TMDB + batch: sem delay (o batch ja e uma unica requisicao)
-- Com TMDB: delay de 100ms entre chamadas individuais (dentro do rate limit)
+**Arquivo:** O componente que o admin usa para salvar token/URL/tableId de Canais TV
+- Garantir que chame a funcao global em vez da per-user
 
 ---
 
-### Estimativa de velocidade apos otimizacao
+### Detalhes tecnicos
 
-| Cenario | Antes | Depois |
-|---------|-------|--------|
-| 1.000 filmes sem TMDB | ~2-3 min | ~10-15 seg |
-| 1.000 filmes com TMDB | ~10-13 min | ~2-3 min |
-| 5.000 itens mistos sem TMDB | ~8-12 min | ~1-2 min |
-| 5.000 itens mistos com TMDB | ~40-60 min | ~8-12 min |
+**Estrutura Firestore apos correcao:**
 
-### Resumo de arquivos afetados
+```text
+globalConfig/
+  importSource/     (ja existe - config de importacao automatica)
+  canaisTvSource/   (novo - config global de Canais TV)
+    sourceToken: "..."
+    sourceBaseUrl: "..."
+    sourceTableId: "..."
+    updatedAt: "..."
+```
 
-1. `src/services/BaserowService.ts` - Adicionar `createRowsBatch()`
-2. `src/components/M3UImporter.tsx` - Refatorar `handleImport()` para usar batch, cache TMDB, e paralelismo
+**Fluxo corrigido:**
 
-### Riscos e consideracoes
+```text
+Admin salva config --> globalConfig/canaisTvSource (Firestore)
+                                  |
+Usuario abre "Importar Canais" --> Le globalConfig/canaisTvSource
+                                  |
+                         Usa token/URL/tableId para buscar canais
+```
 
-- O endpoint de batch-create do Baserow precisa ser testado via proxy (Vercel/Supabase) para garantir que funciona corretamente
-- O progresso visual sera atualizado por lote em vez de por item (menos granular, mas ainda informativo)
-- Series continuam sendo criadas individualmente porque precisamos do ID retornado para vincular episodios
-- A funcionalidade de retomada (resume) continua funcionando, salvando progresso a cada lote
+### Arquivos afetados
+
+1. `src/services/UserConfigService.ts` - Adicionar funcoes globais de Canais TV
+2. `src/contexts/AdminConfigContext.tsx` - Ler/escrever do documento global
+3. Componente de configuracao admin de Canais TV (se existir separado)
+
+### Riscos
+
+- Dados ja salvos no documento do admin precisarao ser reconfigurados uma vez no painel admin apos a mudanca
+- Nenhuma perda de dados para usuarios comuns (eles nunca tiveram a config)
 
