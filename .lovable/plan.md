@@ -1,87 +1,103 @@
 
 
-## Correcao: Configuracao de Canais TV nao compartilhada entre admin e usuarios
+## Correcao: Funcionalidade "Ignorar Duplicados" no importador M3U
 
-### Problema identificado
+### Problemas identificados
 
-A configuracao de origem dos Canais TV (token, URL e table ID) esta sendo salva **por usuario** no Firestore (`userConfigs/{userId}/canaisTvConfig`). Quando o admin configura no painel admin, os dados ficam apenas no documento do admin. Quando um usuario comum tenta importar canais, o sistema le o documento do proprio usuario, que nao tem essa configuracao.
+Existem 3 bugs que fazem a verificacao de duplicados falhar:
 
-### Causa raiz
+#### Bug 1: Falha silenciosa ao carregar conteudos existentes
+Na linha 644-651, se o `getAllTableData` falhar (timeout, erro de rede, tabela grande demais), o erro e capturado silenciosamente e `existingNames` fica vazio. O resultado: ZERO duplicados sao detectados e tudo e importado novamente.
 
-- `AdminConfigContext` usa `useUserConfig()` que le de `userConfigs/{userId}`
-- `useImportarCanaisTV` usa `useAdminConfig()` que depende do mesmo contexto per-user
-- Nao existe um documento global para Canais TV como existe para importacao automatica (`globalConfig/importSource`)
+```
+// Codigo atual - erro silencioso
+try {
+  const { results } = await baserowService.getAllTableData(config.tableIds.conteudos);
+  existingNames = new Set(results.map(...));
+} catch (error) {
+  console.error('Erro ao buscar conteudos existentes:', error);
+  // existingNames continua vazio = nenhum duplicado detectado!
+}
+```
 
-### Solucao
+#### Bug 2: `existingNames` nunca e atualizado durante a importacao
+Apos importar uma serie ou lote de filmes, os nomes recem-criados nao sao adicionados ao `existingNames`. Se a propria lista M3U tiver itens repetidos internamente (ex: mesmo filme aparece 2 vezes na lista), ambos serao importados.
 
-Migrar a configuracao de Canais TV para usar o mesmo padrao global ja existente no sistema, similar ao que `globalConfig/importSource` faz.
+#### Bug 3: TMDB muda o nome do conteudo
+A verificacao de duplicado usa o nome original do M3U (`series.name`, `filme.name`), mas o registro e salvo com o nome do TMDB (`tmdbData?.title`). Na proxima importacao, o nome no Baserow e diferente do nome no M3U, entao o duplicado nao e detectado.
+
+Exemplo:
+- M3U diz: "Homem Aranha De Volta ao Lar"
+- TMDB retorna: "Homem-Aranha: De Volta ao Lar"
+- Na segunda importacao, "Homem Aranha De Volta ao Lar" nao esta no `existingNames` porque la esta "homem-aranha: de volta ao lar"
 
 ---
 
-### Mudancas necessarias
+### Solucao
 
-#### 1. Adicionar funcoes globais de Canais TV no `UserConfigService`
+#### 1. Tratar falha ao carregar existentes como erro bloqueante
 
-**Arquivo:** `src/services/UserConfigService.ts`
+**Arquivo:** `src/components/M3UImporter.tsx`
 
-- Adicionar `saveGlobalCanaisTvConfig(config)` que salva em `globalConfig/canaisTvSource`
-- Adicionar `getGlobalCanaisTvConfig()` para leitura pontual
-- Adicionar `onGlobalCanaisTvConfigChange(callback)` para listener em tempo real (mesmo padrao do `onGlobalImportConfigChange`)
+Quando `ignoreDuplicates` esta ativo e a busca de existentes falha, avisar o usuario e perguntar se deseja continuar sem verificacao ou cancelar. Nao continuar silenciosamente.
 
-#### 2. Atualizar o `AdminConfigContext` para ler/escrever no documento global
+#### 2. Atualizar `existingNames` apos cada item/lote importado
 
-**Arquivo:** `src/contexts/AdminConfigContext.tsx`
+**Arquivo:** `src/components/M3UImporter.tsx`
 
-- Trocar de `useUserConfig()` para ler de `globalConfig/canaisTvSource` via `UserConfigService`
-- Trocar `updateCanaisTvConfig()` para salvar no documento global
-- Todos os usuarios (admin e comuns) passarao a ler o mesmo documento
+Apos criar series, filmes ou canais, adicionar os nomes recem-criados ao `existingNames` para evitar duplicados internos na mesma lista.
 
-#### 3. Atualizar `useImportarCanaisTV` (sem mudancas de interface)
+#### 3. Normalizar nomes para comparacao mais robusta
 
-**Arquivo:** `src/hooks/useImportarCanaisTV.ts`
+**Arquivo:** `src/components/M3UImporter.tsx`
 
-- Nenhuma mudanca necessaria no hook em si, pois ele ja consome `adminConfig` do contexto
-- A correcao no `AdminConfigContext` resolve automaticamente
+Criar funcao de normalizacao que remove acentos, pontuacao e espacos extras para comparar nomes de forma mais tolerante. Isso resolve o problema do TMDB retornar nomes ligeiramente diferentes.
 
-#### 4. Atualizar a tela de configuracao admin de Canais TV
+```
+// Exemplo de normalizacao
+"Homem Aranha De Volta ao Lar" -> "homem aranha de volta ao lar"
+"Homem-Aranha: De Volta ao Lar" -> "homem aranha de volta ao lar"
+```
 
-**Arquivo:** O componente que o admin usa para salvar token/URL/tableId de Canais TV
-- Garantir que chame a funcao global em vez da per-user
+#### 4. Adicionar log visivel de quantos existentes foram carregados
+
+**Arquivo:** `src/components/M3UImporter.tsx`
+
+Mostrar no progresso quantos conteudos existentes foram encontrados, para o usuario saber se a verificacao esta funcionando.
 
 ---
 
 ### Detalhes tecnicos
 
-**Estrutura Firestore apos correcao:**
-
-```text
-globalConfig/
-  importSource/     (ja existe - config de importacao automatica)
-  canaisTvSource/   (novo - config global de Canais TV)
-    sourceToken: "..."
-    sourceBaseUrl: "..."
-    sourceTableId: "..."
-    updatedAt: "..."
+**Funcao de normalizacao de nomes:**
+```
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .replace(/[^a-z0-9\s]/g, '')     // remove pontuacao
+    .replace(/\s+/g, ' ')            // normaliza espacos
+    .trim();
+}
 ```
 
-**Fluxo corrigido:**
+**Atualizacao do existingNames apos cada lote:**
+- Series: adicionar `normalizeName(seriesData.Nome)` apos criar
+- Filmes: adicionar todos os nomes do lote apos `createRowsBatch`
+- Canais: adicionar todos os nomes do lote apos `createRowsBatch`
 
-```text
-Admin salva config --> globalConfig/canaisTvSource (Firestore)
-                                  |
-Usuario abre "Importar Canais" --> Le globalConfig/canaisTvSource
-                                  |
-                         Usa token/URL/tableId para buscar canais
-```
+**Tratamento de erro ao buscar existentes:**
+- Se falhar e `ignoreDuplicates` estiver ativo, mostrar toast de aviso
+- Oferecer opcao de continuar sem verificacao ou cancelar
+- Se continuar, desativar `ignoreDuplicates` para essa sessao
 
 ### Arquivos afetados
 
-1. `src/services/UserConfigService.ts` - Adicionar funcoes globais de Canais TV
-2. `src/contexts/AdminConfigContext.tsx` - Ler/escrever do documento global
-3. Componente de configuracao admin de Canais TV (se existir separado)
+1. `src/components/M3UImporter.tsx` - Todas as correcoes acima
 
 ### Riscos
 
-- Dados ja salvos no documento do admin precisarao ser reconfigurados uma vez no painel admin apos a mudanca
-- Nenhuma perda de dados para usuarios comuns (eles nunca tiveram a config)
+- Nenhum risco de perda de dados (a correcao so impede duplicacao)
+- A normalizacao pode em casos raros considerar dois conteudos diferentes como iguais (ex: "O Filme 1" e "O Filme: 1"), mas isso e preferivel a duplicar
 
