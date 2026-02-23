@@ -15,8 +15,19 @@ import { useConfig } from '@/contexts/ConfigContext';
 import { useBaserowService } from '@/services/BaserowService';
 import { useSystemLogs } from '@/hooks/useSystemLogs';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, FileText, CheckCircle, AlertTriangle, Loader2, Film, Tv, Radio, Image, Languages, Shield, Sparkles, StopCircle, PauseCircle, PlayCircle, Star } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertTriangle, Loader2, Film, Tv, Radio, Image, Languages, Shield, Sparkles, StopCircle, PauseCircle, PlayCircle, Star, Database } from 'lucide-react';
 import { toast } from 'sonner';
+
+// Função de normalização para comparação robusta de nomes
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .replace(/[^a-z0-9\s]/g, '')     // remove pontuação
+    .replace(/\s+/g, ' ')            // normaliza espaços
+    .trim();
+}
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { UserConfigService } from '@/services/UserConfigService';
 import { useUserConfig } from '@/hooks/useUserConfig';
@@ -641,12 +652,27 @@ const M3UImporter = () => {
       
       // Buscar conteúdos existentes se a opção de ignorar duplicados estiver ativa
       let existingNames = new Set<string>();
+      let duplicateCheckActive = ignoreDuplicates;
       if (ignoreDuplicates) {
         try {
+          setProgress(prev => ({ ...prev, currentItem: 'Carregando conteúdos existentes para verificação de duplicados...' }));
           const { results } = await baserowService.getAllTableData(config.tableIds.conteudos);
-          existingNames = new Set(results.map((item: any) => item.Nome?.toLowerCase().trim()).filter(Boolean));
+          existingNames = new Set(results.map((item: any) => {
+            const nome = item.Nome;
+            return nome ? normalizeName(nome) : '';
+          }).filter(Boolean));
+          toast.success(`Verificação de duplicados ativa`, {
+            description: `${existingNames.size} conteúdos existentes carregados para comparação.`,
+            icon: <Database className="w-4 h-4" />,
+          });
+          console.log(`✅ Duplicados: ${existingNames.size} nomes existentes carregados`);
         } catch (error) {
           console.error('Erro ao buscar conteúdos existentes:', error);
+          toast.warning('Falha ao carregar conteúdos existentes', {
+            description: 'A verificação de duplicados foi desativada para esta sessão. Os itens serão importados sem verificação.',
+            duration: 8000,
+          });
+          duplicateCheckActive = false;
         }
       }
 
@@ -701,8 +727,8 @@ const M3UImporter = () => {
           try {
             updateProgressCount(1, 'Séries', series.name);
             
-            // Verificar duplicado
-            if (ignoreDuplicates && existingNames.has(series.name.toLowerCase().trim())) {
+            // Verificar duplicado (usa normalização)
+            if (duplicateCheckActive && existingNames.has(normalizeName(series.name))) {
               duplicateCount++;
               // Contar episódios como processados também
               updateProgressCount(series.episodes.length, 'Episódios', `${series.name} (duplicado)`);
@@ -738,6 +764,10 @@ const M3UImporter = () => {
             const createdSeries = await baserowService.createRow(config.tableIds.conteudos, seriesData);
             currentSeriesId = createdSeries.id;
             successCount++;
+            // ✅ Atualizar existingNames com o nome salvo (pode ser do TMDB)
+            existingNames.add(normalizeName(seriesData.Nome));
+            // Também adicionar o nome original do M3U
+            existingNames.add(normalizeName(series.name));
           } catch (error) {
             console.error('Erro ao importar série:', error);
             errorCount++;
@@ -798,7 +828,7 @@ const M3UImporter = () => {
       if (importFilters.movies) {
         // Filtrar duplicados primeiro
         const filmesToImport = grouped.filmes.slice(resumeIdxRef.current.filmes).filter(filme => {
-          if (ignoreDuplicates && existingNames.has(filme.name.toLowerCase().trim())) {
+          if (duplicateCheckActive && existingNames.has(normalizeName(filme.name))) {
             duplicateCount++;
             return false;
           }
@@ -858,6 +888,10 @@ const M3UImporter = () => {
             updateProgressCount(batch.length, 'Filmes', `Importando lote de ${batch.length} filmes...`);
             await baserowService.createRowsBatch(config.tableIds.conteudos, batch);
             successCount += batch.length;
+            // ✅ Atualizar existingNames com nomes dos filmes importados
+            for (const filmeData of batch) {
+              existingNames.add(normalizeName(filmeData.Nome));
+            }
           } catch (error) {
             console.error('Erro ao importar lote de filmes:', error);
             // Fallback: um por um
@@ -880,7 +914,7 @@ const M3UImporter = () => {
       // 4. 🚀 Importar Canais TV em LOTE
       if (importFilters.tv) {
         const canaisToImport = grouped.canais.slice(resumeIdxRef.current.canais).filter(canal => {
-          if (ignoreDuplicates && existingNames.has(canal.name.toLowerCase().trim())) {
+          if (duplicateCheckActive && existingNames.has(normalizeName(canal.name))) {
             duplicateCount++;
             return false;
           }
@@ -925,6 +959,10 @@ const M3UImporter = () => {
             updateProgressCount(batch.length, 'Canais', `Importando lote de ${batch.length} canais...`);
             await baserowService.createRowsBatch(targetTableId, batch);
             successCount += batch.length;
+            // ✅ Atualizar existingNames com nomes dos canais importados
+            for (const canalData of batch) {
+              existingNames.add(normalizeName(canalData.Nome));
+            }
           } catch (error) {
             console.error('Erro ao importar lote de canais:', error);
             // Fallback: um por um
