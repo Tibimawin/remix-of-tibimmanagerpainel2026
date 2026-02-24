@@ -87,6 +87,9 @@ const M3UImporter = () => {
   const [dnsPassword, setDnsPassword] = useState('');
   const [showDnsPassword, setShowDnsPassword] = useState(false);
   const [isFetchingDns, setIsFetchingDns] = useState(false);
+  const [dnsFetchPhase, setDnsFetchPhase] = useState<'idle' | 'connecting' | 'downloading' | 'validating'>('idle');
+  const [dnsFetchElapsed, setDnsFetchElapsed] = useState(0);
+  const dnsFetchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [dnsContentLoaded, setDnsContentLoaded] = useState(false);
   const [dnsM3UContent, setDnsM3UContent] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<'automatic' | 'manual'>('automatic');
@@ -444,6 +447,14 @@ const M3UImporter = () => {
     setIsFetchingDns(true);
     setDnsContentLoaded(false);
     setDnsM3UContent(null);
+    setDnsFetchPhase('connecting');
+    setDnsFetchElapsed(0);
+
+    // Start elapsed timer
+    const startTime = Date.now();
+    dnsFetchTimerRef.current = setInterval(() => {
+      setDnsFetchElapsed(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
 
     try {
       // Normalizar URL (remover barra final)
@@ -458,6 +469,8 @@ const M3UImporter = () => {
         ? 'https://pixel-perfect-clone-4083.lovable.app'
         : '';
 
+      setDnsFetchPhase('downloading');
+
       const response = await fetch(`${proxyBase}/api/m3u-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -471,6 +484,8 @@ const M3UImporter = () => {
 
       const content = await response.text();
 
+      setDnsFetchPhase('validating');
+
       if (!content || content.length < 10) {
         throw new Error('Resposta vazia do servidor. Verifique as credenciais.');
       }
@@ -483,7 +498,7 @@ const M3UImporter = () => {
       setDnsContentLoaded(true);
 
       toast.success('Lista M3U carregada!', {
-        description: `${(content.length / 1024).toFixed(0)} KB recebidos do servidor.`
+        description: `${(content.length / 1024).toFixed(0)} KB recebidos em ${Math.floor((Date.now() - startTime) / 1000)}s.`
       });
 
       // Salvar credenciais para uso futuro
@@ -500,6 +515,11 @@ const M3UImporter = () => {
       });
     } finally {
       setIsFetchingDns(false);
+      setDnsFetchPhase('idle');
+      if (dnsFetchTimerRef.current) {
+        clearInterval(dnsFetchTimerRef.current);
+        dnsFetchTimerRef.current = null;
+      }
     }
   };
 
@@ -1485,28 +1505,55 @@ const M3UImporter = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Button
-                    onClick={handleFetchDNS}
-                    disabled={isFetchingDns || !dnsUrl || !dnsUsername || !dnsPassword}
-                    variant="secondary"
-                  >
-                    {isFetchingDns ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Buscando...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Buscar Lista
-                      </>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Button
+                      onClick={handleFetchDNS}
+                      disabled={isFetchingDns || !dnsUrl || !dnsUsername || !dnsPassword}
+                      variant="secondary"
+                    >
+                      {isFetchingDns ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          {dnsFetchPhase === 'connecting' ? 'Conectando...' : dnsFetchPhase === 'downloading' ? 'Baixando...' : 'Validando...'}
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Buscar Lista
+                        </>
+                      )}
+                    </Button>
+                    {dnsContentLoaded && !isFetchingDns && (
+                      <div className="flex items-center gap-2 text-sm text-green-500">
+                        <CheckCircle className="h-4 w-4" />
+                        Lista carregada com sucesso
+                      </div>
                     )}
-                  </Button>
-                  {dnsContentLoaded && (
-                    <div className="flex items-center gap-2 text-sm text-green-500">
-                      <CheckCircle className="h-4 w-4" />
-                      Lista carregada com sucesso
+                  </div>
+
+                  {isFetchingDns && (
+                    <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          {dnsFetchPhase === 'connecting' && '🔌 Conectando ao servidor...'}
+                          {dnsFetchPhase === 'downloading' && '📥 Baixando lista M3U...'}
+                          {dnsFetchPhase === 'validating' && '✅ Validando conteúdo...'}
+                        </span>
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {dnsFetchElapsed}s
+                        </span>
+                      </div>
+                      <div className="flex gap-1">
+                        <div className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${dnsFetchPhase === 'connecting' || dnsFetchPhase === 'downloading' || dnsFetchPhase === 'validating' ? 'bg-primary' : 'bg-muted'}`} />
+                        <div className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${dnsFetchPhase === 'downloading' || dnsFetchPhase === 'validating' ? 'bg-primary' : 'bg-muted'}`} />
+                        <div className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${dnsFetchPhase === 'validating' ? 'bg-primary' : 'bg-muted'}`} />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {dnsFetchPhase === 'connecting' && 'Estabelecendo conexão com o servidor IPTV...'}
+                        {dnsFetchPhase === 'downloading' && 'Isso pode levar alguns minutos para listas grandes.'}
+                        {dnsFetchPhase === 'validating' && 'Verificando se o conteúdo é um arquivo M3U válido...'}
+                      </p>
                     </div>
                   )}
                 </div>
