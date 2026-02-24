@@ -92,6 +92,8 @@ const M3UImporter = () => {
   const dnsFetchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [dnsContentLoaded, setDnsContentLoaded] = useState(false);
   const [dnsM3UContent, setDnsM3UContent] = useState<string | null>(null);
+  const [hasSavedDnsConfig, setHasSavedDnsConfig] = useState(false);
+  const [pendingAutoFetch, setPendingAutoFetch] = useState(false);
   const [importMode, setImportMode] = useState<'automatic' | 'manual'>('automatic');
   const [namingMode, setNamingMode] = useState<'singular' | 'plural'>('singular');
   const [ignoreDuplicates, setIgnoreDuplicates] = useState(true);
@@ -424,16 +426,36 @@ const M3UImporter = () => {
 
   // Carregar credenciais DNS salvas
   useEffect(() => {
-    if (sourceType === 'dns' && userInfo?.id) {
+    if (userInfo?.id) {
       UserConfigService.getDnsConfig(userInfo.id).then(config => {
-        if (config) {
-          setDnsUrl(config.dnsUrl || '');
-          setDnsUsername(config.dnsUsername || '');
-          setDnsPassword(config.dnsPassword || '');
+        if (config && config.dnsUrl && config.dnsUsername && config.dnsPassword) {
+          setHasSavedDnsConfig(true);
+          if (sourceType === 'dns') {
+            setDnsUrl(config.dnsUrl);
+            setDnsUsername(config.dnsUsername);
+            setDnsPassword(config.dnsPassword);
+          }
         }
       });
     }
   }, [sourceType, userInfo?.id]);
+
+  // Recarregar lista usando credenciais salvas
+  const handleQuickReload = async () => {
+    if (!userInfo?.id) return;
+    const config = await UserConfigService.getDnsConfig(userInfo.id);
+    if (!config?.dnsUrl || !config?.dnsUsername || !config?.dnsPassword) {
+      toast.error('Nenhuma credencial salva', {
+        description: 'Conecte-se via DNS/IPTV pelo menos uma vez para salvar as credenciais.'
+      });
+      return;
+    }
+    setSourceType('dns');
+    setDnsUrl(config.dnsUrl);
+    setDnsUsername(config.dnsUsername);
+    setDnsPassword(config.dnsPassword);
+    setPendingAutoFetch(true);
+  };
 
   // Buscar lista M3U via DNS/IPTV
   const handleFetchDNS = async () => {
@@ -522,6 +544,14 @@ const M3UImporter = () => {
       }
     }
   };
+
+  // Auto-fetch quando pendingAutoFetch é ativado (via quick reload)
+  useEffect(() => {
+    if (pendingAutoFetch && dnsUrl && dnsUsername && dnsPassword && !isFetchingDns) {
+      setPendingAutoFetch(false);
+      handleFetchDNS();
+    }
+  }, [pendingAutoFetch, dnsUrl, dnsUsername, dnsPassword]);
 
   const handlePreviewImport = () => {
     // Determinar conteúdo M3U (arquivo ou DNS)
@@ -1423,7 +1453,20 @@ const M3UImporter = () => {
 
           {/* Fonte de Dados */}
           <div className="space-y-4">
-            <Label className="text-base font-medium">Fonte de Dados</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-medium">Fonte de Dados</Label>
+              {hasSavedDnsConfig && !isFetchingDns && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={handleQuickReload}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Recarregar via DNS salvo
+                </Button>
+              )}
+            </div>
             <RadioGroup value={sourceType} onValueChange={(v) => { setSourceType(v as any); setDnsContentLoaded(false); setDnsM3UContent(null); }} className="flex flex-col sm:flex-row gap-4">
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="file" id="source-file" />
