@@ -824,27 +824,40 @@ const M3UImporter = () => {
       
       // Buscar conteúdos existentes se a opção de ignorar duplicados estiver ativa
       let existingNames = new Set<string>();
-      let duplicateCheckActive = ignoreDuplicates;
+      const duplicateCheckActive = ignoreDuplicates;
       if (ignoreDuplicates) {
-        try {
-          setProgress(prev => ({ ...prev, currentItem: 'Carregando conteúdos existentes para verificação de duplicados...' }));
-          const { results } = await baserowService.getAllTableData(config.tableIds.conteudos);
-          existingNames = new Set(results.map((item: any) => {
-            const nome = item.Nome;
-            return nome ? normalizeName(nome) : '';
-          }).filter(Boolean));
-          toast.success(`Verificação de duplicados ativa`, {
-            description: `${existingNames.size} conteúdos existentes carregados para comparação.`,
-            icon: <Database className="w-4 h-4" />,
+        const MAX_RETRIES = 3;
+        let loaded = false;
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            setProgress(prev => ({ ...prev, currentItem: `Carregando conteúdos existentes para verificação de duplicados... (tentativa ${attempt}/${MAX_RETRIES})` }));
+            const { results } = await baserowService.getAllTableData(config.tableIds.conteudos);
+            existingNames = new Set(results.map((item: any) => {
+              const nome = item.Nome;
+              return nome ? normalizeName(nome) : '';
+            }).filter(Boolean));
+            toast.success(`Verificação de duplicados ativa`, {
+              description: `${existingNames.size} conteúdos existentes carregados para comparação.`,
+              icon: <Database className="w-4 h-4" />,
+            });
+            console.log(`✅ Duplicados: ${existingNames.size} nomes existentes carregados`);
+            loaded = true;
+            break;
+          } catch (error) {
+            console.error(`Tentativa ${attempt}/${MAX_RETRIES} falhou ao buscar conteúdos existentes:`, error);
+            if (attempt < MAX_RETRIES) {
+              await new Promise(r => setTimeout(r, 2000 * attempt));
+            }
+          }
+        }
+        if (!loaded) {
+          toast.error('Importação cancelada: não foi possível verificar duplicados', {
+            description: 'Não conseguimos carregar os conteúdos existentes após 3 tentativas. A importação foi cancelada para evitar duplicados. Tente novamente.',
+            duration: 10000,
           });
-          console.log(`✅ Duplicados: ${existingNames.size} nomes existentes carregados`);
-        } catch (error) {
-          console.error('Erro ao buscar conteúdos existentes:', error);
-          toast.warning('Falha ao carregar conteúdos existentes', {
-            description: 'A verificação de duplicados foi desativada para esta sessão. Os itens serão importados sem verificação.',
-            duration: 8000,
-          });
-          duplicateCheckActive = false;
+          setIsImporting(false);
+          clearGlobalProgress();
+          return;
         }
       }
 
