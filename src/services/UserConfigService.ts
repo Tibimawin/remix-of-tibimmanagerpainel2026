@@ -460,5 +460,34 @@ export const UserConfigService = {
         callback(null);
       }
     );
-  }
+  },
+
+  // ============================================================
+  // Credenciais DNS/IPTV do usuário
+  // ============================================================
+
+  async getDnsConfig(userId: string): Promise<{ dnsUrl: string; dnsUsername: string; dnsPassword: string; lastFetchedAt?: string } | null> {
+    try {
+      const userConfig = await this.getUserConfig(userId);
+      return (userConfig as any)?.dnsConfig || null;
+    } catch (error) {
+      logger.error('Erro ao buscar config DNS', error);
+      return null;
+    }
+  },
+
+  async saveDnsConfig(userId: string, dnsConfig: { dnsUrl: string; dnsUsername: string; dnsPassword: string }): Promise<void> {
+    try {
+      await this.updateUserConfig(userId, {
+        dnsConfig: {
+          ...dnsConfig,
+          lastFetchedAt: new Date().toISOString(),
+        },
+      } as any);
+      logger.debug('Credenciais DNS salvas com sucesso');
+    } catch (error) {
+      logger.error('Erro ao salvar config DNS', error);
+      throw error;
+    }
+  },
 };
