@@ -15,7 +15,7 @@ import { useConfig } from '@/contexts/ConfigContext';
 import { useBaserowService } from '@/services/BaserowService';
 import { useSystemLogs } from '@/hooks/useSystemLogs';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, FileText, CheckCircle, AlertTriangle, Loader2, Film, Tv, Radio, Image, Languages, Shield, Sparkles, StopCircle, PauseCircle, PlayCircle, Star, Database, Globe, Eye, EyeOff, Save, RefreshCw } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertTriangle, Loader2, Film, Tv, Radio, Image, Languages, Shield, Sparkles, StopCircle, PauseCircle, PlayCircle, Star, Database, Globe, Eye, EyeOff, Save, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Função de normalização para comparação robusta de nomes
@@ -455,6 +455,21 @@ const M3UImporter = () => {
     setDnsUsername(config.dnsUsername);
     setDnsPassword(config.dnsPassword);
     setPendingAutoFetch(true);
+  };
+
+  // Limpar credenciais DNS salvas
+  const handleClearDnsConfig = async () => {
+    if (!userInfo?.id) return;
+    try {
+      await UserConfigService.updateUserConfig(userInfo.id, { dnsConfig: null } as any);
+      setHasSavedDnsConfig(false);
+      setDnsUrl('');
+      setDnsUsername('');
+      setDnsPassword('');
+      toast.success('Credenciais DNS removidas com sucesso');
+    } catch (error) {
+      toast.error('Erro ao remover credenciais DNS');
+    }
   };
 
   // Buscar lista M3U via DNS/IPTV
@@ -1456,15 +1471,26 @@ const M3UImporter = () => {
             <div className="flex items-center justify-between">
               <Label className="text-base font-medium">Fonte de Dados</Label>
               {hasSavedDnsConfig && !isFetchingDns && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs gap-1.5"
-                  onClick={handleQuickReload}
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  Recarregar via DNS salvo
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs gap-1.5"
+                    onClick={handleQuickReload}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Recarregar via DNS salvo
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs gap-1.5 text-destructive hover:text-destructive"
+                    onClick={handleClearDnsConfig}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Esquecer
+                  </Button>
+                </div>
               )}
             </div>
             <RadioGroup value={sourceType} onValueChange={(v) => { setSourceType(v as any); setDnsContentLoaded(false); setDnsM3UContent(null); }} className="flex flex-col sm:flex-row gap-4">
