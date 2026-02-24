@@ -15,7 +15,7 @@ import { useConfig } from '@/contexts/ConfigContext';
 import { useBaserowService } from '@/services/BaserowService';
 import { useSystemLogs } from '@/hooks/useSystemLogs';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, FileText, CheckCircle, AlertTriangle, Loader2, Film, Tv, Radio, Image, Languages, Shield, Sparkles, StopCircle, PauseCircle, PlayCircle, Star, Database } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertTriangle, Loader2, Film, Tv, Radio, Image, Languages, Shield, Sparkles, StopCircle, PauseCircle, PlayCircle, Star, Database, Globe, Eye, EyeOff, Save, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Função de normalização para comparação robusta de nomes
@@ -81,6 +81,14 @@ interface TMDBPreviewCache {
 
 const M3UImporter = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [sourceType, setSourceType] = useState<'file' | 'dns'>('file');
+  const [dnsUrl, setDnsUrl] = useState('');
+  const [dnsUsername, setDnsUsername] = useState('');
+  const [dnsPassword, setDnsPassword] = useState('');
+  const [showDnsPassword, setShowDnsPassword] = useState(false);
+  const [isFetchingDns, setIsFetchingDns] = useState(false);
+  const [dnsContentLoaded, setDnsContentLoaded] = useState(false);
+  const [dnsM3UContent, setDnsM3UContent] = useState<string | null>(null);
   const [importMode, setImportMode] = useState<'automatic' | 'manual'>('automatic');
   const [namingMode, setNamingMode] = useState<'singular' | 'plural'>('singular');
   const [ignoreDuplicates, setIgnoreDuplicates] = useState(true);
@@ -411,53 +419,151 @@ const M3UImporter = () => {
     setSelectedFile(file);
   };
 
-  const handlePreviewImport = () => {
-    if (!selectedFile) {
-      toast.error('Dados incompletos', {
-        description: 'Selecione um arquivo M3U primeiro.'
+  // Carregar credenciais DNS salvas
+  useEffect(() => {
+    if (sourceType === 'dns' && userInfo?.id) {
+      UserConfigService.getDnsConfig(userInfo.id).then(config => {
+        if (config) {
+          setDnsUrl(config.dnsUrl || '');
+          setDnsUsername(config.dnsUsername || '');
+          setDnsPassword(config.dnsPassword || '');
+        }
+      });
+    }
+  }, [sourceType, userInfo?.id]);
+
+  // Buscar lista M3U via DNS/IPTV
+  const handleFetchDNS = async () => {
+    if (!dnsUrl || !dnsUsername || !dnsPassword) {
+      toast.error('Preencha todos os campos', {
+        description: 'URL do servidor, usuário e senha são obrigatórios.'
       });
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const items = parseM3UAdvanced(content);
-        
-        if (items.length === 0) {
-          toast.error('Arquivo vazio', {
-            description: 'Nenhum conteúdo válido encontrado no arquivo M3U.'
-          });
-          return;
-        }
+    setIsFetchingDns(true);
+    setDnsContentLoaded(false);
+    setDnsM3UContent(null);
 
-        // Calcular estatísticas
-        const grouped = groupSeriesAndEpisodes(items);
-        const newStats: ImportStats = {
-          filmes: grouped.filmes.length,
-          series: grouped.series.length,
-          episodios: grouped.series.reduce((sum, s) => sum + s.episodes.length, 0),
-          canais: grouped.canais.length
-        };
-        
-        setStats(newStats);
-        setParsedItems(items);
-        setShowPreview(true);
-        
-        toast.success('Arquivo processado!', {
-          description: `${items.length} itens encontrados`
-        });
-      } catch (error) {
-        console.error('Erro ao processar arquivo:', error);
-        toast.error('Erro no arquivo', {
-          description: 'Não foi possível processar o arquivo M3U. Verifique o formato.'
+    try {
+      // Normalizar URL (remover barra final)
+      const baseUrl = dnsUrl.replace(/\/+$/, '');
+      const m3uUrl = `${baseUrl}/get.php?username=${encodeURIComponent(dnsUsername)}&password=${encodeURIComponent(dnsPassword)}&type=m3u_plus`;
+
+      console.log('[DNS] Fetching M3U from:', m3uUrl);
+
+      // Detectar ambiente para proxy
+      const isLovablePreview = window.location.hostname.includes('lovable.app');
+      const proxyBase = isLovablePreview 
+        ? 'https://pixel-perfect-clone-4083.lovable.app'
+        : '';
+
+      const response = await fetch(`${proxyBase}/api/m3u-proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: m3uUrl }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
+      }
+
+      const content = await response.text();
+
+      if (!content || content.length < 10) {
+        throw new Error('Resposta vazia do servidor. Verifique as credenciais.');
+      }
+
+      if (!content.includes('#EXTM3U') && !content.includes('#EXTINF')) {
+        throw new Error('O conteúdo retornado não é um arquivo M3U válido. Verifique as credenciais.');
+      }
+
+      setDnsM3UContent(content);
+      setDnsContentLoaded(true);
+
+      toast.success('Lista M3U carregada!', {
+        description: `${(content.length / 1024).toFixed(0)} KB recebidos do servidor.`
+      });
+
+      // Salvar credenciais para uso futuro
+      if (userInfo?.id) {
+        UserConfigService.saveDnsConfig(userInfo.id, { dnsUrl, dnsUsername, dnsPassword }).catch(err => {
+          console.warn('Falha ao salvar credenciais DNS:', err);
         });
       }
-    };
-    
-    reader.readAsText(selectedFile);
+    } catch (error: any) {
+      console.error('[DNS] Error:', error);
+      toast.error('Erro ao buscar lista', {
+        description: error.message || 'Não foi possível conectar ao servidor IPTV.',
+        duration: 8000,
+      });
+    } finally {
+      setIsFetchingDns(false);
+    }
   };
+
+  const handlePreviewImport = () => {
+    // Determinar conteúdo M3U (arquivo ou DNS)
+    if (sourceType === 'dns') {
+      if (!dnsM3UContent) {
+        toast.error('Busque a lista primeiro', {
+          description: 'Clique em "Buscar Lista" para carregar o conteúdo do servidor.'
+        });
+        return;
+      }
+      processM3UContent(dnsM3UContent);
+    } else {
+      if (!selectedFile) {
+        toast.error('Dados incompletos', {
+          description: 'Selecione um arquivo M3U primeiro.'
+        });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        processM3UContent(content);
+      };
+      reader.readAsText(selectedFile);
+    }
+  };
+
+  const processM3UContent = (content: string) => {
+    try {
+      const items = parseM3UAdvanced(content);
+      
+      if (items.length === 0) {
+        toast.error('Conteúdo vazio', {
+          description: 'Nenhum conteúdo válido encontrado no M3U.'
+        });
+        return;
+      }
+
+      const grouped = groupSeriesAndEpisodes(items);
+      const newStats: ImportStats = {
+        filmes: grouped.filmes.length,
+        series: grouped.series.length,
+        episodios: grouped.series.reduce((sum, s) => sum + s.episodes.length, 0),
+        canais: grouped.canais.length
+      };
+      
+      setStats(newStats);
+      setParsedItems(items);
+      setShowPreview(true);
+      
+      toast.success('Conteúdo processado!', {
+        description: `${items.length} itens encontrados`
+      });
+    } catch (error) {
+      console.error('Erro ao processar M3U:', error);
+      toast.error('Erro no conteúdo', {
+        description: 'Não foi possível processar o conteúdo M3U. Verifique o formato.'
+      });
+    }
+  };
+
+
 
   // Buscar metadados do TMDB com limpeza de título, search + details
   const fetchTMDBMetadata = async (title: string, type: 'Filme' | 'Serie') => {
@@ -1295,31 +1401,126 @@ const M3UImporter = () => {
             />
           </div>
 
-          {/* Upload do Arquivo */}
-          <div className="space-y-3">
-            <Label className="text-base font-medium">Arquivo M3U / M3U8</Label>
-            <div className="flex items-center gap-4">
-              <div className="relative flex-1">
-                <Input
-                  type="file"
-                  accept=".m3u,.m3u8"
-                  onChange={handleFileSelect}
-                  className="cursor-pointer"
-                />
+          {/* Fonte de Dados */}
+          <div className="space-y-4">
+            <Label className="text-base font-medium">Fonte de Dados</Label>
+            <RadioGroup value={sourceType} onValueChange={(v) => { setSourceType(v as any); setDnsContentLoaded(false); setDnsM3UContent(null); }} className="flex flex-col sm:flex-row gap-4">
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="file" id="source-file" />
+                <Label htmlFor="source-file" className="cursor-pointer flex items-center gap-2">
+                  <Upload className="h-4 w-4" />
+                  Arquivo M3U
+                </Label>
               </div>
-              {selectedFile && (
-                <div className="flex items-center gap-2 text-sm text-green-500">
-                  <CheckCircle className="h-4 w-4" />
-                  {selectedFile.name}
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="dns" id="source-dns" />
+                <Label htmlFor="source-dns" className="cursor-pointer flex items-center gap-2">
+                  <Globe className="h-4 w-4" />
+                  Fonte DNS/IPTV
+                </Label>
+              </div>
+            </RadioGroup>
+
+            {sourceType === 'file' ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-4">
+                  <div className="relative flex-1">
+                    <Input
+                      type="file"
+                      accept=".m3u,.m3u8"
+                      onChange={handleFileSelect}
+                      className="cursor-pointer"
+                    />
+                  </div>
+                  {selectedFile && (
+                    <div className="flex items-center gap-2 text-sm text-green-500">
+                      <CheckCircle className="h-4 w-4" />
+                      {selectedFile.name}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                <p className="text-sm text-muted-foreground">
+                  Conecte diretamente ao seu servidor IPTV (Xtream Codes). O sistema buscará a lista M3U automaticamente.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="dns-url" className="text-sm">URL do Servidor</Label>
+                    <Input
+                      id="dns-url"
+                      placeholder="http://servidor.com"
+                      value={dnsUrl}
+                      onChange={(e) => setDnsUrl(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="dns-user" className="text-sm">Usuário</Label>
+                    <Input
+                      id="dns-user"
+                      placeholder="seu_usuario"
+                      value={dnsUsername}
+                      onChange={(e) => setDnsUsername(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="dns-pass" className="text-sm">Senha</Label>
+                    <div className="relative">
+                      <Input
+                        id="dns-pass"
+                        type={showDnsPassword ? 'text' : 'password'}
+                        placeholder="sua_senha"
+                        value={dnsPassword}
+                        onChange={(e) => setDnsPassword(e.target.value)}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowDnsPassword(!showDnsPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showDnsPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={handleFetchDNS}
+                    disabled={isFetchingDns || !dnsUrl || !dnsUsername || !dnsPassword}
+                    variant="secondary"
+                  >
+                    {isFetchingDns ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Buscando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Buscar Lista
+                      </>
+                    )}
+                  </Button>
+                  {dnsContentLoaded && (
+                    <div className="flex items-center gap-2 text-sm text-green-500">
+                      <CheckCircle className="h-4 w-4" />
+                      Lista carregada com sucesso
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Botão de Preview */}
           <Button
             onClick={handlePreviewImport}
-            disabled={!selectedFile || (!importFilters.movies && !importFilters.series && !importFilters.tv)}
+            disabled={
+              (sourceType === 'file' ? !selectedFile : !dnsContentLoaded) || 
+              (!importFilters.movies && !importFilters.series && !importFilters.tv)
+            }
             className="w-full"
             size="lg"
           >
