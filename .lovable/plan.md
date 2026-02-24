@@ -1,103 +1,92 @@
 
 
-## Correcao: Funcionalidade "Ignorar Duplicados" no importador M3U
+## Importacao via DNS/IPTV - Fonte por URL com usuario e senha
 
-### Problemas identificados
+### O que o usuario quer
 
-Existem 3 bugs que fazem a verificacao de duplicados falhar:
+Em vez de baixar um arquivo M3U manualmente e fazer upload, o sistema deve permitir conectar diretamente a uma fonte IPTV usando:
+- **URL do servidor** (ex: `http://appmyflix.com.br`)
+- **Usuario** (ex: `tibimteste`)
+- **Senha** (ex: `151215`)
 
-#### Bug 1: Falha silenciosa ao carregar conteudos existentes
-Na linha 644-651, se o `getAllTableData` falhar (timeout, erro de rede, tabela grande demais), o erro e capturado silenciosamente e `existingNames` fica vazio. O resultado: ZERO duplicados sao detectados e tudo e importado novamente.
+O sistema monta automaticamente a URL `http://servidor/get.php?username=X&password=Y&type=m3u_plus`, busca o conteudo M3U e processa normalmente com o importador existente.
 
+### Como vai funcionar
+
+```text
+Usuario preenche: URL + Usuario + Senha
+         |
+Sistema monta: http://url/get.php?username=X&password=Y&type=m3u_plus
+         |
+Faz fetch da URL (via proxy para evitar CORS)
+         |
+Recebe o conteudo M3U como texto
+         |
+Passa para o mesmo parseM3UAdvanced() que ja existe
+         |
+Segue o fluxo normal: preview -> importacao
 ```
-// Codigo atual - erro silencioso
-try {
-  const { results } = await baserowService.getAllTableData(config.tableIds.conteudos);
-  existingNames = new Set(results.map(...));
-} catch (error) {
-  console.error('Erro ao buscar conteudos existentes:', error);
-  // existingNames continua vazio = nenhum duplicado detectado!
-}
-```
 
-#### Bug 2: `existingNames` nunca e atualizado durante a importacao
-Apos importar uma serie ou lote de filmes, os nomes recem-criados nao sao adicionados ao `existingNames`. Se a propria lista M3U tiver itens repetidos internamente (ex: mesmo filme aparece 2 vezes na lista), ambos serao importados.
-
-#### Bug 3: TMDB muda o nome do conteudo
-A verificacao de duplicado usa o nome original do M3U (`series.name`, `filme.name`), mas o registro e salvo com o nome do TMDB (`tmdbData?.title`). Na proxima importacao, o nome no Baserow e diferente do nome no M3U, entao o duplicado nao e detectado.
-
-Exemplo:
-- M3U diz: "Homem Aranha De Volta ao Lar"
-- TMDB retorna: "Homem-Aranha: De Volta ao Lar"
-- Na segunda importacao, "Homem Aranha De Volta ao Lar" nao esta no `existingNames` porque la esta "homem-aranha: de volta ao lar"
+### Vantagem principal
+Quando houver atualizacao na fonte, basta clicar "Buscar" novamente com as mesmas credenciais -- nao precisa baixar arquivo de novo.
 
 ---
 
-### Solucao
+### Mudancas tecnicas
 
-#### 1. Tratar falha ao carregar existentes como erro bloqueante
+#### 1. Atualizar `src/components/M3UImporter.tsx`
 
-**Arquivo:** `src/components/M3UImporter.tsx`
+**Adicionar opcao de fonte (arquivo vs URL/DNS):**
+- Novo estado `sourceType`: `'file'` ou `'dns'`
+- Novos estados: `dnsUrl`, `dnsUsername`, `dnsPassword`
+- Radio buttons no topo para escolher entre "Arquivo M3U" e "Fonte DNS/IPTV"
 
-Quando `ignoreDuplicates` esta ativo e a busca de existentes falha, avisar o usuario e perguntar se deseja continuar sem verificacao ou cancelar. Nao continuar silenciosamente.
+**Adicionar UI de credenciais DNS:**
+- Quando `sourceType === 'dns'`, mostrar 3 campos: URL do servidor, Usuario, Senha
+- Botao "Buscar Lista" que monta a URL e faz fetch
 
-#### 2. Atualizar `existingNames` apos cada item/lote importado
+**Adicionar funcao `handleFetchDNS`:**
+- Monta a URL: `${dnsUrl}/get.php?username=${dnsUsername}&password=${dnsPassword}&type=m3u_plus`
+- Faz fetch via proxy Vercel (`/api/baserow-proxy` reutilizado ou novo endpoint simples)
+- Recebe o texto M3U
+- Chama `parseM3UAdvanced(content)` -- mesmo parser do arquivo
+- Segue o fluxo normal (preview, importacao)
 
-**Arquivo:** `src/components/M3UImporter.tsx`
+**Botao "Processar e Visualizar":**
+- Quando fonte e DNS, usa o conteudo buscado em vez do arquivo
+- O resto do fluxo permanece identico
 
-Apos criar series, filmes ou canais, adicionar os nomes recem-criados ao `existingNames` para evitar duplicados internos na mesma lista.
+#### 2. Criar proxy para buscar M3U de URLs externas
 
-#### 3. Normalizar nomes para comparacao mais robusta
+**Arquivo:** `api/m3u-proxy.js` (Vercel serverless function)
 
-**Arquivo:** `src/components/M3UImporter.tsx`
+Necessario para evitar CORS. O proxy recebe a URL completa e retorna o conteudo M3U como texto.
 
-Criar funcao de normalizacao que remove acentos, pontuacao e espacos extras para comparar nomes de forma mais tolerante. Isso resolve o problema do TMDB retornar nomes ligeiramente diferentes.
-
-```
-// Exemplo de normalizacao
-"Homem Aranha De Volta ao Lar" -> "homem aranha de volta ao lar"
-"Homem-Aranha: De Volta ao Lar" -> "homem aranha de volta ao lar"
-```
-
-#### 4. Adicionar log visivel de quantos existentes foram carregados
-
-**Arquivo:** `src/components/M3UImporter.tsx`
-
-Mostrar no progresso quantos conteudos existentes foram encontrados, para o usuario saber se a verificacao esta funcionando.
-
----
-
-### Detalhes tecnicos
-
-**Funcao de normalizacao de nomes:**
-```
-function normalizeName(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // remove acentos
-    .replace(/[^a-z0-9\s]/g, '')     // remove pontuacao
-    .replace(/\s+/g, ' ')            // normaliza espacos
-    .trim();
-}
+```text
+POST /api/m3u-proxy
+Body: { url: "http://appmyflix.com.br/get.php?username=X&password=Y&type=m3u_plus" }
+Retorna: conteudo M3U como texto
 ```
 
-**Atualizacao do existingNames apos cada lote:**
-- Series: adicionar `normalizeName(seriesData.Nome)` apos criar
-- Filmes: adicionar todos os nomes do lote apos `createRowsBatch`
-- Canais: adicionar todos os nomes do lote apos `createRowsBatch`
+#### 3. Salvar credenciais DNS opcionalmente
 
-**Tratamento de erro ao buscar existentes:**
-- Se falhar e `ignoreDuplicates` estiver ativo, mostrar toast de aviso
-- Oferecer opcao de continuar sem verificacao ou cancelar
-- Se continuar, desativar `ignoreDuplicates` para essa sessao
+**Arquivo:** `src/services/UserConfigService.ts`
+
+Salvar as credenciais DNS no Firestore do usuario (`userConfigs/{userId}/dnsConfig`) para que ele nao precise digitar toda vez. Campos:
+- `dnsUrl`
+- `dnsUsername`
+- `dnsPassword`
+- `lastFetchedAt`
 
 ### Arquivos afetados
 
-1. `src/components/M3UImporter.tsx` - Todas as correcoes acima
+1. `src/components/M3UImporter.tsx` - Adicionar UI de fonte DNS e logica de fetch
+2. `api/m3u-proxy.js` - Novo proxy Vercel para buscar M3U de URLs externas (evitar CORS)
+3. `src/services/UserConfigService.ts` - Metodo para salvar/carregar credenciais DNS do usuario
 
-### Riscos
+### Riscos e consideracoes
 
-- Nenhum risco de perda de dados (a correcao so impede duplicacao)
-- A normalizacao pode em casos raros considerar dois conteudos diferentes como iguais (ex: "O Filme 1" e "O Filme: 1"), mas isso e preferivel a duplicar
-
+- **CORS**: Buscar URLs externas direto do navegador sera bloqueado. O proxy Vercel resolve isso
+- **Seguranca**: As credenciais DNS sao do usuario e ficam salvas no Firestore dele (mesmo padrao das API keys TMDB/OMDB)
+- **Listas grandes**: O fetch pode demorar para listas muito grandes. Sera adicionado indicador de loading
+- **Compatibilidade**: O formato `get.php?username=X&password=Y&type=m3u_plus` e o padrao de paineis Xtream Codes, que e o mais comum no mercado IPTV
