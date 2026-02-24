@@ -1,5 +1,9 @@
 {
   "functions": {
+    "api/m3u-proxy.js": {
+      "memory": 1024,
+      "maxDuration": 60
+    },
     "api/**/*.js": {
       "memory": 1024,
       "maxDuration": 10
