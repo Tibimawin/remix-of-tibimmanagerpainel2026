@@ -393,20 +393,45 @@ const LimpezaDados = () => {
         {(isProcessing || progress > 0) && (
           <Card>
             <CardHeader>
-              <CardTitle>Progresso da Limpeza</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                <span>Progresso da Limpeza</span>
+                {wasInterrupted && !isProcessing && (
+                  <Badge variant="outline" className="text-yellow-500 border-yellow-500">
+                    Interrompido
+                  </Badge>
+                )}
+              </CardTitle>
               <CardDescription>
                 {totalRecords > 0 && (
                   <span>{processedRecords} de {totalRecords} registros processados</span>
                 )}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Progress value={progress} className="w-full h-3" />
                 <p className="text-sm text-muted-foreground text-center">
                   {progress}% concluído
                 </p>
               </div>
+              {wasInterrupted && !isProcessing && processedRecords < totalRecords && (
+                <div className="flex items-center justify-between p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                    <span className="text-sm text-yellow-500">
+                      Limpeza interrompida — {totalRecords - processedRecords} registros restantes
+                    </span>
+                  </div>
+                  <Button
+                    onClick={resumeCleanup}
+                    size="sm"
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                  >
+                    <Loader2 className="h-3 w-3 mr-1" />
+                    Retomar Limpeza
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
