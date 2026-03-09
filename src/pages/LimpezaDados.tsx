@@ -44,7 +44,9 @@ const LimpezaDados = () => {
     processedRecords,
     showConfirmation,
     setShowConfirmation,
+    wasInterrupted,
     startCleanup,
+    resumeCleanup,
     confirmCleanup,
     cancelCleanup
   } = useCleanup();
