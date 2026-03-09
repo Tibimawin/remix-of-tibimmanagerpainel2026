@@ -201,9 +201,10 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
               console.error('Erro ao deletar registro:', record.id, err);
 
               // Se for erro 429 (rate limit), esperar mais tempo
-              if (err.message?.includes('429')) {
-                addLog(`Rate limit atingido, aguardando 30 segundos...`, 'error');
-                await new Promise(resolve => setTimeout(resolve, 30000)); // 30 segundos
+              if (err.message?.includes('429') || err.message?.includes('Too Many')) {
+                addLog(`⏳ Limite de requisições atingido - aguardando 30 segundos...`, 'error', 
+                  'O Baserow tem limites de requisições por minuto. O processo será retomado automaticamente.');
+                await new Promise(resolve => setTimeout(resolve, 30000));
               }
 
               if (errors >= 20) {
