@@ -197,6 +197,7 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
           processed += ids.length;
           consecutiveErrors = 0;
           setProcessedRecords(processed);
+          updateTimeEstimate(processed, newTotal);
           setProgress(Math.round((processed / newTotal) * 100));
           addLog(`Lote ${batchNumber}: ${ids.length} registros deletados (${processed}/${newTotal})`, 'success');
         } catch (error: any) {
