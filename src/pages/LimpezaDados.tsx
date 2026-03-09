@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Trash2, AlertTriangle, Loader2, CheckCircle, XCircle, DatabaseZap, Clock, Calendar, Bell, Trash, Settings2, StopCircle, HelpCircle, ExternalLink, Key, Hash, Link2 } from 'lucide-react';
+import { Trash2, AlertTriangle, Loader2, CheckCircle, XCircle, DatabaseZap, Clock, Calendar, Bell, Trash, Settings2, StopCircle, HelpCircle, ExternalLink, Key, Hash, Link2, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { PermissionGate } from '@/components/PermissionGate';
 import { useScheduledCleanups, type ScheduledCleanup } from '@/hooks/useScheduledCleanups';
@@ -50,7 +50,9 @@ const LimpezaDados = () => {
     startCleanup,
     resumeCleanup,
     confirmCleanup,
-    cancelCleanup
+    cancelCleanup,
+    cleanupHistory,
+    clearCleanupHistory
   } = useCleanup();
   
   // Estados para agendamento automático
@@ -829,6 +831,66 @@ const LimpezaDados = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Histórico de Limpezas */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <History className="h-5 w-5" />
+                <span>Histórico de Limpezas</span>
+              </div>
+              {cleanupHistory.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={clearCleanupHistory} className="text-muted-foreground hover:text-destructive">
+                  <Trash className="h-3 w-3 mr-1" />
+                  Limpar
+                </Button>
+              )}
+            </CardTitle>
+            <CardDescription>
+              {cleanupHistory.length === 0 ? 'Nenhuma limpeza realizada ainda' : `${cleanupHistory.length} limpeza(s) registrada(s)`}
+            </CardDescription>
+          </CardHeader>
+          {cleanupHistory.length > 0 && (
+            <CardContent>
+              <div className="space-y-3 max-h-80 overflow-y-auto">
+                {cleanupHistory.map((entry) => {
+                  const formatDuration = (s: number) => {
+                    if (s < 60) return `${s}s`;
+                    const m = Math.floor(s / 60);
+                    const sec = s % 60;
+                    return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m ${sec}s`;
+                  };
+                  return (
+                    <div key={entry.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${
+                          entry.status === 'success' ? 'bg-green-500' : entry.status === 'partial' ? 'bg-yellow-500' : 'bg-red-500'
+                        }`} />
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            Tabela {entry.tableId}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {entry.date} • {formatDuration(entry.durationSeconds)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-foreground">
+                          {entry.recordsDeleted.toLocaleString('pt-BR')} registros
+                        </p>
+                        <Badge variant={entry.status === 'success' ? 'default' : entry.status === 'partial' ? 'secondary' : 'destructive'} className="text-xs">
+                          {entry.status === 'success' ? 'Concluído' : entry.status === 'partial' ? 'Parcial' : 'Erro'}
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          )}
+        </Card>
 
         {/* Dialog de Confirmação */}
         {showConfirmation && (

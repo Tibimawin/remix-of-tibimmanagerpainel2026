@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
 import { toast } from 'sonner';
 import { BaserowService } from '@/services/BaserowService';
+import { useCleanupHistory, type CleanupHistoryEntry } from '@/hooks/useCleanupHistory';
 
 interface CleanupConfig {
   tableId: string;
@@ -35,11 +36,14 @@ interface CleanupContextType {
   setShowConfirmation: React.Dispatch<React.SetStateAction<boolean>>;
   confirmCleanup: () => Promise<void>;
   cancelCleanup: () => void;
+  cleanupHistory: CleanupHistoryEntry[];
+  clearCleanupHistory: () => void;
 }
 
 const CleanupContext = createContext<CleanupContextType | undefined>(undefined);
 
 export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { history: cleanupHistory, addEntry: addHistoryEntry, clearHistory: clearCleanupHistory } = useCleanupHistory();
   const [config, setConfig] = useState<CleanupConfig>({
     tableId: '',
     apiToken: '',
@@ -241,6 +245,8 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (!stopRef.current) {
         setProgress(100);
         setWasInterrupted(false);
+        const duration = Math.round((Date.now() - startTimeRef.current) / 1000);
+        addHistoryEntry({ tableId: config.tableId, baseUrl: config.baseUrl, recordsDeleted: processed, totalRecords: newTotal, status: 'success', durationSeconds: duration });
         addLog(`Limpeza retomada concluída! ${processed} registros totais deletados.`, 'success');
         toast.success(`Limpeza concluída! ${processed} registros removidos.`);
       }
@@ -395,11 +401,14 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       if (!stopRef.current) {
         setProgress(100);
+        const duration = Math.round((Date.now() - startTimeRef.current) / 1000);
 
         if (errors > 0) {
+          addHistoryEntry({ tableId: config.tableId, baseUrl: config.baseUrl, recordsDeleted: processed, totalRecords: estimatedTotal, status: 'partial', durationSeconds: duration });
           addLog(`Processo finalizado com avisos. ${processed} de ${estimatedTotal} registros foram deletados. ${errors} erro(s) encontrado(s).`, 'error');
           toast.error(`Limpeza parcial! ${processed} registros removidos, ${errors} erro(s) encontrado(s).`);
         } else {
+          addHistoryEntry({ tableId: config.tableId, baseUrl: config.baseUrl, recordsDeleted: processed, totalRecords: estimatedTotal, status: 'success', durationSeconds: duration });
           addLog(`Processo finalizado com sucesso! ${processed} registros foram deletados.`, 'success');
           toast.success(`Limpeza concluída! ${processed} registros foram removidos com sucesso.`);
         }
@@ -475,7 +484,9 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
       showConfirmation,
       setShowConfirmation,
       confirmCleanup,
-      cancelCleanup
+      cancelCleanup,
+      cleanupHistory,
+      clearCleanupHistory
     }}>
       {children}
     </CleanupContext.Provider>
