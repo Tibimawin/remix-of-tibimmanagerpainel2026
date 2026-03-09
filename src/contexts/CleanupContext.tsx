@@ -109,10 +109,115 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
   const cancelCleanup = useCallback(() => {
     if (isProcessing) {
       stopRef.current = true;
+      setWasInterrupted(true);
       addLog('Solicitação de parada recebida...', 'success');
-      toast.info('Parando limpeza...');
+      toast.info('Parando limpeza... Você pode retomar depois.');
     }
   }, [isProcessing, addLog]);
+
+  const resumeCleanup = async () => {
+    if (!validateConfig()) return;
+    setWasInterrupted(false);
+    addLog('Retomando limpeza de onde parou...', 'success', `Já processados: ${processedRecords}`);
+    
+    // Executar diretamente sem confirmação
+    setIsProcessing(true);
+    stopRef.current = false;
+
+    try {
+      const baserowService = new BaserowService(config.apiToken, config.baseUrl);
+      const pageSize = 200;
+      let hasMore = true;
+      let processed = processedRecords; // Continuar de onde parou
+      let errors = 0;
+      let batchNumber = 0;
+      let consecutiveErrors = 0;
+      const maxConsecutiveErrors = 10;
+
+      // Buscar total atual restante
+      const firstPage = await baserowService.getTableData(config.tableId, 1, 1);
+      const remaining = firstPage.count || 0;
+      const newTotal = processed + remaining;
+      setTotalRecords(newTotal);
+      addLog(`${remaining} registros restantes para deletar`, 'success');
+
+      while (hasMore) {
+        if (stopRef.current) {
+          addLog('Processo interrompido pelo usuário.', 'error');
+          setWasInterrupted(true);
+          toast.warning('Limpeza interrompida. Clique em "Retomar" para continuar.');
+          break;
+        }
+
+        batchNumber++;
+        const pageData = await baserowService.getTableData(config.tableId, 1, pageSize);
+        const currentBatch = pageData.results || [];
+
+        if (currentBatch.length === 0) {
+          addLog('Nenhum registro restante, finalizando.', 'success');
+          break;
+        }
+
+        const ids = currentBatch.map((record: any) => Number(record.id));
+
+        try {
+          await baserowService.deleteRowsBatch(config.tableId, ids);
+          processed += ids.length;
+          consecutiveErrors = 0;
+          setProcessedRecords(processed);
+          setProgress(Math.round((processed / newTotal) * 100));
+          addLog(`Lote ${batchNumber}: ${ids.length} registros deletados (${processed}/${newTotal})`, 'success');
+        } catch (error: any) {
+          if (stopRef.current) break;
+          for (const record of currentBatch) {
+            if (stopRef.current) break;
+            try {
+              await baserowService.deleteRow(config.tableId, String(record.id));
+              processed++;
+              consecutiveErrors = 0;
+              setProcessedRecords(processed);
+              setProgress(Math.round((processed / newTotal) * 100));
+              await new Promise(resolve => setTimeout(resolve, 300));
+            } catch (err: any) {
+              if (err.message?.includes('404') || err.message?.includes('NOT_EXIST')) {
+                processed++;
+                setProcessedRecords(processed);
+                continue;
+              }
+              errors++;
+              consecutiveErrors++;
+              if (err.message?.includes('429') || err.message?.includes('Too Many')) {
+                addLog('⏳ Rate limit - aguardando 30s...', 'error');
+                await new Promise(resolve => setTimeout(resolve, 30000));
+                consecutiveErrors = 0;
+              }
+              if (consecutiveErrors >= maxConsecutiveErrors) {
+                throw new Error(`Muitos erros consecutivos (${maxConsecutiveErrors})`);
+              }
+            }
+          }
+        }
+
+        if (stopRef.current) break;
+        hasMore = currentBatch.length > 0;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      if (!stopRef.current) {
+        setProgress(100);
+        setWasInterrupted(false);
+        addLog(`Limpeza retomada concluída! ${processed} registros totais deletados.`, 'success');
+        toast.success(`Limpeza concluída! ${processed} registros removidos.`);
+      }
+    } catch (error: any) {
+      addLog('Erro ao retomar limpeza', 'error', error.message);
+      toast.error('Erro ao retomar limpeza', { description: error.message });
+      setWasInterrupted(true);
+    } finally {
+      setIsProcessing(false);
+      stopRef.current = false;
+    }
+  };
 
   const confirmCleanup = async () => {
     setShowConfirmation(false);
