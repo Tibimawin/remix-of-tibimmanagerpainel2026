@@ -123,11 +123,13 @@ export class BaserowService {
   }
 
   // 🔥 NOVO: Deleção em lote otimizada
-  async deleteRowsBatch(tableId: string, rowIds: string[]): Promise<void> {
+  async deleteRowsBatch(tableId: string, rowIds: (string | number)[]): Promise<void> {
     if (!rowIds.length) return;
 
     const endpoint = `/api/database/rows/table/${tableId}/batch-delete/`;
-    const body = JSON.stringify({ row_ids: rowIds });
+    // Baserow expects { items: [int, int, ...] }
+    const numericIds = rowIds.map(id => typeof id === 'string' ? parseInt(id, 10) : id).filter(id => !isNaN(id));
+    const body = JSON.stringify({ items: numericIds });
 
     let attempt = 0;
     const maxRetries = 3;

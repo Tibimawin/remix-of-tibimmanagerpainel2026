@@ -52,7 +52,7 @@ export class ScheduledCleanupService {
           const currentBatch = pageData.results;
 
           // Obter IDs da página atual
-          const ids = currentBatch.map((r: any) => r.id);
+          const ids = currentBatch.map((r: any) => Number(r.id));
 
           // Deletar em lote — MUITO mais rápido que individualmente
           try {
