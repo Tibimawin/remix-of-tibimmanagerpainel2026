@@ -24,7 +24,9 @@ interface CleanupContextType {
   logs: CleanupLog[];
   processedRecords: number;
   totalRecords: number;
+  wasInterrupted: boolean;
   startCleanup: () => Promise<void>;
+  resumeCleanup: () => Promise<void>;
   validateConfig: () => boolean;
   addLog: (action: string, status: 'success' | 'error', details?: string) => void;
   showConfirmation: boolean;
