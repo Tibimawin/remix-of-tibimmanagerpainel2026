@@ -25,6 +25,8 @@ interface CleanupContextType {
   processedRecords: number;
   totalRecords: number;
   wasInterrupted: boolean;
+  estimatedTimeRemaining: string;
+  processingSpeed: number;
   startCleanup: () => Promise<void>;
   resumeCleanup: () => Promise<void>;
   validateConfig: () => boolean;
