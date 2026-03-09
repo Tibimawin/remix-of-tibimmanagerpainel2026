@@ -201,9 +201,10 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
               console.error('Erro ao deletar registro:', record.id, err);
 
               // Se for erro 429 (rate limit), esperar mais tempo
-              if (err.message?.includes('429')) {
-                addLog(`Rate limit atingido, aguardando 30 segundos...`, 'error');
-                await new Promise(resolve => setTimeout(resolve, 30000)); // 30 segundos
+              if (err.message?.includes('429') || err.message?.includes('Too Many')) {
+                addLog(`⏳ Limite de requisições atingido - aguardando 30 segundos...`, 'error', 
+                  'O Baserow tem limites de requisições por minuto. O processo será retomado automaticamente.');
+                await new Promise(resolve => setTimeout(resolve, 30000));
               }
 
               if (errors >= 20) {
@@ -243,20 +244,48 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
     } catch (error: any) {
       console.error('Erro durante a limpeza:', error);
 
+      let errorTitle = 'Erro durante o processo de limpeza';
       let errorMessage = 'Erro desconhecido durante a limpeza';
+      let errorSuggestion = '';
 
-      if (error.message?.includes('401') || error.message?.includes('403')) {
-        errorMessage = 'Token da API inválido ou sem permissão';
-      } else if (error.message?.includes('404')) {
-        errorMessage = 'Tabela não encontrada. Verifique o ID da tabela';
-      } else if (error.message?.includes('NetworkError') || error.message?.includes('Failed to fetch')) {
-        errorMessage = 'Erro de conexão. Verifique a URL base e sua conexão de internet';
+      if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+        errorTitle = 'Autenticação falhou';
+        errorMessage = 'O Token da API é inválido ou expirou.';
+        errorSuggestion = '💡 Dica: Verifique se o token está correto e possui permissões de escrita/deleção na tabela.';
+      } else if (error.message?.includes('403') || error.message?.includes('Forbidden')) {
+        errorTitle = 'Sem permissão';
+        errorMessage = 'O token não tem permissão para deletar registros nesta tabela.';
+        errorSuggestion = '💡 Dica: Certifique-se de que o token tem permissões de "Admin" ou "Editor" no Baserow.';
+      } else if (error.message?.includes('404') || error.message?.includes('not found')) {
+        errorTitle = 'Tabela não encontrada';
+        errorMessage = `A tabela com ID "${config.tableId}" não foi encontrada no Baserow.`;
+        errorSuggestion = '💡 Dica: Verifique se o ID da tabela está correto. Pode encontrá-lo na URL do Baserow.';
+      } else if (error.message?.includes('429') || error.message?.includes('rate limit') || error.message?.includes('Too Many')) {
+        errorTitle = 'Limite de requisições atingido';
+        errorMessage = 'O Baserow bloqueou temporariamente as requisições por excesso de chamadas.';
+        errorSuggestion = '💡 Dica: Aguarde alguns minutos e tente novamente. O processo será retomado automaticamente quando possível.';
+      } else if (error.message?.includes('NetworkError') || error.message?.includes('Failed to fetch') || error.message?.includes('ERR_CONNECTION')) {
+        errorTitle = 'Erro de conexão';
+        errorMessage = 'Não foi possível conectar ao servidor do Baserow.';
+        errorSuggestion = '💡 Dica: Verifique se a URL base está correta e se sua conexão de internet está funcionando.';
+      } else if (error.message?.includes('502') || error.message?.includes('503') || error.message?.includes('504')) {
+        errorTitle = 'Servidor indisponível';
+        errorMessage = 'O servidor do Baserow está temporariamente indisponível ou sobrecarregado.';
+        errorSuggestion = '💡 Dica: Aguarde alguns minutos e tente novamente. Se persistir, verifique o status do servidor Baserow.';
+      } else if (error.message?.includes('CORS') || error.message?.includes('cross-origin')) {
+        errorTitle = 'Erro de CORS';
+        errorMessage = 'O navegador bloqueou a requisição por política de segurança (CORS).';
+        errorSuggestion = '💡 Dica: Use uma URL HTTPS para o Baserow ou configure o proxy corretamente.';
+      } else if (error.message?.includes('Muitos erros')) {
+        errorTitle = 'Muitos erros encontrados';
+        errorMessage = 'O processo foi interrompido porque mais de 20 registros falharam ao ser deletados.';
+        errorSuggestion = '💡 Dica: Verifique se o token e as permissões estão corretos. Alguns registros podem estar protegidos.';
       } else if (error.message) {
         errorMessage = error.message;
       }
 
-      addLog('Erro durante o processo de limpeza', 'error', errorMessage);
-      toast.error(`Erro: ${errorMessage}`);
+      addLog(errorTitle, 'error', `${errorMessage}${errorSuggestion ? ` ${errorSuggestion}` : ''}`);
+      toast.error(errorTitle, { description: errorMessage, duration: 8000 });
     } finally {
       setIsProcessing(false);
       stopRef.current = false;
