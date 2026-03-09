@@ -268,10 +268,10 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
         errorTitle = 'Erro de conexão';
         errorMessage = 'Não foi possível conectar ao servidor do Baserow.';
         errorSuggestion = '💡 Dica: Verifique se a URL base está correta e se sua conexão de internet está funcionando.';
-      } else if (error.message?.includes('502') || error.message?.includes('503') || error.message?.includes('504')) {
-        errorTitle = 'Servidor indisponível';
-        errorMessage = 'O servidor do Baserow está temporariamente indisponível ou sobrecarregado.';
-        errorSuggestion = '💡 Dica: Aguarde alguns minutos e tente novamente. Se persistir, verifique o status do servidor Baserow.';
+      } else if (error.message?.includes('502') || error.message?.includes('503') || error.message?.includes('504') || error.message?.includes('HTML em vez de JSON')) {
+        errorTitle = 'Servidor Baserow indisponível';
+        errorMessage = 'O servidor Baserow não está a responder corretamente (retornou HTML em vez de JSON).';
+        errorSuggestion = '💡 Dica: Verifique se o servidor Baserow está online e acessível. Teste aceder diretamente à URL no navegador. Se for um servidor self-hosted, confirme que está a funcionar.';
       } else if (error.message?.includes('CORS') || error.message?.includes('cross-origin')) {
         errorTitle = 'Erro de CORS';
         errorMessage = 'O navegador bloqueou a requisição por política de segurança (CORS).';
