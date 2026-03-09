@@ -36,6 +36,8 @@ interface CleanupContextType {
   setShowConfirmation: React.Dispatch<React.SetStateAction<boolean>>;
   confirmCleanup: () => Promise<void>;
   cancelCleanup: () => void;
+  cleanupHistory: CleanupHistoryEntry[];
+  clearCleanupHistory: () => void;
 }
 
 const CleanupContext = createContext<CleanupContextType | undefined>(undefined);
