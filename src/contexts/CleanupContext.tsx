@@ -43,6 +43,7 @@ interface CleanupContextType {
 const CleanupContext = createContext<CleanupContextType | undefined>(undefined);
 
 export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { history: cleanupHistory, addEntry: addHistoryEntry, clearHistory: clearCleanupHistory } = useCleanupHistory();
   const [config, setConfig] = useState<CleanupConfig>({
     tableId: '',
     apiToken: '',
