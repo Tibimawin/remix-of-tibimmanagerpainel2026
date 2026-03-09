@@ -412,9 +412,18 @@ const LimpezaDados = () => {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Progress value={progress} className="w-full h-3" />
-                <p className="text-sm text-muted-foreground text-center">
-                  {progress}% concluído
-                </p>
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>{progress}% concluído</span>
+                  {isProcessing && estimatedTimeRemaining && (
+                    <span className="flex items-center gap-2">
+                      <Clock className="h-3 w-3" />
+                      {estimatedTimeRemaining}
+                      {processingSpeed > 0 && (
+                        <span className="text-xs opacity-70">({processingSpeed} reg/s)</span>
+                      )}
+                    </span>
+                  )}
+                </div>
               </div>
               {wasInterrupted && !isProcessing && processedRecords < totalRecords && (
                 <div className="flex items-center justify-between p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
