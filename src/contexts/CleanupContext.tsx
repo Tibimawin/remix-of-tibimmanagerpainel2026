@@ -161,7 +161,7 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
 
         const batchNumber = page;
-        const ids = currentBatch.map((record: any) => String(record.id));
+        const ids = currentBatch.map((record: any) => Number(record.id));
         addLog(`Processando lote ${batchNumber} (${ids.length} registros)`, 'success');
 
         try {
