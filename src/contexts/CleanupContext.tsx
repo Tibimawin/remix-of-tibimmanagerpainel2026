@@ -50,6 +50,7 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [totalRecords, setTotalRecords] = useState(0);
   const [processedRecords, setProcessedRecords] = useState(0);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [wasInterrupted, setWasInterrupted] = useState(false);
   const stopRef = useRef(false);
 
   const addLog = useCallback((action: string, status: 'success' | 'error', details?: string) => {
