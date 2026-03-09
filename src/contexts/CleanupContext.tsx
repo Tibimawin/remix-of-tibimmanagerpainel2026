@@ -245,6 +245,8 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (!stopRef.current) {
         setProgress(100);
         setWasInterrupted(false);
+        const duration = Math.round((Date.now() - startTimeRef.current) / 1000);
+        addHistoryEntry({ tableId: config.tableId, baseUrl: config.baseUrl, recordsDeleted: processed, totalRecords: newTotal, status: 'success', durationSeconds: duration });
         addLog(`Limpeza retomada concluída! ${processed} registros totais deletados.`, 'success');
         toast.success(`Limpeza concluída! ${processed} registros removidos.`);
       }
