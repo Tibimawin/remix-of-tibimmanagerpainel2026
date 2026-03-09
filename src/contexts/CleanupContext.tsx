@@ -209,6 +209,7 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
               processed++;
               consecutiveErrors = 0;
               setProcessedRecords(processed);
+              updateTimeEstimate(processed, newTotal);
               setProgress(Math.round((processed / newTotal) * 100));
               await new Promise(resolve => setTimeout(resolve, 300));
             } catch (err: any) {
