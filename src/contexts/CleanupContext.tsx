@@ -259,6 +259,10 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
     setProcessedRecords(0);
     setTotalRecords(0);
     setLogs([]);
+    setEstimatedTimeRemaining('Calculando...');
+    setProcessingSpeed(0);
+    startTimeRef.current = Date.now();
+    startCountRef.current = 0;
 
     try {
       addLog('Inicializando serviço do Baserow...', 'success');
