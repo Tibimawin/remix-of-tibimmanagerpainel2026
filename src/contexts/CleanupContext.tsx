@@ -460,6 +460,8 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
       processedRecords,
       totalRecords,
       wasInterrupted,
+      estimatedTimeRemaining,
+      processingSpeed,
       startCleanup,
       resumeCleanup,
       validateConfig,
