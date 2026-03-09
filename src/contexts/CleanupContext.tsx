@@ -359,6 +359,7 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
                 processed++;
                 batchProcessed++;
                 setProcessedRecords(processed);
+                updateTimeEstimate(processed, estimatedTotal);
                 continue;
               }
 
