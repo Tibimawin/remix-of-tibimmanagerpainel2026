@@ -79,6 +79,15 @@ serve(async (req) => {
       contentType: response.headers.get('content-type')
     });
 
+    // Tratar respostas sem conteúdo (204 No Content - DELETE bem-sucedido)
+    if (response.status === 204 || response.headers.get('content-length') === '0') {
+      console.log('✅ [BASEROW-PROXY] Resposta 204 No Content (DELETE bem-sucedido)');
+      return new Response(
+        JSON.stringify({ success: true, status: 204 }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Verificar se a resposta é JSON
     const contentType = response.headers.get('content-type');
     
@@ -98,32 +107,45 @@ serve(async (req) => {
         }
       );
     } else {
-      // Não é JSON - retornar erro estruturado
       const text = await response.text();
-      console.error('❌ [BASEROW-PROXY] Resposta não é JSON:', {
-        status: response.status,
-        contentType,
-        textPreview: text.substring(0, 500),
-        url,
-        method,
-        hasToken: !!token
-      });
-
-      return new Response(
-        JSON.stringify({
-          error: 'Baserow retornou HTML em vez de JSON',
-          details: 'O token pode estar inválido/expirado, a URL pode estar errada, ou a tabela não existe',
+      
+      // Se status é 2xx e sem conteúdo, considerar sucesso
+      if (response.ok && (!text || text.trim() === '')) {
+        console.log('✅ [BASEROW-PROXY] Resposta vazia com status OK');
+        return new Response(
+          JSON.stringify({ success: true, status: response.status }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Tentar parsear como JSON
+      try {
+        const data = JSON.parse(text);
+        return new Response(
+          JSON.stringify(data),
+          { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch {
+        console.error('❌ [BASEROW-PROXY] Resposta não é JSON:', {
           status: response.status,
-          contentType: contentType,
-          preview: text.substring(0, 200),
-          url: url,
-          tokenPreview: token ? token.substring(0, 12) + '...' : 'N/A'
-        }),
-        { 
-          status: 502,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+          contentType,
+          textPreview: text.substring(0, 500),
+        });
+
+        return new Response(
+          JSON.stringify({
+            error: 'Baserow retornou HTML em vez de JSON',
+            details: 'O token pode estar inválido/expirado, a URL pode estar errada, ou a tabela não existe',
+            status: response.status,
+            contentType: contentType,
+            preview: text.substring(0, 200),
+          }),
+          { 
+            status: 502,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
     }
 
   } catch (error: any) {
