@@ -321,6 +321,7 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
           processed += ids.length;
           consecutiveErrors = 0;
           setProcessedRecords(processed);
+          updateTimeEstimate(processed, estimatedTotal);
 
           const progressPercent = estimatedTotal
             ? Math.round((processed / estimatedTotal) * 100)
