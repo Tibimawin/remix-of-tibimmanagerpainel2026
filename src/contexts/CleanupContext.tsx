@@ -53,7 +53,35 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [processedRecords, setProcessedRecords] = useState(0);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [wasInterrupted, setWasInterrupted] = useState(false);
+  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState('');
+  const [processingSpeed, setProcessingSpeed] = useState(0);
   const stopRef = useRef(false);
+  const startTimeRef = useRef<number>(0);
+  const startCountRef = useRef<number>(0);
+
+  const updateTimeEstimate = useCallback((processed: number, total: number) => {
+    const elapsed = (Date.now() - startTimeRef.current) / 1000;
+    const delta = processed - startCountRef.current;
+    if (delta <= 0 || elapsed < 1) {
+      setEstimatedTimeRemaining('Calculando...');
+      return;
+    }
+    const speed = delta / elapsed;
+    setProcessingSpeed(Math.round(speed * 10) / 10);
+    const remaining = total - processed;
+    const secondsLeft = remaining / speed;
+    if (secondsLeft < 60) {
+      setEstimatedTimeRemaining(`~${Math.ceil(secondsLeft)}s`);
+    } else if (secondsLeft < 3600) {
+      const mins = Math.floor(secondsLeft / 60);
+      const secs = Math.ceil(secondsLeft % 60);
+      setEstimatedTimeRemaining(`~${mins}m ${secs}s`);
+    } else {
+      const hrs = Math.floor(secondsLeft / 3600);
+      const mins = Math.ceil((secondsLeft % 3600) / 60);
+      setEstimatedTimeRemaining(`~${hrs}h ${mins}m`);
+    }
+  }, []);
 
   const addLog = useCallback((action: string, status: 'success' | 'error', details?: string) => {
     const newLog: CleanupLog = {
