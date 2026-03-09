@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
 import { toast } from 'sonner';
 import { BaserowService } from '@/services/BaserowService';
+import { useCleanupHistory, type CleanupHistoryEntry } from '@/hooks/useCleanupHistory';
 
 interface CleanupConfig {
   tableId: string;
