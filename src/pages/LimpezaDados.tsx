@@ -45,6 +45,8 @@ const LimpezaDados = () => {
     showConfirmation,
     setShowConfirmation,
     wasInterrupted,
+    estimatedTimeRemaining,
+    processingSpeed,
     startCleanup,
     resumeCleanup,
     confirmCleanup,
