@@ -148,11 +148,13 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
   const resumeCleanup = async () => {
     if (!validateConfig()) return;
     setWasInterrupted(false);
+    setEstimatedTimeRemaining('Calculando...');
     addLog('Retomando limpeza de onde parou...', 'success', `Já processados: ${processedRecords}`);
     
-    // Executar diretamente sem confirmação
     setIsProcessing(true);
     stopRef.current = false;
+    startTimeRef.current = Date.now();
+    startCountRef.current = processedRecords;
 
     try {
       const baserowService = new BaserowService(config.apiToken, config.baseUrl);
