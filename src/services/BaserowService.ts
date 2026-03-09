@@ -122,44 +122,78 @@ export class BaserowService {
     }
   }
 
-  // 🔥 NOVO: Deleção em lote otimizada
+  // 🔥 Deleção em lote otimizada (com fallback para versões antigas do Baserow)
   async deleteRowsBatch(tableId: string, rowIds: (string | number)[]): Promise<void> {
     if (!rowIds.length) return;
 
-    const endpoint = `/api/database/rows/table/${tableId}/batch-delete/`;
-    // Baserow expects { items: [int, int, ...] }
     const numericIds = rowIds.map(id => typeof id === 'string' ? parseInt(id, 10) : id).filter(id => !isNaN(id));
+    
+    // Tentar primeiro o endpoint de batch delete (Baserow 1.18+)
+    // POST /api/database/rows/table/{table_id}/batch-delete/
+    const batchEndpoint = `/api/database/rows/table/${tableId}/batch-delete/`;
     const body = JSON.stringify({ items: numericIds });
 
     let attempt = 0;
-    const maxRetries = 3;
+    const maxRetries = 2;
 
     while (attempt < maxRetries) {
       attempt++;
       const start = Date.now();
 
       try {
-        logger.debug(`🗑️ Tentando deletar ${rowIds.length} registros (tentativa ${attempt})`);
-        const response = await this.makeRequest(endpoint, { method: 'POST', body });
+        logger.debug(`🗑️ Tentando deletar ${numericIds.length} registros via batch-delete (tentativa ${attempt})`);
+        const response = await this.makeRequest(batchEndpoint, { method: 'POST', body });
 
         if (!response.ok) {
           const errorText = await response.text();
+          
+          // Se o endpoint não existe (404) ou não é suportado, usar fallback
+          if (response.status === 404 || response.status === 400 || errorText.includes('HTML')) {
+            logger.warn(`⚠️ Endpoint batch-delete não suportado, usando deleção individual...`);
+            throw new Error('BATCH_NOT_SUPPORTED');
+          }
+          
           logger.warn(`⚠️ Erro ao deletar em lote (status ${response.status}): ${errorText}`);
           throw new Error(`Erro ${response.status}: ${errorText}`);
         }
 
         const duration = Date.now() - start;
-        logger.debug(`✅ Lote de ${rowIds.length} registros deletado em ${duration}ms`);
-        return; // sucesso → sair do loop
+        logger.debug(`✅ Lote de ${numericIds.length} registros deletado em ${duration}ms`);
+        return; // sucesso
 
-      } catch (error) {
+      } catch (error: any) {
+        // Se batch não é suportado, usar fallback de deleção individual
+        if (error.message === 'BATCH_NOT_SUPPORTED' || error.message?.includes('HTML')) {
+          logger.warn('⚠️ Batch delete não suportado nesta versão do Baserow, deletando individualmente...');
+          
+          // Fallback: deletar um por um com delay
+          for (let i = 0; i < numericIds.length; i++) {
+            const id = numericIds[i];
+            try {
+              await this.deleteRow(tableId, String(id));
+              // Delay de 100ms entre deletes para evitar rate limit
+              if (i < numericIds.length - 1) {
+                await new Promise(r => setTimeout(r, 100));
+              }
+            } catch (deleteError: any) {
+              // Se erro 404, o registro já foi deletado - continuar
+              if (deleteError.message?.includes('404')) {
+                logger.debug(`Registro ${id} já não existe, continuando...`);
+                continue;
+              }
+              throw deleteError;
+            }
+          }
+          logger.debug(`✅ ${numericIds.length} registros deletados individualmente`);
+          return;
+        }
+        
         logger.error(`❌ Erro na tentativa ${attempt} de deleção em lote:`, error);
         if (attempt < maxRetries) {
-          // pequena pausa antes de tentar novamente
-          const delay = 200 * attempt;
+          const delay = 300 * attempt;
           await new Promise(r => setTimeout(r, delay));
         } else {
-          throw error; // falhou todas as tentativas
+          throw error;
         }
       }
     }
