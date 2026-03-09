@@ -74,16 +74,13 @@ export class BaserowService {
         } as Response;
       }
 
-      // Usar fetch direto para Vercel Serverless
+      // Usar fetch direto para Vercel Serverless (com fallback para Supabase)
       console.log(`🌐 [BaserowService] Requisição via VERCEL PROXY:`, {
         method,
         proxyUrl: this.proxyUrl,
         originalUrl: originalUrl,
         tokenPreview: this.apiToken.substring(0, 15) + '...',
         tokenLength: this.apiToken.length,
-        hasUserFieldNames: originalUrl.includes('user_field_names=true'),
-        bodyLength: options.body ? (options.body as string).length : 0,
-        bodyPreview: options.body ? (options.body as string).substring(0, 150) : 'N/A'
       });
 
       console.log('📦 [BaserowService] Payload para Vercel:', {
@@ -101,6 +98,29 @@ export class BaserowService {
         },
         body: JSON.stringify(proxyPayload)
       });
+
+      // Se Vercel proxy retornar 404, fazer fallback para Supabase Edge Function
+      if (response.status === 404) {
+        console.warn('⚠️ [BaserowService] Vercel proxy retornou 404, usando fallback Supabase...');
+        
+        const { data, error } = await supabase.functions.invoke('baserow-proxy', {
+          body: proxyPayload
+        });
+
+        if (error) {
+          console.error('❌ [BaserowService] Erro no fallback Supabase:', error);
+          throw new Error(`Proxy fallback error: ${error.message}`);
+        }
+
+        return {
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => data,
+          text: async () => JSON.stringify(data),
+        } as Response;
+      }
 
       return response;
     } else {
