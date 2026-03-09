@@ -10,7 +10,8 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Trash2, AlertTriangle, Loader2, CheckCircle, XCircle, DatabaseZap, Clock, Calendar, Bell, Trash, Settings2, StopCircle } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Trash2, AlertTriangle, Loader2, CheckCircle, XCircle, DatabaseZap, Clock, Calendar, Bell, Trash, Settings2, StopCircle, HelpCircle, ExternalLink, Key, Hash, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PermissionGate } from '@/components/PermissionGate';
 import { useScheduledCleanups, type ScheduledCleanup } from '@/hooks/useScheduledCleanups';
@@ -133,16 +134,168 @@ const LimpezaDados = () => {
       <div className="w-full space-y-6 animate-fade-in">
         {/* Header da Página */}
         <div className="flex flex-col space-y-2">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <DatabaseZap className="h-6 w-6 text-white" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <DatabaseZap className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-foreground">Limpeza de Dados</h1>
+                <p className="text-muted-foreground font-medium">
+                  Remover todos os registros de uma tabela do Baserow
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Limpeza de Dados</h1>
-              <p className="text-muted-foreground font-medium">
-                Remover todos os registros de uma tabela do Baserow
-              </p>
-            </div>
+            
+            {/* Botão de Ajuda/FAQ */}
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <HelpCircle className="h-4 w-4" />
+                  Ajuda
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <HelpCircle className="h-5 w-5 text-primary" />
+                    Central de Ajuda - Limpeza de Dados
+                  </DialogTitle>
+                  <DialogDescription>
+                    Aprenda como configurar corretamente a limpeza de dados no Baserow
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <Accordion type="single" collapsible className="w-full">
+                  {/* Como obter o Token da API */}
+                  <AccordionItem value="token">
+                    <AccordionTrigger className="text-left">
+                      <div className="flex items-center gap-2">
+                        <Key className="h-4 w-4 text-amber-500" />
+                        Como obter o Token da API?
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-3 text-sm">
+                      <p className="text-muted-foreground">
+                        O Token da API permite que a aplicação se conecte ao seu Baserow de forma segura.
+                      </p>
+                      <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+                        <li>Acesse o seu painel do Baserow</li>
+                        <li>Clique no seu avatar/perfil no canto superior direito</li>
+                        <li>Selecione <strong>"Configurações"</strong> ou <strong>"Settings"</strong></li>
+                        <li>No menu lateral, clique em <strong>"API tokens"</strong></li>
+                        <li>Clique em <strong>"Criar token"</strong> ou <strong>"Create token"</strong></li>
+                        <li>Dê um nome ao token (ex: "Limpeza de Dados")</li>
+                        <li>Selecione o <strong>workspace</strong> e a <strong>base de dados</strong></li>
+                        <li><strong>IMPORTANTE:</strong> Marque as permissões <strong>"read"</strong>, <strong>"create"</strong>, <strong>"update"</strong> e <strong>"delete"</strong></li>
+                        <li>Copie o token gerado e guarde-o em local seguro</li>
+                      </ol>
+                      <Alert className="mt-3 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/50">
+                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+                        <AlertDescription className="text-amber-800 dark:text-amber-200 text-xs">
+                          <strong>Dica de Segurança:</strong> Nunca partilhe o seu token com terceiros. Se o token for comprometido, elimine-o imediatamente no Baserow.
+                        </AlertDescription>
+                      </Alert>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Como encontrar o ID da Tabela */}
+                  <AccordionItem value="table-id">
+                    <AccordionTrigger className="text-left">
+                      <div className="flex items-center gap-2">
+                        <Hash className="h-4 w-4 text-blue-500" />
+                        Como encontrar o ID da Tabela?
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-3 text-sm">
+                      <p className="text-muted-foreground">
+                        O ID da tabela identifica qual tabela específica será limpa.
+                      </p>
+                      <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+                        <li>Abra o Baserow e navegue até a tabela desejada</li>
+                        <li>Olhe para a <strong>barra de endereços</strong> do seu navegador</li>
+                        <li>A URL terá um formato parecido com:<br/>
+                          <code className="bg-muted px-2 py-1 rounded text-xs">
+                            https://baserow.io/database/123/table/<strong>456</strong>
+                          </code>
+                        </li>
+                        <li>O número após <strong>/table/</strong> é o ID da tabela (neste exemplo: <strong>456</strong>)</li>
+                      </ol>
+                      <div className="flex items-center gap-2 p-3 bg-muted rounded-lg mt-2">
+                        <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="text-xs text-muted-foreground">
+                          Exemplo: <code>...baserow.io/database/XXX/table/<strong className="text-primary">12345</strong></code> → ID = <strong className="text-primary">12345</strong>
+                        </span>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Qual URL Base usar */}
+                  <AccordionItem value="base-url">
+                    <AccordionTrigger className="text-left">
+                      <div className="flex items-center gap-2">
+                        <ExternalLink className="h-4 w-4 text-green-500" />
+                        Qual URL Base devo usar?
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-3 text-sm">
+                      <p className="text-muted-foreground">
+                        A URL Base depende de onde o seu Baserow está hospedado:
+                      </p>
+                      <div className="space-y-2">
+                        <div className="p-3 bg-muted rounded-lg">
+                          <p className="font-medium text-foreground">Baserow Cloud (Oficial)</p>
+                          <code className="text-xs text-primary">https://api.baserow.io</code>
+                        </div>
+                        <div className="p-3 bg-muted rounded-lg">
+                          <p className="font-medium text-foreground">Baserow Self-Hosted</p>
+                          <code className="text-xs text-primary">https://seu-servidor.com</code>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Use a URL do seu próprio servidor onde o Baserow está instalado
+                          </p>
+                        </div>
+                      </div>
+                      <Alert className="mt-3 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/50">
+                        <HelpCircle className="h-4 w-4 text-blue-600" />
+                        <AlertDescription className="text-blue-800 dark:text-blue-200 text-xs">
+                          <strong>Nota:</strong> A URL deve começar com <strong>https://</strong>. URLs com <strong>http://</strong> serão processadas através de um proxy por questões de segurança.
+                        </AlertDescription>
+                      </Alert>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Erros comuns */}
+                  <AccordionItem value="errors">
+                    <AccordionTrigger className="text-left">
+                      <div className="flex items-center gap-2">
+                        <XCircle className="h-4 w-4 text-red-500" />
+                        Erros comuns e soluções
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-3 text-sm">
+                      <div className="space-y-3">
+                        <div className="p-3 border rounded-lg space-y-1">
+                          <p className="font-medium text-red-600 dark:text-red-400">Erro 401 - Token inválido</p>
+                          <p className="text-xs text-muted-foreground">O token da API está incorreto ou expirou. Gere um novo token no Baserow.</p>
+                        </div>
+                        <div className="p-3 border rounded-lg space-y-1">
+                          <p className="font-medium text-red-600 dark:text-red-400">Erro 403 - Sem permissão</p>
+                          <p className="text-xs text-muted-foreground">O token não tem permissão para deletar. Verifique se as permissões "delete" estão ativadas.</p>
+                        </div>
+                        <div className="p-3 border rounded-lg space-y-1">
+                          <p className="font-medium text-red-600 dark:text-red-400">Erro 404 - Tabela não encontrada</p>
+                          <p className="text-xs text-muted-foreground">O ID da tabela está incorreto. Verifique a URL do Baserow e copie o número correto.</p>
+                        </div>
+                        <div className="p-3 border rounded-lg space-y-1">
+                          <p className="font-medium text-amber-600 dark:text-amber-400">Erro 429 - Rate limit</p>
+                          <p className="text-xs text-muted-foreground">Muitas requisições em pouco tempo. Aguarde alguns segundos e o processo continuará automaticamente.</p>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
