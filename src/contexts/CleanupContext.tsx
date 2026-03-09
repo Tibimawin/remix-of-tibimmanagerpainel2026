@@ -484,7 +484,9 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
       showConfirmation,
       setShowConfirmation,
       confirmCleanup,
-      cancelCleanup
+      cancelCleanup,
+      cleanupHistory,
+      clearCleanupHistory
     }}>
       {children}
     </CleanupContext.Provider>
