@@ -50,7 +50,9 @@ const LimpezaDados = () => {
     startCleanup,
     resumeCleanup,
     confirmCleanup,
-    cancelCleanup
+    cancelCleanup,
+    cleanupHistory,
+    clearCleanupHistory
   } = useCleanup();
   
   // Estados para agendamento automático
