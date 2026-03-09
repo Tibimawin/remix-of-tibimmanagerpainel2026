@@ -401,11 +401,14 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       if (!stopRef.current) {
         setProgress(100);
+        const duration = Math.round((Date.now() - startTimeRef.current) / 1000);
 
         if (errors > 0) {
+          addHistoryEntry({ tableId: config.tableId, baseUrl: config.baseUrl, recordsDeleted: processed, totalRecords: estimatedTotal, status: 'partial', durationSeconds: duration });
           addLog(`Processo finalizado com avisos. ${processed} de ${estimatedTotal} registros foram deletados. ${errors} erro(s) encontrado(s).`, 'error');
           toast.error(`Limpeza parcial! ${processed} registros removidos, ${errors} erro(s) encontrado(s).`);
         } else {
+          addHistoryEntry({ tableId: config.tableId, baseUrl: config.baseUrl, recordsDeleted: processed, totalRecords: estimatedTotal, status: 'success', durationSeconds: duration });
           addLog(`Processo finalizado com sucesso! ${processed} registros foram deletados.`, 'success');
           toast.success(`Limpeza concluída! ${processed} registros foram removidos com sucesso.`);
         }
