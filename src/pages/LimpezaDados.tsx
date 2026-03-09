@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Trash2, AlertTriangle, Loader2, CheckCircle, XCircle, DatabaseZap, Clock, Calendar, Bell, Trash, Settings2, StopCircle, HelpCircle, ExternalLink, Key, Hash, Link2 } from 'lucide-react';
+import { Trash2, AlertTriangle, Loader2, CheckCircle, XCircle, DatabaseZap, Clock, Calendar, Bell, Trash, Settings2, StopCircle, HelpCircle, ExternalLink, Key, Hash, Link2, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { PermissionGate } from '@/components/PermissionGate';
 import { useScheduledCleanups, type ScheduledCleanup } from '@/hooks/useScheduledCleanups';
