@@ -127,13 +127,16 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
       addLog('Iniciando processo de limpeza', 'success', `Tabela ID: ${config.tableId}`);
       addLog('Validando conexão com a API...', 'success');
 
-      // Deleção paginada em lotes de 200
+      // Deleção paginada - SEMPRE buscar página 1, pois após deletar os registros da página atual,
+      // os registros seguintes "descem" para a página 1
       const pageSize = 200;
-      let page = 1;
       let hasMore = true;
       let processed = 0;
       let errors = 0;
       let estimatedTotal = 0;
+      let batchNumber = 0;
+      let consecutiveErrors = 0;
+      const maxConsecutiveErrors = 10;
 
       addLog('Carregando registros por páginas para deleção em lote (200 por requisição)...', 'success');
 
@@ -144,23 +147,24 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
           break;
         }
 
-        // Buscar página atual
-        const pageData = await baserowService.getTableData(config.tableId, page, pageSize);
+        batchNumber++;
+
+        // SEMPRE buscar página 1 - após deletar, os próximos registros ocupam a página 1
+        const pageData = await baserowService.getTableData(config.tableId, 1, pageSize);
         const currentBatch = pageData.results || [];
 
         // Definir total estimado na primeira iteração
-        if (page === 1) {
+        if (batchNumber === 1) {
           estimatedTotal = pageData.count || currentBatch.length;
           setTotalRecords(estimatedTotal);
           addLog(`Estimativa de ${estimatedTotal} registros para deletar`, 'success');
         }
 
         if (currentBatch.length === 0) {
-          addLog(`Nenhum registro restante na página ${page}, finalizando.`, 'success');
+          addLog(`Nenhum registro restante, finalizando.`, 'success');
           break;
         }
 
-        const batchNumber = page;
         const ids = currentBatch.map((record: any) => Number(record.id));
         addLog(`Processando lote ${batchNumber} (${ids.length} registros)`, 'success');
 
@@ -168,6 +172,7 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
           // Deletar em lote (200 ids por requisição)
           await baserowService.deleteRowsBatch(config.tableId, ids);
           processed += ids.length;
+          consecutiveErrors = 0;
           setProcessedRecords(processed);
 
           const progressPercent = estimatedTotal
@@ -182,22 +187,34 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
           if (stopRef.current) break;
 
           // Deletar sequencialmente com delay para evitar rate limiting (erro 429)
+          let batchProcessed = 0;
           for (const record of currentBatch) {
             if (stopRef.current) break;
 
             try {
               await baserowService.deleteRow(config.tableId, String(record.id));
               processed++;
+              batchProcessed++;
+              consecutiveErrors = 0;
               setProcessedRecords(processed);
               const progressPercent = estimatedTotal
                 ? Math.round((processed / estimatedTotal) * 100)
                 : Math.min(100, Math.round((processed / (processed + currentBatch.length)) * 100));
               setProgress(progressPercent);
 
-              // Delay de 500ms entre cada delete para respeitar rate limit
-              await new Promise(resolve => setTimeout(resolve, 500));
+              // Delay de 300ms entre cada delete para respeitar rate limit
+              await new Promise(resolve => setTimeout(resolve, 300));
             } catch (err: any) {
+              // Se for erro 404 (registro já deletado), não contar como erro
+              if (err.message?.includes('404') || err.message?.includes('NOT_EXIST')) {
+                processed++;
+                batchProcessed++;
+                setProcessedRecords(processed);
+                continue;
+              }
+
               errors++;
+              consecutiveErrors++;
               console.error('Erro ao deletar registro:', record.id, err);
 
               // Se for erro 429 (rate limit), esperar mais tempo
@@ -205,26 +222,23 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
                 addLog(`⏳ Limite de requisições atingido - aguardando 30 segundos...`, 'error', 
                   'O Baserow tem limites de requisições por minuto. O processo será retomado automaticamente.');
                 await new Promise(resolve => setTimeout(resolve, 30000));
+                consecutiveErrors = 0; // Resetar após espera
               }
 
-              if (errors >= 20) {
-                throw new Error('Muitos erros de deleção encontrados');
+              if (consecutiveErrors >= maxConsecutiveErrors) {
+                addLog(`❌ Muitos erros consecutivos (${maxConsecutiveErrors}). Verifique a conexão.`, 'error');
+                throw new Error(`Muitos erros consecutivos de deleção (${maxConsecutiveErrors})`);
               }
             }
           }
         }
 
-        if (stopRef.current) {
-          addLog('Processo interrompido pelo usuário.', 'error');
-          toast.warning('Limpeza interrompida pelo usuário.');
-          break;
-        }
+        if (stopRef.current) break;
 
-        // Verificar próxima página e continuar
-        hasMore = !!pageData.next && currentBatch.length === pageSize;
-        page++;
+        // Continuar enquanto houver registros
+        hasMore = currentBatch.length > 0;
 
-        // Pausa reduzida para maior velocidade (50ms a 150ms)
+        // Pausa entre lotes
         const delay = Math.min(50 + (currentBatch.length / 200) * 100, 150);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
