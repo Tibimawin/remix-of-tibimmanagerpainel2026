@@ -94,6 +94,12 @@ export default async function handler(req, res) {
             contentType: response.headers.get('content-type')
         });
 
+        // Tratar respostas sem conteúdo (204 No Content - DELETE bem-sucedido)
+        if (response.status === 204 || response.headers.get('content-length') === '0') {
+            console.log('✅ [VERCEL PROXY] Resposta 204 No Content (DELETE bem-sucedido)');
+            return res.status(200).json({ success: true, status: 204 });
+        }
+
         // Verificar se a resposta tem conteúdo JSON
         const contentType = response.headers.get('content-type');
         let data;
@@ -106,22 +112,34 @@ export default async function handler(req, res) {
             });
         } else {
             const text = await response.text();
-            console.error('⚠️ [VERCEL PROXY] Resposta não é JSON:', {
-                contentType,
-                textPreview: text.substring(0, 500),
-                url: url,
-                method: method,
-                hasToken: !!token
-            });
             
-            // Retornar erro estruturado em vez de HTML
-            return res.status(502).json({
-                error: 'Baserow retornou HTML em vez de JSON',
-                details: 'O servidor Baserow pode estar offline, o token pode estar inválido, ou a URL/tabela não existe',
-                contentType: contentType,
-                preview: text.substring(0, 200),
-                url: url
-            });
+            // Se status é 2xx e sem content-type, considerar sucesso
+            if (response.ok && (!text || text.trim() === '')) {
+                console.log('✅ [VERCEL PROXY] Resposta vazia com status OK');
+                return res.status(200).json({ success: true, status: response.status });
+            }
+            
+            // Tentar parsear como JSON mesmo sem content-type
+            try {
+                data = JSON.parse(text);
+                console.log('📥 [VERCEL PROXY] Texto parseado como JSON');
+            } catch {
+                console.error('⚠️ [VERCEL PROXY] Resposta não é JSON:', {
+                    contentType,
+                    textPreview: text.substring(0, 500),
+                    url: url,
+                    method: method,
+                    hasToken: !!token
+                });
+                
+                return res.status(502).json({
+                    error: 'Baserow retornou HTML em vez de JSON',
+                    details: 'O servidor Baserow pode estar offline, o token pode estar inválido, ou a URL/tabela não existe',
+                    contentType: contentType,
+                    preview: text.substring(0, 200),
+                    url: url
+                });
+            }
         }
 
         // Retornar resposta
