@@ -216,6 +216,7 @@ export const CleanupProvider: React.FC<{ children: ReactNode }> = ({ children })
               if (err.message?.includes('404') || err.message?.includes('NOT_EXIST')) {
                 processed++;
                 setProcessedRecords(processed);
+                updateTimeEstimate(processed, newTotal);
                 continue;
               }
               errors++;
