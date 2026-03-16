@@ -55,8 +55,23 @@ export interface ContentPreview {
   'Capa de fundo'?: string;
 }
 
+interface ExistingContentSnapshot {
+  titles: Set<string>;
+  titleYears: Set<string>;
+  imdbs: Set<string>;
+  links: Set<string>;
+  total: number;
+}
+
+interface PreviewHighlightStatus {
+  isAlreadyImported: boolean;
+  isDuplicateInPreview: boolean;
+  matchReasons: string[];
+}
+
 interface ImportPreviewProps {
   importConfig: ImportConfig | null;
+  userConfig?: UserConfig | null;
   onStartImport: (selectedContents?: ContentPreview[]) => void;
   configValid: boolean;
   isImporting?: boolean;
