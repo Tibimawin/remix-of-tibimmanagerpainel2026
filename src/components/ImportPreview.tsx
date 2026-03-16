@@ -168,16 +168,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     const baseUrl = `${importConfig.sourceBaseUrl}/api/database/rows/table/${importConfig.contentTableId}/?user_field_names=true&size=1`;
     
     try {
-      const [totalRes, filmesRes, seriesRes] = await Promise.all([
-        makeApiRequest(baseUrl),
-        makeApiRequest(`${baseUrl}&filter__Tipo__equal=Filme`),
-        makeApiRequest(`${baseUrl}&filter__Tipo__equal=Serie`)
-      ]);
-
       const [totalData, filmesData, seriesData] = await Promise.all([
-        totalRes.json(),
-        filmesRes.json(),
-        seriesRes.json()
+        makeApiRequest<{ count?: number }>(baseUrl),
+        makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Tipo__equal=Filme`),
+        makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Tipo__equal=Serie`)
       ]);
 
       setTypeCounts({
