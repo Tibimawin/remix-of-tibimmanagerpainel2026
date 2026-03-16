@@ -191,28 +191,22 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
     setLoadingCategories(true);
     try {
-      // Fetch a larger sample to get more categories
       const url = `${importConfig.sourceBaseUrl}/api/database/rows/table/${importConfig.contentTableId}/?user_field_names=true&size=200`;
-      const response = await makeApiRequest(url);
-      
-      if (response.ok) {
-        const data = await response.json();
-        const categories = new Set<string>();
-        
-        (data.results || []).forEach((item: ContentPreview) => {
-          if (item.Categoria) {
-            // Handle comma-separated categories
-            item.Categoria.split(',').forEach(cat => {
-              const trimmed = cat.trim();
-              if (trimmed && isCategoryAllowed(trimmed)) {
-                categories.add(trimmed);
-              }
-            });
-          }
-        });
-        
-        setAvailableCategories(Array.from(categories).sort());
-      }
+      const data = await makeApiRequest<{ results?: ContentPreview[] }>(url);
+      const categories = new Set<string>();
+
+      (data.results || []).forEach((item: ContentPreview) => {
+        if (item.Categoria) {
+          item.Categoria.split(',').forEach(cat => {
+            const trimmed = cat.trim();
+            if (trimmed && isCategoryAllowed(trimmed)) {
+              categories.add(trimmed);
+            }
+          });
+        }
+      });
+
+      setAvailableCategories(Array.from(categories).sort());
     } catch (err) {
       console.error('Erro ao buscar categorias:', err);
     } finally {
