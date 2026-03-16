@@ -55,8 +55,23 @@ export interface ContentPreview {
   'Capa de fundo'?: string;
 }
 
+interface ExistingContentSnapshot {
+  titles: Set<string>;
+  titleYears: Set<string>;
+  imdbs: Set<string>;
+  links: Set<string>;
+  total: number;
+}
+
+interface PreviewHighlightStatus {
+  isAlreadyImported: boolean;
+  isDuplicateInPreview: boolean;
+  matchReasons: string[];
+}
+
 interface ImportPreviewProps {
   importConfig: ImportConfig | null;
+  userConfig?: UserConfig | null;
   onStartImport: (selectedContents?: ContentPreview[]) => void;
   configValid: boolean;
   isImporting?: boolean;
@@ -65,6 +80,7 @@ interface ImportPreviewProps {
 
 export const ImportPreview: React.FC<ImportPreviewProps> = ({
   importConfig,
+  userConfig,
   onStartImport,
   configValid,
   isImporting = false,
@@ -85,6 +101,14 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [existingContentSnapshot, setExistingContentSnapshot] = useState<ExistingContentSnapshot>({
+    titles: new Set(),
+    titleYears: new Set(),
+    imdbs: new Set(),
+    links: new Set(),
+    total: 0,
+  });
+  const [loadingExistingContent, setLoadingExistingContent] = useState(false);
   const pageSize = 12;
 
   // Keywords to exclude (TV channels, specific channel packages, etc.)
@@ -101,22 +125,36 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     return !EXCLUDED_KEYWORDS.some(keyword => lowerCat.includes(keyword));
   };
 
+  const normalizeText = (value?: string | null) =>
+    (value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+
+  const normalizeImdb = (value?: string | null) =>
+    (value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9.]+/g, '')
+      .trim();
+
+  const normalizeLink = (value?: string | null) =>
+    (value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/\/$/, '');
+
   // Local filtering and sorting
   const filteredPreviews = useMemo(() => {
     let filtered = previews;
     
-    // Filter out unwanted categories from content
     filtered = filtered.filter(content => {
       if (!content.Categoria) return true;
-      // Check if any of the content's categories are allowed
-      // If a content has MULTIPLE categories, we keep it if at least one is allowed?
-      // Or we remove it if it matches any excluded keyword?
-      // User said "retira todas as categorias...". 
-      // Safest is to remove content if its category string contains excluded keywords.
       return isCategoryAllowed(content.Categoria);
     });
 
-    // Filter by search term
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(content => 
@@ -125,7 +163,6 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       );
     }
     
-    // Sort results
     return [...filtered].sort((a, b) => {
       switch (sortBy) {
         case 'nome':
@@ -133,16 +170,75 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         case 'ano':
           const anoA = parseInt(a.Ano || '0') || 0;
           const anoB = parseInt(b.Ano || '0') || 0;
-          return anoB - anoA; // Most recent first
+          return anoB - anoA;
         case 'rating':
-          const ratingA = parseFloat(a.Imdb || '0') || 0;
-          const ratingB = parseFloat(b.Imdb || '0') || 0;
-          return ratingB - ratingA; // Highest rating first
+          const ratingA = parseFloat(a.Imdb || a.IMDb || '0') || 0;
+          const ratingB = parseFloat(b.Imdb || b.IMDb || '0') || 0;
+          return ratingB - ratingA;
         default:
           return 0;
       }
     });
   }, [previews, searchTerm, sortBy]);
+
+  const previewHighlightMap = useMemo(() => {
+    const titleCounts = new Map<string, number>();
+    const titleYearCounts = new Map<string, number>();
+
+    previews.forEach((content) => {
+      const normalizedTitle = normalizeText(content.Nome);
+      const normalizedYear = normalizeText(content.Ano);
+      const titleYearKey = normalizedTitle && normalizedYear ? `${normalizedTitle}|${normalizedYear}` : '';
+
+      if (normalizedTitle) {
+        titleCounts.set(normalizedTitle, (titleCounts.get(normalizedTitle) || 0) + 1);
+      }
+
+      if (titleYearKey) {
+        titleYearCounts.set(titleYearKey, (titleYearCounts.get(titleYearKey) || 0) + 1);
+      }
+    });
+
+    return new Map<number, PreviewHighlightStatus>(
+      previews.map((content) => {
+        const normalizedTitle = normalizeText(content.Nome);
+        const normalizedYear = normalizeText(content.Ano);
+        const normalizedImdb = normalizeImdb(content.Imdb || content.IMDb);
+        const normalizedLink = normalizeLink(content.Link);
+        const titleYearKey = normalizedTitle && normalizedYear ? `${normalizedTitle}|${normalizedYear}` : '';
+        const matchReasons: string[] = [];
+
+        const isDuplicateInPreview = Boolean(
+          (normalizedTitle && (titleCounts.get(normalizedTitle) || 0) > 1) ||
+          (titleYearKey && (titleYearCounts.get(titleYearKey) || 0) > 1)
+        );
+
+        if (normalizedImdb && existingContentSnapshot.imdbs.has(normalizedImdb)) {
+          matchReasons.push('IMDb já existe');
+        }
+        if (normalizedLink && existingContentSnapshot.links.has(normalizedLink)) {
+          matchReasons.push('Link já existe');
+        }
+        if (titleYearKey && existingContentSnapshot.titleYears.has(titleYearKey)) {
+          matchReasons.push('Título e ano já importados');
+        } else if (normalizedTitle && existingContentSnapshot.titles.has(normalizedTitle)) {
+          matchReasons.push('Título já importado');
+        }
+        if (isDuplicateInPreview) {
+          matchReasons.push('Duplicado no preview');
+        }
+
+        return [
+          content.id,
+          {
+            isAlreadyImported: matchReasons.some(reason => reason !== 'Duplicado no preview'),
+            isDuplicateInPreview,
+            matchReasons,
+          },
+        ];
+      })
+    );
+  }, [previews, existingContentSnapshot]);
 
   const makeApiRequest = async <T = any>(url: string): Promise<T> => {
     if (!importConfig) {
@@ -286,6 +382,60 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       fetchCategories();
     }
   }, [configValid, importConfig?.sourceToken, importConfig?.sourceBaseUrl, importConfig?.contentTableId]);
+
+  useEffect(() => {
+    const fetchExistingContentSnapshot = async () => {
+      if (!configValid || !userConfig?.apiToken || !userConfig?.baseUrl || !userConfig?.contentTableId) {
+        setExistingContentSnapshot({ titles: new Set(), titleYears: new Set(), imdbs: new Set(), links: new Set(), total: 0 });
+        return;
+      }
+
+      setLoadingExistingContent(true);
+      try {
+        const url = `${userConfig.baseUrl}/api/database/rows/table/${userConfig.contentTableId}/?user_field_names=true&size=200`;
+        const data = await makeProxyRequest({
+          url,
+          method: 'GET',
+          token: userConfig.apiToken,
+          body: null,
+        });
+
+        if (!data.ok) {
+          throw new Error(data.error || 'Erro ao buscar conteúdos já importados');
+        }
+
+        const results = Array.isArray(data.data?.results) ? data.data.results : [];
+        const snapshot: ExistingContentSnapshot = {
+          titles: new Set(),
+          titleYears: new Set(),
+          imdbs: new Set(),
+          links: new Set(),
+          total: results.length,
+        };
+
+        results.forEach((item: ContentPreview) => {
+          const normalizedTitle = normalizeText(item.Nome);
+          const normalizedYear = normalizeText(item.Ano);
+          const normalizedImdb = normalizeImdb(item.Imdb || item.IMDb);
+          const normalizedLink = normalizeLink(item.Link);
+
+          if (normalizedTitle) snapshot.titles.add(normalizedTitle);
+          if (normalizedTitle && normalizedYear) snapshot.titleYears.add(`${normalizedTitle}|${normalizedYear}`);
+          if (normalizedImdb) snapshot.imdbs.add(normalizedImdb);
+          if (normalizedLink) snapshot.links.add(normalizedLink);
+        });
+
+        setExistingContentSnapshot(snapshot);
+      } catch (err) {
+        console.error('Erro ao buscar conteúdos existentes do destino:', err);
+        setExistingContentSnapshot({ titles: new Set(), titleYears: new Set(), imdbs: new Set(), links: new Set(), total: 0 });
+      } finally {
+        setLoadingExistingContent(false);
+      }
+    };
+
+    fetchExistingContentSnapshot();
+  }, [configValid, userConfig?.apiToken, userConfig?.baseUrl, userConfig?.contentTableId]);
 
   // Fetch when filters change (reset to page 1)
   useEffect(() => {
@@ -598,41 +748,69 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         ) : (
           <>
             {/* Selection Controls */}
-            <div className="flex items-center gap-3 px-6 py-2 bg-muted/20 border-b border-border/50">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={allVisibleSelected ? deselectAllVisible : selectAllVisible}
-                className="h-7 text-xs gap-1.5"
-              >
-                {allVisibleSelected ? (
-                  <CheckSquare className="h-3.5 w-3.5" />
+            <div className="space-y-3 border-b border-border/50 px-6 py-3 bg-muted/20">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                {loadingExistingContent ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Verificando conteúdos já importados...
+                  </span>
                 ) : (
-                  <Square className="h-3.5 w-3.5" />
+                  <>
+                    <Badge variant="outline" className="text-xs">
+                      {existingContentSnapshot.total} no destino analisados
+                    </Badge>
+                    <Badge variant="warning" className="text-xs">
+                      {filteredPreviews.filter(content => previewHighlightMap.get(content.id)?.isAlreadyImported).length} já importado{filteredPreviews.filter(content => previewHighlightMap.get(content.id)?.isAlreadyImported).length !== 1 ? 's' : ''}
+                    </Badge>
+                    <Badge variant="destructive" className="text-xs">
+                      {filteredPreviews.filter(content => previewHighlightMap.get(content.id)?.isDuplicateInPreview).length} duplicado{filteredPreviews.filter(content => previewHighlightMap.get(content.id)?.isDuplicateInPreview).length !== 1 ? 's' : ''} no preview
+                    </Badge>
+                  </>
                 )}
-                {allVisibleSelected ? 'Desmarcar página' : 'Selecionar página'}
-              </Button>
-              {selectedIds.size > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {selectedIds.size} item{selectedIds.size !== 1 ? 's' : ''} selecionado{selectedIds.size !== 1 ? 's' : ''}
-                </span>
-              )}
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={allVisibleSelected ? deselectAllVisible : selectAllVisible}
+                  className="h-7 text-xs gap-1.5"
+                >
+                  {allVisibleSelected ? (
+                    <CheckSquare className="h-3.5 w-3.5" />
+                  ) : (
+                    <Square className="h-3.5 w-3.5" />
+                  )}
+                  {allVisibleSelected ? 'Desmarcar página' : 'Selecionar página'}
+                </Button>
+                {selectedIds.size > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {selectedIds.size} item{selectedIds.size !== 1 ? 's' : ''} selecionado{selectedIds.size !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
             </div>
             <ScrollArea className="h-[650px] rounded-md border">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 p-6">
                 {filteredPreviews.map((content) => {
                   const isSelected = selectedIds.has(content.id);
+                  const highlight = previewHighlightMap.get(content.id);
+                  const isAlreadyImported = highlight?.isAlreadyImported;
+                  const isDuplicateInPreview = highlight?.isDuplicateInPreview;
                   return (
                     <div
                       key={content.id}
                       onClick={() => toggleSelection(content.id)}
                       className={`group relative bg-card rounded-lg border overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer ${
-                        isSelected 
-                          ? 'border-primary ring-2 ring-primary/20' 
-                          : 'border-border/50 hover:border-primary/30'
+                        isAlreadyImported
+                          ? 'border-amber-500/40 bg-amber-500/5'
+                          : isDuplicateInPreview
+                            ? 'border-destructive/40 bg-destructive/5'
+                            : isSelected 
+                              ? 'border-primary ring-2 ring-primary/20' 
+                              : 'border-border/50 hover:border-primary/30'
                       }`}
                     >
-                      {/* Selection Checkbox */}
                       <div 
                         className={`absolute top-2 right-2 z-10 p-1 rounded-md transition-all ${
                           isSelected ? 'bg-primary' : 'bg-black/50 opacity-0 group-hover:opacity-100'
@@ -646,13 +824,12 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                         />
                       </div>
                       
-                      {/* Poster */}
                       <div className="aspect-[2/3] relative overflow-hidden bg-muted">
                         {content.Capa ? (
                           <img
                             src={content.Capa}
                             alt={content.Nome || 'Conteúdo'}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            className={`w-full h-full object-cover transition-transform duration-500 ${isAlreadyImported ? 'opacity-70' : 'group-hover:scale-105'}`}
                             loading="lazy"
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = '/placeholder.svg';
@@ -664,7 +841,6 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                           </div>
                         )}
                         
-                        {/* Type Badge */}
                         {content.Tipo && (
                           <Badge
                             variant={getTypeBadgeVariant(content.Tipo)}
@@ -675,7 +851,19 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                           </Badge>
                         )}
 
-                        {/* Rating Badge - moved to avoid overlap with checkbox */}
+                        <div className="absolute left-2 right-2 top-10 z-10 flex flex-wrap gap-1">
+                          {isAlreadyImported && (
+                            <Badge variant="warning" className="text-[10px]">
+                              Já importado
+                            </Badge>
+                          )}
+                          {isDuplicateInPreview && (
+                            <Badge variant="destructive" className="text-[10px]">
+                              Duplicado
+                            </Badge>
+                          )}
+                        </div>
+
                         {content.IMDb && (
                           <Badge
                             variant="warning"
@@ -686,16 +874,14 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                           </Badge>
                         )}
 
-                        {/* Gradient Overlay */}
                         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
                       </div>
 
-                      {/* Content Info */}
                       <div className="absolute inset-x-0 bottom-0 p-3 text-white">
                         <h4 className="font-medium text-sm line-clamp-2 leading-tight mb-1">
                           {content.Nome || 'Sem título'}
                         </h4>
-                        <div className="flex items-center gap-2 text-xs text-white/70">
+                        <div className="flex items-center gap-2 text-xs text-white/70 mb-1">
                           {content.Ano && (
                             <span className="flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
@@ -706,6 +892,11 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                             <span className="truncate">{content.Categoria}</span>
                           )}
                         </div>
+                        {highlight?.matchReasons?.length ? (
+                          <div className="rounded-md bg-black/45 px-2 py-1 text-[10px] text-white/85 line-clamp-2">
+                            {highlight.matchReasons.join(' • ')}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   );

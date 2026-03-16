@@ -609,6 +609,7 @@ const ImportacaoAutomatica = () => {
         {/* Preview dos Conteúdos */}
         <ImportPreview
           importConfig={importConfig}
+          userConfig={userConfig}
           onStartImport={startImport}
           configValid={configValid}
           isImporting={isImporting}
