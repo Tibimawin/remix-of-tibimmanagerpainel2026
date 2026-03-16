@@ -1,92 +1,86 @@
 
+Problema real identificado
 
-## Importacao via DNS/IPTV - Fonte por URL com usuario e senha
-
-### O que o usuario quer
-
-Em vez de baixar um arquivo M3U manualmente e fazer upload, o sistema deve permitir conectar diretamente a uma fonte IPTV usando:
-- **URL do servidor** (ex: `http://appmyflix.com.br`)
-- **Usuario** (ex: `tibimteste`)
-- **Senha** (ex: `151215`)
-
-O sistema monta automaticamente a URL `http://servidor/get.php?username=X&password=Y&type=m3u_plus`, busca o conteudo M3U e processa normalmente com o importador existente.
-
-### Como vai funcionar
+O erro atual não vem do fluxo novo de proxy que já foi corrigido para a limpeza. Ele vem de um segundo caminho antigo ainda ativo no projeto:
 
 ```text
-Usuario preenche: URL + Usuario + Senha
-         |
-Sistema monta: http://url/get.php?username=X&password=Y&type=m3u_plus
-         |
-Faz fetch da URL (via proxy para evitar CORS)
-         |
-Recebe o conteudo M3U como texto
-         |
-Passa para o mesmo parseM3UAdvanced() que ja existe
-         |
-Segue o fluxo normal: preview -> importacao
+Frontend
+  ├─ Limpeza de dados -> usa BaserowService -> /api/baserow-proxy
+  └─ Importação automática / preview -> usa https://api-baserow.vercel.app/api/baserow
+                                     -> bloqueado por CORS
 ```
 
-### Vantagem principal
-Quando houver atualizacao na fonte, basta clicar "Buscar" novamente com as mesmas credenciais -- nao precisa baixar arquivo de novo.
+Do I know what the issue is?
+Sim.
 
----
+O que está acontecendo
+- O fluxo de limpeza já usa a arquitetura nova centralizada (`BASEROW_PROXY_CONFIG` + `/api/baserow-proxy`).
+- Mas `src/components/ImportPreview.tsx` e `src/services/AutoImportService.ts` ainda fazem `fetch` direto para `https://api-baserow.vercel.app/api/baserow?...`.
+- Esse endpoint antigo responde sem os headers CORS necessários para a origem `https://tibimmanagerpainel.vercel.app`, então o navegador bloqueia a requisição antes mesmo da resposta útil chegar.
+- Por isso aparecem os erros:
+  - `Erro ao buscar preview`
+  - `Erro ao buscar categorias`
+  - falhas na importação automática
 
-### Mudancas tecnicas
+Arquivos que precisam ser corrigidos
+1. `src/components/ImportPreview.tsx`
+2. `src/services/AutoImportService.ts`
+3. Possivelmente aproveitar `src/utils/proxyRequest.ts` como utilitário comum para eliminar chamadas duplicadas.
 
-#### 1. Atualizar `src/components/M3UImporter.tsx`
+Plano de implementação
 
-**Adicionar opcao de fonte (arquivo vs URL/DNS):**
-- Novo estado `sourceType`: `'file'` ou `'dns'`
-- Novos estados: `dnsUrl`, `dnsUsername`, `dnsPassword`
-- Radio buttons no topo para escolher entre "Arquivo M3U" e "Fonte DNS/IPTV"
+1. Unificar o proxy da importação com o proxy central
+- Substituir em `ImportPreview.tsx` a função `makeApiRequest` para usar o proxy centralizado em vez de `api-baserow.vercel.app`.
+- Em vez de montar URL com query string:
+  - enviar `POST` para `BASEROW_PROXY_CONFIG.ACTIVE_PROXY_URL`, ou
+  - preferencialmente usar `makeProxyRequest(...)` de `src/utils/proxyRequest.ts`.
 
-**Adicionar UI de credenciais DNS:**
-- Quando `sourceType === 'dns'`, mostrar 3 campos: URL do servidor, Usuario, Senha
-- Botao "Buscar Lista" que monta a URL e faz fetch
+2. Corrigir o `AutoImportService`
+- Trocar os dois trechos legados que usam:
+  - `const proxyUrl = 'https://api-baserow.vercel.app/api/baserow'`
+- Migrar esses pontos para o mesmo utilitário central.
+- Isso inclui:
+  - carregamento paginado do cache em `loadAllContent`
+  - `setSourceService(...).makeRequest(...)`
 
-**Adicionar funcao `handleFetchDNS`:**
-- Monta a URL: `${dnsUrl}/get.php?username=${dnsUsername}&password=${dnsPassword}&type=m3u_plus`
-- Faz fetch via proxy Vercel (`/api/baserow-proxy` reutilizado ou novo endpoint simples)
-- Recebe o texto M3U
-- Chama `parseM3UAdvanced(content)` -- mesmo parser do arquivo
-- Segue o fluxo normal (preview, importacao)
+3. Padronizar comportamento de métodos e body
+- Garantir que GET/POST/PATCH/PUT/DELETE usem o mesmo formato de payload:
+  - `url`
+  - `method`
+  - `token`
+  - `body`
+- Isso evita diferenças entre preview, autoimport e limpeza.
 
-**Botao "Processar e Visualizar":**
-- Quando fonte e DNS, usa o conteudo buscado em vez do arquivo
-- O resto do fluxo permanece identico
+4. Remover dependência do endpoint legado
+- Eliminar toda referência a `https://api-baserow.vercel.app/api/baserow` do frontend.
+- Assim o sistema inteiro passa a depender só da estratégia já usada no resto do projeto.
 
-#### 2. Criar proxy para buscar M3U de URLs externas
+5. Melhorar tratamento de erro nas telas afetadas
+- Em `ImportPreview.tsx`, mostrar mensagem mais clara quando o proxy falhar.
+- No `AutoImportService`, preservar logs úteis, mas com contexto do proxy central para facilitar próximos diagnósticos.
 
-**Arquivo:** `api/m3u-proxy.js` (Vercel serverless function)
+6. Verificação após implementação
+- Confirmar por busca no código que não restou nenhuma referência a `api-baserow.vercel.app`.
+- Validar os cenários:
+  - preview da importação
+  - carregamento de categorias
+  - importação automática
+  - limpeza de dados continua funcionando
 
-Necessario para evitar CORS. O proxy recebe a URL completa e retorna o conteudo M3U como texto.
+Detalhes técnicos
+- Hoje existem duas arquiteturas concorrentes no projeto:
+  - nova: `src/config/proxyConfig.ts` + `src/utils/proxyRequest.ts` + `/api/baserow-proxy`
+  - antiga: `https://api-baserow.vercel.app/api/baserow?...`
+- O conserto correto é consolidar tudo na arquitetura nova, não tentar “remendar” CORS no endpoint antigo do frontend.
+- A documentação da Vercel confirma que preflight `OPTIONS` precisa devolver explicitamente `Access-Control-Allow-Origin`, `Access-Control-Allow-Methods` e `Access-Control-Allow-Headers`; como esse endpoint antigo não está sob controle confiável do app atual, a melhor solução é parar de usá-lo.
 
-```text
-POST /api/m3u-proxy
-Body: { url: "http://appmyflix.com.br/get.php?username=X&password=Y&type=m3u_plus" }
-Retorna: conteudo M3U como texto
-```
+Resultado esperado
+- O preview de importação volta a carregar.
+- A busca de categorias deixa de falhar.
+- A importação automática usa o mesmo proxy estável da limpeza.
+- O projeto fica com uma única estratégia de proxy, reduzindo regressões.
 
-#### 3. Salvar credenciais DNS opcionalmente
-
-**Arquivo:** `src/services/UserConfigService.ts`
-
-Salvar as credenciais DNS no Firestore do usuario (`userConfigs/{userId}/dnsConfig`) para que ele nao precise digitar toda vez. Campos:
-- `dnsUrl`
-- `dnsUsername`
-- `dnsPassword`
-- `lastFetchedAt`
-
-### Arquivos afetados
-
-1. `src/components/M3UImporter.tsx` - Adicionar UI de fonte DNS e logica de fetch
-2. `api/m3u-proxy.js` - Novo proxy Vercel para buscar M3U de URLs externas (evitar CORS)
-3. `src/services/UserConfigService.ts` - Metodo para salvar/carregar credenciais DNS do usuario
-
-### Riscos e consideracoes
-
-- **CORS**: Buscar URLs externas direto do navegador sera bloqueado. O proxy Vercel resolve isso
-- **Seguranca**: As credenciais DNS sao do usuario e ficam salvas no Firestore dele (mesmo padrao das API keys TMDB/OMDB)
-- **Listas grandes**: O fetch pode demorar para listas muito grandes. Sera adicionado indicador de loading
-- **Compatibilidade**: O formato `get.php?username=X&password=Y&type=m3u_plus` e o padrao de paineis Xtream Codes, que e o mais comum no mercado IPTV
+<lov-actions>
+  <lov-open-history>View History</lov-open-history>
+  <lov-link url="https://docs.lovable.dev/tips-tricks/troubleshooting">Troubleshooting docs</lov-link>
+</lov-actions>
