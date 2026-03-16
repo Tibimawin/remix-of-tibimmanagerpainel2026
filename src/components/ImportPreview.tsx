@@ -247,41 +247,31 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       }
       
       const originalUrl = `${importConfig.sourceBaseUrl}/api/database/rows/table/${importConfig.contentTableId}/?user_field_names=true&size=${pageSize}&page=${apiPage}${filterQuery}`;
-      
-      const response = await makeApiRequest(originalUrl);
-
-      if (!response.ok) {
-        throw new Error(`Erro ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = await makeApiRequest<{ count?: number; results?: ContentPreview[] }>(originalUrl);
       const count = data.count || 0;
       const newTotalPages = Math.ceil(count / pageSize);
-      
+
       setTotalCount(count);
-      
-      // If this is initial load (skipInversion), we need to refetch with correct inverted page
+
       if (skipInversion && newTotalPages > 0) {
         setCachedTotalPages(newTotalPages);
         setInitialLoadDone(true);
-        
-        // Refetch with the correct inverted page (last page of API = page 1 in UI)
+
         if (newTotalPages > 1 && page === 1) {
           fetchPreview(filterType, category, 1, { forceApiPage: newTotalPages });
           return;
         }
       }
-      
-      // Update cached total pages
+
       setCachedTotalPages(newTotalPages);
-      
-      // Reverse the results so newest items appear first within the page
+
       const reversedResults = [...(data.results || [])].reverse();
       setPreviews(reversedResults);
 
     } catch (err) {
       console.error('Erro ao buscar preview:', err);
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      setError(`Falha ao carregar preview pelo proxy central: ${message}`);
     } finally {
       setLoading(false);
     }
