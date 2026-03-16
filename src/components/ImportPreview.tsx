@@ -124,22 +124,36 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     return !EXCLUDED_KEYWORDS.some(keyword => lowerCat.includes(keyword));
   };
 
+  const normalizeText = (value?: string | null) =>
+    (value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+
+  const normalizeImdb = (value?: string | null) =>
+    (value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9.]+/g, '')
+      .trim();
+
+  const normalizeLink = (value?: string | null) =>
+    (value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/\/$/, '');
+
   // Local filtering and sorting
   const filteredPreviews = useMemo(() => {
     let filtered = previews;
     
-    // Filter out unwanted categories from content
     filtered = filtered.filter(content => {
       if (!content.Categoria) return true;
-      // Check if any of the content's categories are allowed
-      // If a content has MULTIPLE categories, we keep it if at least one is allowed?
-      // Or we remove it if it matches any excluded keyword?
-      // User said "retira todas as categorias...". 
-      // Safest is to remove content if its category string contains excluded keywords.
       return isCategoryAllowed(content.Categoria);
     });
 
-    // Filter by search term
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(content => 
@@ -148,7 +162,6 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       );
     }
     
-    // Sort results
     return [...filtered].sort((a, b) => {
       switch (sortBy) {
         case 'nome':
@@ -156,16 +169,75 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         case 'ano':
           const anoA = parseInt(a.Ano || '0') || 0;
           const anoB = parseInt(b.Ano || '0') || 0;
-          return anoB - anoA; // Most recent first
+          return anoB - anoA;
         case 'rating':
-          const ratingA = parseFloat(a.Imdb || '0') || 0;
-          const ratingB = parseFloat(b.Imdb || '0') || 0;
-          return ratingB - ratingA; // Highest rating first
+          const ratingA = parseFloat(a.Imdb || a.IMDb || '0') || 0;
+          const ratingB = parseFloat(b.Imdb || b.IMDb || '0') || 0;
+          return ratingB - ratingA;
         default:
           return 0;
       }
     });
   }, [previews, searchTerm, sortBy]);
+
+  const previewHighlightMap = useMemo(() => {
+    const titleCounts = new Map<string, number>();
+    const titleYearCounts = new Map<string, number>();
+
+    previews.forEach((content) => {
+      const normalizedTitle = normalizeText(content.Nome);
+      const normalizedYear = normalizeText(content.Ano);
+      const titleYearKey = normalizedTitle && normalizedYear ? `${normalizedTitle}|${normalizedYear}` : '';
+
+      if (normalizedTitle) {
+        titleCounts.set(normalizedTitle, (titleCounts.get(normalizedTitle) || 0) + 1);
+      }
+
+      if (titleYearKey) {
+        titleYearCounts.set(titleYearKey, (titleYearCounts.get(titleYearKey) || 0) + 1);
+      }
+    });
+
+    return new Map<number, PreviewHighlightStatus>(
+      previews.map((content) => {
+        const normalizedTitle = normalizeText(content.Nome);
+        const normalizedYear = normalizeText(content.Ano);
+        const normalizedImdb = normalizeImdb(content.Imdb || content.IMDb);
+        const normalizedLink = normalizeLink(content.Link);
+        const titleYearKey = normalizedTitle && normalizedYear ? `${normalizedTitle}|${normalizedYear}` : '';
+        const matchReasons: string[] = [];
+
+        const isDuplicateInPreview = Boolean(
+          (normalizedTitle && (titleCounts.get(normalizedTitle) || 0) > 1) ||
+          (titleYearKey && (titleYearCounts.get(titleYearKey) || 0) > 1)
+        );
+
+        if (normalizedImdb && existingContentSnapshot.imdbs.has(normalizedImdb)) {
+          matchReasons.push('IMDb já existe');
+        }
+        if (normalizedLink && existingContentSnapshot.links.has(normalizedLink)) {
+          matchReasons.push('Link já existe');
+        }
+        if (titleYearKey && existingContentSnapshot.titleYears.has(titleYearKey)) {
+          matchReasons.push('Título e ano já importados');
+        } else if (normalizedTitle && existingContentSnapshot.titles.has(normalizedTitle)) {
+          matchReasons.push('Título já importado');
+        }
+        if (isDuplicateInPreview) {
+          matchReasons.push('Duplicado no preview');
+        }
+
+        return [
+          content.id,
+          {
+            isAlreadyImported: matchReasons.some(reason => reason !== 'Duplicado no preview'),
+            isDuplicateInPreview,
+            matchReasons,
+          },
+        ];
+      })
+    );
+  }, [previews, existingContentSnapshot]);
 
   const makeApiRequest = async <T = any>(url: string): Promise<T> => {
     if (!importConfig) {
