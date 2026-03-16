@@ -100,6 +100,14 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [existingContentSnapshot, setExistingContentSnapshot] = useState<ExistingContentSnapshot>({
+    titles: new Set(),
+    titleYears: new Set(),
+    imdbs: new Set(),
+    links: new Set(),
+    total: 0,
+  });
+  const [loadingExistingContent, setLoadingExistingContent] = useState(false);
   const pageSize = 12;
 
   // Keywords to exclude (TV channels, specific channel packages, etc.)
