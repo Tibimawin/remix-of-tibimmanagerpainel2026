@@ -158,25 +158,33 @@ class CacheManager {
         const endpoint = `/api/database/rows/table/${config.contentTableId}/?user_field_names=true&page=${page}&size=${pageSize}`;
         const originalUrl = `${config.sourceBaseUrl}${endpoint}`;
 
-        let response;
-        if (config.sourceBaseUrl.startsWith('http://')) {
-          const encodedUrl = encodeURIComponent(originalUrl);
-          const proxyUrl = 'https://api-baserow.vercel.app/api/baserow';
-          const proxyRequestUrl = `${proxyUrl}?token=${config.sourceToken}&url=${encodedUrl}&method=GET`;
+        const result = await makeProxyRequest({
+          url: originalUrl,
+          method: 'GET',
+          token: config.sourceToken,
+          body: null,
+        });
 
-          response = await fetch(proxyRequestUrl, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          });
-        } else {
-          response = await fetch(originalUrl, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Token ${config.sourceToken}`,
-              'Content-Type': 'application/json',
-            },
-          });
+        if (!result.ok) {
+          const errorText = result.error || 'Erro desconhecido no proxy central';
+          console.error('Erro na resposta da API:', result.status, errorText);
+
+          if (result.status === 429) {
+            console.log('Rate limit atingido, aguardando 3 segundos...');
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            continue;
+          }
+
+          consecutiveErrors++;
+          if (consecutiveErrors >= maxConsecutiveErrors) {
+            throw new Error(`Muitos erros consecutivos. Último erro ${result.status}: ${errorText}`);
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
         }
+
+        const data = result.data;
 
         if (!response.ok) {
           const errorText = await response.text();
