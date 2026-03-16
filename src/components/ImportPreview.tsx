@@ -144,24 +144,23 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     });
   }, [previews, searchTerm, sortBy]);
 
-  const makeApiRequest = async (url: string) => {
-    if (!importConfig) throw new Error('Configuração de origem não disponível');
-    if (importConfig.sourceBaseUrl.startsWith('http://')) {
-      const encodedUrl = encodeURIComponent(url);
-      const proxyUrl = `https://api-baserow.vercel.app/api/baserow?token=${importConfig.sourceToken}&url=${encodedUrl}&method=GET`;
-      return fetch(proxyUrl, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
-    } else {
-      return fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Token ${importConfig.sourceToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
+  const makeApiRequest = async <T = any>(url: string): Promise<T> => {
+    if (!importConfig) {
+      throw new Error('Configuração de origem não disponível');
     }
+
+    const result = await makeProxyRequest({
+      url,
+      method: 'GET',
+      token: importConfig.sourceToken,
+      body: null,
+    });
+
+    if (!result.ok) {
+      throw new Error(result.error || `Erro ${result.status} ao acessar proxy central`);
+    }
+
+    return result.data as T;
   };
 
   const fetchTypeCounts = async () => {
