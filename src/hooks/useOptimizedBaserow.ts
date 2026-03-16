@@ -48,7 +48,7 @@ export const useOptimizedBaserow = (
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const baserowService = useBaserowService();
   const abortControllerRef = useRef<AbortController | null>(null);
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const requestQueueRef = useRef<Promise<any>[]>([]);
 
   // Função para obter dados do cache

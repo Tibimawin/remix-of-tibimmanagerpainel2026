@@ -42,7 +42,7 @@ export const useUserActionHistory = () => {
   // Mantido mas desativado por padrão para evitar writes desnecessários.
 
   const [pendingActions] = useState<UserAction[]>([]);
-  const batchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const batchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Mantemos a função para possíveis usos futuros, mas atualmente não é chamada.
   const saveBatchToFirebase = useCallback(async (batchActions: UserAction[]) => {

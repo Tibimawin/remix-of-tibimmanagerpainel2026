@@ -39,7 +39,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [confirmedDates, setConfirmedDates] = useState<{ start: string; end: string } | null>(null);
   const [error, setError] = useState('');
-  const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (userInfo) {

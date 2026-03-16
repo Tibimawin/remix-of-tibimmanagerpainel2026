@@ -312,33 +312,32 @@ export class AutoImportService {
   setSourceService(config: ImportConfig) {
     this.sourceService = {
       makeRequest: async (endpoint: string, options: RequestInit = {}) => {
-        const method = options.method || 'GET';
+        const method = (options.method || 'GET') as 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
         const originalUrl = `${config.sourceBaseUrl}${endpoint}`;
+        const parsedBody = typeof options.body === 'string'
+          ? (() => {
+              try {
+                return JSON.parse(options.body as string);
+              } catch {
+                return options.body as string;
+              }
+            })()
+          : (options.body ?? null);
 
-        if (config.sourceBaseUrl.startsWith('http://')) {
-          const encodedUrl = encodeURIComponent(originalUrl);
-          const proxyUrl = 'https://api-baserow.vercel.app/api/baserow';
-          let proxyRequestUrl = `${proxyUrl}?token=${config.sourceToken}&url=${encodedUrl}&method=${method}`;
+        const result = await makeProxyRequest({
+          url: originalUrl,
+          method,
+          token: config.sourceToken,
+          body: parsedBody,
+        });
 
-          if (['POST', 'PATCH', 'PUT'].includes(method) && options.body) {
-            const bodyEncoded = encodeURIComponent(options.body as string);
-            proxyRequestUrl += `&body=${bodyEncoded}`;
-          }
-
-          return fetch(proxyRequestUrl, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          });
-        } else {
-          return fetch(originalUrl, {
-            ...options,
-            headers: {
-              'Authorization': `Token ${config.sourceToken}`,
-              'Content-Type': 'application/json',
-              ...options.headers,
-            },
-          });
-        }
+        return {
+          ok: result.ok,
+          status: result.status,
+          statusText: result.ok ? 'OK' : 'Proxy Error',
+          json: async () => result.data,
+          text: async () => result.error || JSON.stringify(result.data ?? {}),
+        };
       }
     };
   }
