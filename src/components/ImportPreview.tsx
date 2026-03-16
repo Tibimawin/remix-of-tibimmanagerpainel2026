@@ -14,11 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
-  Film, 
-  Tv, 
-  RefreshCw, 
-  Eye, 
+import {
+  Film,
+  Tv,
+  RefreshCw,
+  Eye,
   Calendar,
   Star,
   ChevronRight,
@@ -35,6 +35,7 @@ import {
   Download
 } from 'lucide-react';
 import { ImportConfig, UserConfig } from '@/services/AutoImportService';
+import { makeProxyRequest } from '@/utils/proxyRequest';
 
 export interface ContentPreview {
   id: number;
