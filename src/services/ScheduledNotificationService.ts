@@ -28,7 +28,7 @@ export interface ScheduledNotification {
 
 class ScheduledNotificationService {
   private schedules: ScheduledNotification[] = [];
-  private checkInterval: NodeJS.Timeout | null = null;
+  private checkInterval: ReturnType<typeof setInterval> | null = null;
   private readonly STORAGE_KEY = 'scheduled-notifications';
   private readonly CHECK_INTERVAL = 60 * 1000; // Verificar a cada 1 minuto
 

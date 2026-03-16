@@ -2,6 +2,9 @@ interface LogData {
   [key: string]: any;
 }
 
+const isDevelopment = import.meta.env.DEV;
+const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+
 // Função para mascarar dados sensíveis
 const maskSensitiveData = (data: any): any => {
   if (!data) return data;
@@ -47,43 +50,40 @@ const maskSensitiveData = (data: any): any => {
 
 export const logger = {
   info: (message: string, data?: LogData) => {
-    if (process.env.NODE_ENV === 'development') {
+    if (isDevelopment) {
       const maskedData = data ? maskSensitiveData(data) : undefined;
       console.log(`[INFO] ${message}`, maskedData || '');
     }
   },
 
   warn: (message: string, data?: LogData) => {
-    if (process.env.NODE_ENV === 'development') {
+    if (isDevelopment) {
       const maskedData = data ? maskSensitiveData(data) : undefined;
       console.warn(`[WARN] ${message}`, maskedData || '');
     }
   },
 
   error: (message: string, error?: any) => {
-    if (process.env.NODE_ENV === 'development') {
-      // Para erros, só mostrar a mensagem, não dados sensíveis
+    if (isDevelopment) {
       const safeError = error?.message || error;
       console.error(`[ERROR] ${message}`, safeError || '');
     }
   },
 
   debug: (message: string, data?: LogData) => {
-    if (process.env.NODE_ENV === 'development') {
+    if (isDevelopment) {
       const maskedData = data ? maskSensitiveData(data) : undefined;
       console.debug(`[DEBUG] ${message}`, maskedData || '');
     }
   },
 
-  // Método específico para dados de desenvolvimento (nunca em produção)
   devOnly: (message: string, data?: LogData) => {
-    if (process.env.NODE_ENV === 'development' && window.location.hostname === 'localhost') {
+    if (isDevelopment && isLocalhost) {
       console.log(`[DEV-ONLY] ${message}`, data || '');
     }
   }
 };
 
-// Função para sanitizar dados sensíveis (mantida para compatibilidade)
 export const sanitizeForLog = (data: any) => {
   return maskSensitiveData(data);
 };

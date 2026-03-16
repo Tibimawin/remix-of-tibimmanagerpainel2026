@@ -90,7 +90,7 @@ const M3UImporter = () => {
   const [isFetchingDns, setIsFetchingDns] = useState(false);
   const [dnsFetchPhase, setDnsFetchPhase] = useState<'idle' | 'connecting' | 'downloading' | 'validating'>('idle');
   const [dnsFetchElapsed, setDnsFetchElapsed] = useState(0);
-  const dnsFetchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const dnsFetchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [dnsContentLoaded, setDnsContentLoaded] = useState(false);
   const [dnsM3UContent, setDnsM3UContent] = useState<string | null>(null);
   const [hasSavedDnsConfig, setHasSavedDnsConfig] = useState(false);

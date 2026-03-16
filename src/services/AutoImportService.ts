@@ -1,4 +1,5 @@
 import { useBaserowService } from './BaserowService';
+import { makeProxyRequest } from '@/utils/proxyRequest';
 
 export interface ImportContent {
   id: string;
@@ -157,31 +158,18 @@ class CacheManager {
         const endpoint = `/api/database/rows/table/${config.contentTableId}/?user_field_names=true&page=${page}&size=${pageSize}`;
         const originalUrl = `${config.sourceBaseUrl}${endpoint}`;
 
-        let response;
-        if (config.sourceBaseUrl.startsWith('http://')) {
-          const encodedUrl = encodeURIComponent(originalUrl);
-          const proxyUrl = 'https://api-baserow.vercel.app/api/baserow';
-          const proxyRequestUrl = `${proxyUrl}?token=${config.sourceToken}&url=${encodedUrl}&method=GET`;
+        const result = await makeProxyRequest({
+          url: originalUrl,
+          method: 'GET',
+          token: config.sourceToken,
+          body: null,
+        });
 
-          response = await fetch(proxyRequestUrl, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          });
-        } else {
-          response = await fetch(originalUrl, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Token ${config.sourceToken}`,
-              'Content-Type': 'application/json',
-            },
-          });
-        }
+        if (!result.ok) {
+          const errorText = result.error || 'Erro desconhecido no proxy central';
+          console.error('Erro na resposta da API:', result.status, errorText);
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Erro na resposta da API:', response.status, errorText);
-
-          if (response.status === 429) {
+          if (result.status === 429) {
             console.log('Rate limit atingido, aguardando 3 segundos...');
             await new Promise(resolve => setTimeout(resolve, 3000));
             continue;
@@ -189,14 +177,15 @@ class CacheManager {
 
           consecutiveErrors++;
           if (consecutiveErrors >= maxConsecutiveErrors) {
-            throw new Error(`Muitos erros consecutivos. Último erro ${response.status}: ${errorText}`);
+            throw new Error(`Muitos erros consecutivos. Último erro ${result.status}: ${errorText}`);
           }
 
           await new Promise(resolve => setTimeout(resolve, 2000));
           continue;
         }
 
-        const data = await response.json();
+        const data = result.data;
+
         const pageResults = data.results || [];
         console.log(`Página ${page} carregada: ${pageResults.length} registros de ${pageSize} solicitados`);
 
@@ -323,33 +312,32 @@ export class AutoImportService {
   setSourceService(config: ImportConfig) {
     this.sourceService = {
       makeRequest: async (endpoint: string, options: RequestInit = {}) => {
-        const method = options.method || 'GET';
+        const method = (options.method || 'GET') as 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
         const originalUrl = `${config.sourceBaseUrl}${endpoint}`;
+        const parsedBody = typeof options.body === 'string'
+          ? (() => {
+              try {
+                return JSON.parse(options.body as string);
+              } catch {
+                return options.body as string;
+              }
+            })()
+          : (options.body ?? null);
 
-        if (config.sourceBaseUrl.startsWith('http://')) {
-          const encodedUrl = encodeURIComponent(originalUrl);
-          const proxyUrl = 'https://api-baserow.vercel.app/api/baserow';
-          let proxyRequestUrl = `${proxyUrl}?token=${config.sourceToken}&url=${encodedUrl}&method=${method}`;
+        const result = await makeProxyRequest({
+          url: originalUrl,
+          method,
+          token: config.sourceToken,
+          body: parsedBody,
+        });
 
-          if (['POST', 'PATCH', 'PUT'].includes(method) && options.body) {
-            const bodyEncoded = encodeURIComponent(options.body as string);
-            proxyRequestUrl += `&body=${bodyEncoded}`;
-          }
-
-          return fetch(proxyRequestUrl, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          });
-        } else {
-          return fetch(originalUrl, {
-            ...options,
-            headers: {
-              'Authorization': `Token ${config.sourceToken}`,
-              'Content-Type': 'application/json',
-              ...options.headers,
-            },
-          });
-        }
+        return {
+          ok: result.ok,
+          status: result.status,
+          statusText: result.ok ? 'OK' : 'Proxy Error',
+          json: async () => result.data,
+          text: async () => result.error || JSON.stringify(result.data ?? {}),
+        };
       }
     };
   }

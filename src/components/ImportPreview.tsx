@@ -14,11 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
-  Film, 
-  Tv, 
-  RefreshCw, 
-  Eye, 
+import {
+  Film,
+  Tv,
+  RefreshCw,
+  Eye,
   Calendar,
   Star,
   ChevronRight,
@@ -35,6 +35,7 @@ import {
   Download
 } from 'lucide-react';
 import { ImportConfig, UserConfig } from '@/services/AutoImportService';
+import { makeProxyRequest } from '@/utils/proxyRequest';
 
 export interface ContentPreview {
   id: number;
@@ -143,24 +144,23 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     });
   }, [previews, searchTerm, sortBy]);
 
-  const makeApiRequest = async (url: string) => {
-    if (!importConfig) throw new Error('Configuração de origem não disponível');
-    if (importConfig.sourceBaseUrl.startsWith('http://')) {
-      const encodedUrl = encodeURIComponent(url);
-      const proxyUrl = `https://api-baserow.vercel.app/api/baserow?token=${importConfig.sourceToken}&url=${encodedUrl}&method=GET`;
-      return fetch(proxyUrl, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
-    } else {
-      return fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Token ${importConfig.sourceToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
+  const makeApiRequest = async <T = any>(url: string): Promise<T> => {
+    if (!importConfig) {
+      throw new Error('Configuração de origem não disponível');
     }
+
+    const result = await makeProxyRequest({
+      url,
+      method: 'GET',
+      token: importConfig.sourceToken,
+      body: null,
+    });
+
+    if (!result.ok) {
+      throw new Error(result.error || `Erro ${result.status} ao acessar proxy central`);
+    }
+
+    return result.data as T;
   };
 
   const fetchTypeCounts = async () => {
@@ -168,16 +168,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     const baseUrl = `${importConfig.sourceBaseUrl}/api/database/rows/table/${importConfig.contentTableId}/?user_field_names=true&size=1`;
     
     try {
-      const [totalRes, filmesRes, seriesRes] = await Promise.all([
-        makeApiRequest(baseUrl),
-        makeApiRequest(`${baseUrl}&filter__Tipo__equal=Filme`),
-        makeApiRequest(`${baseUrl}&filter__Tipo__equal=Serie`)
-      ]);
-
       const [totalData, filmesData, seriesData] = await Promise.all([
-        totalRes.json(),
-        filmesRes.json(),
-        seriesRes.json()
+        makeApiRequest<{ count?: number }>(baseUrl),
+        makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Tipo__equal=Filme`),
+        makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Tipo__equal=Serie`)
       ]);
 
       setTypeCounts({
@@ -197,28 +191,22 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
     setLoadingCategories(true);
     try {
-      // Fetch a larger sample to get more categories
       const url = `${importConfig.sourceBaseUrl}/api/database/rows/table/${importConfig.contentTableId}/?user_field_names=true&size=200`;
-      const response = await makeApiRequest(url);
-      
-      if (response.ok) {
-        const data = await response.json();
-        const categories = new Set<string>();
-        
-        (data.results || []).forEach((item: ContentPreview) => {
-          if (item.Categoria) {
-            // Handle comma-separated categories
-            item.Categoria.split(',').forEach(cat => {
-              const trimmed = cat.trim();
-              if (trimmed && isCategoryAllowed(trimmed)) {
-                categories.add(trimmed);
-              }
-            });
-          }
-        });
-        
-        setAvailableCategories(Array.from(categories).sort());
-      }
+      const data = await makeApiRequest<{ results?: ContentPreview[] }>(url);
+      const categories = new Set<string>();
+
+      (data.results || []).forEach((item: ContentPreview) => {
+        if (item.Categoria) {
+          item.Categoria.split(',').forEach(cat => {
+            const trimmed = cat.trim();
+            if (trimmed && isCategoryAllowed(trimmed)) {
+              categories.add(trimmed);
+            }
+          });
+        }
+      });
+
+      setAvailableCategories(Array.from(categories).sort());
     } catch (err) {
       console.error('Erro ao buscar categorias:', err);
     } finally {
@@ -259,41 +247,31 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       }
       
       const originalUrl = `${importConfig.sourceBaseUrl}/api/database/rows/table/${importConfig.contentTableId}/?user_field_names=true&size=${pageSize}&page=${apiPage}${filterQuery}`;
-      
-      const response = await makeApiRequest(originalUrl);
-
-      if (!response.ok) {
-        throw new Error(`Erro ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = await makeApiRequest<{ count?: number; results?: ContentPreview[] }>(originalUrl);
       const count = data.count || 0;
       const newTotalPages = Math.ceil(count / pageSize);
-      
+
       setTotalCount(count);
-      
-      // If this is initial load (skipInversion), we need to refetch with correct inverted page
+
       if (skipInversion && newTotalPages > 0) {
         setCachedTotalPages(newTotalPages);
         setInitialLoadDone(true);
-        
-        // Refetch with the correct inverted page (last page of API = page 1 in UI)
+
         if (newTotalPages > 1 && page === 1) {
           fetchPreview(filterType, category, 1, { forceApiPage: newTotalPages });
           return;
         }
       }
-      
-      // Update cached total pages
+
       setCachedTotalPages(newTotalPages);
-      
-      // Reverse the results so newest items appear first within the page
+
       const reversedResults = [...(data.results || [])].reverse();
       setPreviews(reversedResults);
 
     } catch (err) {
       console.error('Erro ao buscar preview:', err);
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      setError(`Falha ao carregar preview pelo proxy central: ${message}`);
     } finally {
       setLoading(false);
     }
