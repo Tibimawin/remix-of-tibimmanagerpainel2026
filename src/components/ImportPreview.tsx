@@ -382,6 +382,60 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   }, [configValid, importConfig?.sourceToken, importConfig?.sourceBaseUrl, importConfig?.contentTableId]);
 
+  useEffect(() => {
+    const fetchExistingContentSnapshot = async () => {
+      if (!configValid || !userConfig?.apiToken || !userConfig?.baseUrl || !userConfig?.contentTableId) {
+        setExistingContentSnapshot({ titles: new Set(), titleYears: new Set(), imdbs: new Set(), links: new Set(), total: 0 });
+        return;
+      }
+
+      setLoadingExistingContent(true);
+      try {
+        const url = `${userConfig.baseUrl}/api/database/rows/table/${userConfig.contentTableId}/?user_field_names=true&size=200`;
+        const data = await makeProxyRequest({
+          url,
+          method: 'GET',
+          token: userConfig.apiToken,
+          body: null,
+        });
+
+        if (!data.ok) {
+          throw new Error(data.error || 'Erro ao buscar conteúdos já importados');
+        }
+
+        const results = Array.isArray(data.data?.results) ? data.data.results : [];
+        const snapshot: ExistingContentSnapshot = {
+          titles: new Set(),
+          titleYears: new Set(),
+          imdbs: new Set(),
+          links: new Set(),
+          total: results.length,
+        };
+
+        results.forEach((item: ContentPreview) => {
+          const normalizedTitle = normalizeText(item.Nome);
+          const normalizedYear = normalizeText(item.Ano);
+          const normalizedImdb = normalizeImdb(item.Imdb || item.IMDb);
+          const normalizedLink = normalizeLink(item.Link);
+
+          if (normalizedTitle) snapshot.titles.add(normalizedTitle);
+          if (normalizedTitle && normalizedYear) snapshot.titleYears.add(`${normalizedTitle}|${normalizedYear}`);
+          if (normalizedImdb) snapshot.imdbs.add(normalizedImdb);
+          if (normalizedLink) snapshot.links.add(normalizedLink);
+        });
+
+        setExistingContentSnapshot(snapshot);
+      } catch (err) {
+        console.error('Erro ao buscar conteúdos existentes do destino:', err);
+        setExistingContentSnapshot({ titles: new Set(), titleYears: new Set(), imdbs: new Set(), links: new Set(), total: 0 });
+      } finally {
+        setLoadingExistingContent(false);
+      }
+    };
+
+    fetchExistingContentSnapshot();
+  }, [configValid, userConfig?.apiToken, userConfig?.baseUrl, userConfig?.contentTableId]);
+
   // Fetch when filters change (reset to page 1)
   useEffect(() => {
     if (configValid && importConfig) {
