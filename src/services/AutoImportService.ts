@@ -186,26 +186,6 @@ class CacheManager {
 
         const data = result.data;
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Erro na resposta da API:', response.status, errorText);
-
-          if (response.status === 429) {
-            console.log('Rate limit atingido, aguardando 3 segundos...');
-            await new Promise(resolve => setTimeout(resolve, 3000));
-            continue;
-          }
-
-          consecutiveErrors++;
-          if (consecutiveErrors >= maxConsecutiveErrors) {
-            throw new Error(`Muitos erros consecutivos. Último erro ${response.status}: ${errorText}`);
-          }
-
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          continue;
-        }
-
-        const data = await response.json();
         const pageResults = data.results || [];
         console.log(`Página ${page} carregada: ${pageResults.length} registros de ${pageSize} solicitados`);
 
