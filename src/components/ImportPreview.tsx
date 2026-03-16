@@ -80,6 +80,7 @@ interface ImportPreviewProps {
 
 export const ImportPreview: React.FC<ImportPreviewProps> = ({
   importConfig,
+  userConfig,
   onStartImport,
   configValid,
   isImporting = false,
