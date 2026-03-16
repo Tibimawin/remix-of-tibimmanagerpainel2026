@@ -1,4 +1,5 @@
 import { useBaserowService } from './BaserowService';
+import { makeProxyRequest } from '@/utils/proxyRequest';
 
 export interface ImportContent {
   id: string;
