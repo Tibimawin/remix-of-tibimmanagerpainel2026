@@ -710,8 +710,23 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
               </Select>
             </div>
 
+            {/* Highlight Filter */}
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+              <Select value={highlightFilter} onValueChange={(v) => setHighlightFilter(v as 'all' | 'imported' | 'duplicates')}>
+                <SelectTrigger className="h-7 w-[180px] text-xs">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os status</SelectItem>
+                  <SelectItem value="imported">Só já importados</SelectItem>
+                  <SelectItem value="duplicates">Só duplicados</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Clear filters button */}
-            {(typeFilter !== 'all' || categoryFilter !== 'all' || sortBy !== 'nome' || searchTerm) && (
+            {(typeFilter !== 'all' || categoryFilter !== 'all' || highlightFilter !== 'all' || sortBy !== 'nome' || searchTerm) && (
               <Button
                 variant="ghost"
                 size="sm"
