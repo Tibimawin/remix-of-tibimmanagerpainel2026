@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +39,10 @@ import {
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { ImportPreview, ContentPreview } from '@/components/ImportPreview';
+
+interface ImportacaoAutomaticaLocationState {
+  autoImportContents?: ContentPreview[];
+}
 
 const ImportacaoAutomatica = () => {
   const [showConfig, setShowConfig] = useState(false);

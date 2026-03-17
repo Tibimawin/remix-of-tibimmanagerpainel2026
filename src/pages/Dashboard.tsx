@@ -49,6 +49,16 @@ const Dashboard = () => {
     }, 50);
   }, [dismissPopup]);
 
+  const handleImportNewContent = React.useCallback(() => {
+    dismissPopup();
+    setIsNewContentDialogOpen(false);
+    navigate('/importacao-automatica', {
+      state: {
+        autoImportContents: newItems.map((item) => item.raw),
+      },
+    });
+  }, [dismissPopup, navigate, newItems]);
+
   const handleDialogOpenChange = React.useCallback((open: boolean) => {
     setIsNewContentDialogOpen(open);
     if (!open) {
