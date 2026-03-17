@@ -577,15 +577,15 @@ const ImportacaoAutomatica = () => {
         />
 
         {/* Recursos da Importação */}
-        <section className="space-y-4">
+        <section className="space-y-3">
           <div className="space-y-1">
-            <h2 className="text-xl font-semibold tracking-tight">Recursos da importação</h2>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="text-lg font-semibold tracking-tight">Recursos da importação</h2>
+            <p className="text-xs text-muted-foreground">
               Benefícios do fluxo automático para importar com mais segurança e velocidade.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
             {[
               {
                 icon: Zap,
@@ -610,14 +610,14 @@ const ImportacaoAutomatica = () => {
             ].map((feature, index) => (
               <Card
                 key={index}
-                className="group relative overflow-hidden border-border/50 bg-muted/20 transition-colors duration-300 hover:border-primary/20"
+                className="group relative overflow-hidden border-border/40 bg-muted/15 transition-colors duration-300 hover:border-primary/15"
               >
-                <CardContent className="p-4">
-                  <div className="mb-3 w-fit rounded-lg bg-primary/10 p-2 transition-colors group-hover:bg-primary/15">
-                    <feature.icon className="h-4 w-4 text-primary" />
+                <CardContent className="p-3">
+                  <div className="mb-2 w-fit rounded-md bg-primary/10 p-1.5 transition-colors group-hover:bg-primary/15">
+                    <feature.icon className="h-3.5 w-3.5 text-primary" />
                   </div>
-                  <h3 className="mb-1 text-sm font-semibold">{feature.title}</h3>
-                  <p className="text-sm text-muted-foreground">{feature.description}</p>
+                  <h3 className="mb-0.5 text-xs font-semibold leading-none">{feature.title}</h3>
+                  <p className="text-xs leading-snug text-muted-foreground">{feature.description}</p>
                 </CardContent>
               </Card>
             ))}
