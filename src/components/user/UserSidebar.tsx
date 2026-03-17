@@ -46,6 +46,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useWithdrawalNotifications } from '@/hooks/useWithdrawalNotifications';
 import { useTypeMode } from '@/contexts/TypeModeContext';
 
 type BadgeType = 'new' | 'alert' | 'info' | 'count';
