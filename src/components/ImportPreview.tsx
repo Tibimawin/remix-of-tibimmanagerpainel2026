@@ -490,6 +490,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const clearFilters = () => {
     setTypeFilter('all');
     setCategoryFilter('all');
+    setHighlightFilter('all');
     setSortBy('nome');
     setSearchTerm('');
     setCurrentPage(1);
