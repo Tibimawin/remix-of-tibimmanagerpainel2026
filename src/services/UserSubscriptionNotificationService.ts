@@ -226,6 +226,64 @@ export class UserSubscriptionNotificationService {
     }
 
     /**
+     * Notifica o usuário que sua solicitação de saque foi aprovada
+     */
+    static async notifyWithdrawalApproved(
+        userId: string,
+        userEmail: string,
+        amount: number,
+        adminNotes?: string
+    ): Promise<void> {
+        try {
+            const noteText = adminNotes ? ` Observação do admin: "${adminNotes}"` : '';
+            await addDoc(collection(db, 'userNotifications'), {
+                titulo: '✅ Saque Aprovado!',
+                mensagem: `Seu saque de R$${amount.toFixed(2)} foi aprovado! O valor será enviado para sua chave Pix em breve.${noteText}`,
+                tipo: 'success',
+                dataRecebimento: new Date(),
+                lida: false,
+                destinatario: userId,
+                emailDestinatario: userEmail,
+                persistent: true,
+                withdrawalNotification: true,
+                metadata: { amount, status: 'approved', adminNotes, notificationType: 'withdrawal' }
+            });
+            logger.info('Notificação de saque aprovado enviada', { userId, amount });
+        } catch (error) {
+            logger.error('Erro ao enviar notificação de saque aprovado:', error);
+        }
+    }
+
+    /**
+     * Notifica o usuário que sua solicitação de saque foi rejeitada
+     */
+    static async notifyWithdrawalRejected(
+        userId: string,
+        userEmail: string,
+        amount: number,
+        adminNotes?: string
+    ): Promise<void> {
+        try {
+            const noteText = adminNotes ? ` Motivo: "${adminNotes}"` : '';
+            await addDoc(collection(db, 'userNotifications'), {
+                titulo: '❌ Saque Rejeitado',
+                mensagem: `Sua solicitação de saque de R$${amount.toFixed(2)} foi rejeitada.${noteText} O valor foi devolvido ao seu saldo.`,
+                tipo: 'error',
+                dataRecebimento: new Date(),
+                lida: false,
+                destinatario: userId,
+                emailDestinatario: userEmail,
+                persistent: true,
+                withdrawalNotification: true,
+                metadata: { amount, status: 'rejected', adminNotes, notificationType: 'withdrawal' }
+            });
+            logger.info('Notificação de saque rejeitado enviada', { userId, amount });
+        } catch (error) {
+            logger.error('Erro ao enviar notificação de saque rejeitado:', error);
+        }
+    }
+
+    /**
      * Remove notificações de expiração quando a assinatura é renovada
      */
     static async removeExpirationWarnings(userId: string): Promise<void> {
