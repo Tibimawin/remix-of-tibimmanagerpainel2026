@@ -13,12 +13,14 @@ export interface Referral {
   subscriptionActive: boolean;
   activatedAt?: string;
   monthlyPayout: number;
+  earnedTotal: number;
+  earningPerPayment: number;
   lastUpdated: string;
 }
 
 const REFERRALS_COLLECTION = 'referrals';
 const MONTHLY_PRICE = 30;
-const REFERRAL_RATE = 0.33;
+const REFERRAL_RATE = 0.10;
 const MONTHLY_PAYOUT = Number((MONTHLY_PRICE * REFERRAL_RATE).toFixed(2));
 
 export const ReferralService = {
@@ -41,6 +43,8 @@ export const ReferralService = {
       subscriptionActive: false,
       activatedAt: undefined,
       monthlyPayout: MONTHLY_PAYOUT,
+      earnedTotal: 0,
+      earningPerPayment: MONTHLY_PAYOUT,
       lastUpdated: new Date().toISOString()
     };
 
@@ -54,7 +58,7 @@ export const ReferralService = {
     const items: Referral[] = [];
     snapshot.forEach(d => {
       const data = d.data() as Referral;
-      items.push({ id: d.id, ...data });
+      items.push({ id: d.id, ...data, earnedTotal: data.earnedTotal || 0, earningPerPayment: data.earningPerPayment || 0 });
     });
     items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return items;
@@ -65,10 +69,25 @@ export const ReferralService = {
     const items: Referral[] = [];
     snapshot.forEach(d => {
       const data = d.data() as Referral;
-      items.push({ id: d.id, ...data });
+      items.push({ id: d.id, ...data, earnedTotal: data.earnedTotal || 0, earningPerPayment: data.earningPerPayment || 0 });
     });
     items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return items;
+  },
+
+  async getEarningsByReferrer(referrerUid: string): Promise<number> {
+    const referrals = await this.getReferralsByReferrer(referrerUid);
+    return referrals.reduce((sum, r) => sum + (r.earnedTotal || 0), 0);
+  },
+
+  async getWithdrawableBalance(referrerUid: string): Promise<number> {
+    const { WithdrawalService } = await import('@/services/WithdrawalService');
+    const totalEarnings = await this.getEarningsByReferrer(referrerUid);
+    const requests = await WithdrawalService.getRequestsByUser(referrerUid);
+    const totalWithdrawn = requests
+      .filter(r => r.status === 'approved' || r.status === 'pending')
+      .reduce((sum, r) => sum + r.amount, 0);
+    return Math.max(0, Number((totalEarnings - totalWithdrawn).toFixed(2)));
   },
 
   async updateSubscriptionStatusByReferred(referredUid: string, active: boolean): Promise<void> {
@@ -76,11 +95,19 @@ export const ReferralService = {
     const snapshot = await getDocs(q);
     const now = new Date().toISOString();
     for (const d of snapshot.docs) {
+      const existing = d.data();
+      const prevEarned = existing.earnedTotal || 0;
+      const earning = active ? MONTHLY_PAYOUT : 0;
+      const newEarned = active ? prevEarned + earning : prevEarned;
+
       await updateDoc(doc(db, REFERRALS_COLLECTION, d.id), {
         subscriptionActive: active,
         status: active ? 'subscribed' : 'registered',
         activatedAt: active ? now : null,
-        lastUpdated: now
+        lastUpdated: now,
+        monthlyPayout: MONTHLY_PAYOUT,
+        earningPerPayment: MONTHLY_PAYOUT,
+        earnedTotal: newEarned
       });
     }
   }
