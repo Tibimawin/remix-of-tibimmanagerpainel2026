@@ -147,57 +147,6 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       .replace(/^https?:\/\//, '')
       .replace(/\/$/, '');
 
-  // Local filtering and sorting
-  const filteredPreviews = useMemo(() => {
-    let filtered = previews;
-    
-    filtered = filtered.filter(content => {
-      if (!content.Categoria) return true;
-      return isCategoryAllowed(content.Categoria);
-    });
-
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(content => 
-        content.Nome?.toLowerCase().includes(term) ||
-        content.Categoria?.toLowerCase().includes(term)
-      );
-    }
-
-    if (highlightFilter !== 'all') {
-      filtered = filtered.filter((content) => {
-        const highlight = previewHighlightMap.get(content.id);
-
-        if (highlightFilter === 'imported') {
-          return Boolean(highlight?.isAlreadyImported);
-        }
-
-        if (highlightFilter === 'duplicates') {
-          return Boolean(highlight?.isDuplicateInPreview);
-        }
-
-        return true;
-      });
-    }
-    
-    return [...filtered].sort((a, b) => {
-      switch (sortBy) {
-        case 'nome':
-          return (a.Nome || '').localeCompare(b.Nome || '');
-        case 'ano':
-          const anoA = parseInt(a.Ano || '0') || 0;
-          const anoB = parseInt(b.Ano || '0') || 0;
-          return anoB - anoA;
-        case 'rating':
-          const ratingA = parseFloat(a.Imdb || a.IMDb || '0') || 0;
-          const ratingB = parseFloat(b.Imdb || b.IMDb || '0') || 0;
-          return ratingB - ratingA;
-        default:
-          return 0;
-      }
-    });
-  }, [previews, searchTerm, sortBy, highlightFilter, previewHighlightMap]);
-
   const previewHighlightMap = useMemo(() => {
     const titleCounts = new Map<string, number>();
     const titleYearCounts = new Map<string, number>();
@@ -256,6 +205,57 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       })
     );
   }, [previews, existingContentSnapshot]);
+
+  // Local filtering and sorting
+  const filteredPreviews = useMemo(() => {
+    let filtered = previews;
+    
+    filtered = filtered.filter(content => {
+      if (!content.Categoria) return true;
+      return isCategoryAllowed(content.Categoria);
+    });
+
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(content => 
+        content.Nome?.toLowerCase().includes(term) ||
+        content.Categoria?.toLowerCase().includes(term)
+      );
+    }
+
+    if (highlightFilter !== 'all') {
+      filtered = filtered.filter((content) => {
+        const highlight = previewHighlightMap.get(content.id);
+
+        if (highlightFilter === 'imported') {
+          return Boolean(highlight?.isAlreadyImported);
+        }
+
+        if (highlightFilter === 'duplicates') {
+          return Boolean(highlight?.isDuplicateInPreview);
+        }
+
+        return true;
+      });
+    }
+    
+    return [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case 'nome':
+          return (a.Nome || '').localeCompare(b.Nome || '');
+        case 'ano':
+          const anoA = parseInt(a.Ano || '0') || 0;
+          const anoB = parseInt(b.Ano || '0') || 0;
+          return anoB - anoA;
+        case 'rating':
+          const ratingA = parseFloat(a.Imdb || a.IMDb || '0') || 0;
+          const ratingB = parseFloat(b.Imdb || b.IMDb || '0') || 0;
+          return ratingB - ratingA;
+        default:
+          return 0;
+      }
+    });
+  }, [previews, searchTerm, sortBy, highlightFilter, previewHighlightMap]);
 
   const makeApiRequest = async <T = any>(url: string): Promise<T> => {
     if (!importConfig) {
