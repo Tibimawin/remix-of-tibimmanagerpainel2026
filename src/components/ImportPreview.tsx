@@ -206,10 +206,9 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     );
   }, [previews, existingContentSnapshot]);
 
-  // Local filtering and sorting
-  const filteredPreviews = useMemo(() => {
+  const baseFilteredPreviews = useMemo(() => {
     let filtered = previews;
-    
+
     filtered = filtered.filter(content => {
       if (!content.Categoria) return true;
       return isCategoryAllowed(content.Categoria);
@@ -222,6 +221,36 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         content.Categoria?.toLowerCase().includes(term)
       );
     }
+
+    return filtered;
+  }, [previews, searchTerm, isCategoryAllowed]);
+
+  const highlightFilterCounts = useMemo(() => {
+    let imported = 0;
+    let duplicates = 0;
+
+    baseFilteredPreviews.forEach((content) => {
+      const highlight = previewHighlightMap.get(content.id);
+
+      if (highlight?.isAlreadyImported) {
+        imported += 1;
+      }
+
+      if (highlight?.isDuplicateInPreview) {
+        duplicates += 1;
+      }
+    });
+
+    return {
+      all: baseFilteredPreviews.length,
+      imported,
+      duplicates,
+    };
+  }, [baseFilteredPreviews, previewHighlightMap]);
+
+  // Local filtering and sorting
+  const filteredPreviews = useMemo(() => {
+    let filtered = baseFilteredPreviews;
 
     if (highlightFilter !== 'all') {
       filtered = filtered.filter((content) => {
@@ -255,7 +284,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
           return 0;
       }
     });
-  }, [previews, searchTerm, sortBy, highlightFilter, previewHighlightMap]);
+  }, [baseFilteredPreviews, sortBy, highlightFilter, previewHighlightMap]);
 
   const makeApiRequest = async <T = any>(url: string): Promise<T> => {
     if (!importConfig) {
@@ -714,13 +743,13 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             <div className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-muted-foreground" />
               <Select value={highlightFilter} onValueChange={(v) => setHighlightFilter(v as 'all' | 'imported' | 'duplicates')}>
-                <SelectTrigger className="h-7 w-[180px] text-xs">
+                <SelectTrigger className="h-7 w-[220px] text-xs">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os status</SelectItem>
-                  <SelectItem value="imported">Só já importados</SelectItem>
-                  <SelectItem value="duplicates">Só duplicados</SelectItem>
+                  <SelectItem value="all">Todos os status ({highlightFilterCounts.all})</SelectItem>
+                  <SelectItem value="imported">Só já importados ({highlightFilterCounts.imported})</SelectItem>
+                  <SelectItem value="duplicates">Só duplicados ({highlightFilterCounts.duplicates})</SelectItem>
                 </SelectContent>
               </Select>
             </div>
