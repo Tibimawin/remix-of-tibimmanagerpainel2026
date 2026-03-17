@@ -206,10 +206,9 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     );
   }, [previews, existingContentSnapshot]);
 
-  // Local filtering and sorting
-  const filteredPreviews = useMemo(() => {
+  const baseFilteredPreviews = useMemo(() => {
     let filtered = previews;
-    
+
     filtered = filtered.filter(content => {
       if (!content.Categoria) return true;
       return isCategoryAllowed(content.Categoria);
@@ -222,6 +221,36 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         content.Categoria?.toLowerCase().includes(term)
       );
     }
+
+    return filtered;
+  }, [previews, searchTerm, isCategoryAllowed]);
+
+  const highlightFilterCounts = useMemo(() => {
+    let imported = 0;
+    let duplicates = 0;
+
+    baseFilteredPreviews.forEach((content) => {
+      const highlight = previewHighlightMap.get(content.id);
+
+      if (highlight?.isAlreadyImported) {
+        imported += 1;
+      }
+
+      if (highlight?.isDuplicateInPreview) {
+        duplicates += 1;
+      }
+    });
+
+    return {
+      all: baseFilteredPreviews.length,
+      imported,
+      duplicates,
+    };
+  }, [baseFilteredPreviews, previewHighlightMap]);
+
+  // Local filtering and sorting
+  const filteredPreviews = useMemo(() => {
+    let filtered = baseFilteredPreviews;
 
     if (highlightFilter !== 'all') {
       filtered = filtered.filter((content) => {
@@ -255,7 +284,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
           return 0;
       }
     });
-  }, [previews, searchTerm, sortBy, highlightFilter, previewHighlightMap]);
+  }, [baseFilteredPreviews, sortBy, highlightFilter, previewHighlightMap]);
 
   const makeApiRequest = async <T = any>(url: string): Promise<T> => {
     if (!importConfig) {
