@@ -471,6 +471,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
   const { logout } = useSimpleAuth();
   const { hasPrioritySupport, hasFeature } = useUserPermissions();
   const { mode } = useTypeMode();
+  const withdrawalUnread = useWithdrawalNotifications();
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
     configuracoes: true // Configurações aberto por padrão
   });
