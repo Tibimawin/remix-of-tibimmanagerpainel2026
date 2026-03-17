@@ -93,6 +93,7 @@ const Dashboard = () => {
         <NewContentBanner
           count={newCount}
           onView={handleViewNewContent}
+          onImport={handleImportNewContent}
           onMarkAllAsSeen={markAllAsSeen}
         />
 
@@ -101,6 +102,7 @@ const Dashboard = () => {
           items={newItems}
           onOpenChange={handleDialogOpenChange}
           onView={handleViewNewContent}
+          onImport={handleImportNewContent}
           onMarkAllAsSeen={() => {
             markAllAsSeen();
             setIsNewContentDialogOpen(false);
@@ -164,6 +166,7 @@ const Dashboard = () => {
         {hasNewContent && (
           <NewContentList
             items={newItems}
+            onImport={handleImportNewContent}
             onMarkAllAsSeen={markAllAsSeen}
           />
         )}

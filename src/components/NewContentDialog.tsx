@@ -1,4 +1,4 @@
-import { BellRing, CheckCheck, Sparkles } from 'lucide-react';
+import { BellRing, CheckCheck, Download, Sparkles } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -15,10 +15,11 @@ interface NewContentDialogProps {
   items: NewContentItem[];
   onOpenChange: (open: boolean) => void;
   onView: () => void;
+  onImport: () => void;
   onMarkAllAsSeen: () => void;
 }
 
-const NewContentDialog = ({ open, items, onOpenChange, onView, onMarkAllAsSeen }: NewContentDialogProps) => {
+const NewContentDialog = ({ open, items, onOpenChange, onView, onImport, onMarkAllAsSeen }: NewContentDialogProps) => {
   const previewItems = items.slice(0, 5);
 
   return (
@@ -62,7 +63,11 @@ const NewContentDialog = ({ open, items, onOpenChange, onView, onMarkAllAsSeen }
             <CheckCheck className="h-4 w-4" />
             Marcar como visto
           </Button>
-          <Button onClick={onView}>Ver novidades</Button>
+          <Button variant="outline" onClick={onView}>Ver novidades</Button>
+          <Button onClick={onImport}>
+            <Download className="h-4 w-4" />
+            Importar agora
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

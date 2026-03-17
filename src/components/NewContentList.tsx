@@ -1,14 +1,15 @@
-import { CheckCheck, Film, FolderOpen, Tv } from 'lucide-react';
+import { CheckCheck, Download, Film, FolderOpen, Tv } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import type { NewContentItem } from '@/hooks/useNewContentNotifications';
 
 interface NewContentListProps {
   items: NewContentItem[];
+  onImport: () => void;
   onMarkAllAsSeen: () => void;
 }
 
-const NewContentList = ({ items, onMarkAllAsSeen }: NewContentListProps) => {
+const NewContentList = ({ items, onImport, onMarkAllAsSeen }: NewContentListProps) => {
   if (!items.length) return null;
 
   const visibleItems = items.slice(0, 8);
@@ -26,10 +27,16 @@ const NewContentList = ({ items, onMarkAllAsSeen }: NewContentListProps) => {
           </CardDescription>
         </div>
 
-        <Button variant="outline" size="sm" onClick={onMarkAllAsSeen}>
-          <CheckCheck className="h-4 w-4" />
-          Marcar tudo como visto
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" onClick={onImport}>
+            <Download className="h-4 w-4" />
+            Importar novos
+          </Button>
+          <Button variant="outline" size="sm" onClick={onMarkAllAsSeen}>
+            <CheckCheck className="h-4 w-4" />
+            Marcar tudo como visto
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent className="space-y-3">

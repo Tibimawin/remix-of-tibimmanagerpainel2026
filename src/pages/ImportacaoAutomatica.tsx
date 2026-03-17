@@ -192,7 +192,7 @@ const ImportacaoAutomatica = () => {
     }
   };
 
-  const startImport = async (selectedContents?: ContentPreview[]) => {
+  const startImport = React.useCallback(async (selectedContents?: ContentPreview[]) => {
     if (!importConfig) {
       toast.error('O administrador ainda não configurou a origem dos conteúdos.', {
         description: 'Entre em contato com o administrador do sistema.'
@@ -304,7 +304,27 @@ const ImportacaoAutomatica = () => {
       setIsImporting(false);
       setImportProgress(0);
     }
-  };
+  }, [autoImportService, canAddMoreContent, configValid, importConfig, typeMode, userConfig]);
+
+  useEffect(() => {
+    const state = location.state as ImportacaoAutomaticaLocationState | null;
+    const autoImportContents = Array.isArray(state?.autoImportContents) ? state.autoImportContents : [];
+
+    if (
+      hasTriggeredAutoImportRef.current ||
+      autoImportContents.length === 0 ||
+      cloudLoading ||
+      globalConfigLoading ||
+      permissionsLoading
+    ) {
+      return;
+    }
+
+    hasTriggeredAutoImportRef.current = true;
+    void startImport(autoImportContents).finally(() => {
+      navigate(location.pathname, { replace: true, state: null });
+    });
+  }, [cloudLoading, globalConfigLoading, location.pathname, location.state, navigate, permissionsLoading, startImport]);
 
   if (showImportInterface && importConfig) {
     return (

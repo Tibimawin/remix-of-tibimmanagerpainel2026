@@ -1,14 +1,15 @@
-import { BellRing, CheckCheck, Sparkles } from 'lucide-react';
+import { BellRing, CheckCheck, Download, Sparkles } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
 interface NewContentBannerProps {
   count: number;
   onView: () => void;
+  onImport: () => void;
   onMarkAllAsSeen: () => void;
 }
 
-const NewContentBanner = ({ count, onView, onMarkAllAsSeen }: NewContentBannerProps) => {
+const NewContentBanner = ({ count, onView, onImport, onMarkAllAsSeen }: NewContentBannerProps) => {
   if (count <= 0) return null;
 
   return (
@@ -31,7 +32,11 @@ const NewContentBanner = ({ count, onView, onMarkAllAsSeen }: NewContentBannerPr
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" onClick={onView}>
+          <Button size="sm" onClick={onImport}>
+            <Download className="h-4 w-4" />
+            Importar novos
+          </Button>
+          <Button size="sm" variant="outline" onClick={onView}>
             Ver novidades
           </Button>
           <Button size="sm" variant="outline" onClick={onMarkAllAsSeen}>
