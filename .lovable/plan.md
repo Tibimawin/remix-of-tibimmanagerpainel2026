@@ -1,65 +1,92 @@
 
 
-## Plano: Sistema de Indicação com Ganhos (10%) e Solicitação de Saque
+## Importacao via DNS/IPTV - Fonte por URL com usuario e senha
 
-### Resumo
+### O que o usuario quer
 
-Reformular o sistema de indicação para que, quando um indicado assinar um plano, o indicador ganhe automaticamente 10% do valor. O usuário acumula saldo e pode solicitar saque (mínimo R$5) preenchendo Nome, CPF, E-mail e Pix. O admin recebe e aprova/rejeita essas solicitações.
+Em vez de baixar um arquivo M3U manualmente e fazer upload, o sistema deve permitir conectar diretamente a uma fonte IPTV usando:
+- **URL do servidor** (ex: `http://appmyflix.com.br`)
+- **Usuario** (ex: `tibimteste`)
+- **Senha** (ex: `151215`)
 
-### O que existe hoje
-- `ReferralService` já rastreia indicações no Firestore (`referrals` collection) com status `registered`/`subscribed`
-- `FirebaseUserService.extendUserAccess` já chama `ReferralService.updateSubscriptionStatusByReferred` quando uma assinatura é ativada
-- Taxa atual é 33% hardcoded -- precisa mudar para 10%
-- Não existe sistema de saldo acumulado nem solicitação de saque
+O sistema monta automaticamente a URL `http://servidor/get.php?username=X&password=Y&type=m3u_plus`, busca o conteudo M3U e processa normalmente com o importador existente.
 
-### Mudanças necessárias
+### Como vai funcionar
 
-#### 1. Atualizar ReferralService (`src/services/ReferralService.ts`)
-- Mudar `REFERRAL_RATE` de 0.33 para 0.10
-- Adicionar campo `earnedTotal` no Referral (acumulado de ganhos por indicado)
-- Ao atualizar status para `subscribed`, calcular 10% do valor do plano e salvar como `earningPerPayment`
-- Adicionar método `getEarningsByReferrer(uid)` que soma todos os ganhos
-- Adicionar método `getWithdrawableBalance(uid)` que calcula saldo disponível (ganhos - saques aprovados)
+```text
+Usuario preenche: URL + Usuario + Senha
+         |
+Sistema monta: http://url/get.php?username=X&password=Y&type=m3u_plus
+         |
+Faz fetch da URL (via proxy para evitar CORS)
+         |
+Recebe o conteudo M3U como texto
+         |
+Passa para o mesmo parseM3UAdvanced() que ja existe
+         |
+Segue o fluxo normal: preview -> importacao
+```
 
-#### 2. Criar WithdrawalService (`src/services/WithdrawalService.ts`)
-- Nova collection Firestore: `withdrawalRequests`
-- Interface `WithdrawalRequest`: id, referrerUid, referrerEmail, name, cpf, email, pixKey, amount, status (pending/approved/rejected), createdAt, updatedAt, adminNotes
-- Métodos:
-  - `createRequest(data)` -- valida saldo mínimo R$5
-  - `getRequestsByUser(uid)` -- histórico do usuário
-  - `getAllRequests()` -- para admin
-  - `updateStatus(id, status, adminNotes)` -- admin aprova/rejeita
+### Vantagem principal
+Quando houver atualizacao na fonte, basta clicar "Buscar" novamente com as mesmas credenciais -- nao precisa baixar arquivo de novo.
 
-#### 3. Atualizar página do usuário (`src/pages/SistemaIndicacao.tsx`)
-- Mudar descrição de 33% para 10%
-- Adicionar card de **Saldo disponível** mostrando ganhos acumulados
-- Na tabela de indicações, mostrar coluna "Ganho" com o valor que cada indicado gerou
-- Adicionar seção **Solicitar Saque** com formulário: Nome, CPF, E-mail, Chave Pix, Valor (mínimo R$5)
-- Adicionar seção **Histórico de Saques** com status de cada solicitação
+---
 
-#### 4. Atualizar painel admin (`src/components/AdminReferrals.tsx`)
-- Adicionar aba/seção **Solicitações de Saque**
-- Tabela com: nome, cpf, email, pix, valor, data, status
-- Botões Aprovar/Rejeitar com campo de notas
-- Mostrar indicações do solicitante para verificação
-- Adicionar estatísticas: total de saques pendentes, total aprovado
+### Mudancas tecnicas
 
-#### 5. Automação de ganhos
-- Em `ReferralService.updateSubscriptionStatusByReferred`, ao marcar como `subscribed`, registrar o ganho automaticamente (10% do `monthlyPayout` base ou do valor real do plano)
-- O campo `monthlyPayout` no referral passa a refletir 10% em vez de 33%
+#### 1. Atualizar `src/components/M3UImporter.tsx`
 
-### Arquivos envolvidos
-- **Editar**: `src/services/ReferralService.ts` (taxa 10%, campo de ganhos)
-- **Criar**: `src/services/WithdrawalService.ts` (CRUD de saques)
-- **Editar**: `src/pages/SistemaIndicacao.tsx` (saldo, formulário de saque, histórico)
-- **Editar**: `src/components/AdminReferrals.tsx` (seção de saques para admin)
+**Adicionar opcao de fonte (arquivo vs URL/DNS):**
+- Novo estado `sourceType`: `'file'` ou `'dns'`
+- Novos estados: `dnsUrl`, `dnsUsername`, `dnsPassword`
+- Radio buttons no topo para escolher entre "Arquivo M3U" e "Fonte DNS/IPTV"
 
-### Fluxo completo
-1. Usuário A compartilha link de indicação
-2. Usuário B se registra via link -- referral criado com status `registered`
-3. Usuário B assina um plano (pagamento confirmado via Asaas) -- `extendUserAccess` dispara `updateSubscriptionStatusByReferred` que marca `subscribed` e calcula 10% = R$3,00 (se plano R$30)
-4. Usuário A vê na página de indicações: saldo acumulado R$3,00
-5. Quando saldo >= R$5, Usuário A preenche formulário de saque e envia
-6. Admin vê solicitação no painel, verifica indicações, aprova
-7. Usuário A vê status "Aprovado" no histórico de saques
+**Adicionar UI de credenciais DNS:**
+- Quando `sourceType === 'dns'`, mostrar 3 campos: URL do servidor, Usuario, Senha
+- Botao "Buscar Lista" que monta a URL e faz fetch
 
+**Adicionar funcao `handleFetchDNS`:**
+- Monta a URL: `${dnsUrl}/get.php?username=${dnsUsername}&password=${dnsPassword}&type=m3u_plus`
+- Faz fetch via proxy Vercel (`/api/baserow-proxy` reutilizado ou novo endpoint simples)
+- Recebe o texto M3U
+- Chama `parseM3UAdvanced(content)` -- mesmo parser do arquivo
+- Segue o fluxo normal (preview, importacao)
+
+**Botao "Processar e Visualizar":**
+- Quando fonte e DNS, usa o conteudo buscado em vez do arquivo
+- O resto do fluxo permanece identico
+
+#### 2. Criar proxy para buscar M3U de URLs externas
+
+**Arquivo:** `api/m3u-proxy.js` (Vercel serverless function)
+
+Necessario para evitar CORS. O proxy recebe a URL completa e retorna o conteudo M3U como texto.
+
+```text
+POST /api/m3u-proxy
+Body: { url: "http://appmyflix.com.br/get.php?username=X&password=Y&type=m3u_plus" }
+Retorna: conteudo M3U como texto
+```
+
+#### 3. Salvar credenciais DNS opcionalmente
+
+**Arquivo:** `src/services/UserConfigService.ts`
+
+Salvar as credenciais DNS no Firestore do usuario (`userConfigs/{userId}/dnsConfig`) para que ele nao precise digitar toda vez. Campos:
+- `dnsUrl`
+- `dnsUsername`
+- `dnsPassword`
+- `lastFetchedAt`
+
+### Arquivos afetados
+
+1. `src/components/M3UImporter.tsx` - Adicionar UI de fonte DNS e logica de fetch
+2. `api/m3u-proxy.js` - Novo proxy Vercel para buscar M3U de URLs externas (evitar CORS)
+3. `src/services/UserConfigService.ts` - Metodo para salvar/carregar credenciais DNS do usuario
+
+### Riscos e consideracoes
+
+- **CORS**: Buscar URLs externas direto do navegador sera bloqueado. O proxy Vercel resolve isso
+- **Seguranca**: As credenciais DNS sao do usuario e ficam salvas no Firestore dele (mesmo padrao das API keys TMDB/OMDB)
+- **Listas grandes**: O fetch pode demorar para listas muito grandes. Sera adicionado indicador de loading
+- **Compatibilidade**: O formato `get.php?username=X&password=Y&type=m3u_plus` e o padrao de paineis Xtream Codes, que e o mais comum no mercado IPTV
