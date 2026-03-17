@@ -61,6 +61,9 @@ const ImportacaoAutomatica = () => {
   const [importProgress, setImportProgress] = useState(0);
 
   const autoImportService = useAutoImportService();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const hasTriggeredAutoImportRef = React.useRef(false);
   const { config: cloudConfig, updateConfig: updateCloudConfig, loading: cloudLoading } = useUserConfig();
   const { globalConfig, loading: globalConfigLoading } = useGlobalImportConfig();
   const { config } = useConfig();
