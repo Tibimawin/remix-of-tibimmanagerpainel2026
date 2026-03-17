@@ -97,11 +97,12 @@ export const useNewContentNotifications = () => {
 
     try {
       const service = new BaserowService(config.apiToken, config.baseUrl);
-      const response = await service.getAllTableData(tableId, undefined, FETCH_LIMIT);
+      const response = await service.getAllTableData(tableId);
       const recentItems = (response?.results || [])
         .filter((item: Record<string, any>) => item?.id !== undefined && item?.id !== null)
-        .map(normalizeContentItem)
-        .slice(0, FETCH_LIMIT);
+        .sort((a: Record<string, any>, b: Record<string, any>) => Number(b.id) - Number(a.id))
+        .slice(0, FETCH_LIMIT)
+        .map(normalizeContentItem);
 
       const recentIds = recentItems.map((item) => item.id);
       const seenIds = safeReadArray(storageKeys.seen);
