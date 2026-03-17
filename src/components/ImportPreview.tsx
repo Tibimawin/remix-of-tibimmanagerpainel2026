@@ -163,6 +163,22 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         content.Categoria?.toLowerCase().includes(term)
       );
     }
+
+    if (highlightFilter !== 'all') {
+      filtered = filtered.filter((content) => {
+        const highlight = previewHighlightMap.get(content.id);
+
+        if (highlightFilter === 'imported') {
+          return Boolean(highlight?.isAlreadyImported);
+        }
+
+        if (highlightFilter === 'duplicates') {
+          return Boolean(highlight?.isDuplicateInPreview);
+        }
+
+        return true;
+      });
+    }
     
     return [...filtered].sort((a, b) => {
       switch (sortBy) {
@@ -180,7 +196,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
           return 0;
       }
     });
-  }, [previews, searchTerm, sortBy]);
+  }, [previews, searchTerm, sortBy, highlightFilter, previewHighlightMap]);
 
   const previewHighlightMap = useMemo(() => {
     const titleCounts = new Map<string, number>();
