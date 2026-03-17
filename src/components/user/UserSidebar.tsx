@@ -485,6 +485,12 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
       return false;
     }
     return true;
+  }).map(item => {
+    // Dynamic badge for sistema-indicacao based on unread withdrawal notifications
+    if (item.id === 'sistema-indicacao' && withdrawalUnread > 0) {
+      return { ...item, badge: { type: 'count' as BadgeType, value: withdrawalUnread } };
+    }
+    return item;
   });
 
   const groupedMenuItems = filteredMenuItems
