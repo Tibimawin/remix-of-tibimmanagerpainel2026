@@ -49,6 +49,16 @@ const Dashboard = () => {
     }, 50);
   }, [dismissPopup]);
 
+  const handleImportNewContent = React.useCallback(() => {
+    dismissPopup();
+    setIsNewContentDialogOpen(false);
+    navigate('/importacao-automatica', {
+      state: {
+        autoImportContents: newItems.map((item) => item.raw),
+      },
+    });
+  }, [dismissPopup, navigate, newItems]);
+
   const handleDialogOpenChange = React.useCallback((open: boolean) => {
     setIsNewContentDialogOpen(open);
     if (!open) {
@@ -83,6 +93,7 @@ const Dashboard = () => {
         <NewContentBanner
           count={newCount}
           onView={handleViewNewContent}
+          onImport={handleImportNewContent}
           onMarkAllAsSeen={markAllAsSeen}
         />
 
@@ -91,6 +102,7 @@ const Dashboard = () => {
           items={newItems}
           onOpenChange={handleDialogOpenChange}
           onView={handleViewNewContent}
+          onImport={handleImportNewContent}
           onMarkAllAsSeen={() => {
             markAllAsSeen();
             setIsNewContentDialogOpen(false);
@@ -154,6 +166,7 @@ const Dashboard = () => {
         {hasNewContent && (
           <NewContentList
             items={newItems}
+            onImport={handleImportNewContent}
             onMarkAllAsSeen={markAllAsSeen}
           />
         )}

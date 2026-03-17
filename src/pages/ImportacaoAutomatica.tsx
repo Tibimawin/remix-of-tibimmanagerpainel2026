@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,10 @@ import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { ImportPreview, ContentPreview } from '@/components/ImportPreview';
 
+interface ImportacaoAutomaticaLocationState {
+  autoImportContents?: ContentPreview[];
+}
+
 const ImportacaoAutomatica = () => {
   const [showConfig, setShowConfig] = useState(false);
   const [showImportInterface, setShowImportInterface] = useState(false);
@@ -56,6 +61,9 @@ const ImportacaoAutomatica = () => {
   const [importProgress, setImportProgress] = useState(0);
 
   const autoImportService = useAutoImportService();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const hasTriggeredAutoImportRef = React.useRef(false);
   const { config: cloudConfig, updateConfig: updateCloudConfig, loading: cloudLoading } = useUserConfig();
   const { globalConfig, loading: globalConfigLoading } = useGlobalImportConfig();
   const { config } = useConfig();
@@ -184,7 +192,7 @@ const ImportacaoAutomatica = () => {
     }
   };
 
-  const startImport = async (selectedContents?: ContentPreview[]) => {
+  const startImport = React.useCallback(async (selectedContents?: ContentPreview[]) => {
     if (!importConfig) {
       toast.error('O administrador ainda não configurou a origem dos conteúdos.', {
         description: 'Entre em contato com o administrador do sistema.'
@@ -296,7 +304,27 @@ const ImportacaoAutomatica = () => {
       setIsImporting(false);
       setImportProgress(0);
     }
-  };
+  }, [autoImportService, canAddMoreContent, configValid, importConfig, typeMode, userConfig]);
+
+  useEffect(() => {
+    const state = location.state as ImportacaoAutomaticaLocationState | null;
+    const autoImportContents = Array.isArray(state?.autoImportContents) ? state.autoImportContents : [];
+
+    if (
+      hasTriggeredAutoImportRef.current ||
+      autoImportContents.length === 0 ||
+      cloudLoading ||
+      globalConfigLoading ||
+      permissionsLoading
+    ) {
+      return;
+    }
+
+    hasTriggeredAutoImportRef.current = true;
+    void startImport(autoImportContents).finally(() => {
+      navigate(location.pathname, { replace: true, state: null });
+    });
+  }, [cloudLoading, globalConfigLoading, location.pathname, location.state, navigate, permissionsLoading, startImport]);
 
   if (showImportInterface && importConfig) {
     return (
