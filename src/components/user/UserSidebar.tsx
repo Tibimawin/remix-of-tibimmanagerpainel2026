@@ -46,6 +46,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useWithdrawalNotifications } from '@/hooks/useWithdrawalNotifications';
 import { useTypeMode } from '@/contexts/TypeModeContext';
 
 type BadgeType = 'new' | 'alert' | 'info' | 'count';
@@ -470,6 +471,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
   const { logout } = useSimpleAuth();
   const { hasPrioritySupport, hasFeature } = useUserPermissions();
   const { mode } = useTypeMode();
+  const withdrawalUnread = useWithdrawalNotifications();
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
     configuracoes: true // Configurações aberto por padrão
   });
@@ -483,6 +485,12 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
       return false;
     }
     return true;
+  }).map(item => {
+    // Dynamic badge for sistema-indicacao based on unread withdrawal notifications
+    if (item.id === 'sistema-indicacao' && withdrawalUnread > 0) {
+      return { ...item, badge: { type: 'count' as BadgeType, value: withdrawalUnread } };
+    }
+    return item;
   });
 
   const groupedMenuItems = filteredMenuItems
