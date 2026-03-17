@@ -4,21 +4,57 @@ import SystemMetricsCards from '@/components/SystemMetricsCards';
 import { UserOffers } from '@/components/UserOffers';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { PermissionGate } from '@/components/PermissionGate';
-import { useConfig } from '@/contexts/ConfigContext';
 import ExpirationWarningBanner from '@/components/ExpirationWarningBanner';
 import UserAnnouncementsBanner from '@/components/UserAnnouncementsBanner';
+import NewContentBanner from '@/components/NewContentBanner';
+import NewContentDialog from '@/components/NewContentDialog';
+import NewContentList from '@/components/NewContentList';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { useNewContentNotifications } from '@/hooks/useNewContentNotifications';
 import { CreditCard, X, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const { loading } = useUserPermissions();
-  const { config, isConfigured } = useConfig();
   const navigate = useNavigate();
   const [showPaymentBanner, setShowPaymentBanner] = React.useState(() => {
     return localStorage.getItem('dismiss-payment-banner') !== 'true';
   });
+  const {
+    newItems,
+    newCount,
+    hasNewContent,
+    shouldShowPopup,
+    markAllAsSeen,
+    dismissPopup,
+  } = useNewContentNotifications();
+  const [isNewContentDialogOpen, setIsNewContentDialogOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (shouldShowPopup && hasNewContent) {
+      setIsNewContentDialogOpen(true);
+    }
+  }, [hasNewContent, shouldShowPopup]);
+
+  const handleViewNewContent = React.useCallback(() => {
+    dismissPopup();
+    setIsNewContentDialogOpen(false);
+
+    window.setTimeout(() => {
+      document.getElementById('novidades-conteudos')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 50);
+  }, [dismissPopup]);
+
+  const handleDialogOpenChange = React.useCallback((open: boolean) => {
+    setIsNewContentDialogOpen(open);
+    if (!open) {
+      dismissPopup();
+    }
+  }, [dismissPopup]);
 
   if (loading) {
     return (
@@ -35,32 +71,44 @@ const Dashboard = () => {
     );
   }
 
-
-
   return (
     <PermissionGate feature="dashboard">
       <div className="w-full space-y-6 animate-fade-in">
-        {/* Banner de Expiração */}
         <ExpirationWarningBanner
           onRenewClick={() => {
             window.location.href = '/precos';
           }}
         />
 
-        {/* Anúncios do Sistema */}
+        <NewContentBanner
+          count={newCount}
+          onView={handleViewNewContent}
+          onMarkAllAsSeen={markAllAsSeen}
+        />
+
+        <NewContentDialog
+          open={isNewContentDialogOpen}
+          items={newItems}
+          onOpenChange={handleDialogOpenChange}
+          onView={handleViewNewContent}
+          onMarkAllAsSeen={() => {
+            markAllAsSeen();
+            setIsNewContentDialogOpen(false);
+          }}
+        />
+
         <UserAnnouncementsBanner />
 
-        {/* Banner Nova Funcionalidade - Pagamento pelo Painel */}
         {showPaymentBanner && (
-          <Alert className="border-primary/30 bg-primary/5 relative">
+          <Alert className="relative border-primary/30 bg-primary/5">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
+                <div className="rounded-lg bg-primary/10 p-2">
                   <Sparkles className="h-5 w-5 text-primary" />
                 </div>
                 <AlertDescription className="text-foreground">
-                  <p className="font-semibold text-sm">🎉 Novidade! Pagamento de assinatura pelo painel</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="text-sm font-semibold">🎉 Novidade! Pagamento de assinatura pelo painel</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     Agora você pode renovar ou assinar seu plano diretamente pela aba de Pagamentos no seu perfil, via PIX.
                   </p>
                 </AlertDescription>
@@ -91,32 +139,35 @@ const Dashboard = () => {
           </Alert>
         )}
 
-        {/* Header da Página */}
         <div className="flex flex-col space-y-2">
           <div className="flex items-center space-x-3">
-            <div className="w-1 h-8 bg-gradient-to-b from-primary to-orange-500 rounded-full"></div>
+            <div className="h-8 w-1 rounded-full bg-gradient-to-b from-primary to-orange-500"></div>
             <div>
               <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-              <p className="text-muted-foreground font-medium">
+              <p className="font-medium text-muted-foreground">
                 Visão geral e métricas do sistema
               </p>
             </div>
           </div>
         </div>
 
+        {hasNewContent && (
+          <NewContentList
+            items={newItems}
+            onMarkAllAsSeen={markAllAsSeen}
+          />
+        )}
 
-        {/* Métricas do Sistema */}
         <div className="space-y-6">
           <div className="modern-card p-6 backdrop-blur-sm">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="w-1 h-6 bg-gradient-to-b from-primary to-orange-500 rounded-full"></div>
+            <div className="mb-6 flex items-center space-x-3">
+              <div className="h-6 w-1 rounded-full bg-gradient-to-b from-primary to-orange-500"></div>
               <h2 className="text-xl font-bold text-foreground">Métricas do Sistema</h2>
             </div>
             <SystemMetricsCards />
           </div>
         </div>
 
-        {/* Ofertas Especiais */}
         <div className="space-y-6">
           <div className="modern-card p-6 backdrop-blur-sm">
             <UserOffers />

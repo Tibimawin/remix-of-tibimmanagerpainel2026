@@ -1,172 +1,92 @@
 
-Objetivo
 
-Criar um sistema de aviso de conteúdos novos para os usuários do painel sem depender do Firebase para esse recurso, usando a própria tabela de conteúdos do Baserow como fonte.
+## Importacao via DNS/IPTV - Fonte por URL com usuario e senha
 
-O que encontrei no projeto
-- Hoje as notificações e anúncios existentes dependem bastante do Firebase/Firestore:
-  - `src/components/UserNotifications.tsx`
-  - `src/services/UpdateNotificationService.ts`
-  - `src/services/AdminAnnouncementService.ts`
-  - `src/hooks/useUserAnnouncements.ts`
-- O dashboard do usuário já tem um local natural para isso:
-  - `src/pages/Dashboard.tsx` já renderiza `UserAnnouncementsBanner`
-- O projeto já tem infraestrutura para ler conteúdos do Baserow por usuário:
-  - `src/contexts/ConfigContext.tsx`
-  - `src/hooks/useUserConfig.ts`
-  - `src/services/BaserowService.ts`
+### O que o usuario quer
 
-Minha sugestão
-Como você respondeu que quer:
-- Banner no dashboard
-- Lista de novidades
-- Popup ao entrar
-- E “só automático agora”
+Em vez de baixar um arquivo M3U manualmente e fazer upload, o sistema deve permitir conectar diretamente a uma fonte IPTV usando:
+- **URL do servidor** (ex: `http://appmyflix.com.br`)
+- **Usuario** (ex: `tibimteste`)
+- **Senha** (ex: `151215`)
 
-eu sugiro implementar um sistema 100% cliente + Baserow, sem Firebase para esse caso.
+O sistema monta automaticamente a URL `http://servidor/get.php?username=X&password=Y&type=m3u_plus`, busca o conteudo M3U e processa normalmente com o importador existente.
 
-Como vai funcionar
+### Como vai funcionar
 
-1. Detecção automática de novidade
-- Ao entrar no painel, o app consulta a tabela `conteudos` do usuário no Baserow.
-- Ele pega os conteúdos mais recentes.
-- Compara com um marco salvo localmente do próprio usuário no navegador, por exemplo:
-  - último ID visto
-  - ou conjunto de IDs já conhecidos
-  - ou timestamp da última checagem bem-sucedida
-
-2. Três formas de aviso
-- Banner no dashboard:
-  - “Há X conteúdos novos no catálogo”
-- Lista de novidades:
-  - card/section com os últimos conteúdos novos detectados
-- Popup ao entrar:
-  - aparece apenas na primeira visita em que existirem novidades ainda não vistas
-
-3. Persistência sem Firebase
-- O estado de “já vi essas novidades” fica em `localStorage`
-- Chave por usuário, algo como:
-  - `new-content-seen:<userId>`
-  - `new-content-popup-dismissed:<userId>:<hash-do-lote>`
-- Isso evita writes no Firestore e não consome quota do Firebase
-
-Arquitetura recomendada
-
-1. Criar um hook novo para centralizar a lógica
-Arquivo sugerido:
-- `src/hooks/useNewContentNotifications.ts`
-
-Responsabilidades:
-- ler `userInfo` do auth
-- ler config do usuário
-- instanciar `BaserowService`
-- buscar conteúdos recentes da tabela `conteudos`
-- detectar novidades
-- expor estado como:
-  - `newItems`
-  - `newCount`
-  - `hasNewContent`
-  - `loading`
-  - `markAllAsSeen()`
-  - `dismissPopup()`
-  - `shouldShowPopup`
-
-2. Priorizar baixo custo de leitura
-Para não pesar:
-- buscar só uma quantidade limitada de registros recentes, ex. 20 ou 30
-- ordenar pelos mais novos, se o endpoint/campo suportar
-- se não houver ordenação confiável, usar os primeiros resultados mais recentes disponíveis no padrão atual do Baserow da tabela
-
-3. Criar UI separada e simples
-Componentes sugeridos:
-- `src/components/NewContentBanner.tsx`
-- `src/components/NewContentDialog.tsx`
-- `src/components/NewContentList.tsx`
-
-Comportamento:
-- Banner aparece no dashboard quando `hasNewContent`
-- Popup abre uma vez por lote novo detectado
-- Lista mostra os últimos itens novos com botão “marcar como visto”
-
-4. Integrar no Dashboard
-Arquivo:
-- `src/pages/Dashboard.tsx`
-
-Ordem sugerida:
 ```text
-ExpirationWarningBanner
-NewContentBanner
-NewContentDialog
-UserAnnouncementsBanner
-restante do dashboard
+Usuario preenche: URL + Usuario + Senha
+         |
+Sistema monta: http://url/get.php?username=X&password=Y&type=m3u_plus
+         |
+Faz fetch da URL (via proxy para evitar CORS)
+         |
+Recebe o conteudo M3U como texto
+         |
+Passa para o mesmo parseM3UAdvanced() que ja existe
+         |
+Segue o fluxo normal: preview -> importacao
 ```
 
-Assim o aviso de catálogo novo vira prioridade, sem conflitar com os anúncios antigos.
+### Vantagem principal
+Quando houver atualizacao na fonte, basta clicar "Buscar" novamente com as mesmas credenciais -- nao precisa baixar arquivo de novo.
 
-Como detectar “novo conteúdo”
-Sugestão mais segura para esta base:
-- usar o `id` da linha do Baserow como referência principal
-- salvar no localStorage os IDs já conhecidos
-- quando vier uma nova busca:
-  - qualquer item cujo `id` ainda não esteja salvo = novo
-- ao marcar como visto:
-  - adicionar esses IDs ao conjunto salvo
+---
 
-Por que prefiro isso
-- não depende de campo de data existir corretamente
-- não exige mudança de schema
-- não usa backend
-- funciona mesmo com diferentes estruturas de tabela
+### Mudancas tecnicas
 
-Limites e cuidados
-- Esse controle será por navegador/dispositivo, não sincronizado entre dispositivos
-- Se o usuário limpar cache/localStorage, as novidades podem aparecer de novo
-- Se você quiser no futuro sincronizar entre dispositivos sem Firebase, o ideal será criar uma pequena tabela no Baserow ou migrar isso para Supabase
+#### 1. Atualizar `src/components/M3UImporter.tsx`
 
-Implementação em etapas
+**Adicionar opcao de fonte (arquivo vs URL/DNS):**
+- Novo estado `sourceType`: `'file'` ou `'dns'`
+- Novos estados: `dnsUrl`, `dnsUsername`, `dnsPassword`
+- Radio buttons no topo para escolher entre "Arquivo M3U" e "Fonte DNS/IPTV"
 
-Etapa 1
-- Criar hook `useNewContentNotifications`
-- Buscar conteúdos do Baserow
-- Detectar novos IDs
-- Salvar/ler estado por usuário no localStorage
+**Adicionar UI de credenciais DNS:**
+- Quando `sourceType === 'dns'`, mostrar 3 campos: URL do servidor, Usuario, Senha
+- Botao "Buscar Lista" que monta a URL e faz fetch
 
-Etapa 2
-- Criar banner no dashboard com contador
-- Exemplo: “12 conteúdos novos adicionados”
+**Adicionar funcao `handleFetchDNS`:**
+- Monta a URL: `${dnsUrl}/get.php?username=${dnsUsername}&password=${dnsPassword}&type=m3u_plus`
+- Faz fetch via proxy Vercel (`/api/baserow-proxy` reutilizado ou novo endpoint simples)
+- Recebe o texto M3U
+- Chama `parseM3UAdvanced(content)` -- mesmo parser do arquivo
+- Segue o fluxo normal (preview, importacao)
 
-Etapa 3
-- Criar popup ao entrar mostrando os últimos novos itens
-- Botões:
-  - “Ver novidades”
-  - “Marcar como visto”
+**Botao "Processar e Visualizar":**
+- Quando fonte e DNS, usa o conteudo buscado em vez do arquivo
+- O resto do fluxo permanece identico
 
-Etapa 4
-- Criar lista persistente no dashboard com os novos conteúdos detectados
-- Limitar exibição para não poluir, ex. 5 a 10 itens
+#### 2. Criar proxy para buscar M3U de URLs externas
 
-Etapa 5
-- Ligar tudo no `Dashboard.tsx`
-- Garantir que, sem config do Baserow ou sem tabela de conteúdos, nada quebra
+**Arquivo:** `api/m3u-proxy.js` (Vercel serverless function)
 
-Detalhes técnicos
-- Reaproveitar:
-  - `useSimpleAuth`
-  - `useConfig` ou `useUserConfig`
-  - `BaserowService`
-- Não reaproveitar a estrutura de `UserNotifications` para esse caso, porque ela está acoplada ao Firebase
-- O estado do popup deve ser separado do estado “visto”
-- Usar chaves de localStorage com `userInfo.id` para evitar misturar usuários no mesmo navegador
+Necessario para evitar CORS. O proxy recebe a URL completa e retorna o conteudo M3U como texto.
 
-Arquivos envolvidos
-- Novo: `src/hooks/useNewContentNotifications.ts`
-- Novo: `src/components/NewContentBanner.tsx`
-- Novo: `src/components/NewContentDialog.tsx`
-- Novo: `src/components/NewContentList.tsx`
-- Editar: `src/pages/Dashboard.tsx`
+```text
+POST /api/m3u-proxy
+Body: { url: "http://appmyflix.com.br/get.php?username=X&password=Y&type=m3u_plus" }
+Retorna: conteudo M3U como texto
+```
 
-Resultado esperado
-- Usuários passam a receber aviso de novos conteúdos sem usar Firebase
-- Você evita aumentar a quota do Firestore para esse fluxo
-- O sistema fica simples, barato e rápido para colocar no ar
-- Depois, se quiser, dá para evoluir para persistência sincronizada entre dispositivos
+#### 3. Salvar credenciais DNS opcionalmente
+
+**Arquivo:** `src/services/UserConfigService.ts`
+
+Salvar as credenciais DNS no Firestore do usuario (`userConfigs/{userId}/dnsConfig`) para que ele nao precise digitar toda vez. Campos:
+- `dnsUrl`
+- `dnsUsername`
+- `dnsPassword`
+- `lastFetchedAt`
+
+### Arquivos afetados
+
+1. `src/components/M3UImporter.tsx` - Adicionar UI de fonte DNS e logica de fetch
+2. `api/m3u-proxy.js` - Novo proxy Vercel para buscar M3U de URLs externas (evitar CORS)
+3. `src/services/UserConfigService.ts` - Metodo para salvar/carregar credenciais DNS do usuario
+
+### Riscos e consideracoes
+
+- **CORS**: Buscar URLs externas direto do navegador sera bloqueado. O proxy Vercel resolve isso
+- **Seguranca**: As credenciais DNS sao do usuario e ficam salvas no Firestore dele (mesmo padrao das API keys TMDB/OMDB)
+- **Listas grandes**: O fetch pode demorar para listas muito grandes. Sera adicionado indicador de loading
+- **Compatibilidade**: O formato `get.php?username=X&password=Y&type=m3u_plus` e o padrao de paineis Xtream Codes, que e o mais comum no mercado IPTV
