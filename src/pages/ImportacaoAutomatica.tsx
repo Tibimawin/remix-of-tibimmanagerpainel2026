@@ -566,46 +566,6 @@ const ImportacaoAutomatica = () => {
           </Card>
         )}
 
-        {/* Recursos da Importação */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            {
-              icon: Zap,
-              title: 'Importação Rápida',
-              description: 'Importe centenas de itens em segundos'
-            },
-            {
-              icon: Shield,
-              title: 'Anti-Duplicados',
-              description: 'Detecta e evita duplicatas automaticamente'
-            },
-            {
-              icon: Database,
-              title: 'Multi-Tabelas',
-              description: 'Suporte para conteúdos e episódios'
-            },
-            {
-              icon: Cloud,
-              title: 'Sync na Nuvem',
-              description: 'Configurações salvas automaticamente'
-            }
-          ].map((feature, index) => (
-            <Card
-              key={index}
-              className="group relative overflow-hidden border-border/50 hover:border-primary/30 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <CardContent className="p-5 relative">
-                <div className="p-2.5 rounded-xl bg-primary/10 w-fit mb-3 group-hover:bg-primary/20 transition-colors">
-                  <feature.icon className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-semibold mb-1">{feature.title}</h3>
-                <p className="text-sm text-muted-foreground">{feature.description}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
         {/* Preview dos Conteúdos */}
         <ImportPreview
           importConfig={importConfig}
@@ -615,6 +575,54 @@ const ImportacaoAutomatica = () => {
           isImporting={isImporting}
           importProgress={importProgress}
         />
+
+        {/* Recursos da Importação */}
+        <section className="space-y-4">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold tracking-tight">Recursos da importação</h2>
+            <p className="text-sm text-muted-foreground">
+              Benefícios do fluxo automático para importar com mais segurança e velocidade.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {
+                icon: Zap,
+                title: 'Importação Rápida',
+                description: 'Importe centenas de itens em segundos'
+              },
+              {
+                icon: Shield,
+                title: 'Anti-Duplicados',
+                description: 'Detecta e evita duplicatas automaticamente'
+              },
+              {
+                icon: Database,
+                title: 'Multi-Tabelas',
+                description: 'Suporte para conteúdos e episódios'
+              },
+              {
+                icon: Cloud,
+                title: 'Sync na Nuvem',
+                description: 'Configurações salvas automaticamente'
+              }
+            ].map((feature, index) => (
+              <Card
+                key={index}
+                className="group relative overflow-hidden border-border/50 bg-muted/20 transition-colors duration-300 hover:border-primary/20"
+              >
+                <CardContent className="p-4">
+                  <div className="mb-3 w-fit rounded-lg bg-primary/10 p-2 transition-colors group-hover:bg-primary/15">
+                    <feature.icon className="h-4 w-4 text-primary" />
+                  </div>
+                  <h3 className="mb-1 text-sm font-semibold">{feature.title}</h3>
+                  <p className="text-sm text-muted-foreground">{feature.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
 
         {/* Instruções */}
         <Card className="border-border/50 bg-muted/30">
