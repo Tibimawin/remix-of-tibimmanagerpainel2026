@@ -60,10 +60,32 @@ export const WithdrawalService = {
   },
 
   async updateStatus(id: string, status: 'approved' | 'rejected', adminNotes?: string): Promise<void> {
+    // Get the request data before updating
+    const allRequests = await this.getAllRequests();
+    const request = allRequests.find(r => r.id === id);
+
     await updateDoc(doc(db, COLLECTION, id), {
       status,
       adminNotes: adminNotes || '',
       updatedAt: new Date().toISOString()
     });
+
+    // Send notification to the user
+    if (request) {
+      try {
+        const { UserSubscriptionNotificationService } = await import('@/services/UserSubscriptionNotificationService');
+        if (status === 'approved') {
+          await UserSubscriptionNotificationService.notifyWithdrawalApproved(
+            request.referrerUid, request.referrerEmail || request.email, request.amount, adminNotes
+          );
+        } else {
+          await UserSubscriptionNotificationService.notifyWithdrawalRejected(
+            request.referrerUid, request.referrerEmail || request.email, request.amount, adminNotes
+          );
+        }
+      } catch (e) {
+        console.error('Erro ao enviar notificação de saque:', e);
+      }
+    }
   }
 };
