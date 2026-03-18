@@ -36,6 +36,8 @@ export const AdminReferrals: React.FC = () => {
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
   const [detailItem, setDetailItem] = useState<EnrichedReferral | null>(null);
 
