@@ -127,6 +127,132 @@ export const AdminReferrals: React.FC = () => {
   const statusLabel = (s: string) => s === 'approved' ? 'Aprovado' : s === 'rejected' ? 'Rejeitado' : 'Pendente';
   const statusVariant = (s: string): 'default' | 'secondary' | 'destructive' => s === 'approved' ? 'default' : s === 'rejected' ? 'destructive' : 'secondary';
 
+  const dateStr = () => new Date().toISOString().split('T')[0];
+
+  const exportReferralsCSV = () => {
+    const headers = ['Indicador','Email Indicador','UID Indicador','Indicado','Email Indicado','UID Indicado','Status','Assinatura Ativa','IP Indicador','IP Indicado','Mesmo IP','Suspeito','Ganho Total (R$)','Dias no Painel','Criado em'];
+    const rows = items.map(r => [
+      r.referrerName || '', r.referrerEmail || '', r.referrerUid, r.referredName || '', r.referredEmail || '', r.referredUid,
+      r.status === 'subscribed' ? 'Assinante' : 'Registrado', r.subscriptionActive ? 'Sim' : 'Não',
+      r.referrerIP || '', r.referredIP || '', r.sameIP ? 'Sim' : 'Não', r.flagged ? 'Sim' : 'Não',
+      (r.earnedTotal || 0).toFixed(2), String(r.daysInPanel ?? 0), new Date(r.createdAt).toLocaleString('pt-BR')
+    ]);
+    downloadCSV(headers, rows, `indicacoes_${dateStr()}.csv`);
+  };
+
+  const exportWithdrawalsCSV = () => {
+    const headers = ['Solicitante','Nome','CPF','Email','Chave Pix','Valor (R$)','Status','Notas Admin','Data Solicitação','Última Atualização'];
+    const rows = withdrawals.map(w => [
+      w.referrerEmail || w.referrerUid, w.name, w.cpf, w.email, w.pixKey,
+      w.amount.toFixed(2), statusLabel(w.status), w.adminNotes || '',
+      new Date(w.createdAt).toLocaleString('pt-BR'), new Date(w.updatedAt).toLocaleString('pt-BR')
+    ]);
+    downloadCSV(headers, rows, `saques_${dateStr()}.csv`);
+  };
+
+  const downloadCSV = (headers: string[], rows: string[][], filename: string) => {
+    const escape = (v: string) => v.includes(',') || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
+    const content = [headers.map(escape).join(','), ...rows.map(r => r.map(escape).join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`Exportado: ${filename}`);
+  };
+
+  const exportFullPDF = () => {
+    const pdf = new jsPDF({ orientation: 'landscape' });
+    const now = new Date().toLocaleString('pt-BR');
+    let y = 15;
+
+    pdf.setFontSize(16);
+    pdf.text('Relatório de Indicações e Saques', 14, y);
+    y += 8;
+    pdf.setFontSize(9);
+    pdf.text(`Gerado em: ${now}`, 14, y);
+    y += 10;
+
+    // Resumo
+    pdf.setFontSize(12);
+    pdf.text('Resumo', 14, y); y += 7;
+    pdf.setFontSize(9);
+    const summaryLines = [
+      `Total de indicações: ${stats.total}`,
+      `Assinantes ativos: ${stats.subscribed}`,
+      `Apenas registrados: ${stats.registered}`,
+      `Indicações suspeitas: ${stats.flagged}`,
+      `Ganhos totais gerados: R$ ${stats.totalEarnings.toFixed(2)}`,
+      `Saques pendentes: ${stats.pendingWithdrawals}`,
+      `Total aprovado em saques: R$ ${stats.approvedTotal.toFixed(2)}`,
+    ];
+    summaryLines.forEach(l => { pdf.text(l, 14, y); y += 5; });
+    y += 5;
+
+    // Indicações
+    pdf.setFontSize(12);
+    pdf.text('Indicações', 14, y); y += 7;
+    pdf.setFontSize(7);
+    const refHeaders = ['Indicador', 'Indicado', 'Status', 'Ativa', 'IP Ind.', 'IP Ind.do', 'Mesmo IP', 'Ganho', 'Dias', 'Data'];
+    const colW = [40, 40, 20, 15, 28, 28, 18, 18, 12, 30];
+    let x = 14;
+    refHeaders.forEach((h, i) => { pdf.text(h, x, y); x += colW[i]; });
+    y += 5;
+
+    items.forEach(r => {
+      if (y > 190) { pdf.addPage(); y = 15; }
+      x = 14;
+      const vals = [
+        (r.referrerName || r.referrerEmail || '-').substring(0, 22),
+        (r.referredName || r.referredEmail || '-').substring(0, 22),
+        r.status === 'subscribed' ? 'Assinante' : 'Registrado',
+        r.subscriptionActive ? 'Sim' : 'Não',
+        (r.referrerIP || '-').substring(0, 15),
+        (r.referredIP || '-').substring(0, 15),
+        r.sameIP ? 'SIM' : 'Não',
+        (r.earnedTotal || 0).toFixed(2),
+        String(r.daysInPanel ?? 0),
+        new Date(r.createdAt).toLocaleDateString('pt-BR')
+      ];
+      vals.forEach((v, i) => { pdf.text(v, x, y); x += colW[i]; });
+      y += 4.5;
+    });
+
+    // Saques
+    y += 8;
+    if (y > 170) { pdf.addPage(); y = 15; }
+    pdf.setFontSize(12);
+    pdf.text('Solicitações de Saque', 14, y); y += 7;
+    pdf.setFontSize(7);
+    const wHeaders = ['Solicitante', 'Nome', 'CPF', 'Email', 'Pix', 'Valor', 'Status', 'Data'];
+    const wColW = [40, 30, 25, 40, 35, 18, 18, 30];
+    x = 14;
+    wHeaders.forEach((h, i) => { pdf.text(h, x, y); x += wColW[i]; });
+    y += 5;
+
+    withdrawals.forEach(w => {
+      if (y > 190) { pdf.addPage(); y = 15; }
+      x = 14;
+      const vals = [
+        (w.referrerEmail || w.referrerUid).substring(0, 22),
+        w.name.substring(0, 16),
+        w.cpf,
+        w.email.substring(0, 22),
+        w.pixKey.substring(0, 18),
+        w.amount.toFixed(2),
+        statusLabel(w.status),
+        new Date(w.createdAt).toLocaleDateString('pt-BR')
+      ];
+      vals.forEach((v, i) => { pdf.text(v, x, y); x += wColW[i]; });
+      y += 4.5;
+    });
+
+    pdf.save(`relatorio_indicacoes_${dateStr()}.pdf`);
+    toast.success('PDF exportado com sucesso');
+  };
+
   return (
     <div className="space-y-6">
       {/* Stats */}
