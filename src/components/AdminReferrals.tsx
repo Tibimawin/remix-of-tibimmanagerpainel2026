@@ -70,13 +70,25 @@ export const AdminReferrals: React.FC = () => {
     }
   };
 
+  const inDateRange = (dateStr: string) => {
+    const d = new Date(dateStr);
+    if (dateFrom && d < new Date(dateFrom.setHours(0, 0, 0, 0))) return false;
+    if (dateTo && d > new Date(new Date(dateTo).setHours(23, 59, 59, 999))) return false;
+    return true;
+  };
+
   const filtered = useMemo(() => {
     const s = search.toLowerCase();
-    if (!s) return items;
-    return items.filter(r =>
-      `${r.referrerEmail || ''} ${r.referredEmail || ''} ${r.referrerName || ''} ${r.referredName || ''} ${r.referrerUid} ${r.referredUid}`.toLowerCase().includes(s)
-    );
-  }, [search, items]);
+    return items.filter(r => {
+      if (!inDateRange(r.createdAt)) return false;
+      if (!s) return true;
+      return `${r.referrerEmail || ''} ${r.referredEmail || ''} ${r.referrerName || ''} ${r.referredName || ''} ${r.referrerUid} ${r.referredUid}`.toLowerCase().includes(s);
+    });
+  }, [search, items, dateFrom, dateTo]);
+
+  const filteredWithdrawals = useMemo(() => {
+    return withdrawals.filter(w => inDateRange(w.createdAt));
+  }, [withdrawals, dateFrom, dateTo]);
 
   const handleActivate = async (uid: string) => {
     try {
