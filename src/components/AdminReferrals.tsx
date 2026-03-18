@@ -223,7 +223,7 @@ export const AdminReferrals: React.FC = () => {
     refHeaders.forEach((h, i) => { pdf.text(h, x, y); x += colW[i]; });
     y += 5;
 
-    items.forEach(r => {
+    filtered.forEach(r => {
       if (y > 190) { pdf.addPage(); y = 15; }
       x = 14;
       const vals = [
