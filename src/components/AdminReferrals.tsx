@@ -254,7 +254,7 @@ export const AdminReferrals: React.FC = () => {
     wHeaders.forEach((h, i) => { pdf.text(h, x, y); x += wColW[i]; });
     y += 5;
 
-    withdrawals.forEach(w => {
+    filteredWithdrawals.forEach(w => {
       if (y > 190) { pdf.addPage(); y = 15; }
       x = 14;
       const vals = [
