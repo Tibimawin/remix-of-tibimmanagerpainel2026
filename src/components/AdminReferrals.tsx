@@ -191,7 +191,10 @@ export const AdminReferrals: React.FC = () => {
     pdf.text('Relatório de Indicações e Saques', 14, y);
     y += 8;
     pdf.setFontSize(9);
-    pdf.text(`Gerado em: ${now}`, 14, y);
+    const periodLabel = dateFrom || dateTo
+      ? `Período: ${dateFrom ? format(dateFrom, 'dd/MM/yyyy') : '...'} até ${dateTo ? format(dateTo, 'dd/MM/yyyy') : '...'}`
+      : 'Período: Todos';
+    pdf.text(`Gerado em: ${now} | ${periodLabel}`, 14, y);
     y += 10;
 
     // Resumo
