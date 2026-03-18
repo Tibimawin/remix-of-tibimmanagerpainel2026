@@ -161,7 +161,7 @@ export const AdminReferrals: React.FC = () => {
 
   const exportWithdrawalsCSV = () => {
     const headers = ['Solicitante','Nome','CPF','Email','Chave Pix','Valor (R$)','Status','Notas Admin','Data Solicitação','Última Atualização'];
-    const rows = withdrawals.map(w => [
+    const rows = filteredWithdrawals.map(w => [
       w.referrerEmail || w.referrerUid, w.name, w.cpf, w.email, w.pixKey,
       w.amount.toFixed(2), statusLabel(w.status), w.adminNotes || '',
       new Date(w.createdAt).toLocaleString('pt-BR'), new Date(w.updatedAt).toLocaleString('pt-BR')
