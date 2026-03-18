@@ -246,7 +246,7 @@ export const AdminReferrals: React.FC = () => {
                         <TableRow key={r.id} className={`border-border/40 ${r.flagged || r.sameIP ? 'bg-destructive/5' : ''}`}>
                           <TableCell>
                             {(r.flagged || r.sameIP) && (
-                              <AlertTriangle className="w-4 h-4 text-destructive" title={r.flagReason || 'Mesmo IP'} />
+                              <AlertTriangle className="w-4 h-4 text-destructive" />
                             )}
                           </TableCell>
                           <TableCell className="text-foreground">
