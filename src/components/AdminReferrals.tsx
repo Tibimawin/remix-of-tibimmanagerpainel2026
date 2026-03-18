@@ -150,7 +150,7 @@ export const AdminReferrals: React.FC = () => {
 
   const exportReferralsCSV = () => {
     const headers = ['Indicador','Email Indicador','UID Indicador','Indicado','Email Indicado','UID Indicado','Status','Assinatura Ativa','IP Indicador','IP Indicado','Mesmo IP','Suspeito','Ganho Total (R$)','Dias no Painel','Criado em'];
-    const rows = items.map(r => [
+    const rows = filtered.map(r => [
       r.referrerName || '', r.referrerEmail || '', r.referrerUid, r.referredName || '', r.referredEmail || '', r.referredUid,
       r.status === 'subscribed' ? 'Assinante' : 'Registrado', r.subscriptionActive ? 'Sim' : 'Não',
       r.referrerIP || '', r.referredIP || '', r.sameIP ? 'Sim' : 'Não', r.flagged ? 'Sim' : 'Não',
