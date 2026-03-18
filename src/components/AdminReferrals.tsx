@@ -6,10 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ReferralService, Referral } from '@/services/ReferralService';
 import { WithdrawalService, WithdrawalRequest } from '@/services/WithdrawalService';
 import { FirebaseUserService, FirebaseUser } from '@/services/FirebaseUserService';
-import { TrendingUp, Wallet, CheckCircle, XCircle, AlertTriangle, Shield, RefreshCw, Eye, Download, FileText, FileSpreadsheet } from 'lucide-react';
+import { TrendingUp, Wallet, CheckCircle, XCircle, AlertTriangle, Shield, RefreshCw, Eye, Download, FileText, FileSpreadsheet, CalendarIcon, X } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import { toast } from 'sonner';
 import {
