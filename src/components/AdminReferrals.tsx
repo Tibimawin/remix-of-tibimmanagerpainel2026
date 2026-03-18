@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -8,17 +8,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { ReferralService, Referral } from '@/services/ReferralService';
 import { WithdrawalService, WithdrawalRequest } from '@/services/WithdrawalService';
-import { FirebaseUserService } from '@/services/FirebaseUserService';
-import { TrendingUp, Wallet, CheckCircle, XCircle } from 'lucide-react';
+import { FirebaseUserService, FirebaseUser } from '@/services/FirebaseUserService';
+import { TrendingUp, Wallet, CheckCircle, XCircle, AlertTriangle, Shield, RefreshCw, Eye } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+
+interface EnrichedReferral extends Referral {
+  daysInPanel?: number;
+  referredUser?: FirebaseUser | null;
+  referrerUser?: FirebaseUser | null;
+}
 
 export const AdminReferrals: React.FC = () => {
-  const [items, setItems] = useState<(Referral & { daysInPanel?: number })[]>([]);
-  const [filtered, setFiltered] = useState<(Referral & { daysInPanel?: number })[]>([]);
+  const [items, setItems] = useState<EnrichedReferral[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
+  const [detailItem, setDetailItem] = useState<EnrichedReferral | null>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -29,23 +42,33 @@ export const AdminReferrals: React.FC = () => {
         ReferralService.getAllReferrals(),
         WithdrawalService.getAllRequests()
       ]);
-      const enriched = await Promise.all(
+      const enriched: EnrichedReferral[] = await Promise.all(
         all.map(async r => {
-          const referred = await FirebaseUserService.getUserById(r.referredUid);
+          const [referred, referrer] = await Promise.all([
+            FirebaseUserService.getUserById(r.referredUid),
+            FirebaseUserService.getUserById(r.referrerUid)
+          ]);
           let days = 0;
           if (referred?.startDate) {
             days = Math.max(0, Math.floor((Date.now() - new Date(referred.startDate).getTime()) / (1000 * 60 * 60 * 24)));
           }
-          return { ...r, daysInPanel: days };
+          return { ...r, daysInPanel: days, referredUser: referred, referrerUser: referrer };
         })
       );
       setItems(enriched);
-      setFiltered(enriched);
       setWithdrawals(wds);
     } finally {
       setLoading(false);
     }
   };
+
+  const filtered = useMemo(() => {
+    const s = search.toLowerCase();
+    if (!s) return items;
+    return items.filter(r =>
+      `${r.referrerEmail || ''} ${r.referredEmail || ''} ${r.referrerName || ''} ${r.referredName || ''} ${r.referrerUid} ${r.referredUid}`.toLowerCase().includes(s)
+    );
+  }, [search, items]);
 
   const handleActivate = async (uid: string) => {
     try {
@@ -71,21 +94,34 @@ export const AdminReferrals: React.FC = () => {
     } catch { toast.error('Erro ao processar'); }
   };
 
-  useEffect(() => {
-    const s = search.toLowerCase();
-    setFiltered(items.filter(r =>
-      `${r.referrerEmail || ''} ${r.referredEmail || ''} ${r.referrerUid} ${r.referredUid}`.toLowerCase().includes(s)
-    ));
-  }, [search, items]);
-
-  const stats = {
+  const stats = useMemo(() => ({
     total: items.length,
     subscribed: items.filter(r => r.subscriptionActive).length,
     registered: items.filter(r => r.status === 'registered').length,
     totalEarnings: items.reduce((s, r) => s + (r.earnedTotal || 0), 0),
     pendingWithdrawals: withdrawals.filter(w => w.status === 'pending').length,
-    approvedTotal: withdrawals.filter(w => w.status === 'approved').reduce((s, w) => s + w.amount, 0)
-  };
+    approvedTotal: withdrawals.filter(w => w.status === 'approved').reduce((s, w) => s + w.amount, 0),
+    flagged: items.filter(r => r.flagged || r.sameIP).length
+  }), [items, withdrawals]);
+
+  // Detectar IPs duplicados entre diferentes indicações
+  const suspiciousIPs = useMemo(() => {
+    const ipMap = new Map<string, string[]>();
+    items.forEach(r => {
+      if (r.referredIP) {
+        const list = ipMap.get(r.referredIP) || [];
+        list.push(r.referredEmail || r.referredUid);
+        ipMap.set(r.referredIP, list);
+      }
+    });
+    const suspicious: { ip: string; users: string[] }[] = [];
+    ipMap.forEach((users, ip) => {
+      if (users.length > 1 && ip) {
+        suspicious.push({ ip, users });
+      }
+    });
+    return suspicious;
+  }, [items]);
 
   const statusLabel = (s: string) => s === 'approved' ? 'Aprovado' : s === 'rejected' ? 'Rejeitado' : 'Pendente';
   const statusVariant = (s: string): 'default' | 'secondary' | 'destructive' => s === 'approved' ? 'default' : s === 'rejected' ? 'destructive' : 'secondary';
@@ -95,13 +131,19 @@ export const AdminReferrals: React.FC = () => {
       {/* Stats */}
       <Card className="modern-card bg-gradient-to-br from-card to-card/80 border-border/40">
         <CardHeader>
-          <CardTitle className="text-foreground flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-primary" />
-            Monitor de Indicações
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-foreground flex items-center gap-2">
+              <Shield className="w-5 h-5 text-primary" />
+              Monitor Anti-Fraude de Indicações
+            </CardTitle>
+            <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
             <div className="p-4 rounded-xl border border-border/40 bg-muted/10">
               <div className="text-xs text-muted-foreground">Total</div>
               <div className="text-2xl font-bold text-foreground">{stats.total}</div>
@@ -126,13 +168,43 @@ export const AdminReferrals: React.FC = () => {
               <div className="text-xs text-muted-foreground">Total aprovado (R$)</div>
               <div className="text-2xl font-bold text-foreground">{stats.approvedTotal.toFixed(2)}</div>
             </div>
+            <div className={`p-4 rounded-xl border ${stats.flagged > 0 ? 'border-destructive/60 bg-destructive/10' : 'border-border/40 bg-muted/10'}`}>
+              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" /> Suspeitos
+              </div>
+              <div className={`text-2xl font-bold ${stats.flagged > 0 ? 'text-destructive' : 'text-foreground'}`}>{stats.flagged}</div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* Alertas de IP suspeito */}
+      {suspiciousIPs.length > 0 && (
+        <Card className="modern-card border-destructive/40 bg-destructive/5">
+          <CardHeader>
+            <CardTitle className="text-destructive flex items-center gap-2 text-base">
+              <AlertTriangle className="w-5 h-5" />
+              Alerta: IPs compartilhados detectados
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {suspiciousIPs.map((s, i) => (
+                <div key={i} className="p-3 rounded-lg border border-destructive/20 bg-background/50">
+                  <div className="text-sm font-medium text-foreground">IP: {s.ip}</div>
+                  <div className="text-xs text-muted-foreground">Usuários indicados com este IP: {s.users.join(', ')}</div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="referrals" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="referrals">Indicações</TabsTrigger>
+          <TabsTrigger value="referrals">
+            Indicações {stats.flagged > 0 && <Badge variant="destructive" className="ml-2">{stats.flagged}</Badge>}
+          </TabsTrigger>
           <TabsTrigger value="withdrawals">
             Solicitações de Saque {stats.pendingWithdrawals > 0 && <Badge variant="destructive" className="ml-2">{stats.pendingWithdrawals}</Badge>}
           </TabsTrigger>
@@ -142,9 +214,10 @@ export const AdminReferrals: React.FC = () => {
         <TabsContent value="referrals">
           <Card className="modern-card bg-gradient-to-br from-card to-card/80 border-border/40">
             <CardHeader>
-              <CardTitle className="text-foreground">Indicações</CardTitle>
+              <CardTitle className="text-foreground">Todas as Indicações</CardTitle>
               <CardDescription className="text-muted-foreground">
-                <Input placeholder="Pesquisar" value={search} onChange={e => setSearch(e.target.value)} className="max-w-xs mt-2" />
+                Informações completas de cada indicação para auditoria
+                <Input placeholder="Pesquisar por nome, email ou UID..." value={search} onChange={e => setSearch(e.target.value)} className="max-w-sm mt-2" />
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -155,44 +228,80 @@ export const AdminReferrals: React.FC = () => {
                   <Table>
                     <TableHeader>
                       <TableRow className="border-border/40">
+                        <TableHead className="text-muted-foreground">⚠</TableHead>
                         <TableHead className="text-muted-foreground">Quem indicou</TableHead>
                         <TableHead className="text-muted-foreground">Indicado</TableHead>
                         <TableHead className="text-muted-foreground">Status</TableHead>
                         <TableHead className="text-muted-foreground">Assinatura</TableHead>
+                        <TableHead className="text-muted-foreground">IP Indicador</TableHead>
+                        <TableHead className="text-muted-foreground">IP Indicado</TableHead>
                         <TableHead className="text-muted-foreground">Ganho (R$)</TableHead>
                         <TableHead className="text-muted-foreground">Dias</TableHead>
                         <TableHead className="text-muted-foreground">Criado</TableHead>
+                        <TableHead className="text-muted-foreground">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filtered.map(r => (
-                        <TableRow key={r.id} className="border-border/40">
-                          <TableCell className="text-foreground">
-                            <div className="text-sm">{r.referrerEmail || r.referrerUid}</div>
-                            <div className="text-xs text-muted-foreground">{r.referrerUid}</div>
+                        <TableRow key={r.id} className={`border-border/40 ${r.flagged || r.sameIP ? 'bg-destructive/5' : ''}`}>
+                          <TableCell>
+                            {(r.flagged || r.sameIP) && (
+                              <AlertTriangle className="w-4 h-4 text-destructive" />
+                            )}
                           </TableCell>
                           <TableCell className="text-foreground">
-                            <div className="text-sm">{r.referredEmail || r.referredUid}</div>
-                            <div className="text-xs text-muted-foreground">{r.referredUid}</div>
+                            <div className="text-sm font-medium">{r.referrerName || r.referrerEmail || '-'}</div>
+                            <div className="text-xs text-muted-foreground">{r.referrerEmail}</div>
+                            <div className="text-[10px] text-muted-foreground/60 font-mono">{r.referrerUid}</div>
+                          </TableCell>
+                          <TableCell className="text-foreground">
+                            <div className="text-sm font-medium">{r.referredName || r.referredEmail || '-'}</div>
+                            <div className="text-xs text-muted-foreground">{r.referredEmail}</div>
+                            <div className="text-[10px] text-muted-foreground/60 font-mono">{r.referredUid}</div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={r.status === 'subscribed' ? 'default' : 'secondary'}>{r.status}</Badge>
+                            <Badge variant={r.status === 'subscribed' ? 'default' : 'secondary'}>
+                              {r.status === 'subscribed' ? 'Assinante' : 'Registrado'}
+                            </Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Badge variant={r.subscriptionActive ? 'default' : 'destructive'}>{r.subscriptionActive ? 'Ativa' : 'Inativa'}</Badge>
-                              {!r.subscriptionActive ? (
-                                <Button size="sm" onClick={() => handleActivate(r.referredUid)}>Ativar</Button>
-                              ) : (
-                                <Button size="sm" variant="outline" onClick={() => handleDeactivate(r.referredUid)}>Desativar</Button>
+                            <div className="flex flex-col gap-1">
+                              <Badge variant={r.subscriptionActive ? 'default' : 'destructive'}>
+                                {r.subscriptionActive ? 'Ativa' : 'Inativa'}
+                              </Badge>
+                              {r.referredUser && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  Expira: {r.referredUser.expiryDate ? new Date(r.referredUser.expiryDate).toLocaleDateString('pt-BR') : '-'}
+                                </span>
                               )}
+                              <div className="flex gap-1 mt-1">
+                                {!r.subscriptionActive ? (
+                                  <Button size="sm" className="h-6 text-xs" onClick={() => handleActivate(r.referredUid)}>Ativar</Button>
+                                ) : (
+                                  <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => handleDeactivate(r.referredUid)}>Desativar</Button>
+                                )}
+                              </div>
                             </div>
+                          </TableCell>
+                          <TableCell className={`text-xs font-mono ${r.sameIP ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+                            {r.referrerIP || r.referrerUser?.deviceInfo?.ip || '-'}
+                          </TableCell>
+                          <TableCell className={`text-xs font-mono ${r.sameIP ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+                            {r.referredIP || r.referredUser?.deviceInfo?.ip || '-'}
                           </TableCell>
                           <TableCell className="text-foreground font-medium">{(r.earnedTotal || 0).toFixed(2)}</TableCell>
                           <TableCell className="text-muted-foreground">{r.daysInPanel ?? 0}</TableCell>
                           <TableCell className="text-muted-foreground text-xs">{new Date(r.createdAt).toLocaleString('pt-BR')}</TableCell>
+                          <TableCell>
+                            <Button size="sm" variant="ghost" className="h-7" onClick={() => setDetailItem(r)}>
+                              <Eye className="w-3.5 h-3.5" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
+                      {filtered.length === 0 && (
+                        <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">Nenhuma indicação</TableCell></TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -209,7 +318,7 @@ export const AdminReferrals: React.FC = () => {
                 <Wallet className="w-5 h-5 text-primary" />
                 Solicitações de Saque
               </CardTitle>
-              <CardDescription className="text-muted-foreground">Aprove ou rejeite solicitações de saque dos indicadores</CardDescription>
+              <CardDescription className="text-muted-foreground">Aprove ou rejeite solicitações — confira os dados antes de liberar</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -222,48 +331,67 @@ export const AdminReferrals: React.FC = () => {
                       <TableHead className="text-muted-foreground">E-mail</TableHead>
                       <TableHead className="text-muted-foreground">Pix</TableHead>
                       <TableHead className="text-muted-foreground">Valor (R$)</TableHead>
+                      <TableHead className="text-muted-foreground">Indicados ativos</TableHead>
                       <TableHead className="text-muted-foreground">Status</TableHead>
                       <TableHead className="text-muted-foreground">Data</TableHead>
                       <TableHead className="text-muted-foreground">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {withdrawals.map(w => (
-                      <TableRow key={w.id} className="border-border/40">
-                        <TableCell className="text-foreground text-sm">{w.referrerEmail || w.referrerUid}</TableCell>
-                        <TableCell className="text-foreground text-sm">{w.name}</TableCell>
-                        <TableCell className="text-muted-foreground text-sm">{w.cpf}</TableCell>
-                        <TableCell className="text-muted-foreground text-sm">{w.email}</TableCell>
-                        <TableCell className="text-muted-foreground text-sm">{w.pixKey}</TableCell>
-                        <TableCell className="text-foreground font-medium">{w.amount.toFixed(2)}</TableCell>
-                        <TableCell><Badge variant={statusVariant(w.status)}>{statusLabel(w.status)}</Badge></TableCell>
-                        <TableCell className="text-muted-foreground text-xs">{new Date(w.createdAt).toLocaleString('pt-BR')}</TableCell>
-                        <TableCell>
-                          {w.status === 'pending' ? (
-                            <div className="space-y-2">
-                              <Textarea
-                                placeholder="Notas (opcional)"
-                                value={adminNotes[w.id!] || ''}
-                                onChange={e => setAdminNotes(prev => ({ ...prev, [w.id!]: e.target.value }))}
-                                className="text-xs min-h-[40px]"
-                              />
-                              <div className="flex gap-2">
-                                <Button size="sm" onClick={() => handleWithdrawalAction(w.id!, 'approved')}>
-                                  <CheckCircle className="w-3 h-3 mr-1" />Aprovar
-                                </Button>
-                                <Button size="sm" variant="destructive" onClick={() => handleWithdrawalAction(w.id!, 'rejected')}>
-                                  <XCircle className="w-3 h-3 mr-1" />Rejeitar
-                                </Button>
+                    {withdrawals.map(w => {
+                      const referrerRefs = items.filter(r => r.referrerUid === w.referrerUid);
+                      const activeCount = referrerRefs.filter(r => r.subscriptionActive).length;
+                      const hasFlagged = referrerRefs.some(r => r.flagged || r.sameIP);
+
+                      return (
+                        <TableRow key={w.id} className={`border-border/40 ${hasFlagged ? 'bg-destructive/5' : ''}`}>
+                          <TableCell className="text-foreground">
+                            <div className="text-sm">{w.referrerEmail || w.referrerUid}</div>
+                            {hasFlagged && (
+                              <div className="flex items-center gap-1 mt-1">
+                                <AlertTriangle className="w-3 h-3 text-destructive" />
+                                <span className="text-[10px] text-destructive">Indicações suspeitas</span>
                               </div>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">{w.adminNotes || '-'}</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                            )}
+                          </TableCell>
+                          <TableCell className="text-foreground text-sm">{w.name}</TableCell>
+                          <TableCell className="text-muted-foreground text-sm font-mono">{w.cpf}</TableCell>
+                          <TableCell className="text-muted-foreground text-sm">{w.email}</TableCell>
+                          <TableCell className="text-muted-foreground text-sm font-mono">{w.pixKey}</TableCell>
+                          <TableCell className="text-foreground font-medium">{w.amount.toFixed(2)}</TableCell>
+                          <TableCell className="text-foreground">
+                            <span className="font-medium">{activeCount}</span>
+                            <span className="text-muted-foreground">/{referrerRefs.length}</span>
+                          </TableCell>
+                          <TableCell><Badge variant={statusVariant(w.status)}>{statusLabel(w.status)}</Badge></TableCell>
+                          <TableCell className="text-muted-foreground text-xs">{new Date(w.createdAt).toLocaleString('pt-BR')}</TableCell>
+                          <TableCell>
+                            {w.status === 'pending' ? (
+                              <div className="space-y-2 min-w-[180px]">
+                                <Textarea
+                                  placeholder="Notas (opcional)"
+                                  value={adminNotes[w.id!] || ''}
+                                  onChange={e => setAdminNotes(prev => ({ ...prev, [w.id!]: e.target.value }))}
+                                  className="text-xs min-h-[40px]"
+                                />
+                                <div className="flex gap-2">
+                                  <Button size="sm" onClick={() => handleWithdrawalAction(w.id!, 'approved')}>
+                                    <CheckCircle className="w-3 h-3 mr-1" />Aprovar
+                                  </Button>
+                                  <Button size="sm" variant="destructive" onClick={() => handleWithdrawalAction(w.id!, 'rejected')}>
+                                    <XCircle className="w-3 h-3 mr-1" />Rejeitar
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">{w.adminNotes || '-'}</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                     {withdrawals.length === 0 && (
-                      <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nenhuma solicitação</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Nenhuma solicitação</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -272,6 +400,87 @@ export const AdminReferrals: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Detail Dialog */}
+      <Dialog open={!!detailItem} onOpenChange={open => !open && setDetailItem(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Detalhes da Indicação</DialogTitle>
+            <DialogDescription className="text-muted-foreground">Informações completas para auditoria</DialogDescription>
+          </DialogHeader>
+          {detailItem && (
+            <div className="space-y-4 text-sm">
+              {(detailItem.flagged || detailItem.sameIP) && (
+                <div className="p-3 rounded-lg border border-destructive/40 bg-destructive/10 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-destructive mt-0.5" />
+                  <div>
+                    <div className="font-medium text-destructive">Indicação suspeita</div>
+                    <div className="text-xs text-destructive/80">{detailItem.flagReason || 'Mesmo IP entre indicador e indicado'}</div>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Indicador</div>
+                  <div className="font-medium text-foreground">{detailItem.referrerName || '-'}</div>
+                  <div className="text-xs text-muted-foreground">{detailItem.referrerEmail}</div>
+                  <div className="text-[10px] font-mono text-muted-foreground/60">{detailItem.referrerUid}</div>
+                  <div className="text-xs text-muted-foreground mt-1">IP: {detailItem.referrerIP || detailItem.referrerUser?.deviceInfo?.ip || 'N/A'}</div>
+                  {detailItem.referrerUser?.deviceInfo?.dispositivo && (
+                    <div className="text-xs text-muted-foreground">Dispositivo: {detailItem.referrerUser.deviceInfo.dispositivo}</div>
+                  )}
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Indicado</div>
+                  <div className="font-medium text-foreground">{detailItem.referredName || '-'}</div>
+                  <div className="text-xs text-muted-foreground">{detailItem.referredEmail}</div>
+                  <div className="text-[10px] font-mono text-muted-foreground/60">{detailItem.referredUid}</div>
+                  <div className="text-xs text-muted-foreground mt-1">IP: {detailItem.referredIP || detailItem.referredUser?.deviceInfo?.ip || 'N/A'}</div>
+                  {detailItem.referredUser?.deviceInfo?.dispositivo && (
+                    <div className="text-xs text-muted-foreground">Dispositivo: {detailItem.referredUser.deviceInfo.dispositivo}</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border/40">
+                <div>
+                  <div className="text-xs text-muted-foreground">Status indicado</div>
+                  <div className="text-foreground">{detailItem.referredUser?.isActive ? '✅ Ativo' : '❌ Inativo'}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Expira em</div>
+                  <div className="text-foreground">{detailItem.referredUser?.expiryDate ? new Date(detailItem.referredUser.expiryDate).toLocaleDateString('pt-BR') : '-'}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Dias no painel</div>
+                  <div className="text-foreground">{detailItem.daysInPanel ?? 0}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Logins totais</div>
+                  <div className="text-foreground">{detailItem.referredUser?.totalLogins ?? 0}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Ganho total (R$)</div>
+                  <div className="text-foreground font-medium">{(detailItem.earnedTotal || 0).toFixed(2)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Criado em</div>
+                  <div className="text-foreground">{new Date(detailItem.createdAt).toLocaleString('pt-BR')}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Criado por</div>
+                  <div className="text-foreground">{detailItem.referredUser?.createdBy || '-'}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Último login</div>
+                  <div className="text-foreground">{detailItem.referredUser?.lastLogin ? new Date(detailItem.referredUser.lastLogin).toLocaleString('pt-BR') : 'Nunca'}</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

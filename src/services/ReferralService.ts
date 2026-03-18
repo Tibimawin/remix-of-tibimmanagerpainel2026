@@ -6,8 +6,10 @@ export interface Referral {
   id?: string;
   referrerUid: string;
   referrerEmail?: string;
+  referrerName?: string;
   referredUid: string;
   referredEmail?: string;
+  referredName?: string;
   createdAt: string;
   status: 'registered' | 'subscribed' | 'cancelled';
   subscriptionActive: boolean;
@@ -16,6 +18,12 @@ export interface Referral {
   earnedTotal: number;
   earningPerPayment: number;
   lastUpdated: string;
+  // Anti-fraude
+  sameIP?: boolean;
+  referrerIP?: string;
+  referredIP?: string;
+  flagged?: boolean;
+  flagReason?: string;
 }
 
 const REFERRALS_COLLECTION = 'referrals';
@@ -30,14 +38,37 @@ export const ReferralService = {
   },
 
   async createReferral(referrerUid: string, referredUid: string): Promise<Referral> {
+    // Anti-fraude: impedir auto-indicação
+    if (referrerUid === referredUid) {
+      throw new Error('Não é permitido indicar a si mesmo.');
+    }
+
+    // Anti-fraude: impedir indicação duplicada
+    const existing = await this.getReferralsByReferrer(referrerUid);
+    if (existing.some(r => r.referredUid === referredUid)) {
+      throw new Error('Este usuário já foi indicado por você.');
+    }
+
+    // Anti-fraude: verificar se o indicado já foi indicado por outra pessoa
+    const allRefs = await this.getAllReferrals();
+    if (allRefs.some(r => r.referredUid === referredUid)) {
+      throw new Error('Este usuário já foi indicado por outra pessoa.');
+    }
+
     const referrer = await FirebaseUserService.getUserById(referrerUid);
     const referred = await FirebaseUserService.getUserById(referredUid);
+
+    // Anti-fraude: detectar mesmo IP
+    const sameIP = referrer?.deviceInfo?.ip && referred?.deviceInfo?.ip &&
+      referrer.deviceInfo.ip === referred.deviceInfo.ip;
 
     const payload: Omit<Referral, 'id'> = {
       referrerUid,
       referrerEmail: referrer?.email,
+      referrerName: referrer?.name,
       referredUid,
       referredEmail: referred?.email,
+      referredName: referred?.name,
       createdAt: new Date().toISOString(),
       status: 'registered',
       subscriptionActive: false,
@@ -45,7 +76,12 @@ export const ReferralService = {
       monthlyPayout: MONTHLY_PAYOUT,
       earnedTotal: 0,
       earningPerPayment: MONTHLY_PAYOUT,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
+      sameIP: !!sameIP,
+      referrerIP: referrer?.deviceInfo?.ip || '',
+      referredIP: referred?.deviceInfo?.ip || '',
+      flagged: !!sameIP,
+      flagReason: sameIP ? 'Mesmo IP detectado entre indicador e indicado' : ''
     };
 
     const docRef = await addDoc(collection(db, REFERRALS_COLLECTION), payload);
