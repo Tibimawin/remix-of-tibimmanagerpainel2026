@@ -6,8 +6,10 @@ export interface Referral {
   id?: string;
   referrerUid: string;
   referrerEmail?: string;
+  referrerName?: string;
   referredUid: string;
   referredEmail?: string;
+  referredName?: string;
   createdAt: string;
   status: 'registered' | 'subscribed' | 'cancelled';
   subscriptionActive: boolean;
@@ -16,6 +18,12 @@ export interface Referral {
   earnedTotal: number;
   earningPerPayment: number;
   lastUpdated: string;
+  // Anti-fraude
+  sameIP?: boolean;
+  referrerIP?: string;
+  referredIP?: string;
+  flagged?: boolean;
+  flagReason?: string;
 }
 
 const REFERRALS_COLLECTION = 'referrals';
