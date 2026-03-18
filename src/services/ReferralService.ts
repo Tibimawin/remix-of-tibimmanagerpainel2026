@@ -65,8 +65,10 @@ export const ReferralService = {
     const payload: Omit<Referral, 'id'> = {
       referrerUid,
       referrerEmail: referrer?.email,
+      referrerName: referrer?.name,
       referredUid,
       referredEmail: referred?.email,
+      referredName: referred?.name,
       createdAt: new Date().toISOString(),
       status: 'registered',
       subscriptionActive: false,
@@ -74,7 +76,12 @@ export const ReferralService = {
       monthlyPayout: MONTHLY_PAYOUT,
       earnedTotal: 0,
       earningPerPayment: MONTHLY_PAYOUT,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
+      sameIP: !!sameIP,
+      referrerIP: referrer?.deviceInfo?.ip || '',
+      referredIP: referred?.deviceInfo?.ip || '',
+      flagged: !!sameIP,
+      flagReason: sameIP ? 'Mesmo IP detectado entre indicador e indicado' : ''
     };
 
     const docRef = await addDoc(collection(db, REFERRALS_COLLECTION), payload);
