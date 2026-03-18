@@ -6,10 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ReferralService, Referral } from '@/services/ReferralService';
 import { WithdrawalService, WithdrawalRequest } from '@/services/WithdrawalService';
 import { FirebaseUserService, FirebaseUser } from '@/services/FirebaseUserService';
-import { TrendingUp, Wallet, CheckCircle, XCircle, AlertTriangle, Shield, RefreshCw, Eye, Download, FileText, FileSpreadsheet } from 'lucide-react';
+import { TrendingUp, Wallet, CheckCircle, XCircle, AlertTriangle, Shield, RefreshCw, Eye, Download, FileText, FileSpreadsheet, CalendarIcon, X } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import { toast } from 'sonner';
 import {
@@ -31,6 +36,8 @@ export const AdminReferrals: React.FC = () => {
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
   const [detailItem, setDetailItem] = useState<EnrichedReferral | null>(null);
 
@@ -63,13 +70,25 @@ export const AdminReferrals: React.FC = () => {
     }
   };
 
+  const inDateRange = (dateStr: string) => {
+    const d = new Date(dateStr);
+    if (dateFrom && d < new Date(dateFrom.setHours(0, 0, 0, 0))) return false;
+    if (dateTo && d > new Date(new Date(dateTo).setHours(23, 59, 59, 999))) return false;
+    return true;
+  };
+
   const filtered = useMemo(() => {
     const s = search.toLowerCase();
-    if (!s) return items;
-    return items.filter(r =>
-      `${r.referrerEmail || ''} ${r.referredEmail || ''} ${r.referrerName || ''} ${r.referredName || ''} ${r.referrerUid} ${r.referredUid}`.toLowerCase().includes(s)
-    );
-  }, [search, items]);
+    return items.filter(r => {
+      if (!inDateRange(r.createdAt)) return false;
+      if (!s) return true;
+      return `${r.referrerEmail || ''} ${r.referredEmail || ''} ${r.referrerName || ''} ${r.referredName || ''} ${r.referrerUid} ${r.referredUid}`.toLowerCase().includes(s);
+    });
+  }, [search, items, dateFrom, dateTo]);
+
+  const filteredWithdrawals = useMemo(() => {
+    return withdrawals.filter(w => inDateRange(w.createdAt));
+  }, [withdrawals, dateFrom, dateTo]);
 
   const handleActivate = async (uid: string) => {
     try {
@@ -96,14 +115,14 @@ export const AdminReferrals: React.FC = () => {
   };
 
   const stats = useMemo(() => ({
-    total: items.length,
-    subscribed: items.filter(r => r.subscriptionActive).length,
-    registered: items.filter(r => r.status === 'registered').length,
-    totalEarnings: items.reduce((s, r) => s + (r.earnedTotal || 0), 0),
-    pendingWithdrawals: withdrawals.filter(w => w.status === 'pending').length,
-    approvedTotal: withdrawals.filter(w => w.status === 'approved').reduce((s, w) => s + w.amount, 0),
-    flagged: items.filter(r => r.flagged || r.sameIP).length
-  }), [items, withdrawals]);
+    total: filtered.length,
+    subscribed: filtered.filter(r => r.subscriptionActive).length,
+    registered: filtered.filter(r => r.status === 'registered').length,
+    totalEarnings: filtered.reduce((s, r) => s + (r.earnedTotal || 0), 0),
+    pendingWithdrawals: filteredWithdrawals.filter(w => w.status === 'pending').length,
+    approvedTotal: filteredWithdrawals.filter(w => w.status === 'approved').reduce((s, w) => s + w.amount, 0),
+    flagged: filtered.filter(r => r.flagged || r.sameIP).length
+  }), [filtered, filteredWithdrawals]);
 
   // Detectar IPs duplicados entre diferentes indicações
   const suspiciousIPs = useMemo(() => {
@@ -131,7 +150,7 @@ export const AdminReferrals: React.FC = () => {
 
   const exportReferralsCSV = () => {
     const headers = ['Indicador','Email Indicador','UID Indicador','Indicado','Email Indicado','UID Indicado','Status','Assinatura Ativa','IP Indicador','IP Indicado','Mesmo IP','Suspeito','Ganho Total (R$)','Dias no Painel','Criado em'];
-    const rows = items.map(r => [
+    const rows = filtered.map(r => [
       r.referrerName || '', r.referrerEmail || '', r.referrerUid, r.referredName || '', r.referredEmail || '', r.referredUid,
       r.status === 'subscribed' ? 'Assinante' : 'Registrado', r.subscriptionActive ? 'Sim' : 'Não',
       r.referrerIP || '', r.referredIP || '', r.sameIP ? 'Sim' : 'Não', r.flagged ? 'Sim' : 'Não',
@@ -142,7 +161,7 @@ export const AdminReferrals: React.FC = () => {
 
   const exportWithdrawalsCSV = () => {
     const headers = ['Solicitante','Nome','CPF','Email','Chave Pix','Valor (R$)','Status','Notas Admin','Data Solicitação','Última Atualização'];
-    const rows = withdrawals.map(w => [
+    const rows = filteredWithdrawals.map(w => [
       w.referrerEmail || w.referrerUid, w.name, w.cpf, w.email, w.pixKey,
       w.amount.toFixed(2), statusLabel(w.status), w.adminNotes || '',
       new Date(w.createdAt).toLocaleString('pt-BR'), new Date(w.updatedAt).toLocaleString('pt-BR')
@@ -172,7 +191,10 @@ export const AdminReferrals: React.FC = () => {
     pdf.text('Relatório de Indicações e Saques', 14, y);
     y += 8;
     pdf.setFontSize(9);
-    pdf.text(`Gerado em: ${now}`, 14, y);
+    const periodLabel = dateFrom || dateTo
+      ? `Período: ${dateFrom ? format(dateFrom, 'dd/MM/yyyy') : '...'} até ${dateTo ? format(dateTo, 'dd/MM/yyyy') : '...'}`
+      : 'Período: Todos';
+    pdf.text(`Gerado em: ${now} | ${periodLabel}`, 14, y);
     y += 10;
 
     // Resumo
@@ -201,7 +223,7 @@ export const AdminReferrals: React.FC = () => {
     refHeaders.forEach((h, i) => { pdf.text(h, x, y); x += colW[i]; });
     y += 5;
 
-    items.forEach(r => {
+    filtered.forEach(r => {
       if (y > 190) { pdf.addPage(); y = 15; }
       x = 14;
       const vals = [
@@ -232,7 +254,7 @@ export const AdminReferrals: React.FC = () => {
     wHeaders.forEach((h, i) => { pdf.text(h, x, y); x += wColW[i]; });
     y += 5;
 
-    withdrawals.forEach(w => {
+    filteredWithdrawals.forEach(w => {
       if (y > 190) { pdf.addPage(); y = 15; }
       x = 14;
       const vals = [
@@ -284,6 +306,44 @@ export const AdminReferrals: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Filtros de período */}
+          <div className="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-lg border border-border/40 bg-muted/5">
+            <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground font-medium">Período:</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn("w-[150px] justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                  {dateFrom ? format(dateFrom, 'dd/MM/yyyy') : 'Data início'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} locale={ptBR} />
+              </PopoverContent>
+            </Popover>
+            <span className="text-muted-foreground text-sm">até</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn("w-[150px] justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                  {dateTo ? format(dateTo, 'dd/MM/yyyy') : 'Data fim'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus className={cn("p-3 pointer-events-auto")} locale={ptBR} />
+              </PopoverContent>
+            </Popover>
+            {(dateFrom || dateTo) && (
+              <Button variant="ghost" size="sm" onClick={() => { setDateFrom(undefined); setDateTo(undefined); }}>
+                <X className="w-3.5 h-3.5 mr-1" /> Limpar
+              </Button>
+            )}
+            {(dateFrom || dateTo) && (
+              <span className="text-xs text-muted-foreground ml-auto">
+                Mostrando {filtered.length} indicações e {filteredWithdrawals.length} saques no período
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
             <div className="p-4 rounded-xl border border-border/40 bg-muted/10">
               <div className="text-xs text-muted-foreground">Total</div>
@@ -479,7 +539,7 @@ export const AdminReferrals: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {withdrawals.map(w => {
+                    {filteredWithdrawals.map(w => {
                       const referrerRefs = items.filter(r => r.referrerUid === w.referrerUid);
                       const activeCount = referrerRefs.filter(r => r.subscriptionActive).length;
                       const hasFlagged = referrerRefs.some(r => r.flagged || r.sameIP);
@@ -531,7 +591,7 @@ export const AdminReferrals: React.FC = () => {
                         </TableRow>
                       );
                     })}
-                    {withdrawals.length === 0 && (
+                    {filteredWithdrawals.length === 0 && (
                       <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Nenhuma solicitação</TableCell></TableRow>
                     )}
                   </TableBody>
