@@ -9,7 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { ReferralService, Referral } from '@/services/ReferralService';
 import { WithdrawalService, WithdrawalRequest } from '@/services/WithdrawalService';
 import { FirebaseUserService, FirebaseUser } from '@/services/FirebaseUserService';
-import { TrendingUp, Wallet, CheckCircle, XCircle, AlertTriangle, Shield, RefreshCw, Eye } from 'lucide-react';
+import { TrendingUp, Wallet, CheckCircle, XCircle, AlertTriangle, Shield, RefreshCw, Eye, Download, FileText, FileSpreadsheet } from 'lucide-react';
+import jsPDF from 'jspdf';
 import { toast } from 'sonner';
 import {
   Dialog,
