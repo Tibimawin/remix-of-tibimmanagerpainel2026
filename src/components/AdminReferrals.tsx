@@ -263,10 +263,24 @@ export const AdminReferrals: React.FC = () => {
               <Shield className="w-5 h-5 text-primary" />
               Monitor Anti-Fraude de Indicações
             </CardTitle>
-            <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Atualizar
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={exportFullPDF} disabled={loading || items.length === 0}>
+                <FileText className="w-4 h-4 mr-2" />
+                PDF
+              </Button>
+              <Button variant="outline" size="sm" onClick={exportReferralsCSV} disabled={loading || items.length === 0}>
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                CSV Indicações
+              </Button>
+              <Button variant="outline" size="sm" onClick={exportWithdrawalsCSV} disabled={loading || withdrawals.length === 0}>
+                <Download className="w-4 h-4 mr-2" />
+                CSV Saques
+              </Button>
+              <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Atualizar
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
