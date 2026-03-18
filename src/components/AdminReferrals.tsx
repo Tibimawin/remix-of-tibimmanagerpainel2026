@@ -539,7 +539,7 @@ export const AdminReferrals: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {withdrawals.map(w => {
+                    {filteredWithdrawals.map(w => {
                       const referrerRefs = items.filter(r => r.referrerUid === w.referrerUid);
                       const activeCount = referrerRefs.filter(r => r.subscriptionActive).length;
                       const hasFlagged = referrerRefs.some(r => r.flagged || r.sameIP);
