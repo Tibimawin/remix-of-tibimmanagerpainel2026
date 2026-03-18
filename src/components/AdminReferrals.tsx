@@ -306,6 +306,44 @@ export const AdminReferrals: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Filtros de período */}
+          <div className="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-lg border border-border/40 bg-muted/5">
+            <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground font-medium">Período:</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn("w-[150px] justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                  {dateFrom ? format(dateFrom, 'dd/MM/yyyy') : 'Data início'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} locale={ptBR} />
+              </PopoverContent>
+            </Popover>
+            <span className="text-muted-foreground text-sm">até</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn("w-[150px] justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                  {dateTo ? format(dateTo, 'dd/MM/yyyy') : 'Data fim'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus className={cn("p-3 pointer-events-auto")} locale={ptBR} />
+              </PopoverContent>
+            </Popover>
+            {(dateFrom || dateTo) && (
+              <Button variant="ghost" size="sm" onClick={() => { setDateFrom(undefined); setDateTo(undefined); }}>
+                <X className="w-3.5 h-3.5 mr-1" /> Limpar
+              </Button>
+            )}
+            {(dateFrom || dateTo) && (
+              <span className="text-xs text-muted-foreground ml-auto">
+                Mostrando {filtered.length} indicações e {filteredWithdrawals.length} saques no período
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
             <div className="p-4 rounded-xl border border-border/40 bg-muted/10">
               <div className="text-xs text-muted-foreground">Total</div>
