@@ -591,7 +591,7 @@ export const AdminReferrals: React.FC = () => {
                         </TableRow>
                       );
                     })}
-                    {withdrawals.length === 0 && (
+                    {filteredWithdrawals.length === 0 && (
                       <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Nenhuma solicitação</TableCell></TableRow>
                     )}
                   </TableBody>
