@@ -115,14 +115,14 @@ export const AdminReferrals: React.FC = () => {
   };
 
   const stats = useMemo(() => ({
-    total: items.length,
-    subscribed: items.filter(r => r.subscriptionActive).length,
-    registered: items.filter(r => r.status === 'registered').length,
-    totalEarnings: items.reduce((s, r) => s + (r.earnedTotal || 0), 0),
-    pendingWithdrawals: withdrawals.filter(w => w.status === 'pending').length,
-    approvedTotal: withdrawals.filter(w => w.status === 'approved').reduce((s, w) => s + w.amount, 0),
-    flagged: items.filter(r => r.flagged || r.sameIP).length
-  }), [items, withdrawals]);
+    total: filtered.length,
+    subscribed: filtered.filter(r => r.subscriptionActive).length,
+    registered: filtered.filter(r => r.status === 'registered').length,
+    totalEarnings: filtered.reduce((s, r) => s + (r.earnedTotal || 0), 0),
+    pendingWithdrawals: filteredWithdrawals.filter(w => w.status === 'pending').length,
+    approvedTotal: filteredWithdrawals.filter(w => w.status === 'approved').reduce((s, w) => s + w.amount, 0),
+    flagged: filtered.filter(r => r.flagged || r.sameIP).length
+  }), [filtered, filteredWithdrawals]);
 
   // Detectar IPs duplicados entre diferentes indicações
   const suspiciousIPs = useMemo(() => {
