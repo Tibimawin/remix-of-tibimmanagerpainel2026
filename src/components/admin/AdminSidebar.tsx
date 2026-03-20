@@ -30,6 +30,7 @@ const menuItems = [
   { id: 'products', label: 'Produtos', icon: Package, category: 'management' },
   { id: 'offers', label: 'Ofertas', icon: Tag, category: 'management' },
   { id: 'referrals', label: 'Indicações', icon: Users, category: 'management', isNew: true },
+  { id: 'api-keys', label: '🔑 API Keys', icon: Key, category: 'management', isNew: true },
   { id: 'announcements', label: 'Anúncios', icon: Megaphone, category: 'management' },
   { id: 'system-updates', label: '🎉 Atualizações do Sistema', icon: Sparkles, category: 'management', isNew: true },
 

@@ -1,0 +1,242 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Key, RefreshCw, Shield, Copy, Trash2, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { ApiKeyService, ApiKeyData } from '@/services/ApiKeyService';
+import { toast } from 'sonner';
+
+const AdminApiKeys: React.FC = () => {
+  const [keys, setKeys] = useState<ApiKeyData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  const fetchKeys = async () => {
+    setIsLoading(true);
+    try {
+      const allKeys = await ApiKeyService.listAllKeys();
+      setKeys(allKeys);
+    } catch (error) {
+      console.error('Erro ao carregar API Keys:', error);
+      toast.error('Erro ao carregar API Keys');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchKeys();
+  }, []);
+
+  const handleToggleKey = async (key: ApiKeyData) => {
+    try {
+      if (key.active) {
+        await ApiKeyService.revokeKey(key.id!);
+        toast.success(`Chave de ${key.userEmail} bloqueada`);
+      } else {
+        await ApiKeyService.activateKey(key.id!);
+        toast.success(`Chave de ${key.userEmail} desbloqueada`);
+      }
+      fetchKeys();
+    } catch (error) {
+      toast.error('Erro ao alterar status da chave');
+    }
+  };
+
+  const handleDeleteKey = async (key: ApiKeyData) => {
+    if (!confirm(`Tem certeza que deseja excluir a chave "${key.name}" de ${key.userEmail}?`)) return;
+    try {
+      await ApiKeyService.deleteKey(key.id!);
+      toast.success('Chave excluída');
+      fetchKeys();
+    } catch (error) {
+      toast.error('Erro ao excluir chave');
+    }
+  };
+
+  const copyKey = (keyValue: string) => {
+    navigator.clipboard.writeText(keyValue);
+    toast.success('Chave copiada!');
+  };
+
+  const filteredKeys = keys.filter(k =>
+    k.userEmail?.toLowerCase().includes(search.toLowerCase()) ||
+    k.name?.toLowerCase().includes(search.toLowerCase()) ||
+    k.key?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const activeCount = keys.filter(k => k.active).length;
+  const totalRequests = keys.reduce((sum, k) => sum + (k.requestCount || 0), 0);
+
+  return (
+    <div className="space-y-6">
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="modern-card border-border/40">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Key className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{keys.length}</p>
+                <p className="text-xs text-muted-foreground">Total de Chaves</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="modern-card border-border/40">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                <Shield className="w-5 h-5 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{activeCount}</p>
+                <p className="text-xs text-muted-foreground">Chaves Ativas</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="modern-card border-border/40">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+                <RefreshCw className="w-5 h-5 text-accent" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{totalRequests.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Total de Requisições</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Table */}
+      <Card className="modern-card border-border/40">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-foreground flex items-center gap-2">
+                <Key className="w-5 h-5 text-primary" />
+                API Keys dos Usuários
+              </CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Gerencie todas as chaves de API geradas pelos usuários
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={fetchKeys} disabled={isLoading}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+          </div>
+          <div className="relative mt-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por email, nome ou chave..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
+              <p className="text-muted-foreground">Carregando chaves...</p>
+            </div>
+          ) : filteredKeys.length === 0 ? (
+            <div className="text-center py-12">
+              <Key className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-foreground font-medium">Nenhuma API Key encontrada</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {search ? 'Nenhum resultado para essa busca' : 'Os usuários ainda não geraram chaves de API'}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border/40">
+                    <TableHead className="text-muted-foreground">Usuário</TableHead>
+                    <TableHead className="text-muted-foreground">Nome da Chave</TableHead>
+                    <TableHead className="text-muted-foreground">Chave</TableHead>
+                    <TableHead className="text-muted-foreground">Requisições</TableHead>
+                    <TableHead className="text-muted-foreground">Limite</TableHead>
+                    <TableHead className="text-muted-foreground">Último Uso</TableHead>
+                    <TableHead className="text-muted-foreground">Status</TableHead>
+                    <TableHead className="text-muted-foreground">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredKeys.map((apiKey) => (
+                    <TableRow key={apiKey.id} className="border-border/40 hover:bg-muted/10">
+                      <TableCell className="text-foreground font-medium">
+                        <div>
+                          <p className="text-sm">{apiKey.userEmail}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{apiKey.userId?.slice(0, 8)}...</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-foreground">{apiKey.name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs text-muted-foreground bg-muted/20 px-2 py-1 rounded font-mono">
+                            {apiKey.key?.slice(0, 16)}...
+                          </code>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyKey(apiKey.key)}>
+                            <Copy className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="font-mono">
+                          {(apiKey.requestCount || 0).toLocaleString()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {apiKey.rateLimit || 60}/min
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {apiKey.lastUsedAt
+                          ? new Date(apiKey.lastUsedAt.seconds ? apiKey.lastUsedAt.seconds * 1000 : apiKey.lastUsedAt).toLocaleString('pt-BR')
+                          : 'Nunca'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={apiKey.active}
+                            onCheckedChange={() => handleToggleKey(apiKey)}
+                          />
+                          <Badge variant={apiKey.active ? 'default' : 'destructive'} className="text-xs">
+                            {apiKey.active ? 'Ativa' : 'Bloqueada'}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteKey(apiKey)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default AdminApiKeys;

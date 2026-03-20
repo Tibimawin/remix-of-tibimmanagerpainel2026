@@ -410,6 +410,8 @@ const AdminDashboard = () => {
         return <AdminFinancialDashboard />;
       case 'planos-config':
         return <AdminPlanosConfig />;
+      case 'api-keys':
+        return <AdminApiKeys />;
       default:
         return <div className="text-foreground">Selecione uma opção do menu</div>;
     }
