@@ -1,92 +1,83 @@
 
 
-## Importacao via DNS/IPTV - Fonte por URL com usuario e senha
+# Sistema de API Pública para Usuários — Sem Edge Functions
 
-### O que o usuario quer
+## Resumo
 
-Em vez de baixar um arquivo M3U manualmente e fazer upload, o sistema deve permitir conectar diretamente a uma fonte IPTV usando:
-- **URL do servidor** (ex: `http://appmyflix.com.br`)
-- **Usuario** (ex: `tibimteste`)
-- **Senha** (ex: `151215`)
+Cada usuário gera sua própria API Key no painel. Essa chave é usada para acessar conteúdos via uma **Vercel Serverless Function** (`api/public-api.js`) que valida a chave, busca dados no Baserow com o token admin (server-side), e retorna JSON limpo. Nenhuma Edge Function do Supabase é usada.
 
-O sistema monta automaticamente a URL `http://servidor/get.php?username=X&password=Y&type=m3u_plus`, busca o conteudo M3U e processa normalmente com o importador existente.
-
-### Como vai funcionar
+## Arquitetura
 
 ```text
-Usuario preenche: URL + Usuario + Senha
-         |
-Sistema monta: http://url/get.php?username=X&password=Y&type=m3u_plus
-         |
-Faz fetch da URL (via proxy para evitar CORS)
-         |
-Recebe o conteudo M3U como texto
-         |
-Passa para o mesmo parseM3UAdvanced() que ja existe
-         |
-Segue o fluxo normal: preview -> importacao
+Site/App do Usuário                Vercel Serverless              Baserow
+─────────────────                  ─────────────────              ───────
+GET /api/public-api                api/public-api.js
+  ?api_key=pk_live_xxx     ──►     1. Valida chave no Firestore
+  &endpoint=conteudos              2. Verifica rate limit
+                                   3. Busca no Baserow (token admin)  ──►  Dados
+                             ◄──   4. Filtra campos sensíveis         ◄──
+  JSON response              ◄──   5. Retorna JSON paginado
 ```
 
-### Vantagem principal
-Quando houver atualizacao na fonte, basta clicar "Buscar" novamente com as mesmas credenciais -- nao precisa baixar arquivo de novo.
+## Etapas
 
----
+### 1. Criar `src/services/ApiKeyService.ts`
 
-### Mudancas tecnicas
+Serviço Firebase para gerenciar API Keys:
+- `generateApiKey(userId, name)` — gera chave `pk_live_` + UUID, salva na coleção `apiKeys` do Firestore
+- `listUserKeys(userId)` — lista chaves do usuário
+- `revokeKey(keyId)` — desativa uma chave
+- `getKeyStats(keyId)` — retorna estatísticas de uso
 
-#### 1. Atualizar `src/components/M3UImporter.tsx`
+Campos na coleção `apiKeys`: `key`, `userId`, `userEmail`, `name`, `active`, `createdAt`, `lastUsedAt`, `requestCount`, `rateLimit` (padrão 60/min)
 
-**Adicionar opcao de fonte (arquivo vs URL/DNS):**
-- Novo estado `sourceType`: `'file'` ou `'dns'`
-- Novos estados: `dnsUrl`, `dnsUsername`, `dnsPassword`
-- Radio buttons no topo para escolher entre "Arquivo M3U" e "Fonte DNS/IPTV"
+### 2. Criar `api/public-api.js` (Vercel Serverless Function)
 
-**Adicionar UI de credenciais DNS:**
-- Quando `sourceType === 'dns'`, mostrar 3 campos: URL do servidor, Usuario, Senha
-- Botao "Buscar Lista" que monta a URL e faz fetch
+Endpoint público que:
+- Recebe `api_key` e `endpoint` via query params
+- Valida a chave usando Firebase Admin SDK (via REST API do Firestore, sem SDK pesado)
+- Se válida: busca dados no Baserow usando token admin hardcoded no server (env var)
+- Atualiza `lastUsedAt` e `requestCount` no Firestore
+- Rate limiting simples: rejeita se `requestCount` do último minuto excede o limite
+- Endpoints suportados: `conteudos`, `episodios`, `categorias`, `busca`
+- Retorna JSON paginado, sem campos sensíveis
 
-**Adicionar funcao `handleFetchDNS`:**
-- Monta a URL: `${dnsUrl}/get.php?username=${dnsUsername}&password=${dnsPassword}&type=m3u_plus`
-- Faz fetch via proxy Vercel (`/api/baserow-proxy` reutilizado ou novo endpoint simples)
-- Recebe o texto M3U
-- Chama `parseM3UAdvanced(content)` -- mesmo parser do arquivo
-- Segue o fluxo normal (preview, importacao)
+Precisa configurar no `vercel.json` o timeout maior para essa function.
 
-**Botao "Processar e Visualizar":**
-- Quando fonte e DNS, usa o conteudo buscado em vez do arquivo
-- O resto do fluxo permanece identico
+### 3. Criar página `src/pages/MinhaApi.tsx`
 
-#### 2. Criar proxy para buscar M3U de URLs externas
+Interface do usuário com:
+- Botão "Gerar Nova API Key" (máximo 3 por usuário)
+- Lista de chaves com ações: copiar, revogar, regenerar
+- Estatísticas: total de requisições, última utilização
+- Documentação inline com exemplos de uso (curl, JavaScript fetch, Python)
+- Área de teste rápido (inserir endpoint e ver resultado ao vivo)
 
-**Arquivo:** `api/m3u-proxy.js` (Vercel serverless function)
+### 4. Adicionar rota e menu
 
-Necessario para evitar CORS. O proxy recebe a URL completa e retorna o conteudo M3U como texto.
+- **`src/App.tsx`**: Nova rota `/minha-api` protegida com `SimpleProtectedRoute`
+- **`src/components/user/UserSidebar.tsx`**: Novo item "Integração API" com ícone `Key`, na categoria principal, com badge "new"
 
-```text
-POST /api/m3u-proxy
-Body: { url: "http://appmyflix.com.br/get.php?username=X&password=Y&type=m3u_plus" }
-Retorna: conteudo M3U como texto
-```
+### 5. Atualizar `vercel.json`
 
-#### 3. Salvar credenciais DNS opcionalmente
+Adicionar config para `api/public-api.js` com timeout de 30s.
 
-**Arquivo:** `src/services/UserConfigService.ts`
+## Detalhes Técnicos
 
-Salvar as credenciais DNS no Firestore do usuario (`userConfigs/{userId}/dnsConfig`) para que ele nao precise digitar toda vez. Campos:
-- `dnsUrl`
-- `dnsUsername`
-- `dnsPassword`
-- `lastFetchedAt`
+- O token do Baserow fica apenas no server (Vercel env var `BASEROW_ADMIN_TOKEN`), nunca exposto ao cliente
+- A validação da API Key no `public-api.js` usa a REST API do Firestore (`https://firestore.googleapis.com/v1/...`) com a service account key, sem precisar do Firebase Admin SDK completo
+- Alternativamente, pode-se usar a Firestore REST API com a API key pública para queries na coleção `apiKeys` (com regras de segurança adequadas)
+- Dados retornados são filtrados: remove campos como IPs, tokens, senhas, dados internos
+- Paginação: `?page=1&size=20` (padrão 20, máximo 100)
 
-### Arquivos afetados
+## Arquivos
 
-1. `src/components/M3UImporter.tsx` - Adicionar UI de fonte DNS e logica de fetch
-2. `api/m3u-proxy.js` - Novo proxy Vercel para buscar M3U de URLs externas (evitar CORS)
-3. `src/services/UserConfigService.ts` - Metodo para salvar/carregar credenciais DNS do usuario
+| Arquivo | Ação |
+|---------|------|
+| `src/services/ApiKeyService.ts` | Criar — CRUD de API Keys no Firestore |
+| `api/public-api.js` | Criar — Gateway Vercel que valida key e busca no Baserow |
+| `src/pages/MinhaApi.tsx` | Criar — UI de gerenciamento de keys + docs |
+| `src/App.tsx` | Editar — Adicionar rota `/minha-api` |
+| `src/components/user/UserSidebar.tsx` | Editar — Adicionar item "Integração API" no menu |
+| `vercel.json` | Editar — Config da nova function |
 
-### Riscos e consideracoes
-
-- **CORS**: Buscar URLs externas direto do navegador sera bloqueado. O proxy Vercel resolve isso
-- **Seguranca**: As credenciais DNS sao do usuario e ficam salvas no Firestore dele (mesmo padrao das API keys TMDB/OMDB)
-- **Listas grandes**: O fetch pode demorar para listas muito grandes. Sera adicionado indicador de loading
-- **Compatibilidade**: O formato `get.php?username=X&password=Y&type=m3u_plus` e o padrao de paineis Xtream Codes, que e o mais comum no mercado IPTV
