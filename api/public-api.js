@@ -20,7 +20,7 @@ const TABLE_IDS = {
 };
 
 // Fields to remove from responses (sensitive data)
-const SENSITIVE_FIELDS = ['token', 'password', 'senha', 'api_key', 'secret', 'ip_address'];
+const SENSITIVE_FIELDS = ['token', 'password', 'senha', 'api_key', 'secret', 'ip_address', 'favoritos', 'histórico', 'historico', 'link', 'uid'];
 
 function sanitizeData(data) {
   if (Array.isArray(data)) return data.map(sanitizeData);
