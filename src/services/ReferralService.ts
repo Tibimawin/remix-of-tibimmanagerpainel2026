@@ -80,7 +80,7 @@ export const ReferralService = {
       createdAt: new Date().toISOString(),
       status: 'registered',
       subscriptionActive: false,
-      activatedAt: undefined,
+      activatedAt: null,
       monthlyPayout: MONTHLY_PAYOUT,
       earnedTotal: 0,
       earningPerPayment: MONTHLY_PAYOUT,
