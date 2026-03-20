@@ -349,6 +349,36 @@ const MinhaApi = () => {
                   <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">q</span> — Termo de busca (apenas para endpoint=busca)</p>
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold text-foreground">Campos Retornados</h3>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Cada item retornado contém os seguintes campos. Campos sensíveis são automaticamente removidos por segurança.
+                </p>
+                <div className="bg-muted/50 rounded-lg p-3 border border-border space-y-1">
+                  <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">id</span> — Identificador único</p>
+                  <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">Nome</span> — Nome do conteúdo</p>
+                  <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">Capa</span> — URL da imagem de capa</p>
+                  <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">Categoria</span> — Categorias do conteúdo</p>
+                  <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">Sinopse</span> — Descrição do conteúdo</p>
+                  <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">Tipo</span> — Tipo (Filme, Série, TV, Anime)</p>
+                  <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">Idioma</span> — Idioma do conteúdo</p>
+                  <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">Views</span> — Número de visualizações</p>
+                  <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">Data</span> — Data de cadastro</p>
+                  <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">Temporadas</span> — Temporadas (para séries)</p>
+                  <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">Imdb</span> — ID do IMDb</p>
+                  <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">Edição</span> — Data da última edição</p>
+                  <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">Capa de fundo</span> — URL do banner de fundo</p>
+                  <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">Data de Lançamento</span> — Data de lançamento original</p>
+                  <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">Trailer</span> — URL do trailer</p>
+                </div>
+                <div className="bg-destructive/10 rounded-lg p-3 border border-destructive/20 mt-2">
+                  <p className="text-sm font-semibold text-destructive mb-1">🔒 Campos removidos por segurança:</p>
+                  <p className="text-sm text-muted-foreground">
+                    <code className="bg-muted px-1 rounded">Link</code>, <code className="bg-muted px-1 rounded">Favoritos</code>, <code className="bg-muted px-1 rounded">Histórico</code>, <code className="bg-muted px-1 rounded">UID</code> — Estes campos contêm dados internos e são automaticamente filtrados das respostas da API.
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
