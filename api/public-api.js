@@ -171,7 +171,7 @@ export default async function handler(req, res) {
   if (!endpoint) {
     return res.status(400).json({ 
       error: 'Endpoint obrigatório',
-      endpoints_disponiveis: ['conteudos', 'episodios', 'categorias', 'busca'],
+      endpoints_disponiveis: ['conteudos', 'episodios', 'categorias', 'busca', 'links', 'player'],
       exemplo: '/api/public-api?api_key=pk_live_xxx&endpoint=conteudos'
     });
   }
