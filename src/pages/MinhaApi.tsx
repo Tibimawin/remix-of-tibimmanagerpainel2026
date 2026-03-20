@@ -464,6 +464,95 @@ print(data["results"])`}
             </CardContent>
           </Card>
 
+          {/* Response example */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Terminal className="w-5 h-5 text-primary" /> Exemplo de Resposta JSON
+              </CardTitle>
+              <CardDescription>Estrutura retornada ao chamar o endpoint de conteúdos</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={() => copyToClipboard(JSON.stringify({
+                    success: true,
+                    endpoint: "conteudos",
+                    page: 1,
+                    size: 2,
+                    count: 6504,
+                    next: true,
+                    previous: false,
+                    results: [
+                      {
+                        id: 1,
+                        Nome: "Nome do Conteúdo",
+                        Capa: "https://image.tmdb.org/t/p/w780/exemplo.jpg",
+                        Categoria: "Ação, Drama",
+                        Sinopse: "Descrição do conteúdo...",
+                        Tipo: "Filme",
+                        Idioma: "DUB",
+                        Views: "150",
+                        Data: "2026-02-18",
+                        Temporadas: "0",
+                        Imdb: "7.5",
+                        "Edição": "2026-03-10",
+                        "Capa de fundo": "https://image.tmdb.org/t/p/original/exemplo.jpg",
+                        "Data de Lançamento": "15/01/2026",
+                        Trailer: null
+                      }
+                    ]
+                  }, null, 2))}
+                >
+                  <Copy className="w-3 h-3 mr-1" /> Copiar
+                </Button>
+                <pre className="bg-muted p-4 rounded-lg text-xs font-mono overflow-auto max-h-[500px] text-muted-foreground">
+{`{
+  "success": true,
+  "endpoint": "conteudos",
+  "page": 1,
+  "size": 2,
+  "count": 6504,
+  "next": true,
+  "previous": false,
+  "results": [
+    {
+      "id": 1,
+      "Nome": "Nome do Conteúdo",
+      "Capa": "https://image.tmdb.org/t/p/w780/exemplo.jpg",
+      "Categoria": "Ação, Drama",
+      "Sinopse": "Descrição do conteúdo...",
+      "Tipo": "Filme",
+      "Idioma": "DUB",
+      "Views": "150",
+      "Data": "2026-02-18",
+      "Temporadas": "0",
+      "Imdb": "7.5",
+      "Edição": "2026-03-10",
+      "Capa de fundo": "https://image.tmdb.org/.../exemplo.jpg",
+      "Data de Lançamento": "15/01/2026",
+      "Trailer": null
+    }
+  ]
+}`}
+                </pre>
+              </div>
+
+              <div className="mt-4 bg-muted/50 rounded-lg p-3 border border-border space-y-1">
+                <p className="text-sm font-semibold text-foreground mb-2">Campos da resposta:</p>
+                <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">success</span> — Se a requisição foi bem-sucedida</p>
+                <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">endpoint</span> — Endpoint consultado</p>
+                <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">page</span> / <span className="text-primary">size</span> — Página atual e itens por página</p>
+                <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">count</span> — Total de registros disponíveis</p>
+                <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">next</span> / <span className="text-primary">previous</span> — Se existem mais páginas</p>
+                <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">results</span> — Array com os itens</p>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
