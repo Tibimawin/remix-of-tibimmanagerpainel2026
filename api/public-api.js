@@ -17,6 +17,8 @@ const TABLE_IDS = {
   conteudos: process.env.BASEROW_TABLE_CONTEUDOS || '',
   episodios: process.env.BASEROW_TABLE_EPISODIOS || '',
   categorias: process.env.BASEROW_TABLE_CATEGORIAS || '',
+  links: process.env.BASEROW_TABLE_LINKS || '',
+  player: process.env.BASEROW_TABLE_PLAYER || '',
 };
 
 // Fields to remove from responses (sensitive data)
