@@ -69,6 +69,7 @@ import OfertaDetalhes from "./pages/OfertaDetalhes";
 import ConfiguracoesAutoImport from "./pages/ConfiguracoesAutoImport";
 import GestaoDispositivos from "./pages/GestaoDispositivos";
 import Planos from "./pages/Planos";
+import MinhaApi from "./pages/MinhaApi";
 import { UpdateNotificationModal } from "./components/UpdateNotificationModal";
 import { M3UImportProvider } from "./contexts/M3UImportContext";
 
