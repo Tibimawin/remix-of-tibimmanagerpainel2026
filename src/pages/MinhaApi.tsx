@@ -372,12 +372,6 @@ const MinhaApi = () => {
                   <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">Data de Lançamento</span> — Data de lançamento original</p>
                   <p className="text-sm font-mono text-muted-foreground"><span className="text-primary">Trailer</span> — URL do trailer</p>
                 </div>
-                <div className="bg-destructive/10 rounded-lg p-3 border border-destructive/20 mt-2">
-                  <p className="text-sm font-semibold text-destructive mb-1">🔒 Campos removidos por segurança:</p>
-                  <p className="text-sm text-muted-foreground">
-                    <code className="bg-muted px-1 rounded">Link</code>, <code className="bg-muted px-1 rounded">Favoritos</code>, <code className="bg-muted px-1 rounded">Histórico</code>, <code className="bg-muted px-1 rounded">UID</code> — Estes campos contêm dados internos e são automaticamente filtrados das respostas da API.
-                  </p>
-                </div>
               </div>
             </CardContent>
           </Card>
