@@ -49,7 +49,7 @@ export const ApiKeyService = {
       lastUsedAt: null,
       requestCount: 0,
       rateLimit: 60,
-      allowedEndpoints: ['conteudos', 'episodios', 'categorias', 'busca', 'links', 'player'],
+      allowedEndpoints: ['conteudos', 'episodios', 'categorias', 'busca'],
     };
 
     const docRef = await addDoc(collection(db, API_KEYS_COLLECTION), keyData);

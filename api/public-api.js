@@ -17,12 +17,10 @@ const TABLE_IDS = {
   conteudos: process.env.BASEROW_TABLE_CONTEUDOS || '',
   episodios: process.env.BASEROW_TABLE_EPISODIOS || '',
   categorias: process.env.BASEROW_TABLE_CATEGORIAS || '',
-  links: process.env.BASEROW_TABLE_LINKS || '',
-  player: process.env.BASEROW_TABLE_PLAYER || '',
 };
 
 // Fields to remove from responses (sensitive data)
-const SENSITIVE_FIELDS = ['token', 'password', 'senha', 'api_key', 'secret', 'ip_address', 'favoritos', 'histórico', 'historico', 'uid'];
+const SENSITIVE_FIELDS = ['token', 'password', 'senha', 'api_key', 'secret', 'ip_address', 'favoritos', 'histórico', 'historico', 'link', 'uid'];
 
 function sanitizeData(data) {
   if (Array.isArray(data)) return data.map(sanitizeData);
@@ -171,7 +169,7 @@ export default async function handler(req, res) {
   if (!endpoint) {
     return res.status(400).json({ 
       error: 'Endpoint obrigatório',
-      endpoints_disponiveis: ['conteudos', 'episodios', 'categorias', 'busca', 'links', 'player'],
+      endpoints_disponiveis: ['conteudos', 'episodios', 'categorias', 'busca'],
       exemplo: '/api/public-api?api_key=pk_live_xxx&endpoint=conteudos'
     });
   }
