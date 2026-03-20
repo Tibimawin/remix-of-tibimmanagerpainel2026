@@ -93,5 +93,8 @@ export const AVAILABLE_FEATURES: FeatureAccess[] = [
   { id: 'gestao-dispositivos', name: 'Gestão de Dispositivos', description: 'Gerenciar dispositivos conectados e limites por usuário' },
 
   // Planos
-  { id: 'planos', name: 'Planos', description: 'Visualizar tabela de planos disponíveis' }
+  { id: 'planos', name: 'Planos', description: 'Visualizar tabela de planos disponíveis' },
+
+  // Integração API
+  { id: 'minha-api', name: 'Integração API', description: 'Gerar API Keys para integrar conteúdos em sites e apps externos' }
 ];
