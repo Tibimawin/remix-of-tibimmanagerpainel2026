@@ -678,6 +678,8 @@ print(data["results"])`}
                       <option value="conteudos">Conteúdos</option>
                       <option value="episodios">Episódios</option>
                       <option value="categorias">Categorias</option>
+                      <option value="links">Links</option>
+                      <option value="player">Player</option>
                     </select>
                     <Button onClick={handleTestApi} disabled={testing}>
                       {testing ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : <Zap className="w-4 h-4 mr-1" />}
