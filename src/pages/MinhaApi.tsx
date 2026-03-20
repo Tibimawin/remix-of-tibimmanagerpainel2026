@@ -607,7 +607,7 @@ print(data["results"])`}
                 <pre className="bg-muted p-3 rounded-lg text-xs font-mono overflow-x-auto text-muted-foreground">
 {`{
   "error": "Endpoint obrigatório",
-  "endpoints_disponiveis": ["conteudos", "episodios", "categorias", "busca"],
+  "endpoints_disponiveis": ["conteudos", "episodios", "categorias", "busca", "links", "player"],
   "exemplo": "/api/public-api?api_key=pk_live_xxx&endpoint=conteudos"
 }`}
                 </pre>
@@ -678,6 +678,8 @@ print(data["results"])`}
                       <option value="conteudos">Conteúdos</option>
                       <option value="episodios">Episódios</option>
                       <option value="categorias">Categorias</option>
+                      <option value="links">Links</option>
+                      <option value="player">Player</option>
                     </select>
                     <Button onClick={handleTestApi} disabled={testing}>
                       {testing ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : <Zap className="w-4 h-4 mr-1" />}
