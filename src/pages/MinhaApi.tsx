@@ -22,19 +22,13 @@ const MinhaApi = () => {
   const [testing, setTesting] = useState(false);
 
   const loadKeys = async () => {
-    if (!userInfo?.id) {
-      console.log('⚠️ [MinhaApi] userInfo.id não disponível, pulando carregamento');
-      return;
-    }
+    if (!userInfo?.id) return;
     try {
       setLoading(true);
-      console.log('🔑 [MinhaApi] Carregando chaves para userId:', userInfo.id, 'email:', userInfo.email);
       const userKeys = await ApiKeyService.listUserKeys(userInfo.id);
-      console.log('🔑 [MinhaApi] Chaves encontradas:', userKeys.length, userKeys.map(k => ({ id: k.id, userId: k.userId, name: k.name })));
       setKeys(userKeys);
     } catch (err: any) {
-      console.error('❌ [MinhaApi] Erro ao carregar chaves:', err.message, err);
-      toast.error('Erro ao carregar chaves: ' + err.message);
+      toast.error('Erro ao carregar chaves');
     } finally {
       setLoading(false);
     }
