@@ -99,10 +99,10 @@ export default function Cadastro() {
         uid: user.uid,
         email: user.email || '',
         name: formData.name,
-        accessDays: isReferral ? 0 : 1,
+        accessDays: 1,
         startDate: start,
-        expiryDate: isReferral ? start : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        isActive: isReferral ? false : true,
+        expiryDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        isActive: true,
         totalLogins: 0,
         createdAt: new Date().toISOString(),
         createdBy: isReferral ? 'referral' : 'self-registration'
