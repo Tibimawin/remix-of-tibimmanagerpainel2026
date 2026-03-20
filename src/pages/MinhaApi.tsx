@@ -553,10 +553,93 @@ print(data["results"])`}
             </CardContent>
           </Card>
 
+          {/* Error responses */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-primary" /> Segurança
+                <XCircle className="w-5 h-5 text-destructive" /> Respostas de Erro
+              </CardTitle>
+              <CardDescription>Possíveis erros retornados pela API</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="destructive">401</Badge>
+                  <span className="text-sm font-semibold text-foreground">API Key não fornecida</span>
+                </div>
+                <pre className="bg-muted p-3 rounded-lg text-xs font-mono overflow-x-auto text-muted-foreground">
+{`{
+  "error": "API Key obrigatória",
+  "hint": "Envie via header X-API-Key ou query param ?api_key=sua_chave"
+}`}
+                </pre>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="destructive">403</Badge>
+                  <span className="text-sm font-semibold text-foreground">API Key inválida ou desativada</span>
+                </div>
+                <pre className="bg-muted p-3 rounded-lg text-xs font-mono overflow-x-auto text-muted-foreground">
+{`{
+  "error": "API Key inválida ou desativada"
+}`}
+                </pre>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="destructive">403</Badge>
+                  <span className="text-sm font-semibold text-foreground">Endpoint não permitido</span>
+                </div>
+                <pre className="bg-muted p-3 rounded-lg text-xs font-mono overflow-x-auto text-muted-foreground">
+{`{
+  "error": "Endpoint 'episodios' não permitido para esta chave"
+}`}
+                </pre>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="secondary">400</Badge>
+                  <span className="text-sm font-semibold text-foreground">Endpoint não informado</span>
+                </div>
+                <pre className="bg-muted p-3 rounded-lg text-xs font-mono overflow-x-auto text-muted-foreground">
+{`{
+  "error": "Endpoint obrigatório",
+  "endpoints_disponiveis": ["conteudos", "episodios", "categorias", "busca"],
+  "exemplo": "/api/public-api?api_key=pk_live_xxx&endpoint=conteudos"
+}`}
+                </pre>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="secondary">400</Badge>
+                  <span className="text-sm font-semibold text-foreground">Busca sem termo</span>
+                </div>
+                <pre className="bg-muted p-3 rounded-lg text-xs font-mono overflow-x-auto text-muted-foreground">
+{`{
+  "error": "Parâmetro \\"q\\" obrigatório para busca"
+}`}
+                </pre>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline">405</Badge>
+                  <span className="text-sm font-semibold text-foreground">Método não permitido</span>
+                </div>
+                <pre className="bg-muted p-3 rounded-lg text-xs font-mono overflow-x-auto text-muted-foreground">
+{`{
+  "error": "Método não permitido. Use GET."
+}`}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-muted-foreground">
