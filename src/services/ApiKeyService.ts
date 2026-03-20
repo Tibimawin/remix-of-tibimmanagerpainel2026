@@ -66,6 +66,15 @@ export const ApiKeyService = {
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ApiKeyData));
   },
 
+  async listAllKeys(): Promise<ApiKeyData[]> {
+    const q = query(
+      collection(db, API_KEYS_COLLECTION),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ApiKeyData));
+  },
+
   async revokeKey(keyId: string): Promise<void> {
     await updateDoc(doc(db, API_KEYS_COLLECTION, keyId), { active: false });
   },

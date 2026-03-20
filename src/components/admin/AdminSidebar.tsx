@@ -4,10 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import {
   Shield, Users, Activity, Calendar, BarChart, Package, Bell,
   UserPlus, CreditCard, Crown, UserCheck, MessageCircle,
-  Settings, RefreshCw, LogOut, Tag, AlertTriangle, Megaphone, Sparkles, Palette, DollarSign
+  Settings, RefreshCw, LogOut, Tag, AlertTriangle, Megaphone, Sparkles, Palette, DollarSign, Key
 } from 'lucide-react';
 
-export type AdminView = 'overview' | 'users' | 'activity' | 'date-logs' | 'metrics' | 'products' | 'notifications' | 'user-management' | 'firebase-users' | 'registration-control' | 'chat' | 'import-config' | 'plans' | 'plan-requests' | 'user-permissions' | 'series-correction' | 'suporte-prioritario' | 'security-center' | 'offers' | 'announcements' | 'whatsapp' | 'maintenance' | 'access-expired-config' | 'expiration-notifications' | 'user-action-history' | 'referrals' | 'system-updates' | 'seasonal-theme' | 'financial' | 'planos-config';
+export type AdminView = 'overview' | 'users' | 'activity' | 'date-logs' | 'metrics' | 'products' | 'notifications' | 'user-management' | 'firebase-users' | 'registration-control' | 'chat' | 'import-config' | 'plans' | 'plan-requests' | 'user-permissions' | 'series-correction' | 'suporte-prioritario' | 'security-center' | 'offers' | 'announcements' | 'whatsapp' | 'maintenance' | 'access-expired-config' | 'expiration-notifications' | 'user-action-history' | 'referrals' | 'system-updates' | 'seasonal-theme' | 'financial' | 'planos-config' | 'api-keys';
 
 interface AdminSidebarProps {
   activeView: AdminView;
@@ -30,6 +30,7 @@ const menuItems = [
   { id: 'products', label: 'Produtos', icon: Package, category: 'management' },
   { id: 'offers', label: 'Ofertas', icon: Tag, category: 'management' },
   { id: 'referrals', label: 'Indicações', icon: Users, category: 'management', isNew: true },
+  { id: 'api-keys', label: '🔑 API Keys', icon: Key, category: 'management', isNew: true },
   { id: 'announcements', label: 'Anúncios', icon: Megaphone, category: 'management' },
   { id: 'system-updates', label: '🎉 Atualizações do Sistema', icon: Sparkles, category: 'management', isNew: true },
 
