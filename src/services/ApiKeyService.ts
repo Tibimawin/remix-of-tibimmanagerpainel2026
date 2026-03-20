@@ -59,11 +59,15 @@ export const ApiKeyService = {
   async listUserKeys(userId: string): Promise<ApiKeyData[]> {
     const q = query(
       collection(db, API_KEYS_COLLECTION),
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', userId)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ApiKeyData));
+    const keys = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ApiKeyData));
+    return keys.sort((a, b) => {
+      const dateA = a.createdAt?.toDate?.() || new Date(0);
+      const dateB = b.createdAt?.toDate?.() || new Date(0);
+      return dateB.getTime() - dateA.getTime();
+    });
   },
 
   async listAllKeys(): Promise<ApiKeyData[]> {
