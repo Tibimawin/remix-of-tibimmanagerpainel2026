@@ -38,6 +38,7 @@ import { AdminSeasonalTheme } from '@/components/AdminSeasonalTheme';
 import { AdminRegistrationControl } from '@/components/AdminRegistrationControl';
 import AdminFinancialDashboard from '@/components/AdminFinancialDashboard';
 import AdminPlanosConfig from '@/components/AdminPlanosConfig';
+import AdminApiKeys from '@/components/AdminApiKeys';
 import { AdminSidebar, AdminView } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { useMaintenanceMode } from '@/hooks/useMaintenanceMode';
