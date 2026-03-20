@@ -4,6 +4,10 @@
       "memory": 1024,
       "maxDuration": 60
     },
+    "api/public-api.js": {
+      "memory": 1024,
+      "maxDuration": 30
+    },
     "api/**/*.js": {
       "memory": 1024,
       "maxDuration": 10

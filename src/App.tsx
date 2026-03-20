@@ -446,6 +446,14 @@ const App = () => {
                                 </SimpleProtectedRoute>
                               } />
 
+                              <Route path="/minha-api" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <MinhaApi />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
                               <Route path="/maxplus-import" element={
                                 <SimpleProtectedRoute>
                                   <Layout>

@@ -436,6 +436,16 @@ const menuItems: MenuItem[] = [
     feature: 'planos',
     badge: { type: 'new' as const }
   },
+  {
+    id: 'minha-api',
+    label: 'Integração API',
+    href: '/minha-api',
+    icon: Key,
+    category: 'settings',
+    description: 'Gerar API Keys para integrar conteúdos',
+    feature: 'minha-api',
+    badge: { type: 'new' as const }
+  },
 ];
 
 const categoryLabels = {
