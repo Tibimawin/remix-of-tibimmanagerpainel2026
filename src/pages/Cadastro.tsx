@@ -111,9 +111,22 @@ export default function Cadastro() {
       await FirebaseUserService.createUserRecord(userData);
       if (referrerUid) {
         const { ReferralService } = await import('@/services/ReferralService');
-        try {
-          await ReferralService.createReferral(referrerUid, user.uid);
-        } catch {}
+        const attemptReferral = async (attempt: number) => {
+          try {
+            await ReferralService.createReferral(referrerUid, user.uid);
+            console.log('Indicação registrada com sucesso');
+          } catch (err: any) {
+            console.error(`Erro ao registrar indicação (tentativa ${attempt}):`, err);
+            if (attempt < 2) {
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              return attemptReferral(attempt + 1);
+            }
+            toast.warning('Não foi possível registrar a indicação. Entre em contato com o suporte.');
+          }
+        };
+        // Delay para garantir que o documento do usuário foi propagado no Firestore
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        await attemptReferral(1);
       }
       
       toast.success('Conta criada com sucesso! Você já pode fazer login.');

@@ -38,9 +38,17 @@ export const ReferralService = {
   },
 
   async createReferral(referrerUid: string, referredUid: string): Promise<Referral> {
+    console.log('Criando indicação:', { referrerUid, referredUid });
+
     // Anti-fraude: impedir auto-indicação
     if (referrerUid === referredUid) {
       throw new Error('Não é permitido indicar a si mesmo.');
+    }
+
+    // Validar que o referrer existe no Firestore
+    const referrerExists = await FirebaseUserService.getUserById(referrerUid);
+    if (!referrerExists) {
+      throw new Error('O usuário indicador não foi encontrado no sistema. UID: ' + referrerUid);
     }
 
     // Anti-fraude: impedir indicação duplicada
