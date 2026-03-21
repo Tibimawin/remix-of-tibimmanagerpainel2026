@@ -4,17 +4,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Key, RefreshCw, Shield, Copy, Trash2, Search, BarChart3, TrendingUp } from 'lucide-react';
+import { Key, RefreshCw, Shield, Copy, Trash2, Search, BarChart3, TrendingUp, AlertTriangle, Ban, CheckCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ApiKeyService, ApiKeyData } from '@/services/ApiKeyService';
 import { toast } from 'sonner';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 
+interface UserSubStatus {
+  hasApiFeature: boolean;
+  isExpired: boolean;
+  planName: string;
+  expiryDate: string | null;
+}
+
 const AdminApiKeys: React.FC = () => {
   const [keys, setKeys] = useState<ApiKeyData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [userStatuses, setUserStatuses] = useState<Record<string, UserSubStatus>>({});
 
   const fetchKeys = async () => {
     setIsLoading(true);
@@ -32,6 +40,52 @@ const AdminApiKeys: React.FC = () => {
   useEffect(() => {
     fetchKeys();
   }, []);
+
+  // Fetch subscription statuses for all unique users
+  useEffect(() => {
+    const fetchStatuses = async () => {
+      const uniqueUserIds = [...new Set(keys.map(k => k.userId))];
+      const statuses: Record<string, UserSubStatus> = {};
+      await Promise.all(
+        uniqueUserIds.map(async (uid) => {
+          statuses[uid] = await ApiKeyService.getUserSubscriptionStatus(uid);
+        })
+      );
+      setUserStatuses(statuses);
+    };
+    if (keys.length > 0) fetchStatuses();
+  }, [keys]);
+
+  const handleBulkDisableExpired = async () => {
+    const expiredUserIds = Object.entries(userStatuses)
+      .filter(([_, s]) => s.isExpired || !s.hasApiFeature)
+      .map(([uid]) => uid);
+    
+    if (expiredUserIds.length === 0) {
+      toast.info('Nenhum usuário com assinatura expirada encontrado');
+      return;
+    }
+
+    let totalDisabled = 0;
+    for (const uid of expiredUserIds) {
+      const count = await ApiKeyService.disableAllUserKeys(uid);
+      totalDisabled += count;
+    }
+    toast.success(`${totalDisabled} chaves bloqueadas de ${expiredUserIds.length} usuários expirados`);
+    fetchKeys();
+  };
+
+  const handleDisableUserKeys = async (userId: string) => {
+    const count = await ApiKeyService.disableAllUserKeys(userId);
+    toast.success(`${count} chaves bloqueadas`);
+    fetchKeys();
+  };
+
+  const handleEnableUserKeys = async (userId: string) => {
+    const count = await ApiKeyService.enableAllUserKeys(userId);
+    toast.success(`${count} chaves ativadas`);
+    fetchKeys();
+  };
 
   const handleToggleKey = async (key: ApiKeyData) => {
     try {
@@ -73,6 +127,9 @@ const AdminApiKeys: React.FC = () => {
   const activeCount = keys.filter(k => k.active).length;
   const inactiveCount = keys.length - activeCount;
   const totalRequests = keys.reduce((sum, k) => sum + (k.requestCount || 0), 0);
+  const expiredUsersCount = useMemo(() => 
+    Object.values(userStatuses).filter(s => s.isExpired || !s.hasApiFeature).length
+  , [userStatuses]);
 
   // Chart data: requests per user (top 10)
   const requestsByUser = useMemo(() => {
@@ -129,7 +186,7 @@ const AdminApiKeys: React.FC = () => {
         {/* Tab: Overview & Charts */}
         <TabsContent value="overview" className="space-y-6">
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card className="modern-card border-border/40">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
@@ -146,8 +203,8 @@ const AdminApiKeys: React.FC = () => {
             <Card className="modern-card border-border/40">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                    <Shield className="w-5 h-5 text-emerald-500" />
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-primary" />
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-foreground">{activeCount}</p>
@@ -169,7 +226,44 @@ const AdminApiKeys: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+            <Card className={`modern-card ${expiredUsersCount > 0 ? 'border-destructive/40' : 'border-border/40'}`}>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${expiredUsersCount > 0 ? 'bg-destructive/10' : 'bg-muted/10'}`}>
+                    <AlertTriangle className={`w-5 h-5 ${expiredUsersCount > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{expiredUsersCount}</p>
+                    <p className="text-xs text-muted-foreground">Usuários Expirados</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
+
+          {expiredUsersCount > 0 && (
+            <Card className="border-destructive/30 bg-destructive/5">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="w-5 h-5 text-destructive" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        {expiredUsersCount} usuário(s) com assinatura expirada possuem chaves API ativas
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        As APIs desses usuários já estão bloqueadas automaticamente no gateway. Você pode bloquear as chaves manualmente também.
+                      </p>
+                    </div>
+                  </div>
+                  <Button variant="destructive" size="sm" onClick={handleBulkDisableExpired}>
+                    <Ban className="w-4 h-4 mr-2" />
+                    Bloquear Todas
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -304,10 +398,18 @@ const AdminApiKeys: React.FC = () => {
                     Gerencie todas as chaves de API geradas pelos usuários
                   </CardDescription>
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchKeys} disabled={isLoading}>
-                  <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                  Atualizar
-                </Button>
+                <div className="flex gap-2">
+                  {expiredUsersCount > 0 && (
+                    <Button variant="destructive" size="sm" onClick={handleBulkDisableExpired}>
+                      <Ban className="w-4 h-4 mr-2" />
+                      Bloquear Expirados ({expiredUsersCount})
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={fetchKeys} disabled={isLoading}>
+                    <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                    Atualizar
+                  </Button>
+                </div>
               </div>
               <div className="relative mt-4">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -339,23 +441,43 @@ const AdminApiKeys: React.FC = () => {
                     <TableHeader>
                       <TableRow className="border-border/40">
                         <TableHead className="text-muted-foreground">Usuário</TableHead>
+                        <TableHead className="text-muted-foreground">Assinatura</TableHead>
                         <TableHead className="text-muted-foreground">Nome da Chave</TableHead>
                         <TableHead className="text-muted-foreground">Chave</TableHead>
                         <TableHead className="text-muted-foreground">Requisições</TableHead>
-                        <TableHead className="text-muted-foreground">Limite</TableHead>
                         <TableHead className="text-muted-foreground">Último Uso</TableHead>
                         <TableHead className="text-muted-foreground">Status</TableHead>
                         <TableHead className="text-muted-foreground">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredKeys.map((apiKey) => (
-                        <TableRow key={apiKey.id} className="border-border/40 hover:bg-muted/10">
+                      {filteredKeys.map((apiKey) => {
+                        const subStatus = userStatuses[apiKey.userId];
+                        const isSubActive = subStatus && !subStatus.isExpired && subStatus.hasApiFeature;
+                        return (
+                        <TableRow key={apiKey.id} className={`border-border/40 hover:bg-muted/10 ${!isSubActive ? 'opacity-60' : ''}`}>
                           <TableCell className="text-foreground font-medium">
                             <div>
                               <p className="text-sm">{apiKey.userEmail}</p>
                               <p className="text-xs text-muted-foreground font-mono">{apiKey.userId?.slice(0, 8)}...</p>
                             </div>
+                          </TableCell>
+                          <TableCell>
+                            {subStatus ? (
+                              <div className="space-y-1">
+                                <Badge variant={isSubActive ? 'default' : 'destructive'} className="text-xs">
+                                  {subStatus.isExpired ? 'Expirado' : !subStatus.hasApiFeature ? 'Sem API' : 'Ativo'}
+                                </Badge>
+                                <p className="text-xs text-muted-foreground">{subStatus.planName}</p>
+                                {subStatus.expiryDate && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {subStatus.isExpired ? 'Expirou:' : 'Expira:'} {subStatus.expiryDate}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Carregando...</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-foreground">{apiKey.name}</TableCell>
                           <TableCell>
@@ -374,9 +496,6 @@ const AdminApiKeys: React.FC = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-muted-foreground text-sm">
-                            {apiKey.rateLimit || 60}/min
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-sm">
                             {apiKey.lastUsedAt
                               ? new Date(apiKey.lastUsedAt.seconds ? apiKey.lastUsedAt.seconds * 1000 : apiKey.lastUsedAt).toLocaleString('pt-BR')
                               : 'Nunca'}
@@ -393,17 +512,42 @@ const AdminApiKeys: React.FC = () => {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => handleDeleteKey(apiKey)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              {!isSubActive && apiKey.active && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                  title="Bloquear todas as chaves deste usuário"
+                                  onClick={() => handleDisableUserKeys(apiKey.userId)}
+                                >
+                                  <Ban className="w-4 h-4" />
+                                </Button>
+                              )}
+                              {isSubActive && !apiKey.active && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-primary hover:bg-primary/10"
+                                  title="Ativar todas as chaves deste usuário"
+                                  onClick={() => handleEnableUserKeys(apiKey.userId)}
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => handleDeleteKey(apiKey)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>

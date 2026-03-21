@@ -1,7 +1,7 @@
 import { db } from '@/config/firebase';
 import { 
   collection, addDoc, query, where, getDocs, doc, updateDoc, 
-  serverTimestamp, orderBy, deleteDoc 
+  serverTimestamp, orderBy, deleteDoc, getDoc, writeBatch
 } from 'firebase/firestore';
 
 export interface ApiKeyData {
@@ -100,5 +100,57 @@ export const ApiKeyService = {
       lastUsedAt: null 
     });
     return newKey;
+  },
+
+  async getUserSubscriptionStatus(userId: string): Promise<{ 
+    hasApiFeature: boolean; 
+    isExpired: boolean; 
+    planName: string;
+    expiryDate: string | null;
+  }> {
+    try {
+      const permDoc = await getDoc(doc(db, 'userPermissions', userId));
+      if (!permDoc.exists()) {
+        return { hasApiFeature: false, isExpired: true, planName: 'Sem plano', expiryDate: null };
+      }
+      const data = permDoc.data();
+      const features: string[] = data.enabledFeatures || [];
+      const hasApiFeature = features.includes('minha-api');
+      
+      let isExpired = false;
+      let expiryDate: string | null = null;
+      
+      if (data.subscriptionExpiry) {
+        const expiry = data.subscriptionExpiry.toDate ? data.subscriptionExpiry.toDate() : new Date(data.subscriptionExpiry);
+        expiryDate = expiry.toLocaleDateString('pt-BR');
+        isExpired = expiry < new Date();
+      } else if (data.expiryDate) {
+        const expiry = new Date(data.expiryDate);
+        expiryDate = expiry.toLocaleDateString('pt-BR');
+        isExpired = expiry < new Date();
+      }
+      
+      return { hasApiFeature, isExpired, planName: data.planName || 'Sem plano', expiryDate };
+    } catch {
+      return { hasApiFeature: false, isExpired: true, planName: 'Erro', expiryDate: null };
+    }
+  },
+
+  async disableAllUserKeys(userId: string): Promise<number> {
+    const q = query(collection(db, API_KEYS_COLLECTION), where('userId', '==', userId), where('active', '==', true));
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    snapshot.docs.forEach(d => batch.update(d.ref, { active: false }));
+    await batch.commit();
+    return snapshot.size;
+  },
+
+  async enableAllUserKeys(userId: string): Promise<number> {
+    const q = query(collection(db, API_KEYS_COLLECTION), where('userId', '==', userId), where('active', '==', false));
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    snapshot.docs.forEach(d => batch.update(d.ref, { active: true }));
+    await batch.commit();
+    return snapshot.size;
   },
 };

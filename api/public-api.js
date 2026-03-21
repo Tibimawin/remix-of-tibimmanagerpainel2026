@@ -93,6 +93,38 @@ async function validateApiKey(apiKey) {
   };
 }
 
+async function checkUserSubscription(userId) {
+  try {
+    const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/userPermissions/${userId}?key=${FIREBASE_API_KEY}`;
+    const resp = await fetch(url);
+    
+    if (!resp.ok) return { active: false, reason: 'Permissões não encontradas' };
+    
+    const doc = await resp.json();
+    const fields = doc.fields || {};
+    
+    // Check if user has the 'minha-api' feature enabled
+    const enabledFeatures = (fields.enabledFeatures?.arrayValue?.values || []).map(v => v.stringValue);
+    if (!enabledFeatures.includes('minha-api')) {
+      return { active: false, reason: 'Plano não inclui acesso à API' };
+    }
+    
+    // Check subscription expiry
+    const expiryDateStr = fields.subscriptionExpiry?.timestampValue || fields.expiryDate?.stringValue;
+    if (expiryDateStr) {
+      const expiryDate = new Date(expiryDateStr);
+      if (expiryDate < new Date()) {
+        return { active: false, reason: 'Assinatura expirada' };
+      }
+    }
+    
+    return { active: true };
+  } catch (error) {
+    console.error('Error checking subscription:', error);
+    return { active: false, reason: 'Erro ao verificar assinatura' };
+  }
+}
+
 async function updateKeyUsage(docPath) {
   const url = `https://firestore.googleapis.com/v1/${docPath}?updateMask.fieldPaths=lastUsedAt&updateMask.fieldPaths=requestCount&key=${FIREBASE_API_KEY}`;
   
@@ -161,6 +193,16 @@ export default async function handler(req, res) {
   
   if (!keyData) {
     return res.status(403).json({ error: 'API Key inválida ou desativada' });
+  }
+
+  // Check if user subscription is active
+  const subscription = await checkUserSubscription(keyData.userId);
+  if (!subscription.active) {
+    return res.status(403).json({ 
+      error: 'Acesso à API bloqueado',
+      reason: subscription.reason,
+      hint: 'Sua assinatura expirou ou seu plano não inclui acesso à API. Renove sua assinatura para continuar usando.'
+    });
   }
 
   // Get endpoint
