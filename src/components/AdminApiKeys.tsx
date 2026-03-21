@@ -361,10 +361,18 @@ const AdminApiKeys: React.FC = () => {
                     Gerencie todas as chaves de API geradas pelos usuários
                   </CardDescription>
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchKeys} disabled={isLoading}>
-                  <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                  Atualizar
-                </Button>
+                <div className="flex gap-2">
+                  {expiredUsersCount > 0 && (
+                    <Button variant="destructive" size="sm" onClick={handleBulkDisableExpired}>
+                      <Ban className="w-4 h-4 mr-2" />
+                      Bloquear Expirados ({expiredUsersCount})
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={fetchKeys} disabled={isLoading}>
+                    <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                    Atualizar
+                  </Button>
+                </div>
               </div>
               <div className="relative mt-4">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
