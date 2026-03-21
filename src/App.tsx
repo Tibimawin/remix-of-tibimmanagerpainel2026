@@ -449,7 +449,9 @@ const App = () => {
                               <Route path="/minha-api" element={
                                 <SimpleProtectedRoute>
                                   <Layout>
-                                    <MinhaApi />
+                                    <PermissionGate feature="minha-api">
+                                      <MinhaApi />
+                                    </PermissionGate>
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />

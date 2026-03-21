@@ -4,12 +4,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Crown, Check, Shield, Star, Rocket, Loader2, Sparkles } from 'lucide-react';
+import { Crown, Check, Shield, Star, Rocket, Loader2, Sparkles, ArrowUpCircle } from 'lucide-react';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { usePlans } from '@/hooks/usePlans';
 import { Plan } from '@/types/planTypes';
 import AsaasPixPaymentDialog from '@/components/AsaasPixPaymentDialog';
+
+const API_PLAN_PRICE = 50;
 
 interface PlansPopupProps {
   forceOpen?: boolean;
@@ -22,12 +24,23 @@ export const PlansPopup: React.FC<PlansPopupProps> = ({ forceOpen, onClose }) =>
   const { activePlans, loading: plansLoading } = usePlans();
   const [autoOpen, setAutoOpen] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<{ name: string; price: number; description: string } | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<{ name: string; price: number; description: string; isUpgrade?: boolean; upgradeFromPlan?: string; existingFeatures?: string[] } | null>(null);
 
   const isOpen = forceOpen !== undefined ? forceOpen : autoOpen;
 
+  const hasActivePlan = permissions?.planName && permissions?.enabledFeatures && permissions.enabledFeatures.length > 0;
+  
+  // Get current plan price
+  let currentPlanPrice = 0;
+  if (hasActivePlan && permissions?.planId) {
+    const currentPlan = activePlans.find(p => p.id === permissions.planId);
+    if (currentPlan) {
+      currentPlanPrice = parseFloat(currentPlan.price.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+    }
+  }
+
   useEffect(() => {
-    if (forceOpen !== undefined) return; // controlled externally
+    if (forceOpen !== undefined) return;
     if (permLoading || plansLoading || !userInfo?.id) return;
 
     const hasNoFeatures = !permissions?.enabledFeatures || permissions.enabledFeatures.length === 0;
@@ -50,7 +63,25 @@ export const PlansPopup: React.FC<PlansPopupProps> = ({ forceOpen, onClose }) =>
 
   const handleChoosePlan = (plan: Plan) => {
     const numericPrice = parseFloat(plan.price.replace(/[^\d,]/g, '').replace(',', '.')) || 30;
-    setSelectedPlan({ name: plan.name, price: numericPrice, description: plan.description });
+    
+    // Check if this is an API plan and user already has an active plan (upgrade scenario)
+    const isApiPlan = plan.features.includes('minha-api');
+    const canUpgrade = isApiPlan && hasActivePlan && currentPlanPrice > 0 && numericPrice > currentPlanPrice;
+    
+    if (canUpgrade) {
+      const difference = numericPrice - currentPlanPrice;
+      setSelectedPlan({
+        name: plan.name,
+        price: difference,
+        description: `Upgrade de ${permissions?.planName} para ${plan.name}`,
+        isUpgrade: true,
+        upgradeFromPlan: permissions?.planName || '',
+        existingFeatures: permissions?.enabledFeatures || []
+      });
+    } else {
+      setSelectedPlan({ name: plan.name, price: numericPrice, description: plan.description });
+    }
+    
     setAutoOpen(false);
     onClose?.();
     setShowPayment(true);
@@ -92,6 +123,10 @@ export const PlansPopup: React.FC<PlansPopupProps> = ({ forceOpen, onClose }) =>
             {activePlans.map((plan, index) => {
               const IconComponent = getPlanIcon(index);
               const gradient = getPlanGradient(index);
+              const numericPrice = parseFloat(plan.price.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+              const isApiPlan = plan.features.includes('minha-api');
+              const showUpgradePrice = isApiPlan && hasActivePlan && currentPlanPrice > 0 && numericPrice > currentPlanPrice;
+              const upgradePrice = showUpgradePrice ? numericPrice - currentPlanPrice : numericPrice;
 
               return (
                 <Card
@@ -117,8 +152,18 @@ export const PlansPopup: React.FC<PlansPopupProps> = ({ forceOpen, onClose }) =>
                     </div>
 
                     <div className="text-center py-2">
-                      <span className="text-2xl font-bold text-foreground">{plan.price}</span>
-                      <span className="text-sm text-muted-foreground">/mês</span>
+                      {showUpgradePrice ? (
+                        <>
+                          <span className="text-sm text-muted-foreground line-through mr-2">{plan.price}</span>
+                          <span className="text-2xl font-bold text-foreground">R$ {upgradePrice.toFixed(2)}</span>
+                          <Badge variant="secondary" className="ml-2 text-xs">Upgrade</Badge>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-2xl font-bold text-foreground">{plan.price}</span>
+                          <span className="text-sm text-muted-foreground">/mês</span>
+                        </>
+                      )}
                     </div>
 
                     <ul className="space-y-2">
@@ -138,7 +183,14 @@ export const PlansPopup: React.FC<PlansPopupProps> = ({ forceOpen, onClose }) =>
                     </ul>
 
                     <Button className="w-full group-hover:bg-primary/90 transition-colors">
-                      Assinar Agora
+                      {showUpgradePrice ? (
+                        <>
+                          <ArrowUpCircle className="h-4 w-4 mr-1" />
+                          Fazer Upgrade
+                        </>
+                      ) : (
+                        'Assinar Agora'
+                      )}
                     </Button>
                   </div>
                 </Card>
@@ -161,6 +213,9 @@ export const PlansPopup: React.FC<PlansPopupProps> = ({ forceOpen, onClose }) =>
           planName={selectedPlan.name}
           planPrice={selectedPlan.price}
           planDescription={selectedPlan.description}
+          isUpgrade={selectedPlan.isUpgrade}
+          upgradeFromPlan={selectedPlan.upgradeFromPlan}
+          existingFeatures={selectedPlan.existingFeatures}
         />
       )}
     </>
