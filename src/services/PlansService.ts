@@ -135,25 +135,58 @@ export const PlansService = {
       const localPlans = JSON.parse(savedPlans) as Plan[];
       console.log('Migrando planos do localStorage:', localPlans.length);
 
-      // Verificar se já existem planos no Firebase
       const existingPlans = await this.getAllPlans();
       if (existingPlans.length > 0) {
         console.log('Planos já existem no Firebase, pulando migração');
         return;
       }
 
-      // Migrar cada plano
       for (const plan of localPlans) {
         const { id, ...planData } = plan;
         await this.createPlan(planData);
       }
 
       console.log('Migração concluída com sucesso');
-      
-      // Opcional: remover do localStorage após migração
-      // localStorage.removeItem('admin-plans');
     } catch (error) {
       console.error('Erro na migração:', error);
+    }
+  },
+
+  // Garantir que o plano de Integração API existe
+  async ensureApiPlan() {
+    try {
+      const existingPlans = await this.getAllPlans();
+      const hasApiPlan = existingPlans.some(p => 
+        p.features.includes('minha-api') && p.name.toLowerCase().includes('api')
+      );
+
+      if (hasApiPlan) {
+        console.log('Plano de Integração API já existe');
+        return;
+      }
+
+      console.log('Criando plano de Integração API...');
+      await this.createPlan({
+        name: 'Integração API',
+        price: 'R$ 50,00/mês',
+        description: 'Plano exclusivo para integrar conteúdos em sites e apps externos via API. Inclui geração de API Keys, documentação e suporte técnico.',
+        monthlyContentLimit: -1,
+        features: [
+          'dashboard',
+          'conteudos',
+          'minha-api',
+          'planos',
+          'perfil',
+          'configuracoes',
+          'suporte-ao-vivo'
+        ],
+        blockingMessage: 'Esta funcionalidade requer o plano Integração API (R$ 50,00/mês). Faça upgrade para desbloquear.',
+        isActive: true
+      });
+
+      console.log('✅ Plano de Integração API criado com sucesso');
+    } catch (error) {
+      console.error('Erro ao criar plano de Integração API:', error);
     }
   }
 };
