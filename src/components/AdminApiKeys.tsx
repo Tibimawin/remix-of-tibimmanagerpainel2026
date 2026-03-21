@@ -41,6 +41,52 @@ const AdminApiKeys: React.FC = () => {
     fetchKeys();
   }, []);
 
+  // Fetch subscription statuses for all unique users
+  useEffect(() => {
+    const fetchStatuses = async () => {
+      const uniqueUserIds = [...new Set(keys.map(k => k.userId))];
+      const statuses: Record<string, UserSubStatus> = {};
+      await Promise.all(
+        uniqueUserIds.map(async (uid) => {
+          statuses[uid] = await ApiKeyService.getUserSubscriptionStatus(uid);
+        })
+      );
+      setUserStatuses(statuses);
+    };
+    if (keys.length > 0) fetchStatuses();
+  }, [keys]);
+
+  const handleBulkDisableExpired = async () => {
+    const expiredUserIds = Object.entries(userStatuses)
+      .filter(([_, s]) => s.isExpired || !s.hasApiFeature)
+      .map(([uid]) => uid);
+    
+    if (expiredUserIds.length === 0) {
+      toast.info('Nenhum usuário com assinatura expirada encontrado');
+      return;
+    }
+
+    let totalDisabled = 0;
+    for (const uid of expiredUserIds) {
+      const count = await ApiKeyService.disableAllUserKeys(uid);
+      totalDisabled += count;
+    }
+    toast.success(`${totalDisabled} chaves bloqueadas de ${expiredUserIds.length} usuários expirados`);
+    fetchKeys();
+  };
+
+  const handleDisableUserKeys = async (userId: string) => {
+    const count = await ApiKeyService.disableAllUserKeys(userId);
+    toast.success(`${count} chaves bloqueadas`);
+    fetchKeys();
+  };
+
+  const handleEnableUserKeys = async (userId: string) => {
+    const count = await ApiKeyService.enableAllUserKeys(userId);
+    toast.success(`${count} chaves ativadas`);
+    fetchKeys();
+  };
+
   const handleToggleKey = async (key: ApiKeyData) => {
     try {
       if (key.active) {
