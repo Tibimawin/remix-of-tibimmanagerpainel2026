@@ -120,9 +120,48 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                 // 🔓 Auto-liberar permissões baseado no plano assinado
                 try {
                   const matchedPlan = activePlans.find(p => p.name === planName);
-                  if (matchedPlan) {
-                    const endDate = new Date();
-                    endDate.setDate(endDate.getDate() + accessDays);
+                  
+                  if (isUpgrade) {
+                    // UPGRADE: mesclar features existentes com a nova feature (minha-api)
+                    const apiPlanFeatures = matchedPlan?.features || ['minha-api'];
+                    const mergedFeatures = [...new Set([...existingFeatures, ...apiPlanFeatures, 'planos', 'minha-api'])];
+                    const combinedPlanName = `${upgradeFromPlan} + API`;
+                    
+                    await setDoc(doc(db, 'userPermissions', userInfo.id), {
+                      userId: userInfo.id,
+                      userEmail: userInfo.email,
+                      userName: name || userInfo.email?.split('@')[0] || 'Usuário',
+                      planId: matchedPlan?.id || 'upgrade-api',
+                      planName: combinedPlanName,
+                      monthlyContentLimit: matchedPlan?.monthlyContentLimit || 999,
+                      enabledFeatures: mergedFeatures,
+                      currentMonthUsage: 0,
+                      lastUpdated: new Date().toISOString(),
+                      expiryDate: endDate.toISOString(),
+                      isActive: true
+                    });
+                    console.log('🔓 Upgrade realizado! Features mescladas:', mergedFeatures.length);
+                    
+                    try {
+                      await addDoc(collection(db, 'autoPermissionLogs'), {
+                        userId: userInfo.id,
+                        userEmail: email,
+                        userName: name || userInfo.email?.split('@')[0] || 'Usuário',
+                        planName: combinedPlanName,
+                        planId: matchedPlan?.id || 'upgrade-api',
+                        featuresCount: mergedFeatures.length,
+                        features: mergedFeatures,
+                        grantedAt: new Date().toISOString(),
+                        source: 'payment-upgrade',
+                        upgradeFrom: upgradeFromPlan,
+                        previousFeatures: existingFeatures
+                      });
+                    } catch (logErr) {
+                      console.error('Erro ao salvar log de upgrade:', logErr);
+                    }
+                  } else if (matchedPlan) {
+                    const endDate2 = new Date();
+                    endDate2.setDate(endDate2.getDate() + accessDays);
                     
                     const featuresWithPlanos = matchedPlan.features.includes('planos')
                       ? matchedPlan.features
@@ -138,7 +177,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                       enabledFeatures: featuresWithPlanos,
                       currentMonthUsage: 0,
                       lastUpdated: new Date().toISOString(),
-                      expiryDate: endDate.toISOString(),
+                      expiryDate: endDate2.toISOString(),
                       isActive: true
                     });
                     console.log('🔓 Permissões liberadas automaticamente:', matchedPlan.features.length, 'features');
