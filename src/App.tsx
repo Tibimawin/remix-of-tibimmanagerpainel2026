@@ -81,7 +81,8 @@ const AppWithMonitor = () => {
   useExpirationMonitor();
   useScheduleExecutor();
   useAutoImportExecutor(); // ← NOVO: Verificador de importação automática
-  useSubscriptionMonitor(); // ← NOVO: Monitor de notificações de assinatura
+  useSubscriptionMonitor();
+  useApiKeyAutoBlocker();
   return null;
 };
 
