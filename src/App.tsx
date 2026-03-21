@@ -17,6 +17,7 @@ import { useExpirationMonitor } from "@/hooks/useExpirationMonitor";
 import { useScheduleExecutor } from "@/hooks/useScheduleExecutor";
 import { useAutoImportExecutor } from "@/hooks/useAutoImportExecutor";
 import { useSubscriptionMonitor } from "@/hooks/useSubscriptionMonitor";
+import { useApiKeyAutoBlocker } from "@/hooks/useApiKeyAutoBlocker";
 import { SimpleProtectedRoute } from "./components/SimpleProtectedRoute";
 import { AdminProtectedRoute } from "./components/AdminProtectedRoute";
 import { Layout } from "./components/Layout";
