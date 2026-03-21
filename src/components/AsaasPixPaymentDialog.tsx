@@ -205,7 +205,10 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                   console.error('Erro ao liberar permissões:', permErr);
                 }
                 
-                toast.success(`Pagamento confirmado! Acesso estendido por ${accessDays} dias.`);
+                toast.success(isUpgrade 
+                  ? `Upgrade confirmado! API liberada.` 
+                  : `Pagamento confirmado! Acesso estendido por ${accessDays} dias.`
+                );
                 
                 // Registrar no controle financeiro
                 try {
@@ -213,7 +216,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                     userId: userInfo.id,
                     userEmail: email,
                     userName: name,
-                    planName,
+                    planName: isUpgrade ? `${upgradeFromPlan} + API` : planName,
                     planPrice,
                     accessDays,
                     paymentMethod: 'PIX',
@@ -222,7 +225,9 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                     startDate: startDate.toISOString(),
                     endDate: endDate.toISOString(),
                     confirmedAt: new Date().toISOString(),
-                    source: 'panel'
+                    source: isUpgrade ? 'upgrade' : 'panel',
+                    isUpgrade,
+                    upgradeFrom: isUpgrade ? upgradeFromPlan : undefined
                   });
                   console.log('💰 Registro financeiro salvo');
                 } catch (finErr) {
@@ -275,7 +280,10 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
             Pagamento PIX - {planName}
           </DialogTitle>
           <DialogDescription>
-            Assinatura mensal de R$ {planPrice.toFixed(2)}
+            {isUpgrade 
+              ? `Upgrade do plano ${upgradeFromPlan} - Diferença: R$ ${planPrice.toFixed(2)}`
+              : `Assinatura mensal de R$ ${planPrice.toFixed(2)}`
+            }
           </DialogDescription>
         </DialogHeader>
 
