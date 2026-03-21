@@ -22,12 +22,16 @@ interface AsaasPixPaymentDialogProps {
   planName: string;
   planPrice: number;
   planDescription: string;
+  isUpgrade?: boolean;
+  upgradeFromPlan?: string;
+  existingFeatures?: string[];
 }
 
 type Step = 'form' | 'processing' | 'pix' | 'confirmed' | 'error';
 
 const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
-  isOpen, onOpenChange, planName, planPrice, planDescription
+  isOpen, onOpenChange, planName, planPrice, planDescription,
+  isUpgrade = false, upgradeFromPlan = '', existingFeatures = []
 }) => {
   const { userInfo } = useSimpleAuth();
   const { activePlans } = usePlans();
