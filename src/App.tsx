@@ -114,6 +114,7 @@ const App = () => {
 
                               {/* Rota de preços públicos */}
                               <Route path="/precos-publico" element={<PrecosPublico />} />
+                              <Route path="/api-docs" element={<ApiDocs />} />
 
                               {/* Rotas de login - ambas agora dentro dos providers */}
                               <Route path="/login" element={<Login />} />
