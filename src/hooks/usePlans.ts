@@ -11,8 +11,9 @@ export const usePlans = () => {
   useEffect(() => {
     console.log('Configurando listener de planos em tempo real');
     
-    // Migrar dados do localStorage se necessário
+    // Migrar dados do localStorage se necessário e garantir plano API
     PlansService.migrateFromLocalStorage();
+    PlansService.ensureApiPlan();
 
     // Configurar listener em tempo real
     const unsubscribe = PlansService.onPlansChange((updatedPlans) => {
