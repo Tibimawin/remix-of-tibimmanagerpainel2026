@@ -4,17 +4,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Key, RefreshCw, Shield, Copy, Trash2, Search, BarChart3, TrendingUp } from 'lucide-react';
+import { Key, RefreshCw, Shield, Copy, Trash2, Search, BarChart3, TrendingUp, AlertTriangle, Ban, CheckCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ApiKeyService, ApiKeyData } from '@/services/ApiKeyService';
 import { toast } from 'sonner';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 
+interface UserSubStatus {
+  hasApiFeature: boolean;
+  isExpired: boolean;
+  planName: string;
+  expiryDate: string | null;
+}
+
 const AdminApiKeys: React.FC = () => {
   const [keys, setKeys] = useState<ApiKeyData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [userStatuses, setUserStatuses] = useState<Record<string, UserSubStatus>>({});
 
   const fetchKeys = async () => {
     setIsLoading(true);
