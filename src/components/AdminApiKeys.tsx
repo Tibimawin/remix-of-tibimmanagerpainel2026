@@ -511,7 +511,6 @@ const AdminApiKeys: React.FC = () => {
                         </TableRow>
                         );
                       })}
-                      ))}
                     </TableBody>
                   </Table>
                 </div>
