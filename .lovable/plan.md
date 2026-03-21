@@ -1,59 +1,42 @@
 
 
-## Diagnóstico: Indicações não aparecem no painel
+## Upgrade de Plano com Diferença de Preço (API)
 
-### Causa raiz identificada
+### Resumo
+Quando um usuário já tem um plano (ex: R$25) e quer a funcionalidade de API (plano de R$50), ele paga apenas a diferença (R$25). O sistema adiciona a feature `minha-api` às permissões existentes sem remover as outras.
 
-No arquivo `src/pages/Cadastro.tsx`, linhas 112-117, o código que cria a indicação tem um **`catch {}` vazio** que engole silenciosamente qualquer erro:
+### Alterações
 
-```typescript
-if (referrerUid) {
-  const { ReferralService } = await import('@/services/ReferralService');
-  try {
-    await ReferralService.createReferral(referrerUid, user.uid);
-  } catch {}  // <-- ERRO SILENCIADO AQUI
-}
-```
+#### 1. `src/components/PermissionGate.tsx`
+Quando o gate bloqueia a feature `minha-api` e o usuário já tem um plano ativo, mostrar um botão **"Fazer Upgrade - R$ XX"** que calcula a diferença entre o preço do plano API (R$50) e o preço do plano atual. Ao clicar, abre o `AsaasPixPaymentDialog` com o valor da diferença e metadata indicando que é um upgrade.
 
-Isso significa que se `createReferral` falhar por qualquer motivo (permissão Firestore, referrer inexistente, erro de rede), o usuário nunca saberá e a indicação nunca será registrada.
+#### 2. `src/components/AsaasPixPaymentDialog.tsx`
+Adicionar suporte a uma prop opcional `isUpgrade` + `upgradeFromPlan`. Quando é upgrade:
+- Após confirmação do pagamento, em vez de sobrescrever as permissões, **mesclar** as features do plano API com as features existentes do usuário
+- Atualizar o `planName` para indicar o plano combinado (ex: "Plano X + API")
+- Registrar no `financialRecords` e `autoPermissionLogs` como upgrade
 
-Possíveis causas de falha dentro de `createReferral`:
-1. **O `referrerUid` não existe no Firestore** -- se o UID passado no `?ref=` não corresponde a um usuário real, `getUserById` retorna `null` mas o código continua e tenta gravar com dados incompletos
-2. **Regras de segurança do Firestore** bloqueiam a escrita na coleção `referrals` para o usuário recém-criado (que está autenticado como o novo usuário, não como o referrer)
-3. **`getAllReferrals()`** pode falhar por permissões, já que o novo usuário pode não ter acesso de leitura à coleção inteira
+#### 3. `src/pages/MinhaApi.tsx`
+Na página da API, quando o usuário não tem a feature `minha-api`, mostrar um card de upgrade com o preço calculado (diferença) e botão de pagamento direto.
 
-### Plano de correção
+#### 4. `src/components/PlansPopup.tsx`
+Para usuários que já têm plano, mostrar o plano API com o preço da diferença (ex: "R$ 25,00 upgrade") em vez do preço cheio.
 
-#### 1. Adicionar log e feedback de erro no cadastro
-Em `src/pages/Cadastro.tsx`, substituir o `catch {}` vazio por tratamento de erro com `console.error` e `toast.warning`, para que pelo menos o problema seja visível.
-
-#### 2. Tornar a criação de referral mais robusta
-Em `src/services/ReferralService.ts`, no método `createReferral`:
-- Validar que o `referrerUid` existe no Firestore antes de prosseguir (se não existir, lançar erro claro)
-- Tratar o caso onde `getUserById` retorna `null` para o referred (pode haver delay no Firestore)
-
-#### 3. Adicionar retry com delay
-No `Cadastro.tsx`, adicionar um pequeno delay (1-2 segundos) antes de chamar `createReferral`, para garantir que o documento do usuário já foi propagado no Firestore.
-
-### Arquivos modificados
-- `src/pages/Cadastro.tsx` -- error handling + delay antes de criar referral
-- `src/services/ReferralService.ts` -- validação do referrer + logs
-
-### Detalhes técnicos
+### Fluxo
 
 ```text
-Fluxo atual (com bug):
-  1. createUserWithEmailAndPassword() → ok
-  2. createUserRecord() → grava doc no Firestore
-  3. createReferral() → pode falhar silenciosamente
-     └─ catch {} ← erro engolido
-
-Fluxo corrigido:
-  1. createUserWithEmailAndPassword() → ok
-  2. createUserRecord() → grava doc no Firestore
-  3. await delay(1500ms)
-  4. createReferral() → com validações
-     └─ catch (err) → console.error + toast.warning
-         + retry 1x se falhar
+Usuário com plano R$25 → acessa /minha-api
+  → PermissionGate bloqueia (sem feature 'minha-api')
+  → Mostra card: "Faça upgrade por R$ 25,00"
+  → Clica → AsaasPixPaymentDialog com R$25
+  → Paga via PIX
+  → Sistema mescla features: plano atual + minha-api
+  → Acesso liberado
 ```
+
+### Arquivos modificados
+- `src/components/PermissionGate.tsx` — lógica de upgrade com cálculo de diferença
+- `src/components/AsaasPixPaymentDialog.tsx` — suporte a upgrade (merge de features)
+- `src/pages/MinhaApi.tsx` — card de upgrade direto na página
+- `src/components/PlansPopup.tsx` — mostrar preço de diferença para quem já tem plano
 
