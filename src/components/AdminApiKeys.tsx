@@ -127,6 +127,9 @@ const AdminApiKeys: React.FC = () => {
   const activeCount = keys.filter(k => k.active).length;
   const inactiveCount = keys.length - activeCount;
   const totalRequests = keys.reduce((sum, k) => sum + (k.requestCount || 0), 0);
+  const expiredUsersCount = useMemo(() => 
+    Object.values(userStatuses).filter(s => s.isExpired || !s.hasApiFeature).length
+  , [userStatuses]);
 
   // Chart data: requests per user (top 10)
   const requestsByUser = useMemo(() => {
