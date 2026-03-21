@@ -186,7 +186,7 @@ const AdminApiKeys: React.FC = () => {
         {/* Tab: Overview & Charts */}
         <TabsContent value="overview" className="space-y-6">
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card className="modern-card border-border/40">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
@@ -203,8 +203,8 @@ const AdminApiKeys: React.FC = () => {
             <Card className="modern-card border-border/40">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                    <Shield className="w-5 h-5 text-emerald-500" />
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-primary" />
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-foreground">{activeCount}</p>
@@ -226,7 +226,44 @@ const AdminApiKeys: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+            <Card className={`modern-card ${expiredUsersCount > 0 ? 'border-destructive/40' : 'border-border/40'}`}>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${expiredUsersCount > 0 ? 'bg-destructive/10' : 'bg-muted/10'}`}>
+                    <AlertTriangle className={`w-5 h-5 ${expiredUsersCount > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{expiredUsersCount}</p>
+                    <p className="text-xs text-muted-foreground">Usuários Expirados</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
+
+          {expiredUsersCount > 0 && (
+            <Card className="border-destructive/30 bg-destructive/5">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="w-5 h-5 text-destructive" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        {expiredUsersCount} usuário(s) com assinatura expirada possuem chaves API ativas
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        As APIs desses usuários já estão bloqueadas automaticamente no gateway. Você pode bloquear as chaves manualmente também.
+                      </p>
+                    </div>
+                  </div>
+                  <Button variant="destructive" size="sm" onClick={handleBulkDisableExpired}>
+                    <Ban className="w-4 h-4 mr-2" />
+                    Bloquear Todas
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
