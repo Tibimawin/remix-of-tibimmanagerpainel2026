@@ -71,6 +71,7 @@ import ConfiguracoesAutoImport from "./pages/ConfiguracoesAutoImport";
 import GestaoDispositivos from "./pages/GestaoDispositivos";
 import Planos from "./pages/Planos";
 import MinhaApi from "./pages/MinhaApi";
+import ApiDocs from "./pages/ApiDocs";
 import { UpdateNotificationModal } from "./components/UpdateNotificationModal";
 import { M3UImportProvider } from "./contexts/M3UImportContext";
 
@@ -113,6 +114,7 @@ const App = () => {
 
                               {/* Rota de preços públicos */}
                               <Route path="/precos-publico" element={<PrecosPublico />} />
+                              <Route path="/api-docs" element={<ApiDocs />} />
 
                               {/* Rotas de login - ambas agora dentro dos providers */}
                               <Route path="/login" element={<Login />} />
