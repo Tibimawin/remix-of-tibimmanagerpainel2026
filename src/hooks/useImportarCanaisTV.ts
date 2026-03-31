@@ -6,6 +6,7 @@ import { useSystemLogs } from '@/hooks/useSystemLogs';
 import { useAdminConfig } from '@/contexts/AdminConfigContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
 import { BASEROW_PROXY_CONFIG } from '@/config/proxyConfig';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CanalTV {
   id: string;
