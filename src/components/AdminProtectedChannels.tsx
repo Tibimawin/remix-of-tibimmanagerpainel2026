@@ -104,7 +104,7 @@ const AdminProtectedChannels: React.FC = () => {
     if (!selectedChannel) return;
     // Delete old entry, create new one with same URL/name
     try {
-      await supabase.from('protected_channels').delete().eq('id', selectedChannel.id) as any;
+      await (supabase as any).from('protected_channels').delete().eq('id', selectedChannel.id);
       await generateProtectedLink(selectedChannel.original_url, selectedChannel.channel_name, parseInt(renewDays));
       setShowRenewDialog(false);
       setSelectedChannel(null);
