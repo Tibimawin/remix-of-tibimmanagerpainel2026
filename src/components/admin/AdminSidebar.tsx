@@ -26,6 +26,7 @@ const menuItems = [
   { id: 'date-logs', label: 'Logs por Data', icon: Calendar, category: 'main' },
   { id: 'security-center', label: '🔒 Central de Segurança', icon: Shield, category: 'security' },
   { id: 'protected-channels', label: '🛡️ Canais Protegidos', icon: Shield, category: 'security', isNew: true },
+  { id: 'financial', label: '💰 Controle Financeiro', icon: DollarSign, category: 'analytics', isNew: true },
   { id: 'metrics', label: 'Métricas Visuais', icon: BarChart, category: 'analytics' },
   { id: 'products', label: 'Produtos', icon: Package, category: 'management' },
   { id: 'offers', label: 'Ofertas', icon: Tag, category: 'management' },
