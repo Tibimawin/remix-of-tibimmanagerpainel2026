@@ -116,10 +116,10 @@ const AdminProtectedChannels: React.FC = () => {
   const handleDelete = async () => {
     if (!selectedChannel) return;
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('protected_channels')
         .delete()
-        .eq('id', selectedChannel.id) as any;
+        .eq('id', selectedChannel.id);
 
       if (error) throw error;
 
