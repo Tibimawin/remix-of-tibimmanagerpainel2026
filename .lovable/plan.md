@@ -1,42 +1,48 @@
 
 
-## Upgrade de Plano com Diferença de Preço (API)
+## Correção do Erro 403 na Importação Automática
 
-### Resumo
-Quando um usuário já tem um plano (ex: R$25) e quer a funcionalidade de API (plano de R$50), ele paga apenas a diferença (R$25). O sistema adiciona a feature `minha-api` às permissões existentes sem remover as outras.
+### Diagnóstico
+
+O erro `Proxy retornou 403 ()` acontece quando o Baserow rejeita a requisição com status 403 (Forbidden). Isso ocorre intermitentemente por estas razões:
+
+1. **Token expirado ou inválido temporariamente** — o Baserow pode invalidar sessões/tokens periodicamente
+2. **Rate limiting do Baserow** — muitas requisições simultâneas (o `ImportPreview` faz 3 chamadas em paralelo via `Promise.all` para contar filmes, séries e total)
+3. **Sem retry automático** — quando o proxy recebe 403 do Baserow, ele simplesmente repassa o erro sem tentar novamente
+
+### Solução
+
+Implementar **retry automático com backoff** no `makeProxyRequest` e melhorar o tratamento do 403 no `ImportPreview`.
 
 ### Alterações
 
-#### 1. `src/components/PermissionGate.tsx`
-Quando o gate bloqueia a feature `minha-api` e o usuário já tem um plano ativo, mostrar um botão **"Fazer Upgrade - R$ XX"** que calcula a diferença entre o preço do plano API (R$50) e o preço do plano atual. Ao clicar, abre o `AsaasPixPaymentDialog` com o valor da diferença e metadata indicando que é um upgrade.
+#### 1. `src/utils/proxyRequest.ts` — Adicionar retry com backoff exponencial
 
-#### 2. `src/components/AsaasPixPaymentDialog.tsx`
-Adicionar suporte a uma prop opcional `isUpgrade` + `upgradeFromPlan`. Quando é upgrade:
-- Após confirmação do pagamento, em vez de sobrescrever as permissões, **mesclar** as features do plano API com as features existentes do usuário
-- Atualizar o `planName` para indicar o plano combinado (ex: "Plano X + API")
-- Registrar no `financialRecords` e `autoPermissionLogs` como upgrade
+- Adicionar lógica de retry (até 3 tentativas) para erros 403 e 429 (rate limit)
+- Esperar 1s, 2s, 4s entre tentativas (backoff exponencial)
+- Logar cada tentativa para debug
 
-#### 3. `src/pages/MinhaApi.tsx`
-Na página da API, quando o usuário não tem a feature `minha-api`, mostrar um card de upgrade com o preço calculado (diferença) e botão de pagamento direto.
+#### 2. `src/components/ImportPreview.tsx` — Melhorar tratamento de erro
 
-#### 4. `src/components/PlansPopup.tsx`
-Para usuários que já têm plano, mostrar o plano API com o preço da diferença (ex: "R$ 25,00 upgrade") em vez do preço cheio.
+- No `fetchTypeCounts`, evitar `Promise.all` simultâneo — fazer as 3 chamadas sequencialmente com pequeno delay para não sobrecarregar o Baserow
+- Na mensagem de erro, mostrar um botão "Tentar novamente" mais claro
+- Adicionar tratamento específico para 403: "Token pode estar expirado ou Baserow está temporariamente indisponível"
 
-### Fluxo
+#### 3. `api/baserow-proxy.js` — Retry server-side
+
+- Quando o Baserow retornar 403, fazer 1 retry automático no próprio proxy antes de devolver o erro ao cliente
+- Isso resolve casos onde o 403 é temporário (token refresh do Baserow)
+
+### Resumo técnico
 
 ```text
-Usuário com plano R$25 → acessa /minha-api
-  → PermissionGate bloqueia (sem feature 'minha-api')
-  → Mostra card: "Faça upgrade por R$ 25,00"
-  → Clica → AsaasPixPaymentDialog com R$25
-  → Paga via PIX
-  → Sistema mescla features: plano atual + minha-api
-  → Acesso liberado
+Cliente (ImportPreview)
+  → makeProxyRequest (retry 3x com backoff)
+    → api/baserow-proxy.js (retry 1x server-side para 403)
+      → Baserow API
 ```
 
-### Arquivos modificados
-- `src/components/PermissionGate.tsx` — lógica de upgrade com cálculo de diferença
-- `src/components/AsaasPixPaymentDialog.tsx` — suporte a upgrade (merge de features)
-- `src/pages/MinhaApi.tsx` — card de upgrade direto na página
-- `src/components/PlansPopup.tsx` — mostrar preço de diferença para quem já tem plano
+- Chamadas paralelas no `fetchTypeCounts` passam a ser sequenciais com delay de 300ms
+- Retry client-side: 3 tentativas, backoff 1s/2s/4s, para status 403 e 429
+- Retry server-side: 1 tentativa extra para 403
 
