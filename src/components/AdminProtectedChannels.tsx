@@ -45,10 +45,10 @@ const AdminProtectedChannels: React.FC = () => {
   const fetchChannels = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('protected_channels')
         .select('*')
-        .order('created_at', { ascending: false }) as any;
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setChannels(data || []);
