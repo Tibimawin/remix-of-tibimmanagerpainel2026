@@ -413,6 +413,8 @@ const AdminDashboard = () => {
         return <AdminPlanosConfig />;
       case 'api-keys':
         return <AdminApiKeys />;
+      case 'protected-channels':
+        return <AdminProtectedChannels />;
       default:
         return <div className="text-foreground">Selecione uma opção do menu</div>;
     }
