@@ -28,7 +28,34 @@ export interface ProxyResponse {
  * Faz uma requisição via proxy Baserow
  * Detecta automaticamente o ambiente e usa o método correto
  */
+const RETRYABLE_STATUSES = [403, 429];
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 1000;
+
+async function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export async function makeProxyRequest(payload: ProxyPayload): Promise<ProxyResponse> {
+  let lastResult: ProxyResponse | null = null;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    lastResult = await makeProxyRequestOnce(payload);
+
+    if (lastResult.ok || !RETRYABLE_STATUSES.includes(lastResult.status)) {
+      return lastResult;
+    }
+
+    if (attempt < MAX_RETRIES) {
+      const waitMs = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      await delay(waitMs);
+    }
+  }
+
+  return lastResult!;
+}
+
+async function makeProxyRequestOnce(payload: ProxyPayload): Promise<ProxyResponse> {
   const isSupabase = BASEROW_PROXY_CONFIG.isUsingSupabase();
   
   console.log(`🌐 [ProxyRequest] Fazendo requisição via ${isSupabase ? 'Supabase Edge Function' : 'Vercel Proxy'}`, {

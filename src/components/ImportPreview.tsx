@@ -310,19 +310,22 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     const baseUrl = `${importConfig.sourceBaseUrl}/api/database/rows/table/${importConfig.contentTableId}/?user_field_names=true&size=1`;
     
     try {
-      const [totalData, filmesData, seriesData] = await Promise.all([
-        makeApiRequest<{ count?: number }>(baseUrl),
-        makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Tipo__equal=Filme`),
-        makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Tipo__equal=Serie`)
-      ]);
+      const totalData = await makeApiRequest<{ count?: number }>(baseUrl);
+      await new Promise(r => setTimeout(r, 300));
+      const filmesData = await makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Tipo__equal=Filme`);
+      await new Promise(r => setTimeout(r, 300));
+      const seriesData = await makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Tipo__equal=Serie`);
 
       setTypeCounts({
         total: totalData.count || 0,
         filmes: filmesData.count || 0,
         series: seriesData.count || 0
       });
-    } catch (err) {
-      console.error('Erro ao buscar contagens:', err);
+    } catch (err: any) {
+      const msg = err?.message || '';
+      if (msg.includes('403')) {
+        setError('Token pode estar expirado ou Baserow está temporariamente indisponível. Tente novamente.');
+      }
     }
   };
 

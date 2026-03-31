@@ -78,14 +78,14 @@ export default async function handler(req, res) {
             });
         }
 
-        // Fazer requisição
-        console.log('⏳ [VERCEL PROXY] Fazendo requisição para Baserow:', {
-            url: url,
-            method: method,
-            hasAuthHeader: !!headers['Authorization'],
-            headers: headers
-        });
-        const response = await fetch(url, fetchOptions);
+        // Fazer requisição com retry para 403
+        let response = await fetch(url, fetchOptions);
+
+        // Retry automático para 403 (pode ser temporário)
+        if (response.status === 403) {
+            await new Promise(r => setTimeout(r, 1000));
+            response = await fetch(url, fetchOptions);
+        }
 
         // Log do status da resposta
         console.log('📡 [VERCEL PROXY] Resposta recebida:', {
