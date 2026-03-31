@@ -331,6 +331,9 @@ export const useImportarCanaisTV = () => {
 
       for (const canal of canaisOnline) {
         try {
+          // Proteger o link
+          const protectedLink = await protectLink(canal.Link, canal.Nome);
+
           // Verificar se o canal já existe na tabela de conteúdos
           const existingContent = await baserowService.getAllTableData(
             targetTableId,
@@ -339,14 +342,13 @@ export const useImportarCanaisTV = () => {
           );
 
           if (existingContent.results && existingContent.results.length > 0) {
-            // Canal já existe, atualizar apenas o link
             const existingCanal = existingContent.results.find((item: any) =>
               item.Nome?.toLowerCase() === canal.Nome.toLowerCase()
             );
 
             if (existingCanal) {
               const updatePayload = {
-                'Link': canal.Link,
+                'Link': protectedLink,
                 'Sinopse': `Canal de TV atualizado automaticamente. Status: ${canal.Online ? 'Online' : canal.Offline ? 'Offline' : 'Desconhecido'}`,
               };
 
@@ -354,10 +356,9 @@ export const useImportarCanaisTV = () => {
               atualizados++;
             }
           } else {
-            // Canal não existe, importar normalmente
             const payload = {
               'Nome': canal.Nome,
-              'Link': canal.Link,
+              'Link': protectedLink,
               'Categoria': canal.Categoria,
               'Capa': canal.Capa || '',
               'Idioma': canal.Idioma || '',
