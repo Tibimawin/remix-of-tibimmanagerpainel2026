@@ -361,6 +361,14 @@ print(data["data"])`} />
           </div>
         </section>
 
+        {/* Playground */}
+        <Separator />
+        <section className="space-y-4">
+          <ApiPlayground />
+        </section>
+
+        <Separator />
+
         {/* CTA */}
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="pt-6 text-center space-y-4">
