@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Copy, Check, Code2, Key, Shield, Zap, BookOpen, Terminal, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
+import ApiPlayground from "@/components/ApiPlayground";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -359,6 +360,14 @@ print(data["data"])`} />
             </div>
           </div>
         </section>
+
+        {/* Playground */}
+        <Separator />
+        <section className="space-y-4">
+          <ApiPlayground />
+        </section>
+
+        <Separator />
 
         {/* CTA */}
         <Card className="border-primary/20 bg-primary/5">
