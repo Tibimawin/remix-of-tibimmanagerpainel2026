@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Key, Plus, Copy, Trash2, RefreshCw, Eye, EyeOff, CheckCircle, XCircle, Code, Terminal, Zap, Shield, BookOpen } from 'lucide-react';
+import { Key, Plus, Copy, Trash2, RefreshCw, Eye, EyeOff, CheckCircle, XCircle, Code, Terminal, Zap, Shield, BookOpen, Database, Film, Tv } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,10 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { ApiKeyService, ApiKeyData } from '@/services/ApiKeyService';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
+import { useSystemMetrics } from '@/hooks/useSystemMetrics';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
 const MinhaApi = () => {
   const { userInfo } = useSimpleAuth();
+  const { metrics, loading: metricsLoading } = useSystemMetrics();
   const [keys, setKeys] = useState<ApiKeyData[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
