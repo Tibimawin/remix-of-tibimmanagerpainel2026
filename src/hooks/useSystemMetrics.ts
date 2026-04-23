@@ -92,49 +92,41 @@ export const useSystemMetrics = () => {
         newMetrics.totalUsuarios = usuariosCount;
 
         // 🎯 Para conteúdos, precisamos buscar os dados para filtrar por tipo
-        // MAS vamos buscar de forma mais eficiente
+        // ✅ Contagem EXATA via filtros do Baserow (filter__Tipo__equal=...)
         if (tableIds.conteudos && tableIds.conteudos.trim() !== '') {
           try {
-            // Buscar apenas os campos necessários (Tipo) em vez de tudo
-            const conteudosData = await baserowService.getTableData(tableIds.conteudos, 1, 100);
-            newMetrics.totalConteudos = conteudosData.count || 0;
+            // Total geral
+            const totalData = await baserowService.getTableData(tableIds.conteudos, 1, 1);
+            newMetrics.totalConteudos = totalData.count || 0;
 
-            if (conteudosData.results && conteudosData.count > 0) {
-              // 🔍 Análise de tipos mais robusta
-              const tiposCounts = {
-                filmes: 0,
-                series: 0,
-                tv: 0
-              };
-
-              // Amostrar primeiros 100 para determinar proporções
-              conteudosData.results.forEach((item: any) => {
-                const tipo = (item.Tipo || item.Type || item.tipo || '').toString().toLowerCase().trim();
-
-                if (tipo.includes('filme')) {
-                  tiposCounts.filmes++;
-                } else if (tipo.includes('serie') || tipo.includes('série')) {
-                  tiposCounts.series++;
-                } else if (tipo === 'tv' || tipo.includes('canal')) {
-                  tiposCounts.tv++;
-                }
-              });
-
-              // Se temos uma amostra, extrapolar para o total
-              const sampleSize = conteudosData.results.length;
-              const totalCount = conteudosData.count;
-
-              if (sampleSize > 0 && totalCount > sampleSize) {
-                const ratio = totalCount / sampleSize;
-                newMetrics.totalFilmes = Math.round(tiposCounts.filmes * ratio);
-                newMetrics.totalSeries = Math.round(tiposCounts.series * ratio);
-                newMetrics.totalTV = Math.round(tiposCounts.tv * ratio);
-              } else {
-                newMetrics.totalFilmes = tiposCounts.filmes;
-                newMetrics.totalSeries = tiposCounts.series;
-                newMetrics.totalTV = tiposCounts.tv;
+            // Contagem exata por tipo usando filtro do Baserow
+            const countByTipo = async (valor: string): Promise<number> => {
+              try {
+                const res = await baserowService.getTableData(
+                  tableIds.conteudos,
+                  1,
+                  1,
+                  undefined,
+                  undefined,
+                  `filter__Tipo__equal=${encodeURIComponent(valor)}`
+                );
+                return res.count || 0;
+              } catch {
+                return 0;
               }
-            }
+            };
+
+            const [filmesCount, serieCount, seriesCount, tvCount, canalCount] = await Promise.all([
+              countByTipo('Filme'),
+              countByTipo('Serie'),
+              countByTipo('Série'),
+              countByTipo('TV'),
+              countByTipo('Canal'),
+            ]);
+
+            newMetrics.totalFilmes = filmesCount;
+            newMetrics.totalSeries = serieCount + seriesCount;
+            newMetrics.totalTV = tvCount + canalCount;
           } catch (err) {
             console.error('❌ Erro ao buscar conteúdos:', err);
           }
