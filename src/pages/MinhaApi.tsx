@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 
 const MinhaApi = () => {
   const { userInfo } = useSimpleAuth();
-  const { metrics, loading: metricsLoading } = useSystemMetrics();
+  const { metrics, loading: metricsLoading, refetch } = useSystemMetrics();
   const [keys, setKeys] = useState<ApiKeyData[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -140,8 +140,20 @@ const MinhaApi = () => {
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
               <Database className="w-5 h-5 text-primary" />
             </div>
-            <div className="min-w-0">
-              <p className="text-xs text-muted-foreground">Total na API</p>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">Total na API</p>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={refetch}
+                  disabled={metricsLoading}
+                  title="Atualizar contagem"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${metricsLoading ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
               <p className="text-2xl font-bold text-foreground">
                 {metricsLoading ? '...' : (metrics.totalFilmes + metrics.totalSeries).toLocaleString('pt-BR')}
               </p>
