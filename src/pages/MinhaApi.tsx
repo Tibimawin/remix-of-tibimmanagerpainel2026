@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Key, Plus, Copy, Trash2, RefreshCw, Eye, EyeOff, CheckCircle, XCircle, Code, Terminal, Zap, Shield, BookOpen } from 'lucide-react';
+import { Key, Plus, Copy, Trash2, RefreshCw, Eye, EyeOff, CheckCircle, XCircle, Code, Terminal, Zap, Shield, BookOpen, Database, Film, Tv } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,10 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { ApiKeyService, ApiKeyData } from '@/services/ApiKeyService';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
+import { useSystemMetrics } from '@/hooks/useSystemMetrics';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
 const MinhaApi = () => {
   const { userInfo } = useSimpleAuth();
+  const { metrics, loading: metricsLoading } = useSystemMetrics();
   const [keys, setKeys] = useState<ApiKeyData[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -129,6 +131,50 @@ const MinhaApi = () => {
             Gere chaves de API para integrar conteúdos no seu site ou aplicativo
           </p>
         </div>
+      </div>
+
+      {/* Stats - Total de conteúdos disponíveis na API */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+          <CardContent className="py-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Database className="w-5 h-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Total na API</p>
+              <p className="text-2xl font-bold text-foreground">
+                {metricsLoading ? '...' : (metrics.totalFilmes + metrics.totalSeries).toLocaleString('pt-BR')}
+              </p>
+              <p className="text-[11px] text-muted-foreground">Filmes + Séries</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+              <Film className="w-5 h-5 text-foreground" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Filmes</p>
+              <p className="text-2xl font-bold text-foreground">
+                {metricsLoading ? '...' : metrics.totalFilmes.toLocaleString('pt-BR')}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+              <Tv className="w-5 h-5 text-foreground" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Séries</p>
+              <p className="text-2xl font-bold text-foreground">
+                {metricsLoading ? '...' : metrics.totalSeries.toLocaleString('pt-BR')}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs defaultValue="keys" className="space-y-4">
