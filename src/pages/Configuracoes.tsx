@@ -531,8 +531,7 @@ const Configuracoes = () => {
                     />
                     <p className="text-xs text-muted-foreground">Plataformas de streaming disponíveis</p>
                   </div>
-                  {mode === 'plural' && (
-                    <div className="space-y-1">
+                  <div className="space-y-1">
                       <Label htmlFor="canaisTv" className="flex items-center gap-2">
                         <Tv className="h-4 w-4 text-primary" />
                         Tabela de Canais de TV
@@ -555,7 +554,6 @@ const Configuracoes = () => {
                       />
                       <p className="text-xs text-muted-foreground">Canais de TV ao vivo e IPTV</p>
                     </div>
-                  )}
                   <div className="space-y-1">
                     <Label htmlFor="planos" className="flex items-center gap-2">
                       <CreditCard className="h-4 w-4 text-primary" />
