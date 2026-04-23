@@ -32,7 +32,16 @@ export const useImportarCanaisTV = () => {
 
   // Resolve a tabela alvo conforme o modo (singular → conteúdos, plural → canais de TV)
   const resolveTargetTableId = (): string => {
-    const desired = mode === 'plural' ? (config.tableIds.canaisTv || '') : (config.tableIds.conteudos || '');
+    // Plural (Francisco): sempre canais de TV
+    // Singular (Thiago): canais de TV se preenchido, senão conteúdos
+    let desired = '';
+    if (mode === 'plural') {
+      desired = config.tableIds.canaisTv || '';
+    } else {
+      desired = config.tableIds.canaisTv?.trim()
+        ? config.tableIds.canaisTv
+        : (config.tableIds.conteudos || '');
+    }
     if (!desired) {
       // Fallback seguro: se não estiver configurado, usar conteúdos
       toast.warning('Tabela alvo não configurada. Usando "Conteúdos" por padrão.');
