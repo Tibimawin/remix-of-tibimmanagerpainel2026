@@ -304,11 +304,12 @@ export class BaserowService {
     }
   }
 
-  async getTableData(tableId: string, page = 1, size = 100, searchTerm?: string, order?: string) {
+  async getTableData(tableId: string, page = 1, size = 100, searchTerm?: string, order?: string, extraParams?: string) {
     try {
       const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
       const orderParam = order ? `&order=${encodeURIComponent(order)}` : '';
-      const endpoint = `/api/database/rows/table/${tableId}/?page=${page}&size=${size}&user_field_names=true${searchParam}${orderParam}`;
+      const extra = extraParams ? `&${extraParams.replace(/^&/, '')}` : '';
+      const endpoint = `/api/database/rows/table/${tableId}/?page=${page}&size=${size}&user_field_names=true${searchParam}${orderParam}${extra}`;
 
       const response = await this.makeRequest(endpoint);
 
