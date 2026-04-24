@@ -416,7 +416,12 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     } catch (err) {
       console.error('Erro ao buscar preview:', err);
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
-      setError(`Falha ao carregar preview pelo proxy central: ${message}`);
+      const isUpstreamDown = message.includes('HTML') || message.includes('502') || message.includes('500');
+      if (isUpstreamDown) {
+        setError('O servidor Baserow está temporariamente indisponível ou sobrecarregado. Aguarde alguns segundos e tente novamente.');
+      } else {
+        setError(`Falha ao carregar preview: ${message}`);
+      }
     } finally {
       setLoading(false);
     }

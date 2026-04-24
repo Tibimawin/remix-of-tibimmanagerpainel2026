@@ -78,13 +78,43 @@ export default async function handler(req, res) {
             });
         }
 
-        // Fazer requisição com retry para 403
-        let response = await fetch(url, fetchOptions);
+        // Fazer requisição com retry para erros transitórios (403, 500, 502, 503, 504)
+        // O servidor Baserow ocasionalmente retorna 500 (HTML) sob carga
+        let response;
+        let lastResponseText = '';
+        let lastContentType = '';
+        const RETRY_STATUSES = [403, 500, 502, 503, 504];
+        const MAX_ATTEMPTS = 3;
 
-        // Retry automático para 403 (pode ser temporário)
-        if (response.status === 403) {
-            await new Promise(r => setTimeout(r, 1000));
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             response = await fetch(url, fetchOptions);
+            const ct = response.headers.get('content-type') || '';
+            const isHtml = ct.includes('text/html');
+
+            // Se é uma resposta retentável (status ruim OU HTML em vez de JSON), tentar de novo
+            const shouldRetry = RETRY_STATUSES.includes(response.status) || (isHtml && !response.ok);
+
+            if (!shouldRetry || attempt === MAX_ATTEMPTS) {
+                if (isHtml && !response.ok) {
+                    // Salvar para usar no fallback de erro abaixo
+                    lastResponseText = await response.text();
+                    lastContentType = ct;
+                    // Reconstruir um "response" com texto já lido
+                    response = {
+                        status: response.status,
+                        statusText: response.statusText,
+                        ok: response.ok,
+                        headers: response.headers,
+                        text: async () => lastResponseText,
+                        json: async () => { throw new Error('Resposta não é JSON'); }
+                    };
+                }
+                break;
+            }
+
+            console.log(`🔁 [VERCEL PROXY] Retry ${attempt}/${MAX_ATTEMPTS - 1} - status ${response.status}`);
+            // Backoff exponencial: 800ms, 1600ms
+            await new Promise(r => setTimeout(r, 800 * attempt));
         }
 
         // Log do status da resposta
