@@ -28,7 +28,7 @@ export interface ProxyResponse {
  * Faz uma requisição via proxy Baserow
  * Detecta automaticamente o ambiente e usa o método correto
  */
-const RETRYABLE_STATUSES = [403, 429];
+const RETRYABLE_STATUSES = [403, 429, 500, 502, 503, 504];
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 
