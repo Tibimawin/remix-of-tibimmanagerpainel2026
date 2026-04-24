@@ -10,6 +10,17 @@ import { ApiKeyService, ApiKeyData } from '@/services/ApiKeyService';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { useSystemMetrics } from '@/hooks/useSystemMetrics';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 const MinhaApi = () => {
   const { userInfo } = useSimpleAuth();
@@ -143,16 +154,33 @@ const MinhaApi = () => {
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">Total na API</p>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={refetch}
-                  disabled={metricsLoading}
-                  title="Atualizar contagem"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${metricsLoading ? 'animate-spin' : ''}`} />
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      disabled={metricsLoading}
+                      title="Atualizar contagem"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${metricsLoading ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Atualizar contagem?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Isso irá buscar os dados mais recentes do Baserow para atualizar a contagem de Filmes e Séries. A operação pode levar alguns segundos.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={refetch}>
+                        Confirmar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
               <p className="text-2xl font-bold text-foreground">
                 {metricsLoading ? '...' : (metrics.totalFilmes + metrics.totalSeries).toLocaleString('pt-BR')}
