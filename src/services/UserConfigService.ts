@@ -493,10 +493,13 @@ export const UserConfigService = {
   async saveGlobalAutomationConfig(config: { isEnabled: boolean; updatedBy?: string; reason?: string }): Promise<void> {
     try {
       const docRef = doc(db, 'globalConfig', 'automation');
-      await setDoc(docRef, {
-        ...config,
+      const payload: Record<string, any> = {
+        isEnabled: config.isEnabled,
         updatedAt: new Date().toISOString(),
-      });
+      };
+      if (config.updatedBy !== undefined) payload.updatedBy = config.updatedBy;
+      if (config.reason !== undefined) payload.reason = config.reason;
+      await setDoc(docRef, payload);
       logger.debug('Config global de automação salva', config);
     } catch (error) {
       logger.error('Erro ao salvar config global de automação', error);
