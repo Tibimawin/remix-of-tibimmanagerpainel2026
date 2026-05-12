@@ -7,6 +7,13 @@ export interface GlobalPlanosConfig {
   updatedAt: string;
 }
 
+export interface GlobalAutomationConfig {
+  isEnabled: boolean;
+  updatedAt: string;
+  updatedBy?: string;
+  reason?: string;
+}
+
 export interface GlobalImportConfig {
   sourceToken: string;
   sourceBaseUrl: string;
@@ -457,6 +464,59 @@ export const UserConfigService = {
       },
       (error) => {
         logger.error('Erro no listener da config global de Canais TV', error);
+        callback(null);
+      }
+    );
+  },
+
+  // ============================================================
+  // Kill-switch GLOBAL da Automação (admin → todos usuários)
+  // Firestore path: globalConfig/automation
+  // Quando isEnabled = false NENHUM usuário executa importação
+  // automática nem faz requisições ao Baserow de origem.
+  // ============================================================
+
+  async getGlobalAutomationConfig(): Promise<GlobalAutomationConfig | null> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'automation');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as GlobalAutomationConfig;
+      }
+      return null;
+    } catch (error) {
+      logger.error('Erro ao buscar config global de automação', error);
+      return null;
+    }
+  },
+
+  async saveGlobalAutomationConfig(config: { isEnabled: boolean; updatedBy?: string; reason?: string }): Promise<void> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'automation');
+      await setDoc(docRef, {
+        ...config,
+        updatedAt: new Date().toISOString(),
+      });
+      logger.debug('Config global de automação salva', config);
+    } catch (error) {
+      logger.error('Erro ao salvar config global de automação', error);
+      throw error;
+    }
+  },
+
+  onGlobalAutomationConfigChange(callback: (config: GlobalAutomationConfig | null) => void): () => void {
+    const docRef = doc(db, 'globalConfig', 'automation');
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          callback(docSnap.data() as GlobalAutomationConfig);
+        } else {
+          callback(null);
+        }
+      },
+      (error) => {
+        logger.error('Erro no listener da config global de automação', error);
         callback(null);
       }
     );
