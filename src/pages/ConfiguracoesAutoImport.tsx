@@ -206,6 +206,31 @@ export default function ConfiguracoesAutoImport() {
                 </div>
 
                 {/* Verificação de Permissão */}
+                {hasAccess && !globalAutomationLoading && !globalAutomationEnabled && (
+                    <Card className="border-red-500/40 bg-gradient-to-br from-red-500/10 to-orange-500/10">
+                        <CardContent className="p-12 text-center">
+                            <div className="flex flex-col items-center space-y-6">
+                                <div className="p-6 bg-red-500/20 rounded-full">
+                                    <Lock className="h-16 w-16 text-red-500" />
+                                </div>
+                                <div className="space-y-2">
+                                    <h2 className="text-2xl font-bold text-white">
+                                        Automação desativada pelo administrador
+                                    </h2>
+                                    <p className="text-gray-400 max-w-md">
+                                        A funcionalidade de Importação Automática está temporariamente
+                                        desligada para todos os usuários. Nenhuma verificação ou
+                                        importação será executada até que seja reativada.
+                                    </p>
+                                </div>
+                                <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                                    Indisponível no momento
+                                </Badge>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {!hasAccess && (
                     <Card className="border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-red-500/10">
                         <CardContent className="p-12 text-center">
@@ -235,7 +260,7 @@ export default function ConfiguracoesAutoImport() {
                 )}
 
                 {/* Conteúdo Principal - Apenas se tiver acesso */}
-                {hasAccess && (
+                {hasAccess && globalAutomationEnabled && (
                     <>
                         {/* Status Card */}
                         <Card className="border-[#76ff03]/20 bg-[#1e1e1e]">
