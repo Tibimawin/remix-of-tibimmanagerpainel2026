@@ -84,10 +84,32 @@ export default async function handler(req, res) {
         let lastResponseText = '';
         let lastContentType = '';
         const RETRY_STATUSES = [403, 500, 502, 503, 504];
-        const MAX_ATTEMPTS = 3;
+        // Reduzido para 2 tentativas: o cliente já faz retries com backoff,
+        // e múltiplas tentativas aqui estouram o limite de 30s do Vercel.
+        const MAX_ATTEMPTS = 2;
+        // Timeout por requisição ao Baserow (12s) para garantir que sobre
+        // tempo dentro do limite de execução da função serverless.
+        const FETCH_TIMEOUT_MS = 12000;
 
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-            response = await fetch(url, fetchOptions);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+            try {
+                response = await fetch(url, { ...fetchOptions, signal: controller.signal });
+            } catch (fetchErr) {
+                clearTimeout(timeoutId);
+                const isAbort = fetchErr.name === 'AbortError';
+                console.warn(`⏱️ [VERCEL PROXY] Tentativa ${attempt} falhou:`, isAbort ? 'TIMEOUT' : fetchErr.message);
+                if (attempt === MAX_ATTEMPTS) {
+                    return res.status(504).json({
+                        error: isAbort ? 'Timeout ao conectar com Baserow' : 'Erro de rede ao conectar com Baserow',
+                        details: fetchErr.message
+                    });
+                }
+                await new Promise(r => setTimeout(r, 600 * attempt));
+                continue;
+            }
+            clearTimeout(timeoutId);
             const ct = response.headers.get('content-type') || '';
             const isHtml = ct.includes('text/html');
 
@@ -113,8 +135,8 @@ export default async function handler(req, res) {
             }
 
             console.log(`🔁 [VERCEL PROXY] Retry ${attempt}/${MAX_ATTEMPTS - 1} - status ${response.status}`);
-            // Backoff exponencial: 800ms, 1600ms
-            await new Promise(r => setTimeout(r, 800 * attempt));
+            // Backoff curto: ~600ms entre tentativas
+            await new Promise(r => setTimeout(r, 600 * attempt));
         }
 
         // Log do status da resposta
