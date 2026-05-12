@@ -8,7 +8,6 @@ import { ImportContentInterface } from '@/components/ImportContentInterface';
 import { useAutoImportService, ImportConfig, UserConfig, ImportContent } from '@/services/AutoImportService';
 import { useUserConfig } from '@/hooks/useUserConfig';
 import { useGlobalImportConfig } from '@/hooks/useGlobalImportConfig';
-import { useGlobalAutomationConfig } from '@/hooks/useGlobalAutomationConfig';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { PermissionGate } from '@/components/PermissionGate';
@@ -67,7 +66,6 @@ const ImportacaoAutomatica = () => {
   const hasTriggeredAutoImportRef = React.useRef(false);
   const { config: cloudConfig, updateConfig: updateCloudConfig, loading: cloudLoading } = useUserConfig();
   const { globalConfig, loading: globalConfigLoading } = useGlobalImportConfig();
-  const { isEnabled: globalAutomationEnabled, loading: globalAutomationLoading } = useGlobalAutomationConfig();
   const { config } = useConfig();
   const { mode: typeMode } = useTypeMode();
   const {
@@ -195,12 +193,6 @@ const ImportacaoAutomatica = () => {
   };
 
   const startImport = React.useCallback(async (selectedContents?: ContentPreview[]) => {
-    if (!globalAutomationLoading && !globalAutomationEnabled) {
-      toast.error('A automação foi desativada pelo administrador.', {
-        description: 'A importação está temporariamente indisponível para todos os usuários.'
-      });
-      return;
-    }
     if (!importConfig) {
       toast.error('O administrador ainda não configurou a origem dos conteúdos.', {
         description: 'Entre em contato com o administrador do sistema.'
@@ -352,22 +344,6 @@ const ImportacaoAutomatica = () => {
     <PermissionGate feature="importacao-automatica">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
 
-        {/* Kill-switch global ATIVO (admin desativou) */}
-        {!globalAutomationLoading && !globalAutomationEnabled && (
-          <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-6 flex items-start gap-4">
-            <Lock className="h-6 w-6 text-destructive shrink-0 mt-0.5" />
-            <div>
-              <h2 className="text-lg font-semibold text-destructive">
-                Automação desativada pelo administrador
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                A importação automática está temporariamente indisponível para todos os usuários.
-                Nenhuma requisição será feita ao servidor de origem até que seja reativada no painel administrativo.
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Hero Section */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/20 via-accent/10 to-background border border-primary/20 p-8 md:p-12">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
@@ -394,7 +370,7 @@ const ImportacaoAutomatica = () => {
               <Button
                 onClick={() => startImport()}
                 size="lg"
-                disabled={!configValid || !canAddMoreContent() || isImporting || !globalAutomationEnabled}
+                disabled={!configValid || !canAddMoreContent() || isImporting}
                 className="group gap-2 text-base px-6"
               >
                 {isImporting ? (
