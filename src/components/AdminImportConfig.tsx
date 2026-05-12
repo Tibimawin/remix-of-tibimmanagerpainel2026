@@ -11,12 +11,37 @@ import { Save, TestTube, Info, Cloud, Loader2, Tv, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import { ImportConfig } from '@/services/AutoImportService';
 import { useGlobalImportConfig } from '@/hooks/useGlobalImportConfig';
+import { useGlobalAutomationConfig } from '@/hooks/useGlobalAutomationConfig';
 import { useAdminConfig } from '@/contexts/AdminConfigContext';
 import { testBaserowConnection } from '@/utils/proxyRequest';
 
 const AdminImportConfig = () => {
   const { globalConfig, loading, saveGlobalImportConfig } = useGlobalImportConfig();
+  const {
+    config: automationConfig,
+    isEnabled: automationEnabled,
+    loading: automationLoading,
+    setEnabled: setAutomationEnabled,
+  } = useGlobalAutomationConfig();
   const { adminConfig, updateAdminConfig, loading: adminLoading } = useAdminConfig();
+  const [togglingAutomation, setTogglingAutomation] = useState(false);
+
+  const handleToggleAutomation = async (checked: boolean) => {
+    try {
+      setTogglingAutomation(true);
+      await setAutomationEnabled(checked);
+      toast.success(
+        checked
+          ? 'Automação ATIVADA globalmente. Usuários voltarão a receber importações automáticas.'
+          : 'Automação DESATIVADA globalmente. Nenhum usuário fará verificações ou requisições ao Baserow.'
+      );
+    } catch (error) {
+      console.error('Erro ao alterar kill-switch da automação:', error);
+      toast.error('Não foi possível atualizar o estado global da automação.');
+    } finally {
+      setTogglingAutomation(false);
+    }
+  };
   
   const [config, setConfig] = useState<ImportConfig>({
     sourceToken: '',
@@ -189,6 +214,51 @@ const AdminImportConfig = () => {
         </TabsList>
 
         <TabsContent value="import-automatica" className="space-y-6">
+          <Card className={automationEnabled ? 'border-green-500/40' : 'border-destructive/60'}>
+            <CardHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    🛑 Kill-Switch Global da Automação
+                  </CardTitle>
+                  <CardDescription>
+                    Quando desligado, NENHUM usuário executa importação automática
+                    e nenhuma requisição é feita ao Baserow de origem. Use para aliviar
+                    a carga do servidor ou em manutenção.
+                  </CardDescription>
+                </div>
+                <Badge variant={automationEnabled ? 'default' : 'destructive'}>
+                  {automationLoading ? 'Carregando...' : automationEnabled ? 'ATIVADA' : 'DESATIVADA'}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                <div className="space-y-1">
+                  <Label htmlFor="globalAutomationSwitch" className="text-base font-medium">
+                    Automação habilitada para todos os usuários
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {automationEnabled
+                      ? 'Os agendamentos individuais dos usuários serão verificados normalmente.'
+                      : 'Todos os agendamentos estão pausados. Os usuários verão a automação inativa.'}
+                  </p>
+                  {automationConfig?.updatedAt && (
+                    <p className="text-xs text-muted-foreground">
+                      Última alteração: {new Date(automationConfig.updatedAt).toLocaleString('pt-BR')}
+                    </p>
+                  )}
+                </div>
+                <Switch
+                  id="globalAutomationSwitch"
+                  checked={automationEnabled}
+                  disabled={automationLoading || togglingAutomation}
+                  onCheckedChange={handleToggleAutomation}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
