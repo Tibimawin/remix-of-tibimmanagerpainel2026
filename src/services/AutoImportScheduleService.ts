@@ -134,12 +134,9 @@ export class AutoImportScheduleService {
                 userEmail
             });
 
-            // 🛑 KILL-SWITCH GLOBAL (admin)
-            const globalConf = await UserConfigService.getGlobalAutomationConfig();
-            if (globalConf && globalConf.isEnabled === false) {
-                console.log('🛑 [AUTO-IMPORT] Automação DESATIVADA globalmente pelo admin. Bloqueando execução manual.');
-                throw new Error('A automação está desativada globalmente pelo administrador.');
-            }
+            // OBS: o kill-switch global NÃO bloqueia execução manual ("Executar agora").
+            // Ele só interrompe o agendador automático em segundo plano (checkAndExecuteForUser
+            // + useAutoImportExecutor) para evitar requisições periódicas ao Baserow.
 
             const scheduleRef = doc(db, 'autoImportSchedules', userId);
             const scheduleSnap = await getDoc(scheduleRef);

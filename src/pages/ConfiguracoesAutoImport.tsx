@@ -109,11 +109,6 @@ export default function ConfiguracoesAutoImport() {
             toast.error('Configuração de automação não carregada para este usuário.');
             return;
         }
-        if (!globalAutomationEnabled) {
-            toast.error('A automação foi desativada pelo administrador.');
-            return;
-        }
-
         try {
             setRunningNow(true);
             toast.info('Iniciando importação automática agora...');
@@ -128,10 +123,6 @@ export default function ConfiguracoesAutoImport() {
     };
 
     const handleTestConnection = async () => {
-        if (!globalAutomationEnabled) {
-            toast.error('A automação foi desativada pelo administrador.');
-            return;
-        }
         try {
             setConnectionStatus('testing');
             setConnectionMessage('Testando conexão com servidor de origem...');
@@ -205,27 +196,16 @@ export default function ConfiguracoesAutoImport() {
                     </p>
                 </div>
 
-                {/* Verificação de Permissão */}
+                {/* Aviso discreto: agendador automático em segundo plano desativado pelo admin.
+                    A configuração, teste de conexão e execução manual ("Executar agora") continuam funcionando. */}
                 {hasAccess && !globalAutomationLoading && !globalAutomationEnabled && (
-                    <Card className="border-red-500/40 bg-gradient-to-br from-red-500/10 to-orange-500/10">
-                        <CardContent className="p-12 text-center">
-                            <div className="flex flex-col items-center space-y-6">
-                                <div className="p-6 bg-red-500/20 rounded-full">
-                                    <Lock className="h-16 w-16 text-red-500" />
-                                </div>
-                                <div className="space-y-2">
-                                    <h2 className="text-2xl font-bold text-white">
-                                        Automação desativada pelo administrador
-                                    </h2>
-                                    <p className="text-gray-400 max-w-md">
-                                        A funcionalidade de Importação Automática está temporariamente
-                                        desligada para todos os usuários. Nenhuma verificação ou
-                                        importação será executada até que seja reativada.
-                                    </p>
-                                </div>
-                                <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
-                                    Indisponível no momento
-                                </Badge>
+                    <Card className="border-yellow-500/30 bg-yellow-500/5">
+                        <CardContent className="p-4 flex items-start gap-3">
+                            <AlertCircle className="h-5 w-5 text-yellow-400 mt-0.5 shrink-0" />
+                            <div className="text-sm text-yellow-200/90">
+                                <span className="font-semibold">Agendador automático pausado pelo administrador.</span>{' '}
+                                A verificação periódica em segundo plano está desligada para todos os usuários.
+                                Você ainda pode configurar, testar a conexão e usar o botão <em>Executar agora</em> normalmente.
                             </div>
                         </CardContent>
                     </Card>
@@ -259,8 +239,8 @@ export default function ConfiguracoesAutoImport() {
                     </Card>
                 )}
 
-                {/* Conteúdo Principal - Apenas se tiver acesso */}
-                {hasAccess && globalAutomationEnabled && (
+                {/* Conteúdo Principal - Apenas se tiver acesso (kill-switch global não bloqueia mais a UI) */}
+                {hasAccess && (
                     <>
                         {/* Status Card */}
                         <Card className="border-[#76ff03]/20 bg-[#1e1e1e]">
