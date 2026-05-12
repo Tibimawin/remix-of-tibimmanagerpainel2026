@@ -8,6 +8,7 @@ import { ImportContentInterface } from '@/components/ImportContentInterface';
 import { useAutoImportService, ImportConfig, UserConfig, ImportContent } from '@/services/AutoImportService';
 import { useUserConfig } from '@/hooks/useUserConfig';
 import { useGlobalImportConfig } from '@/hooks/useGlobalImportConfig';
+import { useGlobalAutomationConfig } from '@/hooks/useGlobalAutomationConfig';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { PermissionGate } from '@/components/PermissionGate';
@@ -66,6 +67,7 @@ const ImportacaoAutomatica = () => {
   const hasTriggeredAutoImportRef = React.useRef(false);
   const { config: cloudConfig, updateConfig: updateCloudConfig, loading: cloudLoading } = useUserConfig();
   const { globalConfig, loading: globalConfigLoading } = useGlobalImportConfig();
+  const { isEnabled: globalAutomationEnabled, loading: globalAutomationLoading } = useGlobalAutomationConfig();
   const { config } = useConfig();
   const { mode: typeMode } = useTypeMode();
   const {
@@ -193,6 +195,12 @@ const ImportacaoAutomatica = () => {
   };
 
   const startImport = React.useCallback(async (selectedContents?: ContentPreview[]) => {
+    if (!globalAutomationLoading && !globalAutomationEnabled) {
+      toast.error('A automação foi desativada pelo administrador.', {
+        description: 'A importação está temporariamente indisponível para todos os usuários.'
+      });
+      return;
+    }
     if (!importConfig) {
       toast.error('O administrador ainda não configurou a origem dos conteúdos.', {
         description: 'Entre em contato com o administrador do sistema.'
