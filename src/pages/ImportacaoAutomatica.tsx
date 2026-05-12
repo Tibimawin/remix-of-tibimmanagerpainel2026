@@ -195,12 +195,6 @@ const ImportacaoAutomatica = () => {
   };
 
   const startImport = React.useCallback(async (selectedContents?: ContentPreview[]) => {
-    if (!globalAutomationLoading && !globalAutomationEnabled) {
-      toast.error('A automação foi desativada pelo administrador.', {
-        description: 'A importação está temporariamente indisponível para todos os usuários.'
-      });
-      return;
-    }
     if (!importConfig) {
       toast.error('O administrador ainda não configurou a origem dos conteúdos.', {
         description: 'Entre em contato com o administrador do sistema.'
