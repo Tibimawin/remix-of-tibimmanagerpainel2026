@@ -66,7 +66,6 @@ const ImportacaoAutomatica = () => {
   const hasTriggeredAutoImportRef = React.useRef(false);
   const { config: cloudConfig, updateConfig: updateCloudConfig, loading: cloudLoading } = useUserConfig();
   const { globalConfig, loading: globalConfigLoading } = useGlobalImportConfig();
-  const { isEnabled: globalAutomationEnabled, loading: globalAutomationLoading } = useGlobalAutomationConfig();
   const { config } = useConfig();
   const { mode: typeMode } = useTypeMode();
   const {
