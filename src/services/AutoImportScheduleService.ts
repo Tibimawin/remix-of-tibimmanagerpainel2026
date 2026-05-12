@@ -62,6 +62,14 @@ export class AutoImportScheduleService {
                 userEmail
             });
 
+            // 🛑 KILL-SWITCH GLOBAL (admin) — verificado ANTES de qualquer leitura
+            // pesada/escrita. Evita requisições ao Baserow quando desligado.
+            const globalConf = await UserConfigService.getGlobalAutomationConfig();
+            if (globalConf && globalConf.isEnabled === false) {
+                console.log('🛑 [AUTO-IMPORT] Automação DESATIVADA globalmente pelo admin. Abortando verificação.');
+                return;
+            }
+
             const scheduleRef = doc(db, 'autoImportSchedules', userId);
             const scheduleSnap = await getDoc(scheduleRef);
 
@@ -125,6 +133,13 @@ export class AutoImportScheduleService {
                 userId,
                 userEmail
             });
+
+            // 🛑 KILL-SWITCH GLOBAL (admin)
+            const globalConf = await UserConfigService.getGlobalAutomationConfig();
+            if (globalConf && globalConf.isEnabled === false) {
+                console.log('🛑 [AUTO-IMPORT] Automação DESATIVADA globalmente pelo admin. Bloqueando execução manual.');
+                throw new Error('A automação está desativada globalmente pelo administrador.');
+            }
 
             const scheduleRef = doc(db, 'autoImportSchedules', userId);
             const scheduleSnap = await getDoc(scheduleRef);

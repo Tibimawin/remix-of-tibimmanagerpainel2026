@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { AutoImportScheduleService } from '@/services/AutoImportScheduleService';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
+import { useGlobalAutomationConfig } from '@/hooks/useGlobalAutomationConfig';
 
 /**
  * Hook para executar verificações de importação automática por USUÁRIO
@@ -9,10 +10,22 @@ import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
  */
 export const useAutoImportExecutor = () => {
     const { userInfo } = useSimpleAuth();
+    const { isEnabled: globalAutomationEnabled, loading: globalLoading } = useGlobalAutomationConfig();
 
     useEffect(() => {
         if (!userInfo?.id) {
             console.log('👤 [AUTO-IMPORT] Nenhum usuário autenticado, executor não iniciado.');
+            return;
+        }
+
+        // Aguardar carregamento da config global antes de iniciar
+        if (globalLoading) {
+            return;
+        }
+
+        // 🛑 KILL-SWITCH GLOBAL: admin desativou a automação para todos
+        if (!globalAutomationEnabled) {
+            console.log('🛑 [AUTO-IMPORT] Automação DESATIVADA globalmente pelo admin. Nenhuma verificação será feita.');
             return;
         }
 
@@ -39,5 +52,5 @@ export const useAutoImportExecutor = () => {
             clearTimeout(initialTimeout);
             clearInterval(interval);
         };
-    }, [userInfo?.id, userInfo?.email]);
+    }, [userInfo?.id, userInfo?.email, globalAutomationEnabled, globalLoading]);
 };
