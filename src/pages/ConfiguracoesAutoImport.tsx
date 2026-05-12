@@ -12,11 +12,13 @@ import { Zap, Clock, CheckCircle2, XCircle, Settings, History, AlertCircle, Load
 import { toast } from '@/hooks/use-toast';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { AutoImportScheduleService } from '@/services/AutoImportScheduleService';
+import { useGlobalAutomationConfig } from '@/hooks/useGlobalAutomationConfig';
 
 export default function ConfiguracoesAutoImport() {
     const { config, loading, updateConfig } = useAutoImportConfig();
     const { logs, loading: logsLoading } = useAutoImportLogs(15);
     const { hasFeature } = useUserPermissions();
+    const { isEnabled: globalAutomationEnabled, loading: globalAutomationLoading } = useGlobalAutomationConfig();
 
     // Verificar permissão para automação
     const hasAccess = hasFeature('automacao');
@@ -107,6 +109,10 @@ export default function ConfiguracoesAutoImport() {
             toast.error('Configuração de automação não carregada para este usuário.');
             return;
         }
+        if (!globalAutomationEnabled) {
+            toast.error('A automação foi desativada pelo administrador.');
+            return;
+        }
 
         try {
             setRunningNow(true);
@@ -122,6 +128,10 @@ export default function ConfiguracoesAutoImport() {
     };
 
     const handleTestConnection = async () => {
+        if (!globalAutomationEnabled) {
+            toast.error('A automação foi desativada pelo administrador.');
+            return;
+        }
         try {
             setConnectionStatus('testing');
             setConnectionMessage('Testando conexão com servidor de origem...');
