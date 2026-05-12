@@ -394,7 +394,7 @@ const ImportacaoAutomatica = () => {
               <Button
                 onClick={() => startImport()}
                 size="lg"
-                disabled={!configValid || !canAddMoreContent() || isImporting}
+                disabled={!configValid || !canAddMoreContent() || isImporting || !globalAutomationEnabled}
                 className="group gap-2 text-base px-6"
               >
                 {isImporting ? (
