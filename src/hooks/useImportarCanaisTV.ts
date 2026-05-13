@@ -56,15 +56,29 @@ export const useImportarCanaisTV = () => {
     const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
     const safeSize = Math.min(200, Math.max(1, size));
     const endpoint = `/api/database/rows/table/${tableId}/?user_field_names=true&page=${page}&size=${safeSize}${searchParam}`;
-    const originalUrl = `${adminConfig.canaisTv.sourceBaseUrl}${endpoint}`;
+    const baseUrl = (adminConfig.canaisTv.sourceBaseUrl || '').replace(/\/+$/, '');
+    const token = (adminConfig.canaisTv.sourceToken || '').trim();
+    const originalUrl = `${baseUrl}${endpoint}`;
+
+    console.log('[CanaisTV] fetchSourceTable', {
+      baseUrl,
+      tableId,
+      hasToken: !!token,
+      tokenLen: token.length,
+      url: originalUrl,
+    });
+
+    if (!baseUrl || !token || !tableId) {
+      throw new Error('Configuração incompleta no painel admin (URL, Token ou Tabela)');
+    }
 
     let response: Response;
-    if (adminConfig.canaisTv.sourceBaseUrl.startsWith('http://')) {
+    if (baseUrl.startsWith('http://')) {
       // 🔧 Usar proxy local configurado
       const proxyPayload = {
         url: originalUrl,
         method: 'GET',
-        token: adminConfig.canaisTv.sourceToken,
+        token,
         body: null
       };
 
@@ -77,7 +91,7 @@ export const useImportarCanaisTV = () => {
       response = await fetch(originalUrl, {
         method: 'GET',
         headers: {
-          'Authorization': `Token ${adminConfig.canaisTv.sourceToken}`,
+          'Authorization': `Token ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -85,6 +99,13 @@ export const useImportarCanaisTV = () => {
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('[CanaisTV] Resposta não-OK', { status: response.status, body: errorText });
+      if (response.status === 401) {
+        throw new Error('Token inválido ou sem permissão na tabela de origem (401). Verifique o Token no painel admin.');
+      }
+      if (response.status === 404) {
+        throw new Error('Tabela de origem não encontrada (404). Verifique o ID da tabela no painel admin.');
+      }
       throw new Error(`Erro ${response.status}: ${errorText || response.statusText}`);
     }
     return response.json();
