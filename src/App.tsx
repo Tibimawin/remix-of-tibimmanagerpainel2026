@@ -18,6 +18,7 @@ import { useScheduleExecutor } from "@/hooks/useScheduleExecutor";
 import { useAutoImportExecutor } from "@/hooks/useAutoImportExecutor";
 import { useSubscriptionMonitor } from "@/hooks/useSubscriptionMonitor";
 import { useApiKeyAutoBlocker } from "@/hooks/useApiKeyAutoBlocker";
+import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { SimpleProtectedRoute } from "./components/SimpleProtectedRoute";
 import { AdminProtectedRoute } from "./components/AdminProtectedRoute";
 import { Layout } from "./components/Layout";
@@ -84,6 +85,7 @@ const AppWithMonitor = () => {
   useAutoImportExecutor(); // ← NOVO: Verificador de importação automática
   useSubscriptionMonitor();
   useApiKeyAutoBlocker();
+  useVersionCheck();
   return null;
 };
 
