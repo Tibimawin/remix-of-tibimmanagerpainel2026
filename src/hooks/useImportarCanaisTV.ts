@@ -164,7 +164,7 @@ export const useImportarCanaisTV = () => {
 
       // Buscar todas as páginas até terminar
       while (hasMore) {
-        const data = await fetchSourceTablePage(adminConfig.canaisTv.sourceTableId, currentPage, pageSize);
+        const data = await fetchSourceTable(adminConfig.canaisTv.sourceTableId, undefined, pageSize, currentPage);
 
         if (data.results && data.results.length > 0) {
           allResults.push(...data.results);
