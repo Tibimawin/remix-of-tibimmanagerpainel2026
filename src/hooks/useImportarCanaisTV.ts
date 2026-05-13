@@ -51,8 +51,7 @@ export const useImportarCanaisTV = () => {
   };
 
   // Busca na origem usando configurações de admin
-  const fetchSourceTable = async (tableId: string, search?: string, size: number = 200) => {
-    const page = 1;
+  const fetchSourceTable = async (tableId: string, search?: string, size: number = 200, page: number = 1) => {
     const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
     const safeSize = Math.min(200, Math.max(1, size));
     const endpoint = `/api/database/rows/table/${tableId}/?user_field_names=true&page=${page}&size=${safeSize}${searchParam}`;
