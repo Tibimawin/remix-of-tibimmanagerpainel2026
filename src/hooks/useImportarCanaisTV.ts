@@ -144,7 +144,7 @@ export const useImportarCanaisTV = () => {
     } catch (error) {
       console.error('Erro ao buscar canais:', error);
       toast.error('Erro ao buscar canais', {
-        description: 'Verifique se a tabela origem está configurada corretamente'
+        description: (error as Error)?.message || 'Verifique se a tabela origem está configurada corretamente'
       });
       setCanais([]);
     } finally {
