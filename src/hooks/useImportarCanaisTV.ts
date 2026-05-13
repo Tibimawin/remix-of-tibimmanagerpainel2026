@@ -6,6 +6,7 @@ import { useSystemLogs } from '@/hooks/useSystemLogs';
 import { useAdminConfig } from '@/contexts/AdminConfigContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
 import { BASEROW_PROXY_CONFIG } from '@/config/proxyConfig';
+import { makeProxyRequest } from '@/utils/proxyRequest';
 import { supabase } from '@/integrations/supabase/client';
 
 interface CanalTV {
@@ -71,43 +72,24 @@ export const useImportarCanaisTV = () => {
       throw new Error('Configuração incompleta no painel admin (URL, Token ou Tabela)');
     }
 
-    let response: Response;
-    if (baseUrl.startsWith('http://')) {
-      // 🔧 Usar proxy local configurado
-      const proxyPayload = {
-        url: originalUrl,
-        method: 'GET',
-        token,
-        body: null
-      };
+    // Sempre usar o proxy unificado (evita CORS e garante consistência com o painel admin)
+    const result = await makeProxyRequest({
+      url: originalUrl,
+      method: 'GET',
+      token,
+    });
 
-      response = await fetch(BASEROW_PROXY_CONFIG.ACTIVE_PROXY_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(proxyPayload)
-      });
-    } else {
-      response = await fetch(originalUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Token ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[CanaisTV] Resposta não-OK', { status: response.status, body: errorText });
-      if (response.status === 401) {
+    if (!result.ok) {
+      console.error('[CanaisTV] Resposta não-OK via proxy', { status: result.status, error: result.error });
+      if (result.status === 401) {
         throw new Error('Token inválido ou sem permissão na tabela de origem (401). Verifique o Token no painel admin.');
       }
-      if (response.status === 404) {
+      if (result.status === 404) {
         throw new Error('Tabela de origem não encontrada (404). Verifique o ID da tabela no painel admin.');
       }
-      throw new Error(`Erro ${response.status}: ${errorText || response.statusText}`);
+      throw new Error(`Erro ${result.status}: ${result.error || 'Falha na requisição'}`);
     }
-    return response.json();
+    return result.data;
   };
 
   const searchCanais = async (searchTerm: string) => {
