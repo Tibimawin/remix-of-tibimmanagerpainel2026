@@ -165,38 +165,7 @@ export const useImportarCanaisTV = () => {
 
       // Buscar todas as páginas até terminar
       while (hasMore) {
-        const endpoint = `/api/database/rows/table/${adminConfig.canaisTv.sourceTableId}/?user_field_names=true&page=${currentPage}&size=${pageSize}`;
-        const originalUrl = `${adminConfig.canaisTv.sourceBaseUrl}${endpoint}`;
-
-        let response: Response;
-        if (adminConfig.canaisTv.sourceBaseUrl.startsWith('http://')) {
-          const proxyPayload = {
-            url: originalUrl,
-            method: 'GET',
-            token: adminConfig.canaisTv.sourceToken,
-            body: null
-          };
-
-          response = await fetch(BASEROW_PROXY_CONFIG.ACTIVE_PROXY_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(proxyPayload)
-          });
-        } else {
-          response = await fetch(originalUrl, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Token ${adminConfig.canaisTv.sourceToken}`,
-              'Content-Type': 'application/json',
-            },
-          });
-        }
-
-        if (!response.ok) {
-          throw new Error(`Erro ${response.status}`);
-        }
-
-        const data = await response.json();
+        const data = await fetchSourceTablePage(adminConfig.canaisTv.sourceTableId, currentPage, pageSize);
 
         if (data.results && data.results.length > 0) {
           allResults.push(...data.results);
@@ -238,7 +207,7 @@ export const useImportarCanaisTV = () => {
     } catch (error) {
       console.error('Erro ao carregar canais:', error);
       toast.error('Erro ao carregar canais', {
-        description: 'Verifique se a tabela origem está configurada corretamente'
+        description: (error as Error)?.message || 'Verifique se a tabela origem está configurada corretamente'
       });
       setCanais([]);
     } finally {
