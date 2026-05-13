@@ -1,7 +1,27 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import fs from "fs";
 import { componentTagger } from "lovable-tagger";
+
+const BUILD_ID = String(Date.now());
+
+const versionFilePlugin = () => ({
+  name: "version-file-plugin",
+  apply: "build" as const,
+  closeBundle() {
+    try {
+      const outDir = path.resolve(__dirname, "dist");
+      if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(outDir, "version.json"),
+        JSON.stringify({ version: BUILD_ID, builtAt: new Date().toISOString() })
+      );
+    } catch (e) {
+      console.warn("[version-file-plugin] failed:", e);
+    }
+  },
+});
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -27,7 +47,10 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [react(), mode === "development" && componentTagger(), versionFilePlugin()].filter(Boolean),
+  define: {
+    __APP_VERSION__: JSON.stringify(BUILD_ID),
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
