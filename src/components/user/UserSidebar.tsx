@@ -22,8 +22,6 @@ import {
   TrendingUp,
   Activity,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
   MessageCircle,
   Crown,
   Lock,
