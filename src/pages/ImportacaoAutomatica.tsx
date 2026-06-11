@@ -18,18 +18,10 @@ import {
   Settings,
   ChevronDown,
   ChevronUp,
-  AlertCircle,
-  CheckCircle2,
   TestTube,
   Save,
-  Cloud,
   Loader2,
-  Shield,
-  Lock,
-  Sparkles,
   Database,
-  Zap,
-  ArrowRight,
   Info,
   Server,
   Key,
@@ -37,7 +29,6 @@ import {
   Tv
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Progress } from '@/components/ui/progress';
 import { ImportPreview, ContentPreview } from '@/components/ImportPreview';
 
 interface ImportacaoAutomaticaLocationState {
