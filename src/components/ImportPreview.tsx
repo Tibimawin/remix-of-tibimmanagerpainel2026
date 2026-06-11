@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -767,8 +767,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
               <span className="text-sm font-medium text-foreground">Categorias</span>
               <span className="text-xs text-muted-foreground">({availableCategories.length})</span>
             </div>
-            <ScrollArea className="w-full">
-              <div className="flex items-center gap-2 pb-2">
+            <ScrollArea className="w-full whitespace-nowrap">
+              <div className="flex w-max items-center gap-2 pb-2">
                 <Button
                   variant={categoryFilter === 'all' ? 'default' : 'outline'}
                   size="sm"
@@ -789,6 +789,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                   </Button>
                 ))}
               </div>
+              <ScrollBar orientation="horizontal" />
             </ScrollArea>
           </div>
         )}
