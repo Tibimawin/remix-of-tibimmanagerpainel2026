@@ -62,6 +62,15 @@ const ImportacaoAutomatica = () => {
     success: number;
     errors: number;
   }>({ current: 0, total: 0, title: '', success: 0, errors: 0 });
+  const [episodeStatus, setEpisodeStatus] = useState<{
+    seriesTitle: string;
+    current: number;
+    total: number;
+    seasons: Set<string>;
+    currentSeason: string;
+    currentEpisode: string;
+    episodeTitle: string;
+  }>({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
 
   const autoImportService = useAutoImportService();
   const location = useLocation();
