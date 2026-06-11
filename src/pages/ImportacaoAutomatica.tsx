@@ -456,6 +456,45 @@ const ImportacaoAutomatica = () => {
                 </div>
               </div>
               <Progress value={importProgress} className="h-2" />
+
+              {/* Detalhes de série: temporadas + episódios */}
+              {episodeStatus.total > 0 && (
+                <div className="rounded-lg border border-primary/20 bg-background/50 p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Tv className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span className="font-medium truncate">
+                        Série: <span className="text-primary">{episodeStatus.seriesTitle}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-muted-foreground">
+                      <span>
+                        <span className="font-mono text-foreground">{episodeStatus.seasons.size}</span> temporada{episodeStatus.seasons.size !== 1 ? 's' : ''}
+                      </span>
+                      <span>
+                        <span className="font-mono text-foreground">{episodeStatus.current}</span>/<span className="font-mono">{episodeStatus.total}</span> episódios
+                      </span>
+                      <span className="font-mono">
+                        {Math.round((episodeStatus.current / episodeStatus.total) * 100)}%
+                      </span>
+                    </div>
+                  </div>
+                  <Progress
+                    value={(episodeStatus.current / episodeStatus.total) * 100}
+                    className="h-1.5"
+                  />
+                  {(episodeStatus.currentSeason || episodeStatus.episodeTitle) && (
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      {episodeStatus.currentSeason && (
+                        <span className="font-mono mr-2">
+                          S{String(episodeStatus.currentSeason).padStart(2, '0')}E{String(episodeStatus.currentEpisode || '').padStart(2, '0')}
+                        </span>
+                      )}
+                      {episodeStatus.episodeTitle && <span>· {episodeStatus.episodeTitle}</span>}
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
