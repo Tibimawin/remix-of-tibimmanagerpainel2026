@@ -38,7 +38,13 @@ export const useSystemMetrics = () => {
     totalUsuarios: 0,
     };
   });
-  const [loading, setLoading] = useState(() => !sessionStorage.getItem(METRICS_CACHE_KEY));
+  const [loading, setLoading] = useState(() => {
+    try {
+      return !sessionStorage.getItem(METRICS_CACHE_KEY);
+    } catch {
+      return true;
+    }
+  });
   const [error, setError] = useState<string | null>(null);
 
   const { config } = useConfig();
@@ -50,8 +56,8 @@ export const useSystemMetrics = () => {
   const inFlightRef = useRef(false);
   const lastLoadedSignatureRef = useRef<string | null>(null);
 
-  const fetchMetrics = useCallback(async () => {
-    if (inFlightRef.current || lastLoadedSignatureRef.current === configSignature) return;
+  const fetchMetrics = useCallback(async (force = false) => {
+    if (inFlightRef.current || (!force && lastLoadedSignatureRef.current === configSignature)) return;
 
     // Se não há configuração de Baserow válida, usar métricas padrão
     if (!config?.tableIds || !config.apiToken || !config.baseUrl) {
@@ -63,7 +69,14 @@ export const useSystemMetrics = () => {
     try {
       console.time('⏱️ Métricas carregadas em');
       inFlightRef.current = true;
-      if (!sessionStorage.getItem(METRICS_CACHE_KEY)) setLoading(true);
+      const hasCache = (() => {
+        try {
+          return !!sessionStorage.getItem(METRICS_CACHE_KEY);
+        } catch {
+          return false;
+        }
+      })();
+      if (!hasCache) setLoading(true);
       setError(null);
 
       const tableIds = config.tableIds;
@@ -154,7 +167,11 @@ export const useSystemMetrics = () => {
       console.log('✅ Métricas carregadas:', newMetrics);
       console.timeEnd('⏱️ Métricas carregadas em');
       setMetrics(newMetrics);
-      sessionStorage.setItem(METRICS_CACHE_KEY, JSON.stringify(newMetrics));
+      try {
+        sessionStorage.setItem(METRICS_CACHE_KEY, JSON.stringify(newMetrics));
+      } catch {
+        // noop
+      }
       lastLoadedSignatureRef.current = configSignature;
     } catch (err) {
       console.error('❌ Erro ao buscar métricas:', err);
@@ -169,5 +186,5 @@ export const useSystemMetrics = () => {
     fetchMetrics();
   }, [fetchMetrics]);
 
-  return { metrics, loading, error, refetch: fetchMetrics };
+  return { metrics, loading, error, refetch: () => fetchMetrics(true) };
 };
