@@ -22,8 +22,6 @@ import {
   TrendingUp,
   Activity,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
   MessageCircle,
   Crown,
   Lock,
@@ -567,7 +565,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
       >
         {/* Header */}
         <div className="p-6 border-b border-border/40 backdrop-blur-sm">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center">
             <div className={cn(
               "flex items-center space-x-3 transition-all duration-300",
               effectiveCollapsed && !isMobile && "opacity-0 scale-90"
@@ -584,21 +582,6 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                 </div>
               )}
             </div>
-
-            {!isMobile && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onToggle}
-                className="h-8 w-8 rounded-lg transition-all duration-200 hover:bg-accent/50"
-              >
-                {isCollapsed ? (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            )}
           </div>
         </div>
 
