@@ -1195,10 +1195,22 @@ export class AutoImportService {
           }
 
           success++;
+          onContentProgress?.({
+            current: contentIndex,
+            total: totalContents,
+            title: content.Titulo || 'Sem título',
+            status: 'success',
+          });
         } catch (contentError) {
           console.error(`❌ Erro ao importar ${content.Titulo || 'conteúdo sem título'}:`, contentError);
           const errorMessage = contentError instanceof Error ? contentError.message : String(contentError);
           errors.push(`Erro ao importar ${content.Titulo || 'conteúdo sem título'}: ${errorMessage}`);
+          onContentProgress?.({
+            current: contentIndex,
+            total: totalContents,
+            title: content.Titulo || 'Sem título',
+            status: 'error',
+          });
         }
       }
     } catch (configError) {
