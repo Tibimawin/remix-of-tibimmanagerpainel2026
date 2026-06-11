@@ -468,12 +468,14 @@ interface UserSidebarProps {
   isCollapsed: boolean;
   onToggle: () => void;
   isMobile?: boolean;
+  onHoverChange?: (hovered: boolean) => void;
 }
 
 export const UserSidebar: React.FC<UserSidebarProps> = ({
   isCollapsed,
   onToggle,
-  isMobile = false
+  isMobile = false,
+  onHoverChange
 }) => {
   const location = useLocation();
   const { logout } = useSimpleAuth();
@@ -549,8 +551,18 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
 
       {/* Sidebar */}
       <div
-        onMouseEnter={() => !isMobile && setIsHovered(true)}
-        onMouseLeave={() => !isMobile && setIsHovered(false)}
+        onMouseEnter={() => {
+          if (!isMobile) {
+            setIsHovered(true);
+            onHoverChange?.(true);
+          }
+        }}
+        onMouseLeave={() => {
+          if (!isMobile) {
+            setIsHovered(false);
+            onHoverChange?.(false);
+          }
+        }}
         className={cn(
           "fixed left-0 top-0 h-full bg-gradient-to-b from-card via-card/95 to-card/90 backdrop-blur-xl border-r border-border/40 flex flex-col z-40 transition-all duration-300 shadow-xl",
           isMobile
