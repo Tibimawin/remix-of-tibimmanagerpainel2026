@@ -427,6 +427,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       }
 
       setLoadingExistingContent(true);
+      setExistingProgress({ loaded: 0, total: 0 });
       try {
         // Paginate to fetch ALL existing content (not just first 200)
         const PAGE_SIZE = 200;
@@ -452,6 +453,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
           const pageResults = Array.isArray(data.data?.results) ? data.data.results : [];
           totalReported = data.data?.count ?? totalReported;
           allResults.push(...pageResults);
+          setExistingProgress({ loaded: allResults.length, total: totalReported || allResults.length });
 
           if (pageResults.length < PAGE_SIZE) break;
           if (totalReported && allResults.length >= totalReported) break;
