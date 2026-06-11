@@ -568,12 +568,22 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   };
 
   const selectAllVisible = () => {
-    const visibleIds = filteredPreviews.map(p => p.id);
+    // Skip items already imported in the user's database
+    const visibleIds = filteredPreviews
+      .filter(p => !previewHighlightMap.get(p.id)?.isAlreadyImported)
+      .map(p => p.id);
     setSelectedIds(prev => {
       const newSet = new Set(prev);
       visibleIds.forEach(id => newSet.add(id));
       return newSet;
     });
+  };
+
+  const selectOnlyNew = () => {
+    const newIds = filteredPreviews
+      .filter(p => !previewHighlightMap.get(p.id)?.isAlreadyImported && !previewHighlightMap.get(p.id)?.isDuplicateInPreview)
+      .map(p => p.id);
+    setSelectedIds(new Set(newIds));
   };
 
   const deselectAllVisible = () => {
