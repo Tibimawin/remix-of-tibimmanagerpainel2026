@@ -1,5 +1,6 @@
 import { useBaserowService } from './BaserowService';
 import { makeProxyRequest } from '@/utils/proxyRequest';
+import { tmdbService } from './TmdbService';
 
 export interface ImportContent {
   id: string;
