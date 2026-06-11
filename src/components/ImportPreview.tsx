@@ -900,7 +900,16 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                   ) : (
                     <Square className="h-3.5 w-3.5" />
                   )}
-                  {allVisibleSelected ? 'Desmarcar página' : 'Selecionar página'}
+                  {allVisibleSelected ? 'Desmarcar página' : 'Selecionar página (só novos)'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={selectOnlyNew}
+                  className="h-7 text-xs gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Selecionar só novos
                 </Button>
                 {selectedIds.size > 0 && (
                   <span className="text-xs text-muted-foreground">
