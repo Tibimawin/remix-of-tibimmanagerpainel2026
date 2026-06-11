@@ -400,6 +400,37 @@ const ImportacaoAutomatica = () => {
           </div>
         </div>
 
+        {/* Barra de progresso da importação */}
+        {(isImporting || importProgress > 0) && importStatus.total > 0 && (
+          <Card className="border-primary/30 bg-primary/5 animate-in fade-in slide-in-from-top-2 duration-300">
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Loader2 className={`h-4 w-4 text-primary ${isImporting ? 'animate-spin' : ''}`} />
+                  <span className="text-sm font-semibold">
+                    Importando {importStatus.current} de {importStatus.total}
+                  </span>
+                  {importStatus.title && (
+                    <span className="text-xs text-muted-foreground truncate max-w-[280px] sm:max-w-md">
+                      · {importStatus.title}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 text-xs">
+                  {importStatus.success > 0 && (
+                    <span className="text-emerald-500 font-medium">{importStatus.success} ok</span>
+                  )}
+                  {importStatus.errors > 0 && (
+                    <span className="text-destructive font-medium">{importStatus.errors} erro(s)</span>
+                  )}
+                  <span className="text-muted-foreground font-mono">{importProgress}%</span>
+                </div>
+              </div>
+              <Progress value={importProgress} className="h-2" />
+            </CardContent>
+          </Card>
+        )}
+
 
         {/* Configuração Expandível */}
         {showConfig && (
