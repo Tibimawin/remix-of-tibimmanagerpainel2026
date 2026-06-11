@@ -31,6 +31,7 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [showPrioritySupport, setShowPrioritySupport] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [showPlansPopup, setShowPlansPopup] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(() => sessionStorage.getItem('upgrade-banner-dismissed') === 'true');
   const { hasPrioritySupport, permissions, loading: permLoading } = useUserPermissions();
