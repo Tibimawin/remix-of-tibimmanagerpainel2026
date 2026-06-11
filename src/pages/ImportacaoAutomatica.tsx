@@ -333,8 +333,6 @@ const ImportacaoAutomatica = () => {
     );
   }
 
-  const usagePercentage = permissions ? Math.min((permissions.currentMonthUsage / permissions.monthlyContentLimit) * 100, 100) : 0;
-
   return (
     <PermissionGate feature="importacao-automatica">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
