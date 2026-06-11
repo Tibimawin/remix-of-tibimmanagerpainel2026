@@ -448,28 +448,48 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
       setLoadingExistingContent(true);
       try {
-        const url = `${userConfig.baseUrl}/api/database/rows/table/${userConfig.contentTableId}/?user_field_names=true&size=200`;
-        const data = await makeProxyRequest({
-          url,
-          method: 'GET',
-          token: userConfig.apiToken,
-          body: null,
-        });
+        // Paginate to fetch ALL existing content (not just first 200)
+        const PAGE_SIZE = 200;
+        const allResults: ContentPreview[] = [];
+        let page = 1;
+        let totalReported = 0;
+        const MAX_PAGES = 50; // safety cap (up to 10k items)
 
-        if (!data.ok) {
-          throw new Error(data.error || 'Erro ao buscar conteúdos já importados');
+        // First request to learn the total count
+        while (page <= MAX_PAGES) {
+          const url = `${userConfig.baseUrl}/api/database/rows/table/${userConfig.contentTableId}/?user_field_names=true&size=${PAGE_SIZE}&page=${page}`;
+          const data = await makeProxyRequest({
+            url,
+            method: 'GET',
+            token: userConfig.apiToken,
+            body: null,
+          });
+
+          if (!data.ok) {
+            throw new Error(data.error || 'Erro ao buscar conteúdos já importados');
+          }
+
+          const pageResults = Array.isArray(data.data?.results) ? data.data.results : [];
+          totalReported = data.data?.count ?? totalReported;
+          allResults.push(...pageResults);
+
+          if (pageResults.length < PAGE_SIZE) break;
+          if (totalReported && allResults.length >= totalReported) break;
+
+          page += 1;
+          // small delay to be gentle with rate limits
+          await new Promise((r) => setTimeout(r, 120));
         }
 
-        const results = Array.isArray(data.data?.results) ? data.data.results : [];
         const snapshot: ExistingContentSnapshot = {
           titles: new Set(),
           titleYears: new Set(),
           imdbs: new Set(),
           links: new Set(),
-          total: results.length,
+          total: totalReported || allResults.length,
         };
 
-        results.forEach((item: ContentPreview) => {
+        allResults.forEach((item: ContentPreview) => {
           const normalizedTitle = normalizeText(item.Nome);
           const normalizedYear = normalizeText(item.Ano);
           const normalizedImdb = normalizeImdb(item.Imdb || item.IMDb);
