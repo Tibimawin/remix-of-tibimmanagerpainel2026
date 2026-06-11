@@ -62,6 +62,15 @@ const ImportacaoAutomatica = () => {
     success: number;
     errors: number;
   }>({ current: 0, total: 0, title: '', success: 0, errors: 0 });
+  const [episodeStatus, setEpisodeStatus] = useState<{
+    seriesTitle: string;
+    current: number;
+    total: number;
+    seasons: Set<string>;
+    currentSeason: string;
+    currentEpisode: string;
+    episodeTitle: string;
+  }>({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
 
   const autoImportService = useAutoImportService();
   const location = useLocation();
@@ -226,6 +235,7 @@ const ImportacaoAutomatica = () => {
     setIsImporting(true);
     setImportProgress(0);
     setImportStatus({ current: 0, total: selectedContents.length, title: '', success: 0, errors: 0 });
+    setEpisodeStatus({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
 
     try {
       // Debug: Log dos dados originais antes do mapeamento
@@ -288,7 +298,21 @@ const ImportacaoAutomatica = () => {
         undefined,
         undefined,
         typeMode,
-        undefined,
+        (ep) => {
+          setEpisodeStatus(prev => {
+            const seasons = new Set(prev.seriesTitle === ep.seriesTitle ? prev.seasons : []);
+            if (ep.season) seasons.add(String(ep.season));
+            return {
+              seriesTitle: ep.seriesTitle,
+              current: ep.current,
+              total: ep.total,
+              seasons,
+              currentSeason: String(ep.season || ''),
+              currentEpisode: String(ep.episode || ''),
+              episodeTitle: ep.episodeTitle || '',
+            };
+          });
+        },
         (info) => {
           const pct = info.total > 0 ? Math.round((info.current / info.total) * 100) : 0;
           setImportProgress(pct);
@@ -299,6 +323,10 @@ const ImportacaoAutomatica = () => {
             success: prev.success + (info.status === 'success' ? 1 : 0),
             errors: prev.errors + (info.status === 'error' ? 1 : 0),
           }));
+          // limpar contadores de episódios ao trocar de conteúdo
+          if (info.status === 'processing') {
+            setEpisodeStatus({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
+          }
         }
       );
 
@@ -322,6 +350,7 @@ const ImportacaoAutomatica = () => {
       setTimeout(() => {
         setImportProgress(0);
         setImportStatus({ current: 0, total: 0, title: '', success: 0, errors: 0 });
+        setEpisodeStatus({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
       }, 2500);
     }
   }, [autoImportService, canAddMoreContent, configValid, importConfig, typeMode, userConfig]);
@@ -427,6 +456,45 @@ const ImportacaoAutomatica = () => {
                 </div>
               </div>
               <Progress value={importProgress} className="h-2" />
+
+              {/* Detalhes de série: temporadas + episódios */}
+              {episodeStatus.total > 0 && (
+                <div className="rounded-lg border border-primary/20 bg-background/50 p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Tv className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span className="font-medium truncate">
+                        Série: <span className="text-primary">{episodeStatus.seriesTitle}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-muted-foreground">
+                      <span>
+                        <span className="font-mono text-foreground">{episodeStatus.seasons.size}</span> temporada{episodeStatus.seasons.size !== 1 ? 's' : ''}
+                      </span>
+                      <span>
+                        <span className="font-mono text-foreground">{episodeStatus.current}</span>/<span className="font-mono">{episodeStatus.total}</span> episódios
+                      </span>
+                      <span className="font-mono">
+                        {Math.round((episodeStatus.current / episodeStatus.total) * 100)}%
+                      </span>
+                    </div>
+                  </div>
+                  <Progress
+                    value={(episodeStatus.current / episodeStatus.total) * 100}
+                    className="h-1.5"
+                  />
+                  {(episodeStatus.currentSeason || episodeStatus.episodeTitle) && (
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      {episodeStatus.currentSeason && (
+                        <span className="font-mono mr-2">
+                          S{String(episodeStatus.currentSeason).padStart(2, '0')}E{String(episodeStatus.currentEpisode || '').padStart(2, '0')}
+                        </span>
+                      )}
+                      {episodeStatus.episodeTitle && <span>· {episodeStatus.episodeTitle}</span>}
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
