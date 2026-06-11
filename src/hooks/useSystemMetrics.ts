@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useBaserowService } from '@/services/BaserowService';
+import { BaserowService } from '@/services/BaserowService';
 import { useConfig } from '@/contexts/ConfigContext';
 
 interface SystemMetrics {
@@ -31,7 +31,6 @@ export const useSystemMetrics = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const baserowService = useBaserowService();
   const { config } = useConfig();
 
   const fetchMetrics = useCallback(async () => {
@@ -48,6 +47,7 @@ export const useSystemMetrics = () => {
       setError(null);
 
       const tableIds = config.tableIds;
+      const baserowService = new BaserowService(config.apiToken, config.baseUrl);
       const newMetrics: SystemMetrics = {
         totalFilmes: 0,
         totalSeries: 0,
@@ -140,7 +140,7 @@ export const useSystemMetrics = () => {
     } finally {
       setLoading(false);
     }
-  }, [config?.tableIds, config?.apiToken, config?.baseUrl, baserowService]);
+  }, [config?.tableIds, config?.apiToken, config?.baseUrl]);
 
   useEffect(() => {
     fetchMetrics();
