@@ -865,6 +865,12 @@ export class AutoImportService {
       status: 'pending' | 'processing' | 'success' | 'error';
       current: number;
       total: number;
+    }) => void,
+    onContentProgress?: (info: {
+      current: number;
+      total: number;
+      title: string;
+      status: 'processing' | 'success' | 'error';
     }) => void
   ): Promise<{ success: number, errors: string[] }> {
     let success = 0;
@@ -877,7 +883,16 @@ export class AutoImportService {
       const { BaserowService } = await import('./BaserowService');
       const userBaserowService = new BaserowService(validatedUserConfig.apiToken, validatedUserConfig.baseUrl);
 
+      const totalContents = selectedContents.length;
+      let contentIndex = 0;
       for (const content of selectedContents) {
+        contentIndex++;
+        onContentProgress?.({
+          current: contentIndex,
+          total: totalContents,
+          title: content.Titulo || 'Sem título',
+          status: 'processing',
+        });
         try {
           console.log('📥 Processando conteúdo:', content.Titulo);
 
