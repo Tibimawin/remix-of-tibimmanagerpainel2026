@@ -551,13 +551,17 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
 
       {/* Sidebar */}
       <div
+        onMouseEnter={() => !isMobile && setIsHovered(true)}
+        onMouseLeave={() => !isMobile && setIsHovered(false)}
         className={cn(
           "fixed left-0 top-0 h-full bg-gradient-to-b from-card via-card/95 to-card/90 backdrop-blur-xl border-r border-border/40 flex flex-col z-40 transition-all duration-300 shadow-xl",
           isMobile
             ? `${isCollapsed ? "-translate-x-full" : "translate-x-0"} w-80`
-            : isCollapsed
+            : effectiveCollapsed
               ? "w-20"
-              : "w-80"
+              : isCollapsed
+                ? "w-80 shadow-2xl"
+                : "w-80"
         )}
         data-tour="sidebar"
       >
@@ -566,12 +570,12 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
           <div className="flex items-center justify-between">
             <div className={cn(
               "flex items-center space-x-3 transition-all duration-300",
-              isCollapsed && !isMobile && "opacity-0 scale-90"
+              effectiveCollapsed && !isMobile && "opacity-0 scale-90"
             )}>
               <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-primary via-red-600 to-orange-500 rounded-2xl shadow-lg">
                 <Play className="w-6 h-6 text-white fill-white" />
               </div>
-              {(!isCollapsed || isMobile) && (
+              {(!effectiveCollapsed || isMobile) && (
                 <div>
                   <h1 className="text-xl font-bold text-foreground bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent">
                     StreamFlix
