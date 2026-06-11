@@ -957,8 +957,25 @@ export class AutoImportService {
               Temporadas: content.Temporadas || (content.Tipo === 'Serie' ? '1' : ''),
               Imdb: content.Imdb || '0',
               'Data de Lançamento': content['Data de Lançamento'] || '',
-              'Capa de fundo': content['Capa de fundo'] || ''
+              'Capa de fundo': content['Capa de fundo'] || '',
+              'TMDB ID': ''
             };
+
+            // 🎬 Enriquecer com TMDB ID (busca por nome + tipo)
+            try {
+              const tipoLower = (content.Tipo || '').toLowerCase();
+              const tmdbType: 'movie' | 'tv' =
+                tipoLower.includes('serie') || tipoLower.includes('series') ? 'tv' : 'movie';
+              const tmdbResult = await tmdbService.search(titulo, tmdbType);
+              if (tmdbResult?.id) {
+                contentData['TMDB ID'] = String(tmdbResult.id);
+                console.log(`🎬 TMDB ID encontrado para "${titulo}":`, tmdbResult.id);
+              } else {
+                console.warn(`⚠️ TMDB ID não encontrado para "${titulo}"`);
+              }
+            } catch (tmdbErr) {
+              console.error(`❌ Erro ao buscar TMDB ID para "${titulo}":`, tmdbErr);
+            }
 
             console.log('📋 [DEBUG] Dados ORIGINAIS do content recebido:', {
               Titulo: content.Titulo,
