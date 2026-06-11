@@ -485,6 +485,11 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
     configuracoes: true // Configurações aberto por padrão
   });
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Quando o sidebar está recolhido (desktop), expandir visualmente ao passar o mouse
+  // sem alterar a margem do conteúdo principal — assim sobrepõe e libera espaço.
+  const effectiveCollapsed = isMobile ? isCollapsed : (isCollapsed && !isHovered);
 
   // Itens que só aparecem no modo plural (Francisco)
   const pluralOnlyItems = ['categorias-anime', 'categorias-tv'];
