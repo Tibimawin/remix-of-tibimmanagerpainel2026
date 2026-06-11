@@ -32,7 +32,9 @@ import {
   CheckSquare,
   Square,
   Loader2,
-  Download
+  Download,
+  CheckCircle2,
+  Sparkles
 } from 'lucide-react';
 import { ImportConfig, UserConfig } from '@/services/AutoImportService';
 import { makeProxyRequest } from '@/utils/proxyRequest';
