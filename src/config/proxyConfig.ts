@@ -10,7 +10,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://kuszskrqzxwpz
 
 // Base do proxy Vercel (necessário em domínios Lovable, onde /api/* não existe)
 // Em localhost, o Vite faz proxy de /api -> Vercel (vide vite.config.ts)
-const VERCEL_PROXY_BASE = import.meta.env.VITE_VERCEL_PROXY_BASE || 'https://tibimmanagerpainel.vercel.app';
+const VERCEL_PROXY_BASE = import.meta.env.VITE_VERCEL_PROXY_BASE || 'https://tibimmanagerpain2025.vercel.app';
 
 // Detectar ambiente para decidir qual proxy usar
 const getEnvironmentType = () => {
@@ -23,6 +23,9 @@ const getEnvironmentType = () => {
 
     // Lovable preview domains: id-preview--<uuid>.lovable.app
     if (hostname.startsWith('id-preview--') && hostname.endsWith('.lovable.app')) return 'lovable-preview';
+
+    // Lovable internal preview domains: <uuid>.lovableproject.com
+    if (hostname.endsWith('.lovableproject.com')) return 'lovable-preview';
 
     // Lovable published domains: <project>.lovable.app
     if (hostname.endsWith('.lovable.app')) return 'lovable-production';
