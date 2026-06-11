@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ImportPreview, ContentPreview } from '@/components/ImportPreview';
+import { Progress } from '@/components/ui/progress';
 
 interface ImportacaoAutomaticaLocationState {
   autoImportContents?: ContentPreview[];
@@ -54,6 +55,13 @@ const ImportacaoAutomatica = () => {
   const [saving, setSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
+  const [importStatus, setImportStatus] = useState<{
+    current: number;
+    total: number;
+    title: string;
+    success: number;
+    errors: number;
+  }>({ current: 0, total: 0, title: '', success: 0, errors: 0 });
 
   const autoImportService = useAutoImportService();
   const location = useLocation();
@@ -217,6 +225,7 @@ const ImportacaoAutomatica = () => {
     // Direct import from preview
     setIsImporting(true);
     setImportProgress(0);
+    setImportStatus({ current: 0, total: selectedContents.length, title: '', success: 0, errors: 0 });
 
     try {
       // Debug: Log dos dados originais antes do mapeamento
@@ -278,7 +287,19 @@ const ImportacaoAutomatica = () => {
         userConfig,
         undefined,
         undefined,
-        typeMode
+        typeMode,
+        undefined,
+        (info) => {
+          const pct = info.total > 0 ? Math.round((info.current / info.total) * 100) : 0;
+          setImportProgress(pct);
+          setImportStatus(prev => ({
+            current: info.current,
+            total: info.total,
+            title: info.title,
+            success: prev.success + (info.status === 'success' ? 1 : 0),
+            errors: prev.errors + (info.status === 'error' ? 1 : 0),
+          }));
+        }
       );
 
       setImportProgress(100);
@@ -297,7 +318,11 @@ const ImportacaoAutomatica = () => {
       toast.error('Erro ao importar conteúdos');
     } finally {
       setIsImporting(false);
-      setImportProgress(0);
+      // manter progresso final visível por um curto período
+      setTimeout(() => {
+        setImportProgress(0);
+        setImportStatus({ current: 0, total: 0, title: '', success: 0, errors: 0 });
+      }, 2500);
     }
   }, [autoImportService, canAddMoreContent, configValid, importConfig, typeMode, userConfig]);
 
