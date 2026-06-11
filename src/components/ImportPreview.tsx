@@ -107,6 +107,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     total: 0,
   });
   const [loadingExistingContent, setLoadingExistingContent] = useState(false);
+  const [existingProgress, setExistingProgress] = useState<{ loaded: number; total: number }>({ loaded: 0, total: 0 });
   const pageSize = 30;
 
   // Keywords to exclude (TV channels, specific channel packages, etc.)
@@ -426,6 +427,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       }
 
       setLoadingExistingContent(true);
+      setExistingProgress({ loaded: 0, total: 0 });
       try {
         // Paginate to fetch ALL existing content (not just first 200)
         const PAGE_SIZE = 200;
@@ -451,6 +453,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
           const pageResults = Array.isArray(data.data?.results) ? data.data.results : [];
           totalReported = data.data?.count ?? totalReported;
           allResults.push(...pageResults);
+          setExistingProgress({ loaded: allResults.length, total: totalReported || allResults.length });
 
           if (pageResults.length < PAGE_SIZE) break;
           if (totalReported && allResults.length >= totalReported) break;
@@ -842,10 +845,23 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             <div className="space-y-3 border-b border-border/50 px-6 py-3 bg-muted/20">
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 {loadingExistingContent ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Verificando conteúdos já importados...
-                  </span>
+                  <div className="flex flex-col gap-1.5 w-full max-w-md">
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Verificando conteúdos já importados...
+                      {existingProgress.total > 0 && (
+                        <span className="font-mono text-[11px] text-muted-foreground">
+                          {existingProgress.loaded}/{existingProgress.total}
+                          {' · '}
+                          {Math.min(100, Math.round((existingProgress.loaded / existingProgress.total) * 100))}%
+                        </span>
+                      )}
+                    </span>
+                    <Progress
+                      value={existingProgress.total > 0 ? Math.min(100, (existingProgress.loaded / existingProgress.total) * 100) : 5}
+                      className="h-1.5"
+                    />
+                  </div>
                 ) : (
                   <>
                     <Badge variant="outline" className="text-xs">
