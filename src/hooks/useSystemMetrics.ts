@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { BaserowService } from '@/services/BaserowService';
 import { useConfig } from '@/contexts/ConfigContext';
+
+const METRICS_CACHE_KEY = 'dashboard:system-metrics-cache';
 
 interface SystemMetrics {
   totalFilmes: number;
@@ -16,7 +18,14 @@ interface SystemMetrics {
 }
 
 export const useSystemMetrics = () => {
-  const [metrics, setMetrics] = useState<SystemMetrics>({
+  const [metrics, setMetrics] = useState<SystemMetrics>(() => {
+    try {
+      const cached = sessionStorage.getItem(METRICS_CACHE_KEY);
+      if (cached) return JSON.parse(cached) as SystemMetrics;
+    } catch {
+      // noop
+    }
+    return {
     totalFilmes: 0,
     totalSeries: 0,
     totalTV: 0,
@@ -27,13 +36,23 @@ export const useSystemMetrics = () => {
     totalSessoes: 0,
     totalPlataformas: 0,
     totalUsuarios: 0,
+    };
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !sessionStorage.getItem(METRICS_CACHE_KEY));
   const [error, setError] = useState<string | null>(null);
 
   const { config } = useConfig();
+  const configSignature = useMemo(() => JSON.stringify({
+    token: config?.apiToken || '',
+    baseUrl: config?.baseUrl || '',
+    tableIds: config?.tableIds || {},
+  }), [config?.apiToken, config?.baseUrl, config?.tableIds]);
+  const inFlightRef = useRef(false);
+  const lastLoadedSignatureRef = useRef<string | null>(null);
 
   const fetchMetrics = useCallback(async () => {
+    if (inFlightRef.current || lastLoadedSignatureRef.current === configSignature) return;
+
     // Se não há configuração de Baserow válida, usar métricas padrão
     if (!config?.tableIds || !config.apiToken || !config.baseUrl) {
       console.log('⚠️ Configuração do Baserow incompleta');
@@ -43,7 +62,8 @@ export const useSystemMetrics = () => {
 
     try {
       console.time('⏱️ Métricas carregadas em');
-      setLoading(true);
+      inFlightRef.current = true;
+      if (!sessionStorage.getItem(METRICS_CACHE_KEY)) setLoading(true);
       setError(null);
 
       const tableIds = config.tableIds;
@@ -134,13 +154,16 @@ export const useSystemMetrics = () => {
       console.log('✅ Métricas carregadas:', newMetrics);
       console.timeEnd('⏱️ Métricas carregadas em');
       setMetrics(newMetrics);
+      sessionStorage.setItem(METRICS_CACHE_KEY, JSON.stringify(newMetrics));
+      lastLoadedSignatureRef.current = configSignature;
     } catch (err) {
       console.error('❌ Erro ao buscar métricas:', err);
       setError('Erro ao carregar métricas');
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
-  }, [config?.tableIds, config?.apiToken, config?.baseUrl]);
+  }, [config?.tableIds, config?.apiToken, config?.baseUrl, configSignature]);
 
   useEffect(() => {
     fetchMetrics();
