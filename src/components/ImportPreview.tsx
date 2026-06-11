@@ -110,7 +110,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     total: 0,
   });
   const [loadingExistingContent, setLoadingExistingContent] = useState(false);
-  const pageSize = 12;
+  const pageSize = 30;
 
   // Keywords to exclude (TV channels, specific channel packages, etc.)
   const EXCLUDED_KEYWORDS = useMemo(() => [
