@@ -55,13 +55,11 @@ export interface ContentPreview {
   Imdb?: string;
   'Data de Lançamento'?: string;
   'Capa de fundo'?: string;
+  'TMDB ID'?: string | number;
 }
 
 interface ExistingContentSnapshot {
-  titles: Set<string>;
-  titleYears: Set<string>;
-  imdbs: Set<string>;
-  links: Set<string>;
+  titleTmdb: Set<string>;
   total: number;
 }
 
@@ -105,10 +103,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [existingContentSnapshot, setExistingContentSnapshot] = useState<ExistingContentSnapshot>({
-    titles: new Set(),
-    titleYears: new Set(),
-    imdbs: new Set(),
-    links: new Set(),
+    titleTmdb: new Set(),
     total: 0,
   });
   const [loadingExistingContent, setLoadingExistingContent] = useState(false);
@@ -136,18 +131,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       .replace(/[^a-z0-9]+/g, ' ')
       .trim();
 
-  const normalizeImdb = (value?: string | null) =>
-    (value || '')
-      .toLowerCase()
-      .replace(/[^a-z0-9.]+/g, '')
-      .trim();
-
-  const normalizeLink = (value?: string | null) =>
-    (value || '')
-      .trim()
-      .toLowerCase()
-      .replace(/^https?:\/\//, '')
-      .replace(/\/$/, '');
+  const normalizeTmdbId = (value?: string | number | null) => {
+    if (value === null || value === undefined) return '';
+    return String(value).trim();
+  };
 
   const previewHighlightMap = useMemo(() => {
     const titleCounts = new Map<string, number>();
@@ -171,8 +158,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       previews.map((content) => {
         const normalizedTitle = normalizeText(content.Nome);
         const normalizedYear = normalizeText(content.Ano);
-        const normalizedImdb = normalizeImdb(content.Imdb || content.IMDb);
-        const normalizedLink = normalizeLink(content.Link);
+        const tmdbId = normalizeTmdbId(content['TMDB ID']);
         const titleYearKey = normalizedTitle && normalizedYear ? `${normalizedTitle}|${normalizedYear}` : '';
         const matchReasons: string[] = [];
 
@@ -181,16 +167,9 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
           (titleYearKey && (titleYearCounts.get(titleYearKey) || 0) > 1)
         );
 
-        if (normalizedImdb && existingContentSnapshot.imdbs.has(normalizedImdb)) {
-          matchReasons.push('IMDb já existe');
-        }
-        if (normalizedLink && existingContentSnapshot.links.has(normalizedLink)) {
-          matchReasons.push('Link já existe');
-        }
-        if (titleYearKey && existingContentSnapshot.titleYears.has(titleYearKey)) {
-          matchReasons.push('Título e ano já importados');
-        } else if (normalizedTitle && existingContentSnapshot.titles.has(normalizedTitle)) {
-          matchReasons.push('Título já importado');
+        const titleTmdbKey = normalizedTitle && tmdbId ? `${normalizedTitle}|${tmdbId}` : '';
+        if (titleTmdbKey && existingContentSnapshot.titleTmdb.has(titleTmdbKey)) {
+          matchReasons.push('Nome + TMDB ID já importados');
         }
         if (isDuplicateInPreview) {
           matchReasons.push('Duplicado no preview');
@@ -442,7 +421,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   useEffect(() => {
     const fetchExistingContentSnapshot = async () => {
       if (!configValid || !userConfig?.apiToken || !userConfig?.baseUrl || !userConfig?.contentTableId) {
-        setExistingContentSnapshot({ titles: new Set(), titleYears: new Set(), imdbs: new Set(), links: new Set(), total: 0 });
+        setExistingContentSnapshot({ titleTmdb: new Set(), total: 0 });
         return;
       }
 
@@ -482,29 +461,22 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         }
 
         const snapshot: ExistingContentSnapshot = {
-          titles: new Set(),
-          titleYears: new Set(),
-          imdbs: new Set(),
-          links: new Set(),
+          titleTmdb: new Set(),
           total: totalReported || allResults.length,
         };
 
         allResults.forEach((item: ContentPreview) => {
           const normalizedTitle = normalizeText(item.Nome);
-          const normalizedYear = normalizeText(item.Ano);
-          const normalizedImdb = normalizeImdb(item.Imdb || item.IMDb);
-          const normalizedLink = normalizeLink(item.Link);
-
-          if (normalizedTitle) snapshot.titles.add(normalizedTitle);
-          if (normalizedTitle && normalizedYear) snapshot.titleYears.add(`${normalizedTitle}|${normalizedYear}`);
-          if (normalizedImdb) snapshot.imdbs.add(normalizedImdb);
-          if (normalizedLink) snapshot.links.add(normalizedLink);
+          const tmdbId = normalizeTmdbId(item['TMDB ID']);
+          if (normalizedTitle && tmdbId) {
+            snapshot.titleTmdb.add(`${normalizedTitle}|${tmdbId}`);
+          }
         });
 
         setExistingContentSnapshot(snapshot);
       } catch (err) {
         console.error('Erro ao buscar conteúdos existentes do destino:', err);
-        setExistingContentSnapshot({ titles: new Set(), titleYears: new Set(), imdbs: new Set(), links: new Set(), total: 0 });
+        setExistingContentSnapshot({ titleTmdb: new Set(), total: 0 });
       } finally {
         setLoadingExistingContent(false);
       }
