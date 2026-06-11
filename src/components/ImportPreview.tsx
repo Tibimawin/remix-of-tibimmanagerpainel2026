@@ -845,10 +845,23 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             <div className="space-y-3 border-b border-border/50 px-6 py-3 bg-muted/20">
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 {loadingExistingContent ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Verificando conteúdos já importados...
-                  </span>
+                  <div className="flex flex-col gap-1.5 w-full max-w-md">
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Verificando conteúdos já importados...
+                      {existingProgress.total > 0 && (
+                        <span className="font-mono text-[11px] text-muted-foreground">
+                          {existingProgress.loaded}/{existingProgress.total}
+                          {' · '}
+                          {Math.min(100, Math.round((existingProgress.loaded / existingProgress.total) * 100))}%
+                        </span>
+                      )}
+                    </span>
+                    <Progress
+                      value={existingProgress.total > 0 ? Math.min(100, (existingProgress.loaded / existingProgress.total) * 100) : 5}
+                      className="h-1.5"
+                    />
+                  </div>
                 ) : (
                   <>
                     <Badge variant="outline" className="text-xs">
