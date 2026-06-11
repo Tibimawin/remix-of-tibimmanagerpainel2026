@@ -110,7 +110,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     total: 0,
   });
   const [loadingExistingContent, setLoadingExistingContent] = useState(false);
-  const pageSize = 12;
+  const pageSize = 30;
 
   // Keywords to exclude (TV channels, specific channel packages, etc.)
   const EXCLUDED_KEYWORDS = useMemo(() => [
@@ -714,24 +714,6 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
               </Button>
             </div>
 
-            {/* Category Filter */}
-            <div className="flex items-center gap-2">
-              <Tags className="h-4 w-4 text-muted-foreground" />
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="h-7 w-[180px] text-xs">
-                  <SelectValue placeholder="Categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as categorias</SelectItem>
-                  {availableCategories.map(category => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Sort Options */}
             <div className="flex items-center gap-2">
               <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
@@ -777,10 +759,44 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
           </div>
         )}
 
+        {/* Categories Carousel */}
+        {availableCategories.length > 0 && (
+          <div className="px-6 py-3 border-b border-border/50 bg-background">
+            <div className="flex items-center gap-2 mb-2">
+              <Tags className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">Categorias</span>
+              <span className="text-xs text-muted-foreground">({availableCategories.length})</span>
+            </div>
+            <ScrollArea className="w-full">
+              <div className="flex items-center gap-2 pb-2">
+                <Button
+                  variant={categoryFilter === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setCategoryFilter('all')}
+                  className="h-8 text-xs rounded-full shrink-0"
+                >
+                  Todas
+                </Button>
+                {availableCategories.map((category) => (
+                  <Button
+                    key={category}
+                    variant={categoryFilter === category ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setCategoryFilter(category)}
+                    className="h-8 text-xs rounded-full shrink-0"
+                  >
+                    {category}
+                  </Button>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+
         {/* Content Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 p-6">
-            {Array.from({ length: 6 }).map((_, i) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5 p-6">
+            {Array.from({ length: 12 }).map((_, i) => (
               <div key={i} className="space-y-2">
                 <Skeleton className="aspect-[2/3] w-full rounded-lg" />
                 <Skeleton className="h-4 w-3/4" />
@@ -860,8 +876,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                 )}
               </div>
             </div>
-            <ScrollArea className="h-[650px] rounded-md border">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 p-6">
+            <ScrollArea className="h-[calc(100vh-340px)] min-h-[700px] rounded-md border">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5 p-6">
                 {filteredPreviews.map((content) => {
                   const isSelected = selectedIds.has(content.id);
                   const highlight = previewHighlightMap.get(content.id);
