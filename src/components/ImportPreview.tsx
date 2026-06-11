@@ -714,24 +714,6 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
               </Button>
             </div>
 
-            {/* Category Filter */}
-            <div className="flex items-center gap-2">
-              <Tags className="h-4 w-4 text-muted-foreground" />
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="h-7 w-[180px] text-xs">
-                  <SelectValue placeholder="Categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as categorias</SelectItem>
-                  {availableCategories.map(category => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Sort Options */}
             <div className="flex items-center gap-2">
               <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
@@ -774,6 +756,40 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                 Limpar filtros
               </Button>
             )}
+          </div>
+        )}
+
+        {/* Categories Carousel */}
+        {availableCategories.length > 0 && (
+          <div className="px-6 py-3 border-b border-border/50 bg-background">
+            <div className="flex items-center gap-2 mb-2">
+              <Tags className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">Categorias</span>
+              <span className="text-xs text-muted-foreground">({availableCategories.length})</span>
+            </div>
+            <ScrollArea className="w-full">
+              <div className="flex items-center gap-2 pb-2">
+                <Button
+                  variant={categoryFilter === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setCategoryFilter('all')}
+                  className="h-8 text-xs rounded-full shrink-0"
+                >
+                  Todas
+                </Button>
+                {availableCategories.map((category) => (
+                  <Button
+                    key={category}
+                    variant={categoryFilter === category ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setCategoryFilter(category)}
+                    className="h-8 text-xs rounded-full shrink-0"
+                  >
+                    {category}
+                  </Button>
+                ))}
+              </div>
+            </ScrollArea>
           </div>
         )}
 
