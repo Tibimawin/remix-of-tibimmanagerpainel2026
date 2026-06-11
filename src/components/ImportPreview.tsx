@@ -107,6 +107,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     total: 0,
   });
   const [loadingExistingContent, setLoadingExistingContent] = useState(false);
+  const [existingProgress, setExistingProgress] = useState<{ loaded: number; total: number }>({ loaded: 0, total: 0 });
   const pageSize = 30;
 
   // Keywords to exclude (TV channels, specific channel packages, etc.)
