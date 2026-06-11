@@ -468,12 +468,14 @@ interface UserSidebarProps {
   isCollapsed: boolean;
   onToggle: () => void;
   isMobile?: boolean;
+  onHoverChange?: (hovered: boolean) => void;
 }
 
 export const UserSidebar: React.FC<UserSidebarProps> = ({
   isCollapsed,
   onToggle,
-  isMobile = false
+  isMobile = false,
+  onHoverChange
 }) => {
   const location = useLocation();
   const { logout } = useSimpleAuth();
