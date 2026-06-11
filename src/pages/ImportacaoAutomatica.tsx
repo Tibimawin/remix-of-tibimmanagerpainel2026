@@ -18,18 +18,14 @@ import {
   Settings,
   ChevronDown,
   ChevronUp,
-  AlertCircle,
   CheckCircle2,
   TestTube,
   Save,
   Cloud,
   Loader2,
   Shield,
-  Lock,
-  Sparkles,
   Database,
   Zap,
-  ArrowRight,
   Info,
   Server,
   Key,
@@ -37,7 +33,6 @@ import {
   Tv
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Progress } from '@/components/ui/progress';
 import { ImportPreview, ContentPreview } from '@/components/ImportPreview';
 
 interface ImportacaoAutomaticaLocationState {
@@ -338,137 +333,48 @@ const ImportacaoAutomatica = () => {
     );
   }
 
-  const usagePercentage = permissions ? Math.min((permissions.currentMonthUsage / permissions.monthlyContentLimit) * 100, 100) : 0;
-
   return (
     <PermissionGate feature="importacao-automatica">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
 
-        {/* Hero Section */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/20 via-accent/10 to-background border border-primary/20 p-8 md:p-12">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
-          <div className="absolute top-4 right-4 opacity-20">
-            <Sparkles className="h-32 w-32 text-primary animate-pulse" />
-          </div>
-
-          <div className="relative z-10 space-y-4">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
-              <Zap className="h-4 w-4" />
-              Importação Inteligente
-            </div>
-
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+        {/* Hero Section Compacto */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl bg-card border border-border p-6">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
               Importação <span className="text-primary">Automática</span>
             </h1>
-
-            <p className="text-lg text-muted-foreground max-w-2xl">
-              Importe filmes, séries e episódios de outros Baserows com apenas alguns cliques.
-              Sistema otimizado para importações em massa com detecção automática de duplicados.
+            <p className="text-sm text-muted-foreground mt-1">
+              Importe conteúdos de outros Baserows rapidamente.
             </p>
+          </div>
 
-            <div className="flex flex-wrap gap-4 pt-4">
-              <Button
-                onClick={() => startImport()}
-                size="lg"
-                disabled={!configValid || !canAddMoreContent() || isImporting}
-                className="group gap-2 text-base px-6"
-              >
-                {isImporting ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <Download className="h-5 w-5 transition-transform group-hover:-translate-y-0.5" />
-                )}
-                {isImporting ? 'Importando...' : 'Iniciar Importação'}
-                {!isImporting && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />}
-              </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={() => startImport()}
+              size="default"
+              disabled={!configValid || !canAddMoreContent() || isImporting}
+              className="group gap-2"
+            >
+              {isImporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 transition-transform group-hover:-translate-y-0.5" />
+              )}
+              {isImporting ? 'Importando...' : 'Iniciar Importação'}
+            </Button>
 
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => setShowConfig(!showConfig)}
-                className="gap-2"
-              >
-                <Settings className="h-5 w-5" />
-                {showConfig ? 'Ocultar' : 'Configurar'} Credenciais
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="default"
+              onClick={() => setShowConfig(!showConfig)}
+              className="gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              {showConfig ? 'Ocultar' : 'Configurar'} Credenciais
+            </Button>
           </div>
         </div>
 
-        {/* Status Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Limite de Importação */}
-          {permissions && hasContentLimit() && (
-            <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-card to-primary/5">
-              <div className="absolute top-0 right-0 w-20 h-20 bg-primary/10 rounded-full blur-2xl" />
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                  <Shield className="h-5 w-5 text-primary" />
-                  Limite Mensal
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-end justify-between">
-                  <div>
-                    <p className="text-3xl font-bold text-primary">{getRemainingContent()}</p>
-                    <p className="text-xs text-muted-foreground">restantes este mês</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">
-                      {permissions.currentMonthUsage}/{permissions.monthlyContentLimit}
-                    </p>
-                    <p className="text-xs text-muted-foreground">utilizados</p>
-                  </div>
-                </div>
-                <Progress value={usagePercentage} className="h-2" />
-                {!canAddMoreContent() && (
-                  <div className="flex items-center gap-1 text-destructive text-xs font-medium">
-                    <Lock className="h-3 w-3" />
-                    Limite atingido
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Status da Configuração */}
-          <Card className={`relative overflow-hidden border-${configValid ? 'green-500/20' : 'orange-500/20'} bg-gradient-to-br from-card to-${configValid ? 'green' : 'orange'}-500/5`}>
-            <div className={`absolute top-0 right-0 w-20 h-20 bg-${configValid ? 'green' : 'orange'}-500/10 rounded-full blur-2xl`} />
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                {configValid ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
-                ) : (
-                  <AlertCircle className="h-5 w-5 text-orange-500" />
-                )}
-                Credenciais
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className={`text-2xl font-bold ${configValid ? 'text-green-500' : 'text-orange-500'}`}>
-                {configValid ? 'Configurado' : 'Pendente'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {configValid ? 'Pronto para importar' : 'Configure suas credenciais'}
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Sincronização */}
-          <Card className="relative overflow-hidden border-accent/20 bg-gradient-to-br from-card to-accent/5">
-            <div className="absolute top-0 right-0 w-20 h-20 bg-accent/10 rounded-full blur-2xl" />
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                <Cloud className="h-5 w-5 text-accent" />
-                Sincronização
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-accent">Ativo</p>
-              <p className="text-xs text-muted-foreground">Configurações salvas na nuvem</p>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Configuração Expandível */}
         {showConfig && (
