@@ -879,7 +879,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                     <Badge variant="outline" className="text-xs">
                       {existingContentSnapshot.total} no destino analisados
                     </Badge>
-                    <Badge variant="warning" className="text-xs">
+                    <Badge className="text-xs bg-emerald-500 hover:bg-emerald-500 text-white border-0 gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
                       {filteredPreviews.filter(content => previewHighlightMap.get(content.id)?.isAlreadyImported).length} já importado{filteredPreviews.filter(content => previewHighlightMap.get(content.id)?.isAlreadyImported).length !== 1 ? 's' : ''}
                     </Badge>
                     <Badge variant="destructive" className="text-xs">
