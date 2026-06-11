@@ -32,7 +32,9 @@ import {
   CheckSquare,
   Square,
   Loader2,
-  Download
+  Download,
+  CheckCircle2,
+  Sparkles
 } from 'lucide-react';
 import { ImportConfig, UserConfig } from '@/services/AutoImportService';
 import { makeProxyRequest } from '@/utils/proxyRequest';
@@ -446,28 +448,48 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
       setLoadingExistingContent(true);
       try {
-        const url = `${userConfig.baseUrl}/api/database/rows/table/${userConfig.contentTableId}/?user_field_names=true&size=200`;
-        const data = await makeProxyRequest({
-          url,
-          method: 'GET',
-          token: userConfig.apiToken,
-          body: null,
-        });
+        // Paginate to fetch ALL existing content (not just first 200)
+        const PAGE_SIZE = 200;
+        const allResults: ContentPreview[] = [];
+        let page = 1;
+        let totalReported = 0;
+        const MAX_PAGES = 50; // safety cap (up to 10k items)
 
-        if (!data.ok) {
-          throw new Error(data.error || 'Erro ao buscar conteúdos já importados');
+        // First request to learn the total count
+        while (page <= MAX_PAGES) {
+          const url = `${userConfig.baseUrl}/api/database/rows/table/${userConfig.contentTableId}/?user_field_names=true&size=${PAGE_SIZE}&page=${page}`;
+          const data = await makeProxyRequest({
+            url,
+            method: 'GET',
+            token: userConfig.apiToken,
+            body: null,
+          });
+
+          if (!data.ok) {
+            throw new Error(data.error || 'Erro ao buscar conteúdos já importados');
+          }
+
+          const pageResults = Array.isArray(data.data?.results) ? data.data.results : [];
+          totalReported = data.data?.count ?? totalReported;
+          allResults.push(...pageResults);
+
+          if (pageResults.length < PAGE_SIZE) break;
+          if (totalReported && allResults.length >= totalReported) break;
+
+          page += 1;
+          // small delay to be gentle with rate limits
+          await new Promise((r) => setTimeout(r, 120));
         }
 
-        const results = Array.isArray(data.data?.results) ? data.data.results : [];
         const snapshot: ExistingContentSnapshot = {
           titles: new Set(),
           titleYears: new Set(),
           imdbs: new Set(),
           links: new Set(),
-          total: results.length,
+          total: totalReported || allResults.length,
         };
 
-        results.forEach((item: ContentPreview) => {
+        allResults.forEach((item: ContentPreview) => {
           const normalizedTitle = normalizeText(item.Nome);
           const normalizedYear = normalizeText(item.Ano);
           const normalizedImdb = normalizeImdb(item.Imdb || item.IMDb);
@@ -546,12 +568,22 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   };
 
   const selectAllVisible = () => {
-    const visibleIds = filteredPreviews.map(p => p.id);
+    // Skip items already imported in the user's database
+    const visibleIds = filteredPreviews
+      .filter(p => !previewHighlightMap.get(p.id)?.isAlreadyImported)
+      .map(p => p.id);
     setSelectedIds(prev => {
       const newSet = new Set(prev);
       visibleIds.forEach(id => newSet.add(id));
       return newSet;
     });
+  };
+
+  const selectOnlyNew = () => {
+    const newIds = filteredPreviews
+      .filter(p => !previewHighlightMap.get(p.id)?.isAlreadyImported && !previewHighlightMap.get(p.id)?.isDuplicateInPreview)
+      .map(p => p.id);
+    setSelectedIds(new Set(newIds));
   };
 
   const deselectAllVisible = () => {
@@ -847,7 +879,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                     <Badge variant="outline" className="text-xs">
                       {existingContentSnapshot.total} no destino analisados
                     </Badge>
-                    <Badge variant="warning" className="text-xs">
+                    <Badge className="text-xs bg-emerald-500 hover:bg-emerald-500 text-white border-0 gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
                       {filteredPreviews.filter(content => previewHighlightMap.get(content.id)?.isAlreadyImported).length} já importado{filteredPreviews.filter(content => previewHighlightMap.get(content.id)?.isAlreadyImported).length !== 1 ? 's' : ''}
                     </Badge>
                     <Badge variant="destructive" className="text-xs">
@@ -868,7 +901,16 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                   ) : (
                     <Square className="h-3.5 w-3.5" />
                   )}
-                  {allVisibleSelected ? 'Desmarcar página' : 'Selecionar página'}
+                  {allVisibleSelected ? 'Desmarcar página' : 'Selecionar página (só novos)'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={selectOnlyNew}
+                  className="h-7 text-xs gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Selecionar só novos
                 </Button>
                 {selectedIds.size > 0 && (
                   <span className="text-xs text-muted-foreground">
@@ -890,7 +932,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                       onClick={() => toggleSelection(content.id)}
                       className={`group relative bg-card rounded-lg border overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer ${
                         isAlreadyImported
-                          ? 'border-amber-500/40 bg-amber-500/5'
+                          ? 'border-emerald-500/50 bg-emerald-500/5 ring-1 ring-emerald-500/20'
                           : isDuplicateInPreview
                             ? 'border-destructive/40 bg-destructive/5'
                             : isSelected 
@@ -916,7 +958,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                           <img
                             src={content.Capa}
                             alt={content.Nome || 'Conteúdo'}
-                            className={`w-full h-full object-cover transition-transform duration-500 ${isAlreadyImported ? 'opacity-70' : 'group-hover:scale-105'}`}
+                            className={`w-full h-full object-cover transition-transform duration-500 ${isAlreadyImported ? 'opacity-40 grayscale' : 'group-hover:scale-105'}`}
                             loading="lazy"
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = '/placeholder.svg';
@@ -927,7 +969,25 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                             {getTypeIcon(content.Tipo)}
                           </div>
                         )}
-                        
+
+                        {isAlreadyImported && (
+                          <>
+                            {/* Big centered "imported" overlay */}
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-20 pointer-events-none">
+                              <div className="bg-emerald-500/95 text-white rounded-full p-3 shadow-xl shadow-emerald-500/40">
+                                <CheckCircle2 className="h-8 w-8" strokeWidth={2.5} />
+                              </div>
+                              <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white border-0 text-[11px] font-bold tracking-wide shadow-lg">
+                                JÁ IMPORTADO
+                              </Badge>
+                            </div>
+                            {/* Diagonal ribbon */}
+                            <div className="absolute top-3 -right-8 z-10 rotate-45 bg-emerald-500 text-white text-[9px] font-bold px-8 py-0.5 shadow-md pointer-events-none">
+                              ✓ NO BANCO
+                            </div>
+                          </>
+                        )}
+
                         {content.Tipo && (
                           <Badge
                             variant={getTypeBadgeVariant(content.Tipo)}
@@ -939,12 +999,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                         )}
 
                         <div className="absolute left-2 right-2 top-10 z-10 flex flex-wrap gap-1">
-                          {isAlreadyImported && (
-                            <Badge variant="warning" className="text-[10px]">
-                              Já importado
-                            </Badge>
-                          )}
-                          {isDuplicateInPreview && (
+                          {isDuplicateInPreview && !isAlreadyImported && (
                             <Badge variant="destructive" className="text-[10px]">
                               Duplicado
                             </Badge>
