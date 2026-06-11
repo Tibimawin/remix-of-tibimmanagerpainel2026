@@ -485,6 +485,11 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
     configuracoes: true // Configurações aberto por padrão
   });
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Quando o sidebar está recolhido (desktop), expandir visualmente ao passar o mouse
+  // sem alterar a margem do conteúdo principal — assim sobrepõe e libera espaço.
+  const effectiveCollapsed = isMobile ? isCollapsed : (isCollapsed && !isHovered);
 
   // Itens que só aparecem no modo plural (Francisco)
   const pluralOnlyItems = ['categorias-anime', 'categorias-tv'];
@@ -546,13 +551,17 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
 
       {/* Sidebar */}
       <div
+        onMouseEnter={() => !isMobile && setIsHovered(true)}
+        onMouseLeave={() => !isMobile && setIsHovered(false)}
         className={cn(
           "fixed left-0 top-0 h-full bg-gradient-to-b from-card via-card/95 to-card/90 backdrop-blur-xl border-r border-border/40 flex flex-col z-40 transition-all duration-300 shadow-xl",
           isMobile
             ? `${isCollapsed ? "-translate-x-full" : "translate-x-0"} w-80`
-            : isCollapsed
+            : effectiveCollapsed
               ? "w-20"
-              : "w-80"
+              : isCollapsed
+                ? "w-80 shadow-2xl"
+                : "w-80"
         )}
         data-tour="sidebar"
       >
@@ -561,12 +570,12 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
           <div className="flex items-center justify-between">
             <div className={cn(
               "flex items-center space-x-3 transition-all duration-300",
-              isCollapsed && !isMobile && "opacity-0 scale-90"
+              effectiveCollapsed && !isMobile && "opacity-0 scale-90"
             )}>
               <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-primary via-red-600 to-orange-500 rounded-2xl shadow-lg">
                 <Play className="w-6 h-6 text-white fill-white" />
               </div>
-              {(!isCollapsed || isMobile) && (
+              {(!effectiveCollapsed || isMobile) && (
                 <div>
                   <h1 className="text-xl font-bold text-foreground bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent">
                     StreamFlix
@@ -601,7 +610,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
 
               return (
                 <div key={category} className="space-y-2">
-                  {(!isCollapsed || isMobile) && (
+                  {(!effectiveCollapsed || isMobile) && (
                     <div className="flex items-center px-3 py-2 mb-3">
                       <CategoryIcon className="w-4 h-4 text-primary mr-2" />
                       <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -636,14 +645,14 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                                         ? "bg-gradient-to-r from-primary/20 via-primary/15 to-orange-500/20 text-primary border border-primary/30 shadow-lg"
                                         : "text-muted-foreground hover:text-foreground hover:bg-gradient-to-r hover:from-accent/10 hover:to-primary/5 hover:border hover:border-accent/20 hover:shadow-soft"
                                     )}
-                                    title={isCollapsed && !isMobile ? item.label : undefined}
+                                    title={effectiveCollapsed && !isMobile ? item.label : undefined}
                                   >
                                     <Icon className={cn(
                                       "w-5 h-5 flex-shrink-0 transition-all duration-300",
                                       isActive ? "text-primary scale-110" : "group-hover:text-foreground group-hover:scale-105"
                                     )} />
 
-                                    {(!isCollapsed || isMobile) && (
+                                    {(!effectiveCollapsed || isMobile) && (
                                       <>
                                         <div className="flex-1 min-w-0 text-left">
                                           <div className="flex items-center space-x-2">
@@ -662,7 +671,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                                     )}
                                   </button>
 
-                                  {(!isCollapsed || isMobile) && isOpen && (
+                                  {(!effectiveCollapsed || isMobile) && isOpen && (
                                     <ul className="mt-1 ml-4 space-y-1 border-l-2 border-border/40 pl-3 animate-fade-in">
                                       {item.children.map((child) => {
                                         const ChildIcon = child.icon;
@@ -709,7 +718,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                                       ? "bg-gradient-to-r from-primary/20 via-primary/15 to-orange-500/20 text-primary border border-primary/30 shadow-lg"
                                       : "text-muted-foreground hover:text-foreground hover:bg-gradient-to-r hover:from-accent/10 hover:to-primary/5 hover:border hover:border-accent/20 hover:shadow-soft"
                                   )}
-                                  title={isCollapsed && !isMobile ? item.label : undefined}
+                                  title={effectiveCollapsed && !isMobile ? item.label : undefined}
                                   {...(item.id === 'conteudos' ? { 'data-tour': 'add-content' } : {})}
                                   {...(item.id === 'configuracoes' ? { 'data-tour': 'settings' } : {})}
                                 >
@@ -718,7 +727,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                                     isActive ? "text-primary scale-110" : "group-hover:text-foreground group-hover:scale-105"
                                   )} />
 
-                                  {(!isCollapsed || isMobile) && (
+                                  {(!effectiveCollapsed || isMobile) && (
                                     <>
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center space-x-2">
@@ -744,11 +753,11 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                                 "group relative flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 backdrop-blur-sm cursor-not-allowed",
                                 "bg-gradient-to-r from-muted/20 to-muted/10 text-muted-foreground/60 border border-border/20"
                               )}
-                              title={isCollapsed && !isMobile ? `${item.label} - Bloqueado` : "Recurso bloqueado - Entre em contato para upgrade"}
+                              title={effectiveCollapsed && !isMobile ? `${item.label} - Bloqueado` : "Recurso bloqueado - Entre em contato para upgrade"}
                             >
                               <Icon className="w-5 h-5 flex-shrink-0 text-muted-foreground/40" />
 
-                              {(!isCollapsed || isMobile) && (
+                              {(!effectiveCollapsed || isMobile) && (
                                 <>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center space-x-2">
@@ -781,7 +790,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
         {/* Footer */}
         <div className="p-4 border-t border-border/40 space-y-3 backdrop-blur-sm">
           {/* Suporte Prioritário */}
-          {hasPrioritySupport() && (!isCollapsed || isMobile) && (
+          {hasPrioritySupport() && (!effectiveCollapsed || isMobile) && (
             <div className="bg-gradient-to-r from-amber-500/20 to-yellow-500/20 rounded-xl p-3 border border-amber-500/30 backdrop-blur-sm">
               <div className="flex items-center space-x-2">
                 <Crown className="w-4 h-4 text-amber-500" />
@@ -799,18 +808,18 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
             variant="outline"
             className={cn(
               "w-full border-red-200/60 text-red-600 hover:text-red-700 hover:bg-red-50/10 hover:border-red-300/40 transition-all duration-300",
-              isCollapsed && !isMobile ? "px-0" : "justify-start"
+              effectiveCollapsed && !isMobile ? "px-0" : "justify-start"
             )}
-            title={isCollapsed && !isMobile ? "Sair" : undefined}
+            title={effectiveCollapsed && !isMobile ? "Sair" : undefined}
           >
             <LogOut className="h-4 w-4 flex-shrink-0" />
-            {(!isCollapsed || isMobile) && (
+            {(!effectiveCollapsed || isMobile) && (
               <span className="ml-2 font-medium">Sair</span>
             )}
           </Button>
 
           {/* Status do Sistema */}
-          {(!isCollapsed || isMobile) && (
+          {(!effectiveCollapsed || isMobile) && (
             <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-xl p-3 border border-green-500/30 backdrop-blur-sm">
               <div>
                 <p className="text-sm font-medium text-foreground flex items-center">
