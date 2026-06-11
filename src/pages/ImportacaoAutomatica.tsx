@@ -235,6 +235,7 @@ const ImportacaoAutomatica = () => {
     setIsImporting(true);
     setImportProgress(0);
     setImportStatus({ current: 0, total: selectedContents.length, title: '', success: 0, errors: 0 });
+    setEpisodeStatus({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
 
     try {
       // Debug: Log dos dados originais antes do mapeamento
@@ -297,7 +298,21 @@ const ImportacaoAutomatica = () => {
         undefined,
         undefined,
         typeMode,
-        undefined,
+        (ep) => {
+          setEpisodeStatus(prev => {
+            const seasons = new Set(prev.seriesTitle === ep.seriesTitle ? prev.seasons : []);
+            if (ep.season) seasons.add(String(ep.season));
+            return {
+              seriesTitle: ep.seriesTitle,
+              current: ep.current,
+              total: ep.total,
+              seasons,
+              currentSeason: String(ep.season || ''),
+              currentEpisode: String(ep.episode || ''),
+              episodeTitle: ep.episodeTitle || '',
+            };
+          });
+        },
         (info) => {
           const pct = info.total > 0 ? Math.round((info.current / info.total) * 100) : 0;
           setImportProgress(pct);
@@ -308,6 +323,10 @@ const ImportacaoAutomatica = () => {
             success: prev.success + (info.status === 'success' ? 1 : 0),
             errors: prev.errors + (info.status === 'error' ? 1 : 0),
           }));
+          // limpar contadores de episódios ao trocar de conteúdo
+          if (info.status === 'processing') {
+            setEpisodeStatus({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
+          }
         }
       );
 
@@ -331,6 +350,7 @@ const ImportacaoAutomatica = () => {
       setTimeout(() => {
         setImportProgress(0);
         setImportStatus({ current: 0, total: 0, title: '', success: 0, errors: 0 });
+        setEpisodeStatus({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
       }, 2500);
     }
   }, [autoImportService, canAddMoreContent, configValid, importConfig, typeMode, userConfig]);
