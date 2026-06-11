@@ -957,7 +957,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                           <img
                             src={content.Capa}
                             alt={content.Nome || 'Conteúdo'}
-                            className={`w-full h-full object-cover transition-transform duration-500 ${isAlreadyImported ? 'opacity-70' : 'group-hover:scale-105'}`}
+                            className={`w-full h-full object-cover transition-transform duration-500 ${isAlreadyImported ? 'opacity-40 grayscale' : 'group-hover:scale-105'}`}
                             loading="lazy"
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = '/placeholder.svg';
@@ -968,7 +968,25 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                             {getTypeIcon(content.Tipo)}
                           </div>
                         )}
-                        
+
+                        {isAlreadyImported && (
+                          <>
+                            {/* Big centered "imported" overlay */}
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-20 pointer-events-none">
+                              <div className="bg-emerald-500/95 text-white rounded-full p-3 shadow-xl shadow-emerald-500/40">
+                                <CheckCircle2 className="h-8 w-8" strokeWidth={2.5} />
+                              </div>
+                              <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white border-0 text-[11px] font-bold tracking-wide shadow-lg">
+                                JÁ IMPORTADO
+                              </Badge>
+                            </div>
+                            {/* Diagonal ribbon */}
+                            <div className="absolute top-3 -right-8 z-10 rotate-45 bg-emerald-500 text-white text-[9px] font-bold px-8 py-0.5 shadow-md pointer-events-none">
+                              ✓ NO BANCO
+                            </div>
+                          </>
+                        )}
+
                         {content.Tipo && (
                           <Badge
                             variant={getTypeBadgeVariant(content.Tipo)}
@@ -980,12 +998,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                         )}
 
                         <div className="absolute left-2 right-2 top-10 z-10 flex flex-wrap gap-1">
-                          {isAlreadyImported && (
-                            <Badge variant="warning" className="text-[10px]">
-                              Já importado
-                            </Badge>
-                          )}
-                          {isDuplicateInPreview && (
+                          {isDuplicateInPreview && !isAlreadyImported && (
                             <Badge variant="destructive" className="text-[10px]">
                               Duplicado
                             </Badge>
