@@ -96,10 +96,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       >
         <UserHeader onToggleSidebar={handleToggleSidebar} isCollapsed={isCollapsed} />
         <div className="flex">
-          <UserSidebar isCollapsed={isCollapsed} onToggle={handleToggleSidebar} isMobile={isMobile} />
+          <UserSidebar isCollapsed={isCollapsed} onToggle={handleToggleSidebar} isMobile={isMobile} onHoverChange={setIsSidebarHovered} />
           <main className={cn(
             "flex-1 p-6 transition-all duration-300 min-h-[calc(100vh-4rem)]",
-            isCollapsed
+            (isCollapsed && !isSidebarHovered)
               ? (isMobile ? "ml-0" : "ml-20")
               : (isMobile ? "ml-0" : "ml-80")
           )}>
