@@ -60,6 +60,8 @@ export interface ContentPreview {
 
 interface ExistingContentSnapshot {
   titleTmdb: Set<string>;
+  title: Set<string>;
+  titleYear: Set<string>;
   total: number;
 }
 
@@ -104,6 +106,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [existingContentSnapshot, setExistingContentSnapshot] = useState<ExistingContentSnapshot>({
     titleTmdb: new Set(),
+    title: new Set(),
+    titleYear: new Set(),
     total: 0,
   });
   const [loadingExistingContent, setLoadingExistingContent] = useState(false);
@@ -171,6 +175,12 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         const titleTmdbKey = normalizedTitle && tmdbId ? `${normalizedTitle}|${tmdbId}` : '';
         if (titleTmdbKey && existingContentSnapshot.titleTmdb.has(titleTmdbKey)) {
           matchReasons.push('Nome + TMDB ID já importados');
+        }
+        const titleYearKeyExisting = normalizedTitle && normalizedYear ? `${normalizedTitle}|${normalizedYear}` : '';
+        if (titleYearKeyExisting && existingContentSnapshot.titleYear.has(titleYearKeyExisting)) {
+          matchReasons.push('Nome + Ano já importados');
+        } else if (normalizedTitle && existingContentSnapshot.title.has(normalizedTitle)) {
+          matchReasons.push('Nome já importado');
         }
         if (isDuplicateInPreview) {
           matchReasons.push('Duplicado no preview');
