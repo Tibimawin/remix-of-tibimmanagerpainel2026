@@ -432,7 +432,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   useEffect(() => {
     const fetchExistingContentSnapshot = async () => {
       if (!configValid || !userConfig?.apiToken || !userConfig?.baseUrl || !userConfig?.contentTableId) {
-        setExistingContentSnapshot({ titleTmdb: new Set(), total: 0 });
+        setExistingContentSnapshot({ titleTmdb: new Set(), title: new Set(), titleYear: new Set(), total: 0 });
         return;
       }
 
@@ -475,21 +475,30 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
         const snapshot: ExistingContentSnapshot = {
           titleTmdb: new Set(),
+          title: new Set(),
+          titleYear: new Set(),
           total: totalReported || allResults.length,
         };
 
         allResults.forEach((item: ContentPreview) => {
           const normalizedTitle = normalizeText(item.Nome);
           const tmdbId = normalizeTmdbId(item['TMDB ID']);
+          const normalizedYear = normalizeText((item as any).Ano);
           if (normalizedTitle && tmdbId) {
             snapshot.titleTmdb.add(`${normalizedTitle}|${tmdbId}`);
+          }
+          if (normalizedTitle) {
+            snapshot.title.add(normalizedTitle);
+          }
+          if (normalizedTitle && normalizedYear) {
+            snapshot.titleYear.add(`${normalizedTitle}|${normalizedYear}`);
           }
         });
 
         setExistingContentSnapshot(snapshot);
       } catch (err) {
         console.error('Erro ao buscar conteúdos existentes do destino:', err);
-        setExistingContentSnapshot({ titleTmdb: new Set(), total: 0 });
+        setExistingContentSnapshot({ titleTmdb: new Set(), title: new Set(), titleYear: new Set(), total: 0 });
       } finally {
         setLoadingExistingContent(false);
       }
