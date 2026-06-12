@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { EditDialog } from '@/components/EditDialog';
@@ -13,10 +14,11 @@ import { ImportButton } from '@/components/ImportButton';
 import { useBaserowService } from '@/services/BaserowService';
 import { useConfig } from '@/contexts/ConfigContext';
 import { toast } from '@/hooks/use-toast';
-import { Edit, Trash, Eye, Plus } from 'lucide-react';
+import { Edit, Trash, Eye, Plus, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSystemLogs } from '@/hooks/useSystemLogs';
 import { useAutoNotifyCRUD } from '@/hooks/useActionNotifier';
+import { getValueByPossibleKeys } from '@/utils/baserowHelpers';
 
 interface DataTableProps {
   title?: string;
@@ -79,6 +81,9 @@ export const DataTable: React.FC<DataTableProps & {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [sortBy, setSortBy] = useState(defaultSort);
+  const [renewDialogOpen, setRenewDialogOpen] = useState(false);
+  const [renewItem, setRenewItem] = useState<any>(null);
+  const [renewDays, setRenewDays] = useState("30");
   const { config, isConfigured } = useConfig();
   const baserowService = useBaserowService();
   const { addLog } = useSystemLogs();
@@ -89,6 +94,10 @@ export const DataTable: React.FC<DataTableProps & {
     if (!sort) return undefined;
     const [key, dir] = sort.split('_');
     const isDesc = dir === 'desc';
+    
+    // Capitalizar primeira letra para bater com os nomes de campos normais no Baserow
+    const capitalizedKey = key.charAt(0).toUpperCase() + key.slice(1);
+    
     switch (key) {
       case 'id':
         return isDesc ? '-id' : 'id';
@@ -97,7 +106,8 @@ export const DataTable: React.FC<DataTableProps & {
       case 'categoria':
         return isDesc ? '-Categoria' : 'Categoria';
       default:
-        return undefined;
+        // Tentar casing capitalizado para bater com nomes de chaves do Baserow
+        return isDesc ? `-${capitalizedKey}` : capitalizedKey;
     }
   };
 
@@ -117,7 +127,6 @@ export const DataTable: React.FC<DataTableProps & {
 
   // Ordenação local dos dados exibidos (fallback para casos em que o servidor não ordena)
   const displayData = React.useMemo(() => {
-    // Se estamos usando bulkData, respeitar apenas a paginação local
     const base = currentData;
 
     if (!sortBy) return base;
@@ -125,23 +134,25 @@ export const DataTable: React.FC<DataTableProps & {
     const [key, dir] = sortBy.split('_');
     const isDesc = dir === 'desc';
 
-    const fieldName = key === 'id'
-      ? 'id'
-      : key === 'nome'
-        ? 'Nome'
-        : key === 'categoria'
-          ? 'Categoria'
-          : null;
-
-    if (!fieldName) return base;
+    const firstItem = base[0];
+    const fieldName = firstItem 
+      ? Object.keys(firstItem).find(k => k.toLowerCase() === key.toLowerCase()) || key
+      : key;
 
     const getComparable = (val: any, field: string) => {
-      if (field === 'id') return Number(val) || 0;
-      if (field === 'Nome') return (val || '').toString().toLowerCase();
-      if (field === 'Categoria') {
-        if (Array.isArray(val)) return (val[0] || '').toString().toLowerCase();
-        return (val || '').toString().toLowerCase();
+      const fieldLower = field.toLowerCase();
+      if (fieldLower === 'id' || fieldLower === 'moedas' || fieldLower === 'dias' || fieldLower === 'logins' || fieldLower === 'telas' || fieldLower === 'valor') {
+        return Number(val) || 0;
       }
+      if (fieldLower === 'pagamento' || fieldLower === 'datacriacao' || fieldLower === 'vencimento') {
+        try {
+          if (!val) return 0;
+          return new Date(val).getTime() || 0;
+        } catch {
+          return 0;
+        }
+      }
+      if (Array.isArray(val)) return (val[0] || '').toString().toLowerCase();
       return (val || '').toString().toLowerCase();
     };
 
@@ -303,6 +314,68 @@ export const DataTable: React.FC<DataTableProps & {
     }
   };
 
+  const handleRenew = (item: any) => {
+    setRenewItem(item);
+    setRenewDays("30");
+    setRenewDialogOpen(true);
+  };
+
+  const executeRenewal = async () => {
+    if (!renewItem) return;
+    
+    const days = parseInt(renewDays, 10);
+    if (isNaN(days) || days <= 0) {
+      toast.error("Por favor, insira uma quantidade de dias válida e maior que 0.");
+      return;
+    }
+    
+    const nome = getValueByPossibleKeys(renewItem, 'Nome') || getValueByPossibleKeys(renewItem, 'Email') || 'Usuário';
+    
+    try {
+      setLoading(true);
+      const tableId = config.tableIds[tableKey as keyof typeof config.tableIds];
+      
+      // Calcular nova data de vencimento
+      const currentVencimentoVal = getValueByPossibleKeys(renewItem, 'Vencimento');
+      let baseDate = new Date();
+      if (currentVencimentoVal) {
+        const parsedDate = new Date(currentVencimentoVal);
+        if (!isNaN(parsedDate.getTime()) && parsedDate > new Date()) {
+          baseDate = parsedDate;
+        }
+      }
+      baseDate.setDate(baseDate.getDate() + days);
+      const newVencimentoStr = baseDate.toISOString().split('.')[0] + 'Z';
+      
+      // Mapear chaves de acordo com o casing da linha original
+      const originalKeys = Object.keys(renewItem);
+      const vencimentoKey = originalKeys.find(k => k.toLowerCase() === 'vencimento') || 'Vencimento';
+      const statusKey = originalKeys.find(k => k.toLowerCase() === 'status') || 'Status';
+      
+      const updatePayload = {
+        [vencimentoKey]: newVencimentoStr,
+        [statusKey]: 'Ativo'
+      };
+      
+      await baserowService.updateRow(tableId, renewItem.id, updatePayload);
+      
+      // Registrar log da renovação
+      await addLog(
+        'Registro renovado',
+        `Renovou usuário ${nome} por ${days} dias (até ${baseDate.toLocaleDateString('pt-BR')})`
+      );
+      
+      toast.success(`Usuário ${nome} renovado por ${days} dias até ${baseDate.toLocaleDateString('pt-BR')}!`);
+      setRenewDialogOpen(false);
+      loadData();
+    } catch (error) {
+      console.error('Erro ao renovar registro:', error);
+      toast.error("Erro ao renovar registro");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleView = (item: any) => {
     setSelectedItem(item);
     setViewDialogOpen(true);
@@ -405,6 +478,24 @@ export const DataTable: React.FC<DataTableProps & {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto no-arrows">
+              {sortOptions && sortOptions.length > 0 && (
+                <Select value={sortBy} onValueChange={(value) => {
+                  setSortBy(value);
+                  setPage(1);
+                  loadData(1, searchTerm);
+                }}>
+                  <SelectTrigger className="w-full sm:w-48 no-arrows">
+                    <SelectValue placeholder="Ordenar por..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sortOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Input
                 placeholder="Buscar..."
                 value={searchTerm}
@@ -455,9 +546,9 @@ export const DataTable: React.FC<DataTableProps & {
               )}
             </div>
           ) : (
-            <div className="w-full overflow-x-auto no-arrows">
+            <div className="w-full overflow-x-auto no-arrows max-h-[calc(100vh-23rem)] overflow-y-auto min-h-[200px]">
               <Table className="no-arrows min-w-full">
-                <TableHeader className="no-arrows">
+                <TableHeader className="no-arrows sticky top-0 bg-card/95 backdrop-blur-sm z-10 border-b border-border shadow-sm">
                   <TableRow className="no-arrows">
                     {columns.map((column) => (
                       <TableHead key={column} className="no-arrows whitespace-nowrap">{column}</TableHead>
@@ -471,7 +562,7 @@ export const DataTable: React.FC<DataTableProps & {
                       {columns.map((column) => (
                         <TableCell key={column} className="no-arrows">
                           <div className="max-w-xs truncate">
-                            {formatValue(column, item[column], item)}
+                            {formatValue(column, getValueByPossibleKeys(item, column), item)}
                           </div>
                         </TableCell>
                       ))}
@@ -485,6 +576,17 @@ export const DataTable: React.FC<DataTableProps & {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
+                          {tableKey === 'usuarios' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRenew(item)}
+                              title="Renovar Usuário (Mais 30 dias)"
+                              className="no-arrows text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button 
                             variant="ghost" 
                             size="sm"
@@ -599,7 +701,7 @@ export const DataTable: React.FC<DataTableProps & {
                 <div key={column} className="grid grid-cols-3 gap-4 no-arrows">
                   <div className="font-medium no-arrows">{column}:</div>
                   <div className="col-span-2 no-arrows">
-                    {formatValue(column, selectedItem[column], selectedItem)}
+                    {formatValue(column, getValueByPossibleKeys(selectedItem, column), selectedItem)}
                   </div>
                 </div>
               ))}
@@ -607,6 +709,83 @@ export const DataTable: React.FC<DataTableProps & {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de renovação de usuário */}
+      <Dialog open={renewDialogOpen} onOpenChange={setRenewDialogOpen}>
+        <DialogContent className="max-w-md bg-card/95 backdrop-blur-xl border border-border/80 shadow-2xl rounded-2xl no-arrows">
+          <DialogHeader className="no-arrows space-y-3">
+            <DialogTitle className="text-xl font-bold bg-gradient-to-r from-purple-200 to-pink-200 bg-clip-text text-transparent flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-purple-400 animate-spin-slow" />
+              Renovar Acesso do Usuário
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-sm">
+              Defina o tempo de acesso para o usuário{' '}
+              <span className="font-semibold text-foreground">
+                {renewItem ? (getValueByPossibleKeys(renewItem, 'Nome') || getValueByPossibleKeys(renewItem, 'Email') || 'Usuário') : 'Usuário'}
+              </span>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4 no-arrows">
+            <div className="space-y-2 no-arrows">
+              <Label htmlFor="renew-days" className="text-sm font-semibold text-foreground">
+                Quantidade de Dias
+              </Label>
+              <Input
+                id="renew-days"
+                type="number"
+                min="1"
+                placeholder="Ex: 30"
+                value={renewDays}
+                onChange={(e) => setRenewDays(e.target.value)}
+                className="w-full bg-background/50 border-border focus:border-purple-500/50 focus:ring-purple-500/20"
+              />
+            </div>
+
+            {/* Atalhos rápidos de renovação */}
+            <div className="grid grid-cols-4 gap-2 pt-1 no-arrows">
+              {[
+                { label: '30 dias', value: '30' },
+                { label: '90 dias', value: '90' },
+                { label: '180 dias', value: '180' },
+                { label: '1 ano', value: '365' },
+              ].map((shortcut) => (
+                <Button
+                  key={shortcut.value}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRenewDays(shortcut.value)}
+                  className={`text-xs py-1 h-auto font-medium transition-all duration-200 ${
+                    renewDays === shortcut.value
+                      ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-sm'
+                      : 'hover:bg-accent/50'
+                  }`}
+                >
+                  {shortcut.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <DialogFooter className="no-arrows gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              onClick={() => setRenewDialogOpen(false)}
+              className="hover:bg-accent/50 text-foreground"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={executeRenewal}
+              disabled={loading}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold shadow-md hover-lift"
+            >
+              {loading ? 'Processando...' : 'Confirmar Renovação'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Dialog de edição - só mostrar se skipEditDialog for false */}
       {!skipEditDialog && selectedItem && (
@@ -627,6 +806,7 @@ export const DataTable: React.FC<DataTableProps & {
         columns={columns}
         onCreateSuccess={handleCreateSuccess}
         title={title}
+        existingKeys={data[0] ? Object.keys(data[0]) : []}
       />
     </div>
   );

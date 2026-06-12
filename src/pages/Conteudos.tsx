@@ -11,6 +11,8 @@ import { useSeriesUpdater } from '@/hooks/useSeriesUpdater';
 import { toast } from 'sonner';
 import { useBaserowService } from '@/services/BaserowService';
 import { useConfig } from '@/contexts/ConfigContext';
+import { useTypeMode } from '@/contexts/TypeModeContext';
+import { getColumnMap } from '@/config/columnMappings';
 
 const Conteudos = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -26,7 +28,24 @@ const Conteudos = () => {
   
   const { loading: updateLoading, updateData, checkForUpdates, applyUpdates, setUpdateData } = useSeriesUpdater();
 
-  const columns = ['Nome', 'Capa', 'Categoria', 'Sinopse', 'Link', 'Tipo', 'Idioma', 'Views', 'Temporadas', 'Ações'];
+  const { mode } = useTypeMode();
+  const colMap = getColumnMap(mode);
+
+  const columns = [
+    colMap.nome,
+    colMap.capa,
+    colMap.categoria,
+    colMap.sinopse,
+    colMap.link,
+    colMap.tipo,
+    colMap.idioma,
+    colMap.views,
+    colMap.temporadas,
+    ...(mode === 'tibim' && colMap.visualizacoes ? [colMap.visualizacoes] : []),
+    ...(mode === 'tibim' && colMap.selo ? [colMap.selo] : []),
+    ...(mode === 'tibim' && colMap.elenco ? [colMap.elenco] : []),
+    'Ações'
+  ];
   
   const sortOptions = [
     { label: 'Mais recentes primeiro', value: 'id_desc' },

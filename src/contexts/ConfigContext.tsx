@@ -19,6 +19,19 @@ interface Config {
     plataformas: string;
     canaisTv: string;
     planos: string;
+    // Tabelas exclusivas do Modo Tibim
+    carrosseu: string;
+    versao: string;
+    pedido: string;
+    avaliacao: string;
+    perfil: string;
+    meusAplicativos: string;
+    categoriaFilmes: string;
+    categoriaSeries: string;
+    categoriaDorama: string;
+    categoriaAnimes: string;
+    categoriaNovelas: string;
+    plano2: string;
   };
 }
 
@@ -46,6 +59,19 @@ export const defaultConfig: Config = {
     plataformas: '',
     canaisTv: '',
     planos: '',
+    // Tabelas exclusivas do Modo Tibim
+    carrosseu: '',
+    versao: '',
+    pedido: '',
+    avaliacao: '',
+    perfil: '',
+    meusAplicativos: '',
+    categoriaFilmes: '',
+    categoriaSeries: '',
+    categoriaDorama: '',
+    categoriaAnimes: '',
+    categoriaNovelas: '',
+    plano2: '',
   },
 };
 

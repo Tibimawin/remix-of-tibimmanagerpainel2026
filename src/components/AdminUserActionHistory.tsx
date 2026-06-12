@@ -76,8 +76,24 @@ const AdminUserActionHistory: React.FC = () => {
           timestamp: log.timestamp || new Date().toLocaleString('pt-BR')
         }));
 
+        const parsePyDateTime = (str: string): Date => {
+          try {
+            // Formato esperado: "dd/MM/yyyy, HH:mm:ss" ou "dd/MM/yyyy HH:mm:ss"
+            const cleanStr = str.replace(',', '').trim();
+            const [datePart, timePart] = cleanStr.split(' ');
+            const [day, month, year] = datePart.split('/').map(Number);
+            if (!timePart) {
+              return new Date(year, month - 1, day);
+            }
+            const [hours, minutes, seconds] = timePart.split(':').map(Number);
+            return new Date(year, month - 1, day, hours, minutes, seconds || 0);
+          } catch (error) {
+            return new Date(str); // fallback
+          }
+        };
+
         // Ordenar por timestamp (mais recentes primeiro)
-        formattedActions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        formattedActions.sort((a, b) => parsePyDateTime(b.timestamp).getTime() - parsePyDateTime(a.timestamp).getTime());
 
         setActions(formattedActions);
         setFilteredActions(formattedActions);

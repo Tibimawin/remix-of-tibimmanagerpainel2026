@@ -72,7 +72,7 @@ export const AdminReferrals: React.FC = () => {
 
   const inDateRange = (dateStr: string) => {
     const d = new Date(dateStr);
-    if (dateFrom && d < new Date(dateFrom.setHours(0, 0, 0, 0))) return false;
+    if (dateFrom && d < new Date(new Date(dateFrom).setHours(0, 0, 0, 0))) return false;
     if (dateTo && d > new Date(new Date(dateTo).setHours(23, 59, 59, 999))) return false;
     return true;
   };

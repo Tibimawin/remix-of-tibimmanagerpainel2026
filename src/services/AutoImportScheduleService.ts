@@ -13,7 +13,7 @@ interface AutoImportSchedule {
     nextRun: string;
     lastCheckTimestamp: string;
     lastCheckContentCount: number;
-    typeFormat?: 'singular' | 'plural'; // Formato do Tipo (Thiago ou Francisco)
+    typeFormat?: 'singular' | 'plural' | 'tibim'; // Formato do Tipo (Thiago, Francisco ou Tibim)
     preferences: {
         contentTypes: string[];
         categories: string[];
@@ -689,6 +689,10 @@ export class AutoImportScheduleService {
                             // Converter para plural
                             if (cleanedContent.Tipo === 'Filme') cleanedContent.Tipo = 'Filmes';
                             if (cleanedContent.Tipo === 'Serie') cleanedContent.Tipo = 'Series';
+                        } else if (typeFormat === 'tibim') {
+                            // Tibim usa singular como o modo Thiago
+                            if (cleanedContent.Tipo === 'Filmes') cleanedContent.Tipo = 'Filme';
+                            if (cleanedContent.Tipo === 'Series') cleanedContent.Tipo = 'Serie';
                         } else {
                             // Converter para singular
                             if (cleanedContent.Tipo === 'Filmes') cleanedContent.Tipo = 'Filme';

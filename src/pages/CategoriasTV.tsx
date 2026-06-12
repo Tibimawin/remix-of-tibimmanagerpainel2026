@@ -4,6 +4,7 @@ import { EditCategoriaTVDialog } from '@/components/EditCategoriaTVDialog';
 import { CreateCategoriaTVDialog } from '@/components/CreateCategoriaTVDialog';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
+import { PermissionGate } from '@/components/PermissionGate';
 
 const CategoriasTV = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -35,43 +36,45 @@ const CategoriasTV = () => {
   };
 
   return (
-    <div className="w-full overflow-x-hidden px-4 sm:px-6 lg:px-8">
-      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Categorias TV</h1>
-          <p className="text-muted-foreground">Gerenciar categorias de canais de TV</p>
+    <PermissionGate feature="categorias-tv">
+      <div className="w-full overflow-x-hidden px-4 sm:px-6 lg:px-8">
+        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Categorias TV</h1>
+            <p className="text-muted-foreground">Gerenciar categorias de canais de TV</p>
+          </div>
+          <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Nova Categoria
+          </Button>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nova Categoria
-        </Button>
+
+        <DataTable
+          title="Lista de Categorias"
+          description="Categorias disponíveis para canais de TV"
+          tableKey="categoriasTV"
+          columns={columns}
+          sortOptions={sortOptions}
+          defaultSort="Categoria_asc"
+          onEdit={handleEdit}
+          refreshTrigger={refreshTrigger}
+          skipEditDialog={true}
+        />
+
+        <EditCategoriaTVDialog
+          open={editDialogOpen}
+          setOpen={setEditDialogOpen}
+          item={selectedItem}
+          onEditSuccess={handleEditSuccess}
+        />
+
+        <CreateCategoriaTVDialog
+          open={createDialogOpen}
+          setOpen={setCreateDialogOpen}
+          onCreateSuccess={handleCreateSuccess}
+        />
       </div>
-
-      <DataTable
-        title="Lista de Categorias"
-        description="Categorias disponíveis para canais de TV"
-        tableKey="categoriasTV"
-        columns={columns}
-        sortOptions={sortOptions}
-        defaultSort="Categoria_asc"
-        onEdit={handleEdit}
-        refreshTrigger={refreshTrigger}
-        skipEditDialog={true}
-      />
-
-      <EditCategoriaTVDialog
-        open={editDialogOpen}
-        setOpen={setEditDialogOpen}
-        item={selectedItem}
-        onEditSuccess={handleEditSuccess}
-      />
-
-      <CreateCategoriaTVDialog
-        open={createDialogOpen}
-        setOpen={setCreateDialogOpen}
-        onCreateSuccess={handleCreateSuccess}
-      />
-    </div>
+    </PermissionGate>
   );
 };
 

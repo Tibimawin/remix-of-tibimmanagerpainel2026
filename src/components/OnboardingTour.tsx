@@ -125,10 +125,10 @@ const steps: Step[] = [
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
             </svg>
           </div>
-          <h3 className="font-semibold text-foreground">Modos Thiago & Francisco</h3>
+          <h3 className="font-semibold text-foreground">Modos Thiago, Francisco & Tibim</h3>
         </div>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          O sistema possui dois modos de operação que alteram como os tipos de conteúdo são exibidos:
+          O sistema possui três modos de operação que alteram como os tipos de conteúdo são exibidos:
         </p>
         <div className="space-y-2 mt-3">
           <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/20">
@@ -145,10 +145,16 @@ const steps: Step[] = [
               Habilita recursos extras como Categorias Anime e Canais de TV.
             </p>
           </div>
+          <div className="bg-orange-500/10 rounded-lg p-3 border border-orange-500/20">
+            <p className="text-xs font-medium text-orange-600 dark:text-orange-400 mb-1">⚡ Modo Tibim</p>
+            <p className="text-xs text-muted-foreground">
+              Estrutura de colunas personalizada para a base Tibim. Usa campos como Visualizações, Selo, Elenco e Episódio (singular). Habilita tabelas extras: Carrosseu, Versão, Perfil, Avaliação e muito mais.
+            </p>
+          </div>
         </div>
         <div className="bg-muted/50 rounded-lg p-3 mt-3">
           <p className="text-xs text-muted-foreground">
-            🔄 <strong>Alternância:</strong> Use o switch na barra superior para trocar entre os modos
+            🔄 <strong>Alternância:</strong> Use os 3 botões na barra superior para trocar entre os modos
           </p>
         </div>
       </div>

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -27,6 +26,7 @@ import {
 import UserNotifications from '../UserNotifications';
 import GlobalSearch from '../GlobalSearch';
 import { ZoomControl } from '../ZoomControl';
+import { Switch } from '@/components/ui/switch';
 
 // Mapeamento de títulos dinâmicos para cada rota
 const routeTitles: Record<string, { title: string; subtitle: string; icon?: React.ComponentType<any> }> = {
@@ -236,14 +236,21 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
               </Badge>
             )}
 
-            {/* Modo de Tipo (Singular/Plural) */}
-            <div className="hidden md:flex items-center space-x-2 bg-card/50 backdrop-blur-sm rounded-xl px-3 py-2 border border-border/40" data-tour="type-mode">
+            {/* Seletor de Modo (Thiago / Francisco / Tibim) */}
+            <div className="hidden md:flex items-center bg-card/50 backdrop-blur-sm rounded-xl px-1 py-1 border border-border/40 gap-0.5" data-tour="type-mode">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className={`flex items-center gap-1 cursor-help transition-all duration-300 ${mode === 'singular' ? 'text-primary scale-110' : 'text-muted-foreground scale-100 opacity-60'}`}>
-                    <UserCircle className={`h-4 w-4 transition-transform duration-300 ${mode === 'singular' ? 'rotate-0' : 'rotate-12'}`} />
-                    <span className={`text-xs transition-all duration-300 ${mode === 'singular' ? 'font-semibold' : 'font-normal'}`}>Thiago</span>
-                  </div>
+                  <button
+                    onClick={() => setMode('singular')}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                      mode === 'singular'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                    }`}
+                  >
+                    <UserCircle className="h-3.5 w-3.5" />
+                    Thiago
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
                   <p className="font-semibold mb-1">Modo Thiago</p>
@@ -252,22 +259,47 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
                   </p>
                 </TooltipContent>
               </Tooltip>
-              <Switch
-                checked={mode === 'plural'}
-                onCheckedChange={(checked) => setMode(checked ? 'plural' : 'singular')}
-                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted transition-all duration-300"
-              />
+
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className={`flex items-center gap-1 cursor-help transition-all duration-300 ${mode === 'plural' ? 'text-primary scale-110' : 'text-muted-foreground scale-100 opacity-60'}`}>
-                    <Users className={`h-4 w-4 transition-transform duration-300 ${mode === 'plural' ? 'rotate-0' : '-rotate-12'}`} />
-                    <span className={`text-xs transition-all duration-300 ${mode === 'plural' ? 'font-semibold' : 'font-normal'}`}>Francisco</span>
-                  </div>
+                  <button
+                    onClick={() => setMode('plural')}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                      mode === 'plural'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                    }`}
+                  >
+                    <Users className="h-3.5 w-3.5" />
+                    Francisco
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
                   <p className="font-semibold mb-1">Modo Francisco</p>
                   <p className="text-xs text-muted-foreground">
                     Formato plural para tipos de conteúdo. Ideal para bases de dados com nomenclatura no plural (ex: Filmes, Series, Animes). Habilita recursos extras como Categorias Anime e Canais de TV.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setMode('tibim')}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                      mode === 'tibim'
+                        ? 'bg-orange-500 text-white shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                    }`}
+                  >
+                    <Zap className="h-3.5 w-3.5" />
+                    Tibim
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-semibold mb-1">Modo Tibim</p>
+                  <p className="text-xs text-muted-foreground">
+                    Estrutura de colunas personalizada para a base Tibim. Usa campos como Visualizações, Selo, Elenco e Episódio (singular).
                   </p>
                 </TooltipContent>
               </Tooltip>

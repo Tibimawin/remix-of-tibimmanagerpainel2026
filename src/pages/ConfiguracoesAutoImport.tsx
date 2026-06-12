@@ -390,30 +390,35 @@ export default function ConfiguracoesAutoImport() {
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="flex items-center justify-between p-4 border border-gray-700 rounded-lg bg-[#121212]">
-                                        <div>
-                                            <p className="text-white font-medium">
-                                                {config?.typeFormat === 'plural' ? 'Francisco' : 'Thiago'}
-                                            </p>
-                                            <p className="text-sm text-gray-400 mt-1">
-                                                {config?.typeFormat === 'plural'
-                                                    ? 'Conteúdos serão salvos como "Filmes" e "Series"'
-                                                    : 'Conteúdos serão salvos como "Filme" e "Serie"'}
-                                            </p>
-                                        </div>
-                                        <Switch
-                                            checked={config?.typeFormat === 'plural'}
-                                            onCheckedChange={(checked) => {
-                                                updateConfig({ typeFormat: checked ? 'plural' : 'singular' }).then(() => {
-                                                    toast.success('Formato atualizado!');
-                                                }).catch((error) => {
-                                                    console.error('Erro ao atualizar formato:', error);
-                                                    toast.error('Erro ao atualizar formato');
-                                                });
-                                            }}
-                                            className="data-[state=checked]:bg-[#76ff03]"
-                                        />
+                                    <div className="flex items-center gap-2 p-4 border border-gray-700 rounded-lg bg-[#121212]">
+                                        {[
+                                            { value: 'singular', label: 'Thiago', desc: 'Filme / Serie' },
+                                            { value: 'plural',   label: 'Francisco', desc: 'Filmes / Series' },
+                                            { value: 'tibim',    label: 'Tibim', desc: 'Filme / Serie (estrutura Tibim)' },
+                                        ].map(({ value, label, desc }) => (
+                                            <button
+                                                key={value}
+                                                onClick={() => {
+                                                    updateConfig({ typeFormat: value as 'singular' | 'plural' | 'tibim' }).then(() => {
+                                                        toast.success(`Formato alterado para ${label}!`);
+                                                    }).catch(() => {
+                                                        toast.error('Erro ao atualizar formato');
+                                                    });
+                                                }}
+                                                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all duration-200 text-center ${
+                                                    config?.typeFormat === value
+                                                        ? value === 'tibim'
+                                                            ? 'bg-orange-500 text-white'
+                                                            : 'bg-[#76ff03] text-black'
+                                                        : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                                                }`}
+                                            >
+                                                <p>{label}</p>
+                                                <p className="text-xs opacity-75 mt-0.5">{desc}</p>
+                                            </button>
+                                        ))}
                                     </div>
+
                                 </CardContent>
                             </Card>
                         )}

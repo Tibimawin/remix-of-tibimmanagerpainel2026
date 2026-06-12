@@ -37,7 +37,12 @@ export const ReferralService = {
     return `${origin}/cadastro?ref=${encodeURIComponent(referrerUid)}`;
   },
 
-  async createReferral(referrerUid: string, referredUid: string): Promise<Referral> {
+  async createReferral(
+    referrerUid: string,
+    referredUid: string,
+    referredEmail?: string,
+    referredName?: string
+  ): Promise<Referral> {
     console.log('Criando indicação:', { referrerUid, referredUid });
 
     // Anti-fraude: impedir auto-indicação
@@ -51,20 +56,19 @@ export const ReferralService = {
       throw new Error('O usuário indicador não foi encontrado no sistema. UID: ' + referrerUid);
     }
 
-    // Anti-fraude: impedir indicação duplicada
-    const existing = await this.getReferralsByReferrer(referrerUid);
-    if (existing.some(r => r.referredUid === referredUid)) {
-      throw new Error('Este usuário já foi indicado por você.');
-    }
-
-    // Anti-fraude: verificar se o indicado já foi indicado por outra pessoa
-    const allRefs = await this.getAllReferrals();
-    if (allRefs.some(r => r.referredUid === referredUid)) {
-      throw new Error('Este usuário já foi indicado por outra pessoa.');
+    // Anti-fraude: verificar se o indicado já foi indicado por qualquer pessoa
+    const referredQuery = query(collection(db, REFERRALS_COLLECTION), where('referredUid', '==', referredUid));
+    const referredSnapshot = await getDocs(referredQuery);
+    if (!referredSnapshot.empty) {
+      throw new Error('Este usuário já foi indicado.');
     }
 
     const referrer = await FirebaseUserService.getUserById(referrerUid);
     const referred = await FirebaseUserService.getUserById(referredUid);
+
+    // Priorizar dados recebidos por parâmetro ou fallback para o Firestore
+    const refEmail = referred?.email || referredEmail || '';
+    const refName = referred?.name || referredName || '';
 
     // Anti-fraude: detectar mesmo IP
     const sameIP = referrer?.deviceInfo?.ip && referred?.deviceInfo?.ip &&
@@ -72,11 +76,11 @@ export const ReferralService = {
 
     const payload: Omit<Referral, 'id'> = {
       referrerUid,
-      referrerEmail: referrer?.email,
-      referrerName: referrer?.name,
+      referrerEmail: referrer?.email ?? '',
+      referrerName: referrer?.name ?? '',
       referredUid,
-      referredEmail: referred?.email,
-      referredName: referred?.name,
+      referredEmail: refEmail,
+      referredName: refName,
       createdAt: new Date().toISOString(),
       status: 'registered',
       subscriptionActive: false,
@@ -86,8 +90,8 @@ export const ReferralService = {
       earningPerPayment: MONTHLY_PAYOUT,
       lastUpdated: new Date().toISOString(),
       sameIP: !!sameIP,
-      referrerIP: referrer?.deviceInfo?.ip || '',
-      referredIP: referred?.deviceInfo?.ip || '',
+      referrerIP: referrer?.deviceInfo?.ip ?? '',
+      referredIP: referred?.deviceInfo?.ip ?? '',
       flagged: !!sameIP,
       flagReason: sameIP ? 'Mesmo IP detectado entre indicador e indicado' : ''
     };

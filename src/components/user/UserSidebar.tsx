@@ -37,7 +37,8 @@ import {
   Bell,
   AlertCircle,
   Info,
-  Smartphone
+  Smartphone,
+  Star
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -444,6 +445,114 @@ const menuItems: MenuItem[] = [
     feature: 'minha-api',
     badge: { type: 'new' as const }
   },
+  {
+    id: 'carrosseu',
+    label: 'Carrossel',
+    href: '/carrosseu',
+    icon: Film,
+    category: 'content',
+    description: 'Gerenciar carrossel (Tibim)',
+    feature: 'carrosseu'
+  },
+  {
+    id: 'versao',
+    label: 'Versão',
+    href: '/versao',
+    icon: Zap,
+    category: 'tools',
+    description: 'Gerenciar versões (Tibim)',
+    feature: 'versao'
+  },
+  {
+    id: 'pedido',
+    label: 'Pedidos',
+    href: '/pedido',
+    icon: FileText,
+    category: 'management',
+    description: 'Gerenciar pedidos (Tibim)',
+    feature: 'pedido'
+  },
+  {
+    id: 'avaliacao',
+    label: 'Avaliações',
+    href: '/avaliacao',
+    icon: Star,
+    category: 'management',
+    description: 'Gerenciar avaliações (Tibim)',
+    feature: 'avaliacao'
+  },
+  {
+    id: 'plano2',
+    label: 'Planos 2',
+    href: '/plano2',
+    icon: CreditCard,
+    category: 'management',
+    description: 'Gerenciar plano 2 (Tibim)',
+    feature: 'plano2'
+  },
+  {
+    id: 'categoriaFilmes',
+    label: 'Categorias Filmes',
+    href: '/categoria-filmes',
+    icon: Edit,
+    category: 'content',
+    description: 'Categorias de Filmes (Tibim)',
+    feature: 'categoriaFilmes'
+  },
+  {
+    id: 'categoriaSeries',
+    label: 'Categorias Séries',
+    href: '/categoria-series',
+    icon: Edit,
+    category: 'content',
+    description: 'Categorias de Séries (Tibim)',
+    feature: 'categoriaSeries'
+  },
+  {
+    id: 'categoriaDorama',
+    label: 'Categorias Dorama',
+    href: '/categoria-dorama',
+    icon: Edit,
+    category: 'content',
+    description: 'Categorias de Dorama (Tibim)',
+    feature: 'categoriaDorama'
+  },
+  {
+    id: 'categoriaAnimes',
+    label: 'Categorias Animes',
+    href: '/categoria-animes',
+    icon: Edit,
+    category: 'content',
+    description: 'Categorias de Animes (Tibim)',
+    feature: 'categoriaAnimes'
+  },
+  {
+    id: 'categoriaNovelas',
+    label: 'Categorias Novelas',
+    href: '/categoria-novelas',
+    icon: Edit,
+    category: 'content',
+    description: 'Categorias de Novelas (Tibim)',
+    feature: 'categoriaNovelas'
+  },
+  {
+    id: 'perfil-tibim',
+    label: 'Perfis',
+    href: '/perfis',
+    icon: Users,
+    category: 'management',
+    description: 'Gerenciar perfis de visualização (Tibim)',
+    feature: 'perfil'
+  },
+  {
+    id: 'meus-aplicativos-tibim',
+    label: 'Meus Aplicativos',
+    href: '/meus-aplicativos',
+    icon: Smartphone,
+    category: 'management',
+    description: 'Gerenciar aplicativos do cliente (Tibim)',
+    feature: 'meus-aplicativos'
+  },
 ];
 
 const categoryLabels = {
@@ -494,8 +603,31 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
   // Itens que só aparecem no modo plural (Francisco)
   const pluralOnlyItems = ['categorias-anime', 'categorias-tv'];
 
+  // Itens exclusivos do Modo Tibim
+  const tibimOnlyItems = [
+    'carrosseu', 'versao', 'pedido', 'avaliacao', 'plano2',
+    'categoriaFilmes', 'categoriaSeries', 'categoriaDorama', 'categoriaAnimes', 'categoriaNovelas', 'perfil-tibim', 'meus-aplicativos-tibim'
+  ];
+
+  // Itens a serem ocultados no Modo Tibim (tabelas não citadas)
+  const tibimExcludedItems = [
+    'banners', 'categorias', 'categorias-anime',
+    'plataformas', 'sessoes', 'produtos'
+  ];
+
   // Filtrar itens baseado no modo
   const filteredMenuItems = menuItems.filter(item => {
+    if (mode === 'tibim') {
+      if (tibimExcludedItems.includes(item.id)) {
+        return false;
+      }
+    } else {
+      // Se não for modo tibim, ocultar as tabelas específicas dele
+      if (tibimOnlyItems.includes(item.id)) {
+        return false;
+      }
+    }
+
     if (mode === 'singular' && pluralOnlyItems.includes(item.id)) {
       return false;
     }
@@ -564,7 +696,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
           }
         }}
         className={cn(
-          "fixed left-0 top-0 h-full bg-gradient-to-b from-card via-card/95 to-card/90 backdrop-blur-xl border-r border-border/40 flex flex-col z-40 transition-all duration-300 shadow-xl",
+          "fixed left-0 top-0 h-full bg-gradient-to-b from-card via-card/95 to-card/90 backdrop-blur-xl border-r border-border/40 flex flex-col z-40 transition-all duration-300 shadow-xl overscroll-contain",
           isMobile
             ? `${isCollapsed ? "-translate-x-full" : "translate-x-0"} w-80`
             : effectiveCollapsed
@@ -598,7 +730,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 overflow-y-auto custom-scrollbar">
+        <nav className="flex-1 p-4 overflow-y-auto custom-scrollbar overscroll-contain">
           <div className="space-y-6">
             {Object.entries(groupedMenuItems).map(([category, items], categoryIndex) => {
               const CategoryIcon = categoryIcons[category as keyof typeof categoryIcons];
@@ -812,19 +944,6 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
               <span className="ml-2 font-medium">Sair</span>
             )}
           </Button>
-
-          {/* Status do Sistema */}
-          {(!effectiveCollapsed || isMobile) && (
-            <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-xl p-3 border border-green-500/30 backdrop-blur-sm">
-              <div>
-                <p className="text-sm font-medium text-foreground flex items-center">
-                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse shadow-glow"></span>
-                  Sistema Online
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">Todas as funções ativas</p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </>

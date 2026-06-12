@@ -1,6 +1,7 @@
 import { useBaserowService } from './BaserowService';
 import { makeProxyRequest } from '@/utils/proxyRequest';
 import { tmdbService } from './TmdbService';
+import { getColumnMap, TypeMode } from '@/config/columnMappings';
 
 export interface ImportContent {
   id: string;
@@ -856,7 +857,7 @@ export class AutoImportService {
     userConfig: UserConfig,
     seriesSeasons?: Map<string, number[]>,
     seriesEpisodes?: Map<string, any[]>,
-    typeMode: 'singular' | 'plural' = 'singular',
+    typeMode: TypeMode = 'singular',
     onEpisodeProgress?: (episode: {
       seriesTitle: string;
       episodeTitle: string;
@@ -984,32 +985,39 @@ export class AutoImportService {
 
             const normalizeTypeForMode = (tipo: string | undefined): string => {
               const t = (tipo || '').toLowerCase();
+              const colMap = getColumnMap(typeMode);
               if (typeMode === 'plural') {
                 if (t.includes('filme') || t.includes('movie') || t.includes('film')) return 'Filmes';
                 if (t.includes('serie') || t.includes('series')) return 'Series';
                 if ((tipo || '').toUpperCase() === 'TV') return 'TV';
                 return tipo || '';
               }
-              // singular (padrão): manter como está ou normalizar para 'Filme'/'Serie'
-              if (t.includes('filmes')) return 'Filme';
-              if (t.includes('series')) return 'Serie';
+              // singular e tibim: manter como está ou normalizar
+              if (t.includes('filmes')) return colMap.tipoFilme;
+              if (t.includes('series')) return colMap.tipoSerie;
               return tipo || '';
             };
 
-            const contentData = {
+            const colMap = getColumnMap(typeMode);
+            const contentData: Record<string, any> = {
               Nome: titulo,
-              Tipo: normalizeTypeForMode(content.Tipo),
-              Categoria: content.Categoria || '',
-              Sinopse: content.Sinopse || '',
-              Capa: content.Poster || content.Capa || '',
-              Link: content.Link || '',
-              Idioma: content.Idioma || 'Português',
-              Views: content.Views || '0',
-              Temporadas: content.Temporadas || (content.Tipo === 'Serie' ? '1' : ''),
-              Imdb: content.Imdb || '0',
-              'Data de Lançamento': content['Data de Lançamento'] || '',
-              'Capa de fundo': content['Capa de fundo'] || '',
-              'TMDB ID': ''
+              [colMap.tipo]: normalizeTypeForMode(content.Tipo),
+              [colMap.categoria]: content.Categoria || '',
+              [colMap.sinopse]: content.Sinopse || '',
+              [colMap.capa]: content.Poster || content.Capa || '',
+              [colMap.link]: content.Link || '',
+              [colMap.idioma]: content.Idioma || 'Português',
+              [colMap.views]: content.Views || '0',
+              [colMap.temporadas]: content.Temporadas || (content.Tipo === 'Serie' ? '1' : ''),
+              [colMap.imdb]: content.Imdb || '0',
+              [colMap.dataLancamento]: content['Data de Lançamento'] || '',
+              [colMap.capaFundo]: content['Capa de fundo'] || '',
+              [colMap.tmdbId]: '',
+              ...(colMap.ano ? { [colMap.ano]: content.Ano || '' } : {}),
+              // Campos exclusivos do Modo Tibim
+              ...(colMap.visualizacoes ? { [colMap.visualizacoes]: '' } : {}),
+              ...(colMap.selo ? { [colMap.selo]: '' } : {}),
+              ...(colMap.elenco ? { [colMap.elenco]: '' } : {}),
             };
 
             // 🎬 Enriquecer com TMDB ID (busca por nome + tipo)
@@ -1019,7 +1027,7 @@ export class AutoImportService {
                 tipoLower.includes('serie') || tipoLower.includes('series') ? 'tv' : 'movie';
               const tmdbResult = await tmdbService.search(titulo, tmdbType);
               if (tmdbResult?.id) {
-                contentData['TMDB ID'] = String(tmdbResult.id);
+                contentData[colMap.tmdbId] = String(tmdbResult.id);
                 console.log(`🎬 TMDB ID encontrado para "${titulo}":`, tmdbResult.id);
               } else {
                 console.warn(`⚠️ TMDB ID não encontrado para "${titulo}"`);

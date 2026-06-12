@@ -14,9 +14,11 @@ import {
 } from "@/components/ui/dialog";
 import { useBaserowService } from '@/services/BaserowService';
 import { useConfig } from '@/contexts/ConfigContext';
+import { useTypeMode } from '@/contexts/TypeModeContext';
 import { toast } from '@/hooks/use-toast';
 import { useUserActionHistory } from '@/hooks/useUserActionHistory';
 import { useAutoNotifyCRUD } from '@/hooks/useActionNotifier';
+import { mapToDatabaseKeys } from '@/utils/baserowHelpers';
 
 interface CreateDialogProps {
   open: boolean;
@@ -25,6 +27,7 @@ interface CreateDialogProps {
   columns: string[];
   onCreateSuccess: () => void;
   title?: string;
+  existingKeys?: string[];
 }
 
 interface FieldConfig {
@@ -75,9 +78,10 @@ const bannersFieldConfig: FieldConfig[] = [
 
 
 export const CreateDialog = ({
-  open, setOpen, tableKey, columns, onCreateSuccess, title
+  open, setOpen, tableKey, columns, onCreateSuccess, title, existingKeys = []
 }: CreateDialogProps) => {
   const { config } = useConfig();
+  const { mode } = useTypeMode();
   const baserowService = useBaserowService();
   const { addAction } = useUserActionHistory();
   const { notifyCreate } = useAutoNotifyCRUD(tableKey);
@@ -88,16 +92,96 @@ export const CreateDialog = ({
     switch (tableKey) {
       case 'usuarios':
         console.log('Usando configuração de usuários');
+        if (mode === 'tibim') {
+          return [
+            { label: 'Nome', name: 'Nome', type: 'text', required: true },
+            { label: 'Email', name: 'Email', type: 'email', required: true },
+            { label: 'Senha', name: 'Senha', type: 'password', required: true, minLength: 6 },
+            { label: 'Status', name: 'Status', type: 'text', required: false },
+            { label: 'DataCriacao', name: 'DataCriacao', type: 'text', required: false },
+            { label: 'Vencimento', name: 'Vencimento', type: 'text', required: false },
+            { label: 'ID', name: 'ID', type: 'text', required: false },
+            { label: 'Limite', name: 'Limite', type: 'text', required: false },
+            { label: 'Moedas', name: 'Moedas', type: 'number', required: false, min: 0 },
+            { label: 'Favoritos', name: 'Favoritos', type: 'textarea', required: false },
+            { label: 'Historico', name: 'Historico', type: 'textarea', required: false },
+          ];
+        }
         return userFieldConfig;
       case 'conteudos':
         console.log('Usando configuração de conteúdos');
-        return conteudosFieldConfig;
+        return [
+          ...conteudosFieldConfig,
+          ...(mode === 'tibim' ? [
+            { label: 'Visualizações', name: 'Visualizações', type: 'text', required: false },
+            { label: 'Selo', name: 'Selo', type: 'text', required: false },
+            { label: 'Elenco', name: 'Elenco', type: 'text', required: false },
+            { label: 'Capa de fundo', name: 'Capa de fundo', type: 'url', required: false },
+            { label: 'TMDB ID', name: 'TMDB ID', type: 'text', required: false },
+            { label: 'Ano', name: 'Ano', type: 'text', required: false },
+          ] : [])
+        ];
       case 'episodios':
         console.log('Usando configuração de episódios');
         return episodiosFieldConfig;
       case 'banners':
         console.log('Usando configuração de banners');
         return bannersFieldConfig;
+      case 'plano2':
+        return [
+          { label: 'Nome do Plano', name: 'Nome do Plano', type: 'text', required: true },
+          { label: 'Tipo', name: 'Tipo', type: 'text', required: true },
+          { label: 'Valor', name: 'Valor', type: 'number', required: true, min: 0 },
+          { label: 'Dias', name: 'Dias', type: 'number', required: true, min: 1 },
+          { label: 'Telas', name: 'Telas', type: 'number', required: true, min: 1 },
+          { label: 'Tag', name: 'Tag', type: 'text', required: true },
+        ];
+      case 'perfil':
+        return [
+          { label: 'Usuario_Email', name: 'Usuario_Email', type: 'text', required: true },
+          { label: 'Nome', name: 'Nome', type: 'text', required: true },
+          { label: 'Avatar', name: 'Avatar', type: 'text', required: false },
+          { label: 'IsKids', name: 'IsKids', type: 'boolean', required: false },
+          { label: 'Pin', name: 'Pin', type: 'text', required: false },
+          { label: 'IsKids + Pin', name: 'IsKids + Pin', type: 'text', required: false },
+          { label: 'PinPerfil', name: 'PinPerfil', type: 'number', required: false },
+        ];
+      case 'meusAplicativos':
+        return [
+          { label: 'Nome', name: 'Nome', type: 'text', required: true },
+          { label: 'Capa', name: 'Capa', type: 'url', required: false },
+          { label: 'Link', name: 'Link', type: 'url', required: true },
+          { label: 'Pacote', name: 'Pacote', type: 'text', required: false },
+          { label: 'Tipo', name: 'Tipo', type: 'text', required: false },
+        ];
+      case 'carrosseu':
+        return [
+          { label: 'ID', name: 'ID', type: 'text', required: true },
+        ];
+      case 'versao':
+        return [
+          { label: 'Versao', name: 'Versao', type: 'text', required: true },
+          { label: 'Link', name: 'Link', type: 'url', required: true },
+        ];
+      case 'pedido':
+        return [
+          { label: 'Nome', name: 'Nome', type: 'text', required: true },
+          { label: 'Usuario', name: 'Usuario', type: 'text', required: true },
+        ];
+      case 'avaliacao':
+        return [
+          { label: 'Usuario', name: 'Usuario', type: 'text', required: true },
+          { label: 'ConteudoID', name: 'ConteudoID', type: 'text', required: true },
+          { label: 'Nota', name: 'Nota', type: 'text', required: true },
+        ];
+      case 'categoriaFilmes':
+      case 'categoriaSeries':
+      case 'categoriaDorama':
+      case 'categoriaAnimes':
+      case 'categoriaNovelas':
+        return [
+          { label: 'Nome', name: 'Nome', type: 'text', required: true },
+        ];
       default:
         console.log('Usando configuração padrão para tableKey:', tableKey);
         return columns.filter((col) => col !== "ID").map((col) => ({
@@ -116,7 +200,18 @@ export const CreateDialog = ({
     }
 
     try {
-      await baserowService.createRow(config.tableIds[tableKey], data);
+      const mappedData = mapToDatabaseKeys(data, existingKeys);
+      
+      // Converter campos de data para o formato datetime do Baserow se necessário
+      Object.keys(mappedData).forEach(key => {
+        const val = mappedData[key];
+        const keyLower = key.toLowerCase();
+        if ((keyLower === 'datacriacao' || keyLower === 'vencimento' || keyLower === 'pagamento') && val && /^\d{4}-\d{2}-\d{2}$/.test(String(val))) {
+          mappedData[key] = `${val}T00:00:00Z`;
+        }
+      });
+      
+      await baserowService.createRow(config.tableIds[tableKey], mappedData);
       
       // Registrar ação no histórico pessoal
       const itemName = data.Nome || data.Email || `Item em ${tableKey}`;

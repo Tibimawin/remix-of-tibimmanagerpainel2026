@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-type TypeMode = 'singular' | 'plural';
+export type TypeMode = 'singular' | 'plural' | 'tibim';
 
 interface TypeModeContextType {
   mode: TypeMode;
@@ -10,6 +10,7 @@ interface TypeModeContextType {
 
 const DEFAULT_MODE: TypeMode = 'singular';
 const STORAGE_KEY = 'type-mode';
+const MODE_CYCLE: TypeMode[] = ['singular', 'plural', 'tibim'];
 
 const TypeModeContext = createContext<TypeModeContextType | undefined>(undefined);
 
@@ -19,8 +20,8 @@ export const TypeModeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === 'singular' || saved === 'plural') {
-        setModeState(saved);
+      if (saved === 'singular' || saved === 'plural' || saved === 'tibim') {
+        setModeState(saved as TypeMode);
       }
     } catch {}
   }, []);
@@ -32,8 +33,11 @@ export const TypeModeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch {}
   };
 
+  // Cicla entre os três modos: singular → plural → tibim → singular
   const toggleMode = () => {
-    setMode(mode === 'singular' ? 'plural' : 'singular');
+    const currentIndex = MODE_CYCLE.indexOf(mode);
+    const nextIndex = (currentIndex + 1) % MODE_CYCLE.length;
+    setMode(MODE_CYCLE[nextIndex]);
   };
 
   return (

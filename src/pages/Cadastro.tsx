@@ -113,7 +113,7 @@ export default function Cadastro() {
         const { ReferralService } = await import('@/services/ReferralService');
         const attemptReferral = async (attempt: number) => {
           try {
-            await ReferralService.createReferral(referrerUid, user.uid);
+            await ReferralService.createReferral(referrerUid, user.uid, formData.email, formData.name);
             console.log('Indicação registrada com sucesso');
           } catch (err: any) {
             console.error(`Erro ao registrar indicação (tentativa ${attempt}):`, err);

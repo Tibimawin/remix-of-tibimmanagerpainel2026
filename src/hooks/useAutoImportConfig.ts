@@ -22,8 +22,8 @@ interface AutoImportConfig {
     };
     createdAt: string;
     updatedAt: string;
-    // Formato de tipo usado na gravação no Baserow (singular/plural)
-    typeFormat?: 'plural' | 'singular';
+    // Formato de tipo usado na gravação no Baserow (singular/plural/tibim)
+    typeFormat?: 'plural' | 'singular' | 'tibim';
 }
 
 /**

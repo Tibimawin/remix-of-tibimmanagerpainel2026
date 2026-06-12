@@ -436,19 +436,46 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         return;
       }
 
-      setLoadingExistingContent(true);
-      setExistingProgress({ loaded: 0, total: 0 });
-      try {
-        // Paginate to fetch ALL existing content (not just first 200)
-        const PAGE_SIZE = 200;
-        const allResults: ContentPreview[] = [];
-        let page = 1;
-        let totalReported = 0;
-        const MAX_PAGES = 50; // safety cap (up to 10k items)
+      if (previews.length === 0) {
+        setExistingContentSnapshot({ titleTmdb: new Set(), title: new Set(), titleYear: new Set(), total: 0 });
+        return;
+      }
 
-        // First request to learn the total count
-        while (page <= MAX_PAGES) {
-          const url = `${userConfig.baseUrl}/api/database/rows/table/${userConfig.contentTableId}/?user_field_names=true&size=${PAGE_SIZE}&page=${page}`;
+      setLoadingExistingContent(true);
+      setExistingProgress({ loaded: 0, total: previews.length });
+      try {
+        // 1. Fetch total count of existing items in the destination table using size=1 (extremely fast)
+        const countUrl = `${userConfig.baseUrl}/api/database/rows/table/${userConfig.contentTableId}/?user_field_names=true&size=1`;
+        const countResponse = await makeProxyRequest({
+          url: countUrl,
+          method: 'GET',
+          token: userConfig.apiToken,
+          body: null,
+        });
+
+        const totalCount = countResponse.ok ? (countResponse.data?.count ?? 0) : 0;
+
+        // 2. Extract unique names and TMDB IDs from current previews page to build OR filters
+        const uniqueNames = Array.from(new Set(previews.map(p => p.Nome?.trim()).filter(Boolean)));
+        const uniqueTmdbIds = Array.from(new Set(previews.map(p => p['TMDB ID']?.toString().trim()).filter(Boolean)));
+
+        let allResults: ContentPreview[] = [];
+
+        // If there are items to check, query destination table with filters
+        if (uniqueNames.length > 0 || uniqueTmdbIds.length > 0) {
+          // Construct query string with multiple OR filters
+          let filterParams = '?user_field_names=true&size=200&filter_type=OR';
+          
+          uniqueNames.forEach(name => {
+            filterParams += `&filter__Nome__equal=${encodeURIComponent(name)}`;
+          });
+
+          uniqueTmdbIds.forEach(tmdbId => {
+            filterParams += `&filter__TMDB ID__equal=${encodeURIComponent(tmdbId)}`;
+          });
+
+          const url = `${userConfig.baseUrl}/api/database/rows/table/${userConfig.contentTableId}/${filterParams}`;
+          
           const data = await makeProxyRequest({
             url,
             method: 'GET',
@@ -456,28 +483,17 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             body: null,
           });
 
-          if (!data.ok) {
-            throw new Error(data.error || 'Erro ao buscar conteúdos já importados');
+          if (data.ok) {
+            allResults = Array.isArray(data.data?.results) ? data.data.results : [];
           }
-
-          const pageResults = Array.isArray(data.data?.results) ? data.data.results : [];
-          totalReported = data.data?.count ?? totalReported;
-          allResults.push(...pageResults);
-          setExistingProgress({ loaded: allResults.length, total: totalReported || allResults.length });
-
-          if (pageResults.length < PAGE_SIZE) break;
-          if (totalReported && allResults.length >= totalReported) break;
-
-          page += 1;
-          // small delay to be gentle with rate limits
-          await new Promise((r) => setTimeout(r, 120));
         }
 
+        // 3. Build snapshot from the matched rows
         const snapshot: ExistingContentSnapshot = {
           titleTmdb: new Set(),
           title: new Set(),
           titleYear: new Set(),
-          total: totalReported || allResults.length,
+          total: totalCount,
         };
 
         allResults.forEach((item: ContentPreview) => {
@@ -495,6 +511,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
           }
         });
 
+        setExistingProgress({ loaded: previews.length, total: previews.length });
         setExistingContentSnapshot(snapshot);
       } catch (err) {
         console.error('Erro ao buscar conteúdos existentes do destino:', err);
@@ -505,7 +522,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     };
 
     fetchExistingContentSnapshot();
-  }, [configValid, userConfig?.apiToken, userConfig?.baseUrl, userConfig?.contentTableId]);
+  }, [configValid, userConfig?.apiToken, userConfig?.baseUrl, userConfig?.contentTableId, previews]);
 
   // Fetch when filters change (reset to page 1)
   useEffect(() => {

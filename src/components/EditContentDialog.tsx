@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBaserowService } from '@/services/BaserowService';
 import { useConfig } from '@/contexts/ConfigContext';
+import { useTypeMode } from '@/contexts/TypeModeContext';
 import { toast } from 'sonner';
 import { useAutoNotifyCRUD } from '@/hooks/useActionNotifier';
 
@@ -39,18 +40,23 @@ export const EditContentDialog: React.FC<EditContentDialogProps> = ({
 }) => {
   const [formData, setFormData] = useState<any>({});
   const { config } = useConfig();
+  const { mode } = useTypeMode();
   const baserowService = useBaserowService();
   const { notifyUpdate } = useAutoNotifyCRUD('conteúdos');
 
   useEffect(() => {
     if (item) {
       const filteredData: Record<string, any> = {};
-      CONTENT_FIELDS.forEach(field => {
+      const fields = [
+        ...CONTENT_FIELDS,
+        ...(mode === 'tibim' ? ['Visualizações', 'Selo', 'Elenco', 'Capa de fundo', 'TMDB ID', 'Ano'] : [])
+      ];
+      fields.forEach(field => {
         filteredData[field] = item[field] ?? "";
       });
       setFormData(filteredData);
     }
-  }, [item]);
+  }, [item, mode]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -242,6 +248,77 @@ export const EditContentDialog: React.FC<EditContentDialogProps> = ({
               placeholder="Digite a sinopse do conteúdo..."
             />
           </div>
+
+          {/* Campos exclusivos do Modo Tibim */}
+          {mode === 'tibim' && (
+            <>
+              {/* Visualizações */}
+              <div className="grid gap-2">
+                <Label htmlFor="Visualizações">Visualizações</Label>
+                <Input
+                  id="Visualizações"
+                  name="Visualizações"
+                  value={formData.Visualizações || ''}
+                  onChange={handleInputChange}
+                />
+              </div>
+
+              {/* Selo */}
+              <div className="grid gap-2">
+                <Label htmlFor="Selo">Selo</Label>
+                <Input
+                  id="Selo"
+                  name="Selo"
+                  value={formData.Selo || ''}
+                  onChange={handleInputChange}
+                />
+              </div>
+
+              {/* Elenco */}
+              <div className="grid gap-2">
+                <Label htmlFor="Elenco">Elenco</Label>
+                <Input
+                  id="Elenco"
+                  name="Elenco"
+                  value={formData.Elenco || ''}
+                  onChange={handleInputChange}
+                />
+              </div>
+
+              {/* Capa de fundo */}
+              <div className="grid gap-2">
+                <Label htmlFor="Capa de fundo">Capa de Fundo</Label>
+                <Input
+                  id="Capa de fundo"
+                  name="Capa de fundo"
+                  value={formData['Capa de fundo'] || ''}
+                  onChange={handleInputChange}
+                />
+              </div>
+
+              {/* TMDB ID */}
+              <div className="grid gap-2">
+                <Label htmlFor="TMDB ID">TMDB ID</Label>
+                <Input
+                  id="TMDB ID"
+                  name="TMDB ID"
+                  value={formData['TMDB ID'] || ''}
+                  onChange={handleInputChange}
+                />
+              </div>
+
+              {/* Ano */}
+              <div className="grid gap-2">
+                <Label htmlFor="Ano">Ano</Label>
+                <Input
+                  id="Ano"
+                  name="Ano"
+                  value={formData.Ano || ''}
+                  onChange={handleInputChange}
+                />
+              </div>
+            </>
+          )}
         </div>
         <DialogFooter>
           <Button type="button" onClick={handleSave}>

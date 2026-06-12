@@ -108,34 +108,59 @@ const AdminOverviewMetrics: React.FC<AdminOverviewMetricsProps> = ({ users, logs
       {metrics.map((metric, index) => {
         const Icon = metric.icon;
         
+        const getMetricStyles = (title: string) => {
+          switch (title) {
+            case "Total de Usuários":
+              return {
+                iconColor: "text-blue-400",
+                iconBg: "from-blue-500/15 to-blue-600/10 border-blue-500/20",
+                badgeClass: "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+              };
+            case "Usuários Ativos":
+              return {
+                iconColor: "text-emerald-400",
+                iconBg: "from-emerald-500/15 to-emerald-600/10 border-emerald-500/20",
+                badgeClass: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+              };
+            case "Dispositivos Conectados":
+              return {
+                iconColor: "text-purple-400",
+                iconBg: "from-purple-500/15 to-purple-600/10 border-purple-500/20",
+                badgeClass: "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+              };
+            default: // Atividades Registradas
+              return {
+                iconColor: "text-orange-400",
+                iconBg: "from-orange-500/15 to-orange-600/10 border-orange-500/20",
+                badgeClass: "bg-orange-500/10 text-orange-400 border border-orange-500/20"
+              };
+          }
+        };
+
+        const styles = getMetricStyles(metric.title);
+
         return (
           <Card 
             key={index} 
-            className="modern-card bg-gradient-to-br from-card to-card/80 border-border/40 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] backdrop-blur-sm"
+            className="bg-card/30 border-purple-500/10 backdrop-blur-md hover:border-purple-500/25 shadow-sm hover:shadow-[0_0_20px_rgba(168,85,247,0.1)] transition-all duration-500 hover:-translate-y-1 rounded-2xl overflow-hidden relative group"
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">
                 {metric.title}
               </CardTitle>
-              <div className={`p-2 rounded-full ${metric.color}/20`}>
-                <Icon className={`h-4 w-4 text-white`} style={{ filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.3))' }} />
+              <div className={`flex items-center justify-center w-10 h-10 bg-gradient-to-br ${styles.iconBg} rounded-xl shadow-inner`}>
+                <Icon className={`h-4 w-4 ${styles.iconColor}`} />
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="relative z-10">
               <div className="flex items-baseline space-x-2">
-                <div className="text-3xl font-bold text-foreground">
+                <div className="text-3xl font-extrabold text-foreground tracking-tight">
                   {metric.value.toLocaleString()}
                 </div>
                 {metric.trend !== null && (
                   <Badge 
-                    variant={
-                      typeof metric.trend === 'number' && metric.trend > 0 
-                        ? "default" 
-                        : metric.trend === 0 
-                          ? "secondary" 
-                          : "outline"
-                    }
-                    className="text-xs"
+                    className={`text-xs px-2 py-0.5 border-none ${styles.badgeClass}`}
                   >
                     {typeof metric.trend === 'number' ? (
                       metric.trendLabel === "Taxa ativa" || metric.trendLabel === "Taxa uso" ? (
@@ -158,8 +183,8 @@ const AdminOverviewMetrics: React.FC<AdminOverviewMetricsProps> = ({ users, logs
                   </Badge>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-1 flex items-center">
-                <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
+              <p className="text-xs text-muted-foreground mt-2 flex items-center">
+                <CheckCircle className="h-3.5 w-3.5 mr-1 text-emerald-500" />
                 {metric.description}
               </p>
             </CardContent>

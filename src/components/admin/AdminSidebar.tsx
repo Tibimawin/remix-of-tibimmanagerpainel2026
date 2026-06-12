@@ -80,29 +80,29 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   }, {} as Record<string, typeof menuItems>);
 
   return (
-    <div className="w-80 modern-sidebar border-r border-border/40 flex flex-col bg-gradient-to-b from-card to-card/80">
+    <div className="w-80 h-screen sticky top-0 overscroll-contain modern-sidebar border-r border-purple-500/10 flex flex-col bg-card/60 backdrop-blur-md">
       {/* Header */}
-      <div className="p-6 border-b border-border/40">
+      <div className="p-6 border-b border-purple-500/10">
         <div className="flex items-center space-x-3 animate-slide-in-left">
-          <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-primary via-primary/80 to-accent rounded-xl shadow-lg">
-            <Shield className="w-6 h-6 text-primary-foreground" />
+          <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-purple-600 via-purple-500 to-fuchsia-500 rounded-xl shadow-lg shadow-purple-500/25">
+            <Shield className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            <h1 className="text-xl font-bold text-foreground bg-gradient-to-r from-purple-400 via-fuchsia-400 to-violet-400 bg-clip-text text-transparent">
               Admin Panel
             </h1>
-            <p className="text-sm text-muted-foreground">{adminUser?.nome || 'Admin'}</p>
+            <p className="text-xs text-muted-foreground font-mono mt-0.5">{adminUser?.nome || 'Admin'}</p>
           </div>
         </div>
       </div>
 
       {/* Menu */}
-      <nav className="flex-1 p-4 overflow-y-auto">
+      <nav className="flex-1 p-4 overflow-y-auto overscroll-contain custom-scrollbar">
         <div className="space-y-6">
           {Object.entries(groupedMenuItems).map(([category, items], categoryIndex) => (
             <div key={category} className="space-y-2">
-              <div className="px-3 py-2">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <div className="px-3 py-1">
+                <h3 className="text-[10px] font-bold text-purple-400/80 uppercase tracking-widest font-mono">
                   {categoryLabels[category as keyof typeof categoryLabels]}
                 </h3>
               </div>
@@ -115,23 +115,23 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     <li
                       key={item.id}
                       className="animate-fade-in-up"
-                      style={{ animationDelay: `${(categoryIndex * items.length + index) * 0.05}s` }}
+                      style={{ animationDelay: `${(categoryIndex * items.length + index) * 0.03}s` }}
                     >
                       <button
                         onClick={() => onViewChange(item.id as AdminView)}
-                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 group relative backdrop-blur-sm ${isActive
-                            ? 'bg-gradient-to-r from-primary/20 via-primary/15 to-accent/20 text-primary border border-primary/30 shadow-lg modern-card'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-gradient-to-r hover:from-accent/10 hover:to-primary/10 hover:border hover:border-accent/20 hover:shadow-soft'
+                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 group relative backdrop-blur-sm border ${isActive
+                            ? 'bg-gradient-to-r from-purple-500/15 via-purple-500/10 to-fuchsia-500/15 text-purple-400 border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.15)]'
+                            : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-white/5 hover:border-white/5 hover:shadow-sm'
                           }`}
                       >
-                        <Icon className={`w-4 h-4 flex-shrink-0 transition-all duration-300 ${isActive ? 'text-primary' : 'group-hover:text-foreground'
+                        <Icon className={`w-4 h-4 flex-shrink-0 transition-all duration-300 ${isActive ? 'text-purple-400 scale-110' : 'group-hover:text-foreground'
                           }`} />
                         <span className="truncate">{item.label}</span>
                         {(item as any).isNew && (
-                          <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs px-1.5 py-0.5 animate-pulse">NOVO</Badge>
+                          <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-[9px] px-1.5 py-0.5 animate-pulse border-none">NOVO</Badge>
                         )}
                         {isActive && (
-                          <div className="absolute right-3 w-2 h-2 bg-primary rounded-full animate-pulse shadow-sm" />
+                          <div className="absolute right-3 w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse shadow-[0_0_8px_#a855f7]" />
                         )}
                       </button>
                     </li>
@@ -144,12 +144,12 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-border/40 space-y-3">
+      <div className="p-4 border-t border-purple-500/10 space-y-3 bg-card/20 backdrop-blur-sm">
         <Button
           onClick={onRefresh}
           disabled={isRefreshing}
           variant="outline"
-          className="w-full border-border/60 text-foreground hover:bg-gradient-to-r hover:from-accent/10 hover:to-primary/10 transition-all duration-300 modern-button"
+          className="w-full border-purple-500/20 text-foreground bg-purple-500/5 hover:bg-purple-500/10 hover:border-purple-500/30 transition-all duration-300 shadow-sm"
         >
           <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
           Atualizar Dados
@@ -158,22 +158,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         <Button
           onClick={onLogout}
           variant="destructive"
-          className="w-full modern-button"
+          className="w-full bg-red-950/20 hover:bg-red-900/30 border border-red-500/30 text-red-400 shadow-sm"
         >
           <LogOut className="w-4 h-4 mr-2" />
           Sair
         </Button>
-
-        {/* Status do Sistema */}
-        <div className="modern-card bg-gradient-to-r from-accent/20 to-primary/20 rounded-xl p-3 border border-accent/20 backdrop-blur-sm">
-          <div>
-            <p className="text-sm font-medium text-foreground flex items-center">
-              <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse shadow-glow"></div>
-              Sistema Online
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">Todas as funções ativas</p>
-          </div>
-        </div>
       </div>
     </div>
   );

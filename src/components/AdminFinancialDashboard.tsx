@@ -6,10 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   DollarSign, TrendingUp, Users, CreditCard, RefreshCw, Search,
-  Calendar, ArrowUpRight, ArrowDownRight, Clock, CheckCircle, BarChart3, ShieldCheck, Unlock
+  Calendar, ArrowUpRight, ArrowDownRight, Clock, CheckCircle, BarChart3, ShieldCheck, Unlock,
+  AlertCircle, Loader2
 } from 'lucide-react';
 import { db } from '@/config/firebase';
-import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, doc, setDoc, getDoc, addDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -58,8 +59,147 @@ const AdminFinancialDashboard: React.FC = () => {
   const [records, setRecords] = useState<FinancialRecord[]>([]);
   const [permLogs, setPermLogs] = useState<AutoPermissionLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isReconciling, setIsReconciling] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [periodFilter, setPeriodFilter] = useState('all');
+
+  const reconcilePendingPayments = async (pendingRecords: FinancialRecord[], isManual = false) => {
+    if (pendingRecords.length === 0) {
+      if (isManual) toast.info('Nenhum pagamento pendente para verificar.');
+      return;
+    }
+
+    console.log(`🔄 Iniciando reconciliação de ${pendingRecords.length} pagamentos pendentes...`);
+    if (isManual) setIsReconciling(true);
+    let reconciledCount = 0;
+
+    try {
+      const { AsaasPaymentService } = await import('@/services/AsaasPaymentService');
+      const { FirebaseUserService } = await import('@/services/FirebaseUserService');
+      const { PlansService } = await import('@/services/PlansService');
+
+      const plans = await PlansService.getAllPlans();
+
+      for (const record of pendingRecords) {
+        if (!record.paymentId) continue;
+
+        try {
+          const asaasStatus = await AsaasPaymentService.getPaymentStatus(record.paymentId);
+          console.log(`Status do pagamento ${record.paymentId} no Asaas:`, asaasStatus.status);
+
+          if (asaasStatus.status === 'RECEIVED' || asaasStatus.status === 'CONFIRMED') {
+            console.log(`✅ Pagamento confirmado para ${record.userName} (ID: ${record.paymentId})`);
+
+            const confirmedTime = new Date().toISOString();
+            
+            // 1. Atualizar no Firestore
+            await setDoc(doc(db, 'financialRecords', record.paymentId), {
+              status: 'confirmed',
+              confirmedAt: confirmedTime
+            }, { merge: true });
+
+            // 2. Estender o acesso
+            await FirebaseUserService.extendUserAccess(record.userId, record.accessDays);
+
+            // 3. Dar as permissões
+            const permissionsRef = doc(db, 'userPermissions', record.userId);
+            const permissionsDoc = await getDoc(permissionsRef);
+            const currentPermissions = permissionsDoc.exists() ? permissionsDoc.data() : {};
+            const currentFeatures = currentPermissions.enabledFeatures || [];
+
+            if (record.isUpgrade) {
+              const apiPlanFeatures = plans.find(p => p.name.includes('API'))?.features || ['minha-api'];
+              const mergedFeatures = [...new Set([...currentFeatures, ...apiPlanFeatures, 'planos', 'minha-api'])];
+
+              await setDoc(permissionsRef, {
+                userId: record.userId,
+                userEmail: record.userEmail,
+                userName: record.userName,
+                planId: 'upgrade-api',
+                planName: record.planName,
+                monthlyContentLimit: 999,
+                enabledFeatures: mergedFeatures,
+                currentMonthUsage: 0,
+                lastUpdated: new Date().toISOString(),
+                expiryDate: record.endDate,
+                isActive: true
+              }, { merge: true });
+
+              await addDoc(collection(db, 'autoPermissionLogs'), {
+                userId: record.userId,
+                userEmail: record.userEmail,
+                userName: record.userName,
+                planName: record.planName,
+                planId: 'upgrade-api',
+                featuresCount: mergedFeatures.length,
+                features: mergedFeatures,
+                grantedAt: new Date().toISOString(),
+                source: 'payment-upgrade-reconciled'
+              });
+            } else {
+              const matchedPlan = plans.find(p => p.name === record.planName);
+              if (matchedPlan) {
+                const featuresWithPlanos = matchedPlan.features.includes('planos')
+                  ? matchedPlan.features
+                  : [...matchedPlan.features, 'planos'];
+
+                await setDoc(permissionsRef, {
+                  userId: record.userId,
+                  userEmail: record.userEmail,
+                  userName: record.userName,
+                  planId: matchedPlan.id,
+                  planName: matchedPlan.name,
+                  monthlyContentLimit: matchedPlan.monthlyContentLimit,
+                  enabledFeatures: featuresWithPlanos,
+                  currentMonthUsage: 0,
+                  lastUpdated: new Date().toISOString(),
+                  expiryDate: record.endDate,
+                  isActive: true
+                }, { merge: true });
+
+                await addDoc(collection(db, 'autoPermissionLogs'), {
+                  userId: record.userId,
+                  userEmail: record.userEmail,
+                  userName: record.userName,
+                  planName: matchedPlan.name,
+                  planId: matchedPlan.id,
+                  featuresCount: featuresWithPlanos.length,
+                  features: featuresWithPlanos,
+                  grantedAt: new Date().toISOString(),
+                  source: 'payment-auto-reconciled'
+                });
+              }
+            }
+
+            reconciledCount++;
+            toast.success(`Pagamento de R$ ${record.planPrice.toFixed(2)} (${record.userName}) reconciliado e acesso liberado!`);
+          } else if (asaasStatus.status === 'OVERDUE' || asaasStatus.status === 'REFUNDED' || asaasStatus.status === 'CHARGEBACK') {
+            await setDoc(doc(db, 'financialRecords', record.paymentId), {
+              status: asaasStatus.status.toLowerCase(),
+              confirmedAt: ''
+            }, { merge: true });
+            console.log(`❌ Pagamento cancelado/falhou para ${record.userName} (ID: ${record.paymentId}, Status Asaas: ${asaasStatus.status})`);
+          }
+        } catch (err) {
+          console.error(`Erro ao reconciliar pagamento ${record.paymentId}:`, err);
+        }
+      }
+
+      if (reconciledCount > 0) {
+        const finSnapshot = await getDocs(query(collection(db, 'financialRecords'), orderBy('confirmedAt', 'desc')));
+        const permSnapshot = await getDocs(query(collection(db, 'autoPermissionLogs'), orderBy('grantedAt', 'desc')));
+        setRecords(finSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as FinancialRecord)));
+        setPermLogs(permSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as AutoPermissionLog)));
+      } else {
+        if (isManual) toast.success('Todos os pagamentos pendentes estão em dia.');
+      }
+    } catch (error) {
+      console.error('Erro na reconciliação de pagamentos:', error);
+      if (isManual) toast.error('Erro ao reconciliar pagamentos.');
+    } finally {
+      if (isManual) setIsReconciling(false);
+    }
+  };
 
   const loadRecords = async () => {
     try {
@@ -68,8 +208,15 @@ const AdminFinancialDashboard: React.FC = () => {
         getDocs(query(collection(db, 'financialRecords'), orderBy('confirmedAt', 'desc'))),
         getDocs(query(collection(db, 'autoPermissionLogs'), orderBy('grantedAt', 'desc')))
       ]);
-      setRecords(finSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as FinancialRecord)));
+      const loadedRecords = finSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as FinancialRecord));
+      setRecords(loadedRecords);
       setPermLogs(permSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as AutoPermissionLog)));
+
+      // Iniciar reconciliação em segundo plano se houver pendências
+      const pending = loadedRecords.filter(r => r.status === 'pending');
+      if (pending.length > 0) {
+        reconcilePendingPayments(pending, false);
+      }
     } catch (error) {
       console.error('Erro ao carregar registros financeiros:', error);
       toast.error('Erro ao carregar dados financeiros');
@@ -106,19 +253,20 @@ const AdminFinancialDashboard: React.FC = () => {
 
   // Métricas
   const metrics = useMemo(() => {
-    const totalRevenue = filteredRecords.reduce((sum, r) => sum + r.planPrice, 0);
-    const totalSubscribers = new Set(filteredRecords.map(r => r.userId)).size;
-    const monthlyPlans = filteredRecords.filter(r => r.accessDays <= 31).length;
-    const annualPlans = filteredRecords.filter(r => r.accessDays > 31).length;
-    const avgTicket = filteredRecords.length > 0 ? totalRevenue / filteredRecords.length : 0;
+    const confirmedRecords = filteredRecords.filter(r => r.status === 'confirmed');
+    const totalRevenue = confirmedRecords.reduce((sum, r) => sum + r.planPrice, 0);
+    const totalSubscribers = new Set(confirmedRecords.map(r => r.userId)).size;
+    const monthlyPlans = confirmedRecords.filter(r => r.accessDays <= 31).length;
+    const annualPlans = confirmedRecords.filter(r => r.accessDays > 31).length;
+    const avgTicket = confirmedRecords.length > 0 ? totalRevenue / confirmedRecords.length : 0;
 
     // Último mês vs mês anterior
     const now = new Date();
-    const thisMonth = filteredRecords.filter(r => {
+    const thisMonth = confirmedRecords.filter(r => {
       const d = new Date(r.confirmedAt);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
-    const lastMonth = filteredRecords.filter(r => {
+    const lastMonth = confirmedRecords.filter(r => {
       const d = new Date(r.confirmedAt);
       const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
@@ -134,9 +282,11 @@ const AdminFinancialDashboard: React.FC = () => {
 
   // Dados para gráficos
   const chartData = useMemo(() => {
+    const confirmedRecords = filteredRecords.filter(r => r.status === 'confirmed');
+    
     // Receita por mês
     const monthlyMap: Record<string, number> = {};
-    filteredRecords.forEach(r => {
+    confirmedRecords.forEach(r => {
       const d = new Date(r.confirmedAt);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       monthlyMap[key] = (monthlyMap[key] || 0) + r.planPrice;
@@ -150,7 +300,7 @@ const AdminFinancialDashboard: React.FC = () => {
 
     // Planos distribuição
     const planMap: Record<string, number> = {};
-    filteredRecords.forEach(r => {
+    confirmedRecords.forEach(r => {
       planMap[r.planName] = (planMap[r.planName] || 0) + 1;
     });
     const planDistribution = Object.entries(planMap).map(([name, value]) => ({ name, value }));
@@ -180,10 +330,25 @@ const AdminFinancialDashboard: React.FC = () => {
             Visão completa de todas as assinaturas e receitas do painel
           </p>
         </div>
-        <Button variant="outline" onClick={loadRecords} size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Atualizar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              const pending = records.filter(r => r.status === 'pending');
+              reconcilePendingPayments(pending, true);
+            }} 
+            size="sm"
+            disabled={isReconciling || loading}
+            className="border-purple-500/20 text-purple-400 bg-purple-500/5 hover:bg-purple-500/10 hover:border-purple-500/30"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isReconciling ? 'animate-spin' : ''}`} />
+            {isReconciling ? 'Reconciliando...' : 'Reconciliar Pix'}
+          </Button>
+          <Button variant="outline" onClick={loadRecords} size="sm" disabled={loading}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       {/* Cards de Métricas */}
@@ -410,47 +575,91 @@ const AdminFinancialDashboard: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-2 max-h-[500px] overflow-y-auto">
-              {filteredRecords.map((record) => (
-                <div
-                  key={record.id}
-                  className="flex items-center justify-between p-4 bg-secondary/50 rounded-xl gap-3 hover:bg-secondary/70 transition-colors"
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
+              {filteredRecords.map((record) => {
+                const getStatusIcon = (status: string) => {
+                  switch (status) {
+                    case 'confirmed':
+                      return (
+                        <div className="p-2 bg-emerald-500/10 rounded-lg">
+                          <CheckCircle className="h-4 w-4 text-emerald-500" />
+                        </div>
+                      );
+                    case 'pending':
+                      return (
+                        <div className="p-2 bg-amber-500/10 rounded-lg animate-pulse">
+                          <Clock className="h-4 w-4 text-amber-500" />
+                        </div>
+                      );
+                    default:
+                      return (
+                        <div className="p-2 bg-red-500/10 rounded-lg">
+                          <AlertCircle className="h-4 w-4 text-red-500" />
+                        </div>
+                      );
+                  }
+                };
+
+                const getStatusBadge = (status: string) => {
+                  switch (status) {
+                    case 'confirmed':
+                      return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-xs">Confirmado</Badge>;
+                    case 'pending':
+                      return <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-xs animate-pulse">Pendente</Badge>;
+                    default:
+                      return <Badge className="bg-red-500/10 text-red-500 border-red-500/20 text-xs">{status || 'Cancelado'}</Badge>;
+                  }
+                };
+
+                const getPaymentDateString = () => {
+                  const dateStr = record.status === 'confirmed' ? record.confirmedAt : record.createdAt;
+                  if (!dateStr) return 'Sem data';
+                  try {
+                    const d = new Date(dateStr);
+                    return `${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+                  } catch {
+                    return 'Data inválida';
+                  }
+                };
+
+                return (
+                  <div
+                    key={record.id}
+                    className="flex items-center justify-between p-4 bg-secondary/50 rounded-xl gap-3 hover:bg-secondary/70 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {getStatusIcon(record.status)}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm text-foreground">{record.userName}</span>
+                          <Badge variant="outline" className="text-xs">{record.planName}</Badge>
+                          {getStatusBadge(record.status)}
+                          <Badge variant="secondary" className="text-xs">
+                            {record.accessDays > 31 ? 'Anual' : 'Mensal'}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                          <span>{record.userEmail}</span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {record.accessDays} dias
+                          </span>
+                          <span>•</span>
+                          <span>PIX</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-sm text-foreground">{record.userName}</span>
-                        <Badge variant="outline" className="text-xs">{record.planName}</Badge>
-                        <Badge variant="secondary" className="text-xs">
-                          {record.accessDays > 31 ? 'Anual' : 'Mensal'}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                        <span>{record.userEmail}</span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {record.accessDays} dias
-                        </span>
-                        <span>•</span>
-                        <span>PIX</span>
-                      </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-foreground">
+                        R$ {record.planPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5 font-mono">
+                        {getPaymentDateString()}
+                      </p>
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="font-bold text-foreground">
-                      R$ {record.planPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(record.confirmedAt).toLocaleDateString('pt-BR')}
-                      {' '}
-                      {new Date(record.confirmedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

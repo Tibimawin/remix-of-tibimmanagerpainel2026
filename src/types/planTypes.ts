@@ -96,5 +96,18 @@ export const AVAILABLE_FEATURES: FeatureAccess[] = [
   { id: 'planos', name: 'Planos', description: 'Visualizar tabela de planos disponíveis' },
 
   // Integração API
-  { id: 'minha-api', name: 'Integração API', description: 'Gerar API Keys para integrar conteúdos em sites e apps externos' }
+  { id: 'minha-api', name: 'Integração API', description: 'Gerar API Keys para integrar conteúdos em sites e apps externos' },
+
+  // Tabelas do Modo Tibim
+  { id: 'carrosseu', name: 'Carrossel (Tibim)', description: 'Acesso à tabela de Carrossel rotativo' },
+  { id: 'versao', name: 'Versão (Tibim)', description: 'Acesso à tabela de controle de Versões' },
+  { id: 'pedido', name: 'Pedidos (Tibim)', description: 'Acesso à tabela de Pedidos de usuários' },
+  { id: 'avaliacao', name: 'Avaliações (Tibim)', description: 'Acesso à tabela de Avaliações' },
+  { id: 'plano2', name: 'Plano 2 (Tibim)', description: 'Acesso à tabela de Planos secundários/adicionais' },
+  { id: 'categoriaFilmes', name: 'Categorias Filmes (Tibim)', description: 'Acesso às categorias de Filmes' },
+  { id: 'categoriaSeries', name: 'Categorias Séries (Tibim)', description: 'Acesso às categorias de Séries' },
+  { id: 'categoriaDorama', name: 'Categorias Dorama (Tibim)', description: 'Acesso às categorias de Doramas' },
+  { id: 'categoriaAnimes', name: 'Categorias Animes (Tibim)', description: 'Acesso às categorias de Animes' },
+  { id: 'categoriaNovelas', name: 'Categorias Novelas (Tibim)', description: 'Acesso às categorias de Novelas' },
+  { id: 'meus-aplicativos', name: 'Meus Aplicativos (Tibim)', description: 'Acesso à tabela de Meus Aplicativos' }
 ];

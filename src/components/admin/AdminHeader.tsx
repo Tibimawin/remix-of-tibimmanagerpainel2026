@@ -105,94 +105,103 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ activeView, users, log
     <div className="mb-8 space-y-6">
       {/* Title Section */}
       <div className="flex items-center space-x-4 animate-fade-in">
-        <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-primary/20 to-accent/20 rounded-xl border border-primary/20">
-          <Icon className="w-6 h-6 text-primary" />
+        <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-purple-500/10 via-purple-500/5 to-fuchsia-500/10 rounded-xl border border-purple-500/20 shadow-md">
+          <Icon className="w-6 h-6 text-purple-400" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-foreground bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground bg-gradient-to-r from-purple-400 via-fuchsia-400 to-violet-400 bg-clip-text text-transparent">
             {currentView.title}
           </h1>
-          <p className="text-muted-foreground mt-1">{currentView.description}</p>
+          <p className="text-sm text-muted-foreground mt-1">{currentView.description}</p>
         </div>
       </div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-fade-in-up">
-        <Card className="modern-card bg-gradient-to-br from-card to-card/80 border-border/40 hover:shadow-soft transition-all duration-300">
-          <CardContent className="p-4">
+        {/* Card 1: Usuários */}
+        <Card className="bg-card/30 border-purple-500/10 backdrop-blur-md hover:border-purple-500/25 shadow-sm hover:shadow-[0_0_20px_rgba(168,85,247,0.1)] transition-all duration-500 hover:-translate-y-1 rounded-2xl overflow-hidden relative group">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <CardContent className="p-5 relative z-10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total de Usuários</p>
-                <p className="text-2xl font-bold text-foreground">{users.length}</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">Total de Usuários</p>
+                <p className="text-3xl font-bold text-foreground mt-2">{users.length}</p>
               </div>
-              <div className="flex items-center justify-center w-10 h-10 bg-primary/10 rounded-lg">
-                <Users className="w-5 h-5 text-primary" />
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-purple-500/15 to-purple-600/10 rounded-xl border border-purple-500/20 shadow-inner">
+                <Users className="w-5 h-5 text-purple-400" />
               </div>
             </div>
-            <div className="mt-2">
-              <Badge variant="secondary" className="text-xs">
-                {users.filter(user => user.Status_Ativo === 'Ativo').length} ativos
+            <div className="mt-3 flex items-center justify-between">
+              <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/20 text-xs px-2 py-0.5">
+                {users.filter(user => user.isActive).length} ativos
               </Badge>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="modern-card bg-gradient-to-br from-card to-card/80 border-border/40 hover:shadow-soft transition-all duration-300">
-          <CardContent className="p-4">
+        {/* Card 2: Dispositivos */}
+        <Card className="bg-card/30 border-purple-500/10 backdrop-blur-md hover:border-purple-500/25 shadow-sm hover:shadow-[0_0_20px_rgba(168,85,247,0.1)] transition-all duration-500 hover:-translate-y-1 rounded-2xl overflow-hidden relative group">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <CardContent className="p-5 relative z-10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Dispositivos</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {users.filter(user => user.IMEI).length}
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">Dispositivos</p>
+                <p className="text-3xl font-bold text-foreground mt-2">
+                  {users.filter(user => user.deviceInfo?.imei).length}
                 </p>
               </div>
-              <div className="flex items-center justify-center w-10 h-10 bg-accent/10 rounded-lg">
-                <Shield className="w-5 h-5 text-accent" />
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-fuchsia-500/15 to-fuchsia-600/10 rounded-xl border border-fuchsia-500/20 shadow-inner">
+                <Shield className="w-5 h-5 text-fuchsia-400" />
               </div>
             </div>
-            <div className="mt-2">
-              <Badge variant="outline" className="text-xs border-accent/30 text-accent">
+            <div className="mt-3 flex items-center justify-between">
+              <Badge variant="outline" className="text-xs border-fuchsia-500/30 text-fuchsia-400 bg-fuchsia-500/5 px-2 py-0.5">
                 Únicos
               </Badge>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="modern-card bg-gradient-to-br from-card to-card/80 border-border/40 hover:shadow-soft transition-all duration-300">
-          <CardContent className="p-4">
+        {/* Card 3: Atividades */}
+        <Card className="bg-card/30 border-purple-500/10 backdrop-blur-md hover:border-purple-500/25 shadow-sm hover:shadow-[0_0_20px_rgba(168,85,247,0.1)] transition-all duration-500 hover:-translate-y-1 rounded-2xl overflow-hidden relative group">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <CardContent className="p-5 relative z-10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Atividades</p>
-                <p className="text-2xl font-bold text-foreground">{logs.length}</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">Atividades</p>
+                <p className="text-3xl font-bold text-foreground mt-2">{logs.length}</p>
               </div>
-              <div className="flex items-center justify-center w-10 h-10 bg-primary/10 rounded-lg">
-                <Activity className="w-5 h-5 text-primary" />
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-violet-500/15 to-violet-600/10 rounded-xl border border-violet-500/20 shadow-inner">
+                <Activity className="w-5 h-5 text-violet-400" />
               </div>
             </div>
-            <div className="mt-2">
-              <Badge variant="default" className="text-xs">
+            <div className="mt-3 flex items-center justify-between">
+              <Badge className="bg-violet-500/10 text-violet-400 border border-violet-500/20 text-xs px-2 py-0.5">
                 Registradas
               </Badge>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="modern-card bg-gradient-to-br from-card to-card/80 border-border/40 hover:shadow-soft transition-all duration-300">
-          <CardContent className="p-4">
+        {/* Card 4: Status do Sistema */}
+        <Card className="bg-card/30 border-purple-500/10 backdrop-blur-md hover:border-purple-500/25 shadow-sm hover:shadow-[0_0_20px_rgba(168,85,247,0.1)] transition-all duration-500 hover:-translate-y-1 rounded-2xl overflow-hidden relative group">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <CardContent className="p-5 relative z-10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Sistema</p>
-                <p className="text-2xl font-bold text-green-500">Online</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">Sistema</p>
+                <p className="text-3xl font-bold text-emerald-400 mt-2">Online</p>
               </div>
-              <div className="flex items-center justify-center w-10 h-10 bg-green-500/10 rounded-lg">
-                <Zap className="w-5 h-5 text-green-500" />
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-emerald-500/15 to-emerald-600/10 rounded-xl border border-emerald-500/20 shadow-inner">
+                <Zap className="w-5 h-5 text-emerald-400 animate-pulse" />
               </div>
             </div>
-            <div className="mt-2">
-              <div className="flex items-center space-x-1">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-xs text-green-500">Operacional</span>
-              </div>
+            <div className="mt-3 flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="text-xs text-emerald-400 font-medium font-mono">Operacional</span>
             </div>
           </CardContent>
         </Card>

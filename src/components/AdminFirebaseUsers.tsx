@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { FirebaseUser, FirebaseUserService } from '@/services/FirebaseUserService';
 import { ExpirationNotificationService } from '@/services/ExpirationNotificationService';
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Calendar, CalendarDays, Edit, Plus, Shield, ShieldOff, Users } from 'lucide-react';
+import { Calendar, CalendarDays, Edit, Plus, Shield, ShieldOff, Users, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -25,6 +25,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
   const [loading, setLoading] = useState(false);
   const [hasAutomacaoFeature, setHasAutomacaoFeature] = useState(false);
   const [loadingPermissions, setLoadingPermissions] = useState(true);
+  const [customDays, setCustomDays] = useState('');
   const [formData, setFormData] = useState({
     name: user.name,
     email: user.email,
@@ -100,14 +101,14 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
         console.log('🚫 Removendo feature automacao');
       }
 
-      await updateDoc(permissionsRef, {
+      await setDoc(permissionsRef, {
         userName: formData.name,
         userEmail: formData.email,
         expiryDate: updates.expiryDate,
         isActive: formData.isActive,
         enabledFeatures: updatedFeatures,
         lastUpdated: new Date().toISOString()
-      });
+      }, { merge: true });
 
       // Verificar se o acesso foi estendido e remover notificações de expiração
       const now = new Date();
@@ -163,12 +164,12 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
       } else {
         await FirebaseUserService.updateUser(user.uid, { isActive: true });
 
-        // Atualizar permissões também
+        // Atualizar permissões também (usando setDoc com merge para evitar quebras se o documento não existir)
         const permissionsRef = doc(db, 'userPermissions', user.uid);
-        await updateDoc(permissionsRef, {
+        await setDoc(permissionsRef, {
           isActive: true,
           lastUpdated: new Date().toISOString()
-        });
+        }, { merge: true });
 
         // Verificar se o usuário tem acesso válido e remover notificações se necessário
         const userData = await FirebaseUserService.getUserById(user.uid);
@@ -191,6 +192,24 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
     } catch (error) {
       console.error('Erro ao alterar status do usuário:', error);
       toast.error('Erro ao alterar status do usuário');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!window.confirm(`Tem certeza absoluta que deseja excluir permanentemente o usuário ${user.name} (${user.email})? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+    setLoading(true);
+    try {
+      await FirebaseUserService.deleteUser(user.uid);
+      toast.success('Usuário excluído com sucesso!');
+      onSuccess();
+      onClose();
+    } catch (error) {
+      console.error('Erro ao excluir usuário:', error);
+      toast.error('Erro ao excluir usuário');
     } finally {
       setLoading(false);
     }
@@ -303,7 +322,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             <Button
               type="button"
               variant="outline"
@@ -328,6 +347,35 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
             >
               +30 Dias
             </Button>
+
+            <div className="flex items-center gap-2 border border-purple-500/20 bg-purple-500/5 p-1 rounded-md">
+              <Input
+                type="number"
+                placeholder="Outro (dias)"
+                value={customDays}
+                onChange={(e) => setCustomDays(e.target.value)}
+                disabled={loading}
+                className="w-24 h-8 text-xs bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={() => {
+                  const days = parseInt(customDays);
+                  if (isNaN(days) || days <= 0) {
+                    toast.error('Insira um número válido de dias');
+                    return;
+                  }
+                  extendAccess(days);
+                }}
+                disabled={loading || !customDays}
+              >
+                Renovar
+              </Button>
+            </div>
+
             <Button
               type="button"
               variant={user.isActive ? "destructive" : "default"}
@@ -345,6 +393,16 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
                   Ativar
                 </>
               )}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteUser}
+              disabled={loading}
+              className="bg-red-600 hover:bg-red-700 text-white ml-auto"
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Excluir Usuário
             </Button>
           </div>
 

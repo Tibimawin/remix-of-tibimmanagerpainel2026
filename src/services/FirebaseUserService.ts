@@ -239,10 +239,12 @@ export const FirebaseUserService = {
       const user = await this.getUserById(uid);
       if (!user) throw new Error('Usuário não encontrado');
 
-      // Sempre contar a partir de HOJE (data do pagamento)
+      // Se a data de expiração atual for no futuro, estender a partir dela. Caso contrário, a partir de hoje.
       const now = new Date();
-      const newExpiry = new Date(now);
-      newExpiry.setDate(now.getDate() + additionalDays);
+      const currentExpiry = user.expiryDate ? new Date(user.expiryDate) : null;
+      const baseDate = (currentExpiry && currentExpiry > now) ? currentExpiry : now;
+      const newExpiry = new Date(baseDate);
+      newExpiry.setDate(baseDate.getDate() + additionalDays);
 
       await this.updateUser(uid, {
         expiryDate: newExpiry.toISOString(),
@@ -250,13 +252,13 @@ export const FirebaseUserService = {
         isActive: true
       });
 
-      // Atualizar também as permissões
+      // Atualizar também as permissões (usando setDoc com merge para evitar quebras se o documento não existir)
       const permissionsRef = doc(db, 'userPermissions', uid);
-      await updateDoc(permissionsRef, {
+      await setDoc(permissionsRef, {
         expiryDate: newExpiry.toISOString(),
         isActive: true,
         lastUpdated: new Date().toISOString()
-      });
+      }, { merge: true });
 
       console.log('Acesso estendido com sucesso:', additionalDays, 'dias');
 
@@ -295,12 +297,12 @@ export const FirebaseUserService = {
     try {
       await this.updateUser(uid, { isActive: false });
 
-      // Atualizar também as permissões
+      // Atualizar também as permissões (usando setDoc com merge para evitar quebras se o documento não existir)
       const permissionsRef = doc(db, 'userPermissions', uid);
-      await updateDoc(permissionsRef, {
+      await setDoc(permissionsRef, {
         isActive: false,
         lastUpdated: new Date().toISOString()
-      });
+      }, { merge: true });
 
       console.log('Usuário desativado:', uid);
       try {
@@ -309,6 +311,35 @@ export const FirebaseUserService = {
       } catch { }
     } catch (error) {
       console.error('Erro ao desativar usuário:', error);
+      throw error;
+    }
+  },
+
+  // Excluir usuário do Firestore e suas permissões
+  async deleteUser(uid: string): Promise<void> {
+    try {
+      console.log('Excluindo usuário do Firestore:', uid);
+      const { deleteDoc } = await import('firebase/firestore');
+      const userRef = doc(db, 'users', uid);
+      const permissionsRef = doc(db, 'userPermissions', uid);
+
+      await deleteDoc(userRef);
+      try {
+        await deleteDoc(permissionsRef);
+      } catch (err) {
+        console.warn('Erro ao deletar permissões do usuário (não crítico):', err);
+      }
+
+      // Se houver notificações de expiração, removê-las
+      try {
+        const { ExpirationNotificationService } = await import('@/services/ExpirationNotificationService');
+        await ExpirationNotificationService.dismissExpirationNotification(uid);
+      } catch (err) {
+        console.warn('Erro ao remover notificações de expiração (não crítico):', err);
+      }
+      console.log('Usuário excluído com sucesso');
+    } catch (error) {
+      console.error('Erro ao excluir usuário:', error);
       throw error;
     }
   },

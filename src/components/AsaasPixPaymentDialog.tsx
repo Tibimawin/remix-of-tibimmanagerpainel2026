@@ -96,6 +96,36 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
       setPixData(qrData);
       setStep('pix');
 
+      // Registrar no controle financeiro como PENDENTE (reconciliação auto se a aba fechar)
+      try {
+        const accessDays = planPrice >= 300 ? 365 : 30;
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + accessDays);
+
+        await setDoc(doc(db, 'financialRecords', firstPayment.id), {
+          userId: userInfo?.id || 'unknown',
+          userEmail: email,
+          userName: name,
+          planName: isUpgrade ? `${upgradeFromPlan} + API` : planName,
+          planPrice,
+          accessDays,
+          paymentMethod: 'PIX',
+          paymentId: firstPayment.id,
+          status: 'pending',
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          confirmedAt: '',
+          createdAt: new Date().toISOString(),
+          source: isUpgrade ? 'upgrade' : 'panel',
+          isUpgrade,
+          upgradeFrom: isUpgrade ? upgradeFromPlan : undefined
+        });
+        console.log('💰 Registro financeiro pendente criado:', firstPayment.id);
+      } catch (finErr) {
+        console.error('Erro ao salvar registro financeiro pendente:', finErr);
+      }
+
       // 5. Polling para verificar pagamento
       pollRef.current = setInterval(async () => {
         try {
@@ -210,28 +240,15 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                   : `Pagamento confirmado! Acesso estendido por ${accessDays} dias.`
                 );
                 
-                // Registrar no controle financeiro
+                // Atualizar no controle financeiro para confirmado
                 try {
-                  await addDoc(collection(db, 'financialRecords'), {
-                    userId: userInfo.id,
-                    userEmail: email,
-                    userName: name,
-                    planName: isUpgrade ? `${upgradeFromPlan} + API` : planName,
-                    planPrice,
-                    accessDays,
-                    paymentMethod: 'PIX',
-                    paymentId: firstPayment.id,
+                  await setDoc(doc(db, 'financialRecords', firstPayment.id), {
                     status: 'confirmed',
-                    startDate: startDate.toISOString(),
-                    endDate: endDate.toISOString(),
-                    confirmedAt: new Date().toISOString(),
-                    source: isUpgrade ? 'upgrade' : 'panel',
-                    isUpgrade,
-                    upgradeFrom: isUpgrade ? upgradeFromPlan : undefined
-                  });
-                  console.log('💰 Registro financeiro salvo');
+                    confirmedAt: new Date().toISOString()
+                  }, { merge: true });
+                  console.log('💰 Registro financeiro confirmado atualizado');
                 } catch (finErr) {
-                  console.error('Erro ao salvar registro financeiro:', finErr);
+                  console.error('Erro ao salvar registro financeiro confirmado:', finErr);
                 }
               } catch (extendError) {
                 console.error('Erro ao estender acesso:', extendError);

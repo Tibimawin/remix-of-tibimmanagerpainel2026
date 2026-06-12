@@ -56,6 +56,18 @@ import SuporteAoVivo from "./pages/SuporteAoVivo";
 import Precos from "./pages/Precos";
 import PrecosInterno from "./pages/PrecosInterno";
 import SubstituicaoURLs from "./pages/SubstituicaoURLs";
+import Plano2 from "./pages/Plano2";
+import Carrosseu from "./pages/Carrosseu";
+import Versao from "./pages/Versao";
+import Pedido from "./pages/Pedido";
+import Avaliacao from "./pages/Avaliacao";
+import CategoriaFilmes from "./pages/CategoriaFilmes";
+import CategoriaSeries from "./pages/CategoriaSeries";
+import CategoriaDorama from "./pages/CategoriaDorama";
+import CategoriaAnimes from "./pages/CategoriaAnimes";
+import CategoriaNovelas from "./pages/CategoriaNovelas";
+import Perfis from "./pages/Perfis";
+import MeusAplicativos from "./pages/MeusAplicativos";
 
 import RelatoriosVisualizacao from "./pages/RelatoriosVisualizacao";
 
@@ -280,6 +292,102 @@ const App = () => {
                                 <SimpleProtectedRoute>
                                   <Layout>
                                     <Configuracoes />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/plano2" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <Plano2 />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/perfis" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <Perfis />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/meus-aplicativos" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <MeusAplicativos />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/carrosseu" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <Carrosseu />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/versao" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <Versao />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/pedido" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <Pedido />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/avaliacao" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <Avaliacao />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/categoria-filmes" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <CategoriaFilmes />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/categoria-series" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <CategoriaSeries />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/categoria-dorama" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <CategoriaDorama />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/categoria-animes" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <CategoriaAnimes />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/categoria-novelas" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <CategoriaNovelas />
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />

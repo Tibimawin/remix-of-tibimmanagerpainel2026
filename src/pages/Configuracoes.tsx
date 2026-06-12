@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield, Film, Tv, Image, FolderOpen, Users, Calendar, LayoutGrid, Play, RotateCcw, HelpCircle, Palette, CreditCard } from 'lucide-react';
+import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield, Film, Tv, Image, FolderOpen, Users, Calendar, LayoutGrid, Play, RotateCcw, HelpCircle, Palette, CreditCard, Zap, Star, Smartphone } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
@@ -135,7 +135,20 @@ const Configuracoes = () => {
       sessoes: config?.tableIds?.sessoes || '',
       plataformas: config?.tableIds?.plataformas || '',
       canaisTv: config?.tableIds?.canaisTv || '',
-      planos: config?.tableIds?.planos || ''
+      planos: config?.tableIds?.planos || '',
+      // Tabelas do Modo Tibim
+      carrosseu: config?.tableIds?.carrosseu || '',
+      versao: config?.tableIds?.versao || '',
+      pedido: config?.tableIds?.pedido || '',
+      avaliacao: config?.tableIds?.avaliacao || '',
+      plano2: config?.tableIds?.plano2 || '',
+      categoriaFilmes: config?.tableIds?.categoriaFilmes || '',
+      categoriaSeries: config?.tableIds?.categoriaSeries || '',
+      categoriaDorama: config?.tableIds?.categoriaDorama || '',
+      categoriaAnimes: config?.tableIds?.categoriaAnimes || '',
+      categoriaNovelas: config?.tableIds?.categoriaNovelas || '',
+      perfil: config?.tableIds?.perfil || '',
+      meusAplicativos: config?.tableIds?.meusAplicativos || '',
     }
   });
 
@@ -156,7 +169,20 @@ const Configuracoes = () => {
           sessoes: config.tableIds?.sessoes || '',
           plataformas: config.tableIds?.plataformas || '',
           canaisTv: config.tableIds?.canaisTv || '',
-          planos: config.tableIds?.planos || ''
+          planos: config.tableIds?.planos || '',
+          // Tabelas do Modo Tibim
+          carrosseu: config.tableIds?.carrosseu || '',
+          versao: config.tableIds?.versao || '',
+          pedido: config.tableIds?.pedido || '',
+          avaliacao: config.tableIds?.avaliacao || '',
+          plano2: config.tableIds?.plano2 || '',
+          categoriaFilmes: config.tableIds?.categoriaFilmes || '',
+          categoriaSeries: config.tableIds?.categoriaSeries || '',
+          categoriaDorama: config.tableIds?.categoriaDorama || '',
+          categoriaAnimes: config.tableIds?.categoriaAnimes || '',
+          categoriaNovelas: config.tableIds?.categoriaNovelas || '',
+          perfil: config.tableIds?.perfil || '',
+          meusAplicativos: config.tableIds?.meusAplicativos || '',
         }
       });
     }
@@ -390,161 +416,43 @@ const Configuracoes = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <Label htmlFor="conteudos" className="flex items-center gap-2">
-                      <Film className="h-4 w-4 text-primary" />
-                      Tabela de Conteúdos
-                    </Label>
-                    <Input
-                      id="conteudos"
-                      placeholder="ID da tabela"
-                      value={formData.tableIds.conteudos}
-                      onChange={(e) => handleInputChange('tableIds.conteudos', e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">Filmes, séries e outros conteúdos principais</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="episodios" className="flex items-center gap-2">
-                      <Play className="h-4 w-4 text-primary" />
-                      Tabela de Episódios
-                    </Label>
-                    <Input
-                      id="episodios"
-                      placeholder="ID da tabela"
-                      value={formData.tableIds.episodios}
-                      onChange={(e) => handleInputChange('tableIds.episodios', e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">Episódios de séries e animes</p>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="banners" className="flex items-center gap-2">
-                      <Image className="h-4 w-4 text-primary" />
-                      Tabela de Banners
-                    </Label>
-                    <Input
-                      id="banners"
-                      placeholder="ID da tabela"
-                      value={formData.tableIds.banners}
-                      onChange={(e) => handleInputChange('tableIds.banners', e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">Banners promocionais e destaques</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="categorias" className="flex items-center gap-2">
-                      <FolderOpen className="h-4 w-4 text-primary" />
-                      Tabela de Categorias
-                    </Label>
-                    <Input
-                      id="categorias"
-                      placeholder="ID da tabela"
-                      value={formData.tableIds.categorias}
-                      onChange={(e) => handleInputChange('tableIds.categorias', e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">Categorias gerais de conteúdo (Ação, Comédia, etc.)</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="categoriasTV" className="flex items-center gap-2">
-                      <Tv className="h-4 w-4 text-primary" />
-                      Tabela de Categorias TV
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs px-1.5 py-0.5 animate-pulse cursor-help">
-                            NOVO
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">
-                          <p className="text-xs">Tabela recentemente adicionada ao sistema</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </Label>
-                    <Input
-                      id="categoriasTV"
-                      placeholder="ID da tabela"
-                      value={formData.tableIds.categoriasTV}
-                      onChange={(e) => handleInputChange('tableIds.categoriasTV', e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">Categorias específicas para canais de TV</p>
-                  </div>
-                  {mode === 'plural' && (
+                {mode === 'tibim' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Conteúdos */}
                     <div className="space-y-1">
-                      <Label htmlFor="categoriasAnime" className="flex items-center gap-2">
-                        <Film className="h-4 w-4 text-primary" />
-                        Tabela de Categorias Anime
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs px-1.5 py-0.5 animate-pulse cursor-help">
-                              NOVO
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent side="right">
-                            <p className="text-xs">Tabela recentemente adicionada ao sistema</p>
-                          </TooltipContent>
-                        </Tooltip>
+                      <Label htmlFor="conteudos" className="flex items-center gap-2">
+                        <Film className="h-4 w-4 text-orange-500" />
+                        Tabela de Conteúdos (Tibim)
                       </Label>
                       <Input
-                        id="categoriasAnime"
+                        id="conteudos"
                         placeholder="ID da tabela"
-                        value={formData.tableIds.categoriasAnime}
-                        onChange={(e) => handleInputChange('tableIds.categoriasAnime', e.target.value)}
+                        value={formData.tableIds.conteudos}
+                        onChange={(e) => handleInputChange('tableIds.conteudos', e.target.value)}
                       />
-                      <p className="text-xs text-muted-foreground">Categorias específicas para animes (Shonen, Seinen, etc.)</p>
+                      <p className="text-xs text-muted-foreground">Filmes, séries e outros conteúdos principais</p>
                     </div>
-                  )}
-                  <div className="space-y-1">
-                    <Label htmlFor="usuarios" className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-primary" />
-                      Tabela de Usuários
-                    </Label>
-                    <Input
-                      id="usuarios"
-                      placeholder="ID da tabela"
-                      value={formData.tableIds.usuarios}
-                      onChange={(e) => handleInputChange('tableIds.usuarios', e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">Dados de usuários e assinaturas</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="sessoes" className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-primary" />
-                      Tabela de Sessões
-                    </Label>
-                    <Input
-                      id="sessoes"
-                      placeholder="ID da tabela"
-                      value={formData.tableIds.sessoes}
-                      onChange={(e) => handleInputChange('tableIds.sessoes', e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">Sessões ativas e controle de acesso</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="plataformas" className="flex items-center gap-2">
-                      <LayoutGrid className="h-4 w-4 text-primary" />
-                      Tabela de Plataformas
-                    </Label>
-                    <Input
-                      id="plataformas"
-                      placeholder="ID da tabela"
-                      value={formData.tableIds.plataformas}
-                      onChange={(e) => handleInputChange('tableIds.plataformas', e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">Plataformas de streaming disponíveis</p>
-                  </div>
-                  <div className="space-y-1">
+
+                    {/* Episódios */}
+                    <div className="space-y-1">
+                      <Label htmlFor="episodios" className="flex items-center gap-2">
+                        <Play className="h-4 w-4 text-orange-500" />
+                        Tabela de Episódios (Tibim)
+                      </Label>
+                      <Input
+                        id="episodios"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.episodios}
+                        onChange={(e) => handleInputChange('tableIds.episodios', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Episódios de séries e animes</p>
+                    </div>
+
+                    {/* Canais de TV */}
+                    <div className="space-y-1">
                       <Label htmlFor="canaisTv" className="flex items-center gap-2">
-                        <Tv className="h-4 w-4 text-primary" />
-                        Tabela de Canais de TV
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs px-1.5 py-0.5 animate-pulse cursor-help">
-                              NOVO
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent side="right">
-                            <p className="text-xs">Tabela recentemente adicionada ao sistema</p>
-                          </TooltipContent>
-                        </Tooltip>
+                        <Tv className="h-4 w-4 text-orange-500" />
+                        Tabela de Canais de TV (Tibim)
                       </Label>
                       <Input
                         id="canaisTv"
@@ -554,20 +462,402 @@ const Configuracoes = () => {
                       />
                       <p className="text-xs text-muted-foreground">Canais de TV ao vivo e IPTV</p>
                     </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="planos" className="flex items-center gap-2">
-                      <CreditCard className="h-4 w-4 text-primary" />
-                      Tabela de Planos
-                    </Label>
-                    <Input
-                      id="planos"
-                      placeholder="ID da tabela"
-                      value={formData.tableIds.planos}
-                      onChange={(e) => handleInputChange('tableIds.planos', e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">Tabela com os planos de assinatura disponíveis</p>
+
+                    {/* Planos 1 */}
+                    <div className="space-y-1">
+                      <Label htmlFor="planos" className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-orange-500" />
+                        Tabela de Planos 1 (Tibim)
+                      </Label>
+                      <Input
+                        id="planos"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.planos}
+                        onChange={(e) => handleInputChange('tableIds.planos', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Tabela com os planos de assinatura principais</p>
+                    </div>
+
+                    {/* Planos 2 */}
+                    <div className="space-y-1">
+                      <Label htmlFor="plano2" className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-orange-500" />
+                        Tabela de Planos 2 (Tibim)
+                      </Label>
+                      <Input
+                        id="plano2"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.plano2 || ''}
+                        onChange={(e) => handleInputChange('tableIds.plano2', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Tabela com os planos de assinatura adicionais</p>
+                    </div>
+
+                    {/* Carrossel */}
+                    <div className="space-y-1">
+                      <Label htmlFor="carrosseu" className="flex items-center gap-2">
+                        <Image className="h-4 w-4 text-orange-500" />
+                        Tabela de Carrossel (Tibim)
+                      </Label>
+                      <Input
+                        id="carrosseu"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.carrosseu || ''}
+                        onChange={(e) => handleInputChange('tableIds.carrosseu', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Banners e destaques rotativos</p>
+                    </div>
+
+                    {/* Versão */}
+                    <div className="space-y-1">
+                      <Label htmlFor="versao" className="flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-orange-500" />
+                        Tabela Versão (Tibim)
+                      </Label>
+                      <Input
+                        id="versao"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.versao || ''}
+                        onChange={(e) => handleInputChange('tableIds.versao', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Controle de atualizações da aplicação</p>
+                    </div>
+
+                    {/* Pedido */}
+                    <div className="space-y-1">
+                      <Label htmlFor="pedido" className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-orange-500" />
+                        Tabela Pedido (Tibim)
+                      </Label>
+                      <Input
+                        id="pedido"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.pedido || ''}
+                        onChange={(e) => handleInputChange('tableIds.pedido', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Pedidos de conteúdos feitos por usuários</p>
+                    </div>
+
+                    {/* Avaliação */}
+                    <div className="space-y-1">
+                      <Label htmlFor="avaliacao" className="flex items-center gap-2">
+                        <Star className="h-4 w-4 text-orange-500" />
+                        Tabela Avaliação (Tibim)
+                      </Label>
+                      <Input
+                        id="avaliacao"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.avaliacao || ''}
+                        onChange={(e) => handleInputChange('tableIds.avaliacao', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Avaliações e comentários de usuários</p>
+                    </div>
+
+                    {/* Categoria Filmes */}
+                    <div className="space-y-1">
+                      <Label htmlFor="categoriaFilmes" className="flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 text-orange-500" />
+                        Categoria Filmes (Tibim)
+                      </Label>
+                      <Input
+                        id="categoriaFilmes"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.categoriaFilmes || ''}
+                        onChange={(e) => handleInputChange('tableIds.categoriaFilmes', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Categorias exclusivas para filmes</p>
+                    </div>
+
+                    {/* Categoria Séries */}
+                    <div className="space-y-1">
+                      <Label htmlFor="categoriaSeries" className="flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 text-orange-500" />
+                        Categoria Séries (Tibim)
+                      </Label>
+                      <Input
+                        id="categoriaSeries"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.categoriaSeries || ''}
+                        onChange={(e) => handleInputChange('tableIds.categoriaSeries', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Categorias exclusivas para séries</p>
+                    </div>
+
+                    {/* Categoria Dorama */}
+                    <div className="space-y-1">
+                      <Label htmlFor="categoriaDorama" className="flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 text-orange-500" />
+                        Categoria Dorama (Tibim)
+                      </Label>
+                      <Input
+                        id="categoriaDorama"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.categoriaDorama || ''}
+                        onChange={(e) => handleInputChange('tableIds.categoriaDorama', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Categorias exclusivas para doramas</p>
+                    </div>
+
+                    {/* Categoria Animes */}
+                    <div className="space-y-1">
+                      <Label htmlFor="categoriaAnimes" className="flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 text-orange-500" />
+                        Categoria Animes (Tibim)
+                      </Label>
+                      <Input
+                        id="categoriaAnimes"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.categoriaAnimes || ''}
+                        onChange={(e) => handleInputChange('tableIds.categoriaAnimes', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Categorias exclusivas para animes</p>
+                    </div>
+
+                    {/* Categoria Novelas */}
+                    <div className="space-y-1">
+                      <Label htmlFor="categoriaNovelas" className="flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 text-orange-500" />
+                        Categoria Novelas (Tibim)
+                      </Label>
+                      <Input
+                        id="categoriaNovelas"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.categoriaNovelas || ''}
+                        onChange={(e) => handleInputChange('tableIds.categoriaNovelas', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Categorias exclusivas para novelas</p>
+                    </div>
+
+                    {/* Perfil */}
+                    <div className="space-y-1">
+                      <Label htmlFor="perfil" className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-orange-500" />
+                        Tabela de Perfil (Tibim)
+                      </Label>
+                      <Input
+                        id="perfil"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.perfil || ''}
+                        onChange={(e) => handleInputChange('tableIds.perfil', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Perfis de visualização dos clientes</p>
+                    </div>
+
+                    {/* Meus Aplicativos */}
+                    <div className="space-y-1">
+                      <Label htmlFor="meusAplicativos" className="flex items-center gap-2">
+                        <Smartphone className="h-4 w-4 text-orange-500" />
+                        Tabela Meus Aplicativos (Tibim)
+                      </Label>
+                      <Input
+                        id="meusAplicativos"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.meusAplicativos || ''}
+                        onChange={(e) => handleInputChange('tableIds.meusAplicativos', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Aplicativos disponíveis para download dos clientes</p>
+                    </div>
+
+                    {/* Categoria TV */}
+                    <div className="space-y-1">
+                      <Label htmlFor="categoriasTV" className="flex items-center gap-2">
+                        <Tv className="h-4 w-4 text-orange-500" />
+                        Tabela Categoria TV (Tibim)
+                      </Label>
+                      <Input
+                        id="categoriasTV"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.categoriasTV || ''}
+                        onChange={(e) => handleInputChange('tableIds.categoriasTV', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Categorias específicas para canais de TV</p>
+                    </div>
+
+                    {/* Tabela de Usuários */}
+                    <div className="space-y-1">
+                      <Label htmlFor="usuarios" className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-orange-500" />
+                        Tabela de Usuários (Tibim)
+                      </Label>
+                      <Input
+                        id="usuarios"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.usuarios || ''}
+                        onChange={(e) => handleInputChange('tableIds.usuarios', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Usuários e gerenciamento de assinaturas</p>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Tabela de Conteúdos */}
+                    <div className="space-y-1">
+                      <Label htmlFor="conteudos" className="flex items-center gap-2">
+                        <Film className="h-4 w-4 text-primary" />
+                        Tabela de Conteúdos
+                      </Label>
+                      <Input
+                        id="conteudos"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.conteudos}
+                        onChange={(e) => handleInputChange('tableIds.conteudos', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Filmes, séries e outros conteúdos principais</p>
+                    </div>
+
+                    {/* Tabela de Episódios */}
+                    <div className="space-y-1">
+                      <Label htmlFor="episodios" className="flex items-center gap-2">
+                        <Play className="h-4 w-4 text-primary" />
+                        Tabela de Episódios
+                      </Label>
+                      <Input
+                        id="episodios"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.episodios}
+                        onChange={(e) => handleInputChange('tableIds.episodios', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Episódios de séries e animes</p>
+                    </div>
+
+                    {/* Tabela de Banners */}
+                    <div className="space-y-1">
+                      <Label htmlFor="banners" className="flex items-center gap-2">
+                        <Image className="h-4 w-4 text-primary" />
+                        Tabela de Banners
+                      </Label>
+                      <Input
+                        id="banners"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.banners}
+                        onChange={(e) => handleInputChange('tableIds.banners', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Banners promocionais e destaques</p>
+                    </div>
+
+                    {/* Tabela de Categorias */}
+                    <div className="space-y-1">
+                      <Label htmlFor="categorias" className="flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 text-primary" />
+                        Tabela de Categorias
+                      </Label>
+                      <Input
+                        id="categorias"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.categorias}
+                        onChange={(e) => handleInputChange('tableIds.categorias', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Categorias gerais de conteúdo (Ação, Comédia, etc.)</p>
+                    </div>
+
+                    {/* Tabela de Categorias TV */}
+                    <div className="space-y-1">
+                      <Label htmlFor="categoriasTV" className="flex items-center gap-2">
+                        <Tv className="h-4 w-4 text-primary" />
+                        Tabela de Categorias TV
+                      </Label>
+                      <Input
+                        id="categoriasTV"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.categoriasTV}
+                        onChange={(e) => handleInputChange('tableIds.categoriasTV', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Categorias específicas para canais de TV</p>
+                    </div>
+
+                    {/* Tabela de Categorias Anime (Plural Only) */}
+                    {mode === 'plural' && (
+                      <div className="space-y-1">
+                        <Label htmlFor="categoriasAnime" className="flex items-center gap-2">
+                          <Film className="h-4 w-4 text-primary" />
+                          Tabela de Categorias Anime
+                        </Label>
+                        <Input
+                          id="categoriasAnime"
+                          placeholder="ID da tabela"
+                          value={formData.tableIds.categoriasAnime}
+                          onChange={(e) => handleInputChange('tableIds.categoriasAnime', e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">Categorias específicas para animes</p>
+                      </div>
+                    )}
+
+                    {/* Tabela de Usuários */}
+                    <div className="space-y-1">
+                      <Label htmlFor="usuarios" className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-primary" />
+                        Tabela de Usuários
+                      </Label>
+                      <Input
+                        id="usuarios"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.usuarios}
+                        onChange={(e) => handleInputChange('tableIds.usuarios', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Dados de usuários e assinaturas</p>
+                    </div>
+
+                    {/* Tabela de Sessões */}
+                    <div className="space-y-1">
+                      <Label htmlFor="sessoes" className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-primary" />
+                        Tabela de Sessões
+                      </Label>
+                      <Input
+                        id="sessoes"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.sessoes}
+                        onChange={(e) => handleInputChange('tableIds.sessoes', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Sessões ativas e controle de acesso</p>
+                    </div>
+
+                    {/* Tabela de Plataformas */}
+                    <div className="space-y-1">
+                      <Label htmlFor="plataformas" className="flex items-center gap-2">
+                        <LayoutGrid className="h-4 w-4 text-primary" />
+                        Tabela de Plataformas
+                      </Label>
+                      <Input
+                        id="plataformas"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.plataformas}
+                        onChange={(e) => handleInputChange('tableIds.plataformas', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Plataformas de streaming disponíveis</p>
+                    </div>
+
+                    {/* Tabela de Canais de TV */}
+                    <div className="space-y-1">
+                      <Label htmlFor="canaisTv" className="flex items-center gap-2">
+                        <Tv className="h-4 w-4 text-primary" />
+                        Tabela de Canais de TV
+                      </Label>
+                      <Input
+                        id="canaisTv"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.canaisTv}
+                        onChange={(e) => handleInputChange('tableIds.canaisTv', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Canais de TV ao vivo e IPTV</p>
+                    </div>
+
+                    {/* Tabela de Planos */}
+                    <div className="space-y-1">
+                      <Label htmlFor="planos" className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-primary" />
+                        Tabela de Planos
+                      </Label>
+                      <Input
+                        id="planos"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.planos}
+                        onChange={(e) => handleInputChange('tableIds.planos', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Planos de assinatura disponíveis</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
