@@ -924,16 +924,52 @@ export class AutoImportService {
           let createdOrUpdatedContent;
 
           if (existingContent) {
-            // ATUALIZAR conteúdo existente (apenas Link, Sinopse e Capa)
-            console.log('🔄 Conteúdo já existe, atualizando:', titulo);
+            // ATUALIZAR conteúdo existente com TODOS os campos (origem prevalece, mantém valor antigo se origem vier vazia)
+            console.log('🔄 Conteúdo já existe, atualizando todos os campos:', titulo);
 
-            const updateData = {
-              Link: content.Link || existingContent.Link,
-              Sinopse: content.Sinopse || existingContent.Sinopse,
-              Capa: content.Poster || content.Capa || existingContent.Capa
+            const pick = (novo: any, antigo: any) =>
+              (novo !== undefined && novo !== null && String(novo).trim() !== '') ? novo : (antigo ?? '');
+
+            // TMDB ID: manter o existente; só buscar se estiver vazio
+            let tmdbId = existingContent['TMDB ID'] || '';
+            if (!tmdbId) {
+              try {
+                const tipoLower = (content.Tipo || '').toLowerCase();
+                const tmdbType: 'movie' | 'tv' =
+                  tipoLower.includes('serie') || tipoLower.includes('series') ? 'tv' : 'movie';
+                const tmdbResult = await tmdbService.search(titulo, tmdbType);
+                if (tmdbResult?.id) {
+                  tmdbId = String(tmdbResult.id);
+                  console.log(`🎬 TMDB ID encontrado (update) para "${titulo}":`, tmdbId);
+                }
+              } catch (tmdbErr) {
+                console.warn(`⚠️ Erro ao buscar TMDB ID em update para "${titulo}":`, tmdbErr);
+              }
+            }
+
+            const updateData: any = {
+              Categoria: pick(content.Categoria, existingContent.Categoria),
+              Sinopse: pick(content.Sinopse, existingContent.Sinopse),
+              Capa: pick(content.Poster || content.Capa, existingContent.Capa),
+              Link: pick(content.Link, existingContent.Link),
+              Idioma: pick(content.Idioma, existingContent.Idioma),
+              Views: pick(content.Views, existingContent.Views),
+              Temporadas: pick(content.Temporadas, existingContent.Temporadas),
+              Imdb: pick(content.Imdb, existingContent.Imdb),
+              'Data de Lançamento': pick(content['Data de Lançamento'], existingContent['Data de Lançamento']),
+              'Capa de fundo': pick(content['Capa de fundo'], existingContent['Capa de fundo']),
+              'TMDB ID': tmdbId,
             };
 
-            console.log('📋 Dados de atualização:', updateData);
+            // Só sobrescrever Tipo se origem trouxer valor
+            if (content.Tipo && String(content.Tipo).trim() !== '') {
+              updateData.Tipo = content.Tipo;
+            }
+
+            const changedFields = Object.keys(updateData).filter(
+              (k) => String(updateData[k] ?? '') !== String((existingContent as any)[k] ?? '')
+            );
+            console.log('📋 Campos alterados no update:', changedFields);
 
             createdOrUpdatedContent = await userBaserowService.updateRow(
               targetTableId,
