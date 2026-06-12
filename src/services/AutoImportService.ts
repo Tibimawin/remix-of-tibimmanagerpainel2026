@@ -1141,16 +1141,35 @@ export class AutoImportService {
                     );
 
                     if (existingEpisode) {
-                      // ATUALIZAR apenas o Link
-                      console.log(`🔄 Episódio já existe, atualizando link: ${episode.Titulo} (S${episode.Temporada}E${episode.Episodio})`);
+                      // ATUALIZAR todos os campos do episódio existente
+                      console.log(`🔄 Episódio já existe, atualizando campos: ${episode.Titulo} (S${episode.Temporada}E${episode.Episodio})`);
+
+                      const pickEp = (novo: any, antigo: any) =>
+                        (novo !== undefined && novo !== null && String(novo).trim() !== '') ? novo : (antigo ?? '');
+
+                      const episodeUpdate: any = {
+                        Nome: pickEp(episode.Titulo, existingEpisode.Nome),
+                        Serie: pickEp(episode.Serie, existingEpisode.Serie),
+                        Temporada: pickEp(episode.Temporada, existingEpisode.Temporada),
+                        'Episódio': pickEp(episode.Episodio, existingEpisode['Episódio']),
+                        Link: pickEp(episode.Link, existingEpisode.Link),
+                        Sinopse: pickEp(episode.Sinopse, existingEpisode.Sinopse),
+                      };
+
+                      // Preencher vínculo Conteudo se estiver faltando
+                      const conteudoLink = existingEpisode.Conteudo;
+                      const linkVazio = !conteudoLink || (Array.isArray(conteudoLink) && conteudoLink.length === 0);
+                      if (linkVazio && createdOrUpdatedContent?.id) {
+                        episodeUpdate.Conteudo = [createdOrUpdatedContent.id];
+                      }
 
                       await userBaserowService.updateRow(
                         validatedUserConfig.episodeTableId,
                         existingEpisode.id,
-                        { Link: episode.Link || existingEpisode.Link }
+                        episodeUpdate
                       );
 
-                      console.log('✅ Link do episódio atualizado');
+                      console.log('✅ Episódio atualizado');
                     } else {
                       // CRIAR novo episódio
                       console.log(`➕ Criando novo episódio: ${episode.Titulo} (S${episode.Temporada}E${episode.Episodio})`);
