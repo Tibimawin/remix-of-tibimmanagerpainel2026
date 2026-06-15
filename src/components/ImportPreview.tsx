@@ -957,7 +957,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
               </div>
             </div>
             <div className="rounded-md border bg-muted/10">
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 2xl:grid-cols-12 gap-4 p-4">
+              <div 
+                className="grid gap-3 p-3"
+                style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))' }}
+              >
                 {filteredPreviews.map((content) => {
                   const isSelected = selectedIds.has(content.id);
                   const highlight = previewHighlightMap.get(content.id);
@@ -1046,7 +1049,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                         {content.IMDb && (
                           <Badge
                             variant="warning"
-                            className="absolute bottom-14 right-1.5 text-[9px] gap-0.5 px-1 py-0"
+                            className="absolute bottom-11 right-1.5 text-[9px] gap-0.5 px-1 py-0"
                           >
                             <Star className="h-2.5 w-2.5 fill-current" />
                             {content.IMDb}
@@ -1056,11 +1059,11 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/95 to-transparent" />
                       </div>
 
-                      <div className="absolute inset-x-0 bottom-0 p-2 text-white">
-                        <h4 className="font-semibold text-xs line-clamp-2 leading-tight mb-0.5">
+                      <div className="absolute inset-x-0 bottom-0 p-1.5 text-white">
+                        <h4 className="font-semibold text-[10.5px] line-clamp-2 leading-tight mb-0.5">
                           {content.Nome || 'Sem título'}
                         </h4>
-                        <div className="flex items-center gap-1.5 text-[10px] text-white/70 mb-0.5">
+                        <div className="flex items-center gap-1 text-[9.5px] text-white/70 mb-0.5">
                           {content.Ano && (
                             <span className="flex items-center gap-0.5 shrink-0">
                               <Calendar className="h-2.5 w-2.5" />
@@ -1072,7 +1075,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                           )}
                         </div>
                         {highlight?.matchReasons?.length ? (
-                          <div className="rounded bg-black/45 px-1.5 py-0.5 text-[9px] text-white/85 line-clamp-1">
+                          <div className="rounded bg-black/45 px-1 py-0.5 text-[8.5px] text-white/85 line-clamp-1">
                             {highlight.matchReasons.join(' • ')}
                           </div>
                         ) : null}
