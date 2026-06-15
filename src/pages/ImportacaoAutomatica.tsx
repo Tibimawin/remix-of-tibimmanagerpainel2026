@@ -50,6 +50,7 @@ interface ImportacaoAutomaticaLocationState {
 const ImportacaoAutomatica = () => {
   const [showConfig, setShowConfig] = useState(false);
   const [showImportInterface, setShowImportInterface] = useState(false);
+  const [hasPreviews, setHasPreviews] = useState(false);
   const [userConfig, setUserConfig] = useState<UserConfig>({
     apiToken: '',
     baseUrl: '',
@@ -399,10 +400,10 @@ const ImportacaoAutomatica = () => {
 
   return (
     <PermissionGate feature="importacao-automatica">
-      <div className="w-full space-y-6 animate-fade-in">
+      <div className={`w-full animate-fade-in ${hasPreviews ? 'flex flex-col h-[calc(100vh-112px)] gap-4 overflow-hidden' : 'space-y-6'}`}>
 
         {/* Hero Section Compacto */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl bg-card border border-border p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl bg-card border border-border p-6 shrink-0">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
               Importação <span className="text-primary">Automática</span>
@@ -536,7 +537,7 @@ const ImportacaoAutomatica = () => {
 
         {/* Configuração Expandível */}
         {showConfig && (
-          <Card className="border-primary/20 shadow-lg shadow-primary/5 animate-in slide-in-from-top-4 duration-300">
+          <Card className="border-primary/20 shadow-lg shadow-primary/5 animate-in slide-in-from-top-4 duration-300 shrink-0">
             <CardHeader className="border-b border-border/50 bg-muted/30">
               <CardTitle className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10">
@@ -666,84 +667,89 @@ const ImportacaoAutomatica = () => {
           configValid={configValid}
           isImporting={isImporting}
           importProgress={importProgress}
+          onPreviewsLoaded={setHasPreviews}
         />
 
         {/* Recursos da Importação */}
-        <section className="space-y-3">
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold tracking-tight">Recursos da importação</h2>
-            <p className="text-xs text-muted-foreground">
-              Benefícios do fluxo automático para importar com mais segurança e velocidade.
-            </p>
-          </div>
+        {!hasPreviews && (
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">Recursos da importação</h2>
+              <p className="text-xs text-muted-foreground">
+                Benefícios do fluxo automático para importar com mais segurança e velocidade.
+              </p>
+            </div>
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                icon: Zap,
-                title: 'Importação Rápida',
-                description: 'Importe centenas de itens em segundos'
-              },
-              {
-                icon: Shield,
-                title: 'Anti-Duplicados',
-                description: 'Detecta e evita duplicatas automaticamente'
-              },
-              {
-                icon: Database,
-                title: 'Multi-Tabelas',
-                description: 'Suporte para conteúdos e episódios'
-              },
-              {
-                icon: Cloud,
-                title: 'Sync na Nuvem',
-                description: 'Configurações salvas automaticamente'
-              }
-            ].map((feature, index) => (
-              <Card
-                key={index}
-                className="group relative overflow-hidden border-border/40 bg-muted/15 transition-colors duration-300 hover:border-primary/15"
-              >
-                <CardContent className="p-3">
-                  <div className="mb-2 w-fit rounded-md bg-primary/10 p-1.5 transition-colors group-hover:bg-primary/15">
-                    <feature.icon className="h-3.5 w-3.5 text-primary" />
-                  </div>
-                  <h3 className="mb-0.5 text-xs font-semibold leading-none">{feature.title}</h3>
-                  <p className="text-xs leading-snug text-muted-foreground">{feature.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-
-        {/* Instruções */}
-        <Card className="border-border/50 bg-muted/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5 text-muted-foreground" />
-              Como usar
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
               {[
-                { step: '1', title: 'Configure', desc: 'Insira suas credenciais do Baserow de destino' },
-                { step: '2', title: 'Teste', desc: 'Verifique se a conexão está funcionando' },
-                { step: '3', title: 'Importe', desc: 'Selecione os conteúdos e inicie a importação' }
-              ].map((item, index) => (
-                <div key={index} className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                    {item.step}
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-1">{item.title}</h4>
-                    <p className="text-sm text-muted-foreground">{item.desc}</p>
-                  </div>
-                </div>
+                {
+                  icon: Zap,
+                  title: 'Importação Rápida',
+                  description: 'Importe centenas de itens em segundos'
+                },
+                {
+                  icon: Shield,
+                  title: 'Anti-Duplicados',
+                  description: 'Detecta e evita duplicatas automaticamente'
+                },
+                {
+                  icon: Database,
+                  title: 'Multi-Tabelas',
+                  description: 'Suporte para conteúdos e episódios'
+                },
+                {
+                  icon: Cloud,
+                  title: 'Sync na Nuvem',
+                  description: 'Configurações salvas automaticamente'
+                }
+              ].map((feature, index) => (
+                <Card
+                  key={index}
+                  className="group relative overflow-hidden border-border/40 bg-muted/15 transition-colors duration-300 hover:border-primary/15"
+                >
+                  <CardContent className="p-3">
+                    <div className="mb-2 w-fit rounded-md bg-primary/10 p-1.5 transition-colors group-hover:bg-primary/15">
+                      <feature.icon className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <h3 className="mb-0.5 text-xs font-semibold leading-none">{feature.title}</h3>
+                    <p className="text-xs leading-snug text-muted-foreground">{feature.description}</p>
+                  </CardContent>
+                </Card>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </section>
+        )}
+
+        {/* Instruções */}
+        {!hasPreviews && (
+          <Card className="border-border/50 bg-muted/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Info className="h-5 w-5 text-muted-foreground" />
+                Como usar
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  { step: '1', title: 'Configure', desc: 'Insira suas credenciais do Baserow de destino' },
+                  { step: '2', title: 'Teste', desc: 'Verifique se a conexão está funcionando' },
+                  { step: '3', title: 'Importe', desc: 'Selecione os conteúdos e inicie a importação' }
+                ].map((item, index) => (
+                  <div key={index} className="flex items-start gap-4">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                      {item.step}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-1">{item.title}</h4>
+                      <p className="text-sm text-muted-foreground">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </PermissionGate>
   );

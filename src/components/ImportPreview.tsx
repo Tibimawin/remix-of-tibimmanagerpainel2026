@@ -78,6 +78,7 @@ interface ImportPreviewProps {
   configValid: boolean;
   isImporting?: boolean;
   importProgress?: number;
+  onPreviewsLoaded?: (hasPreviews: boolean) => void;
 }
 
 export const ImportPreview: React.FC<ImportPreviewProps> = ({
@@ -86,7 +87,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   onStartImport,
   configValid,
   isImporting = false,
-  importProgress = 0
+  importProgress = 0,
+  onPreviewsLoaded
 }) => {
   const [previews, setPreviews] = useState<ContentPreview[]>([]);
   const [loading, setLoading] = useState(false);
@@ -554,6 +556,12 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   }, [currentPage]);
 
+  useEffect(() => {
+    if (onPreviewsLoaded) {
+      onPreviewsLoaded(previews.length > 0);
+    }
+  }, [previews.length, onPreviewsLoaded]);
+
   const handleRefresh = () => {
     setCurrentPage(1);
     setCachedTotalPages(0);
@@ -657,8 +665,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   };
 
   return (
-    <Card className="border-primary/20 shadow-lg shadow-primary/5 overflow-hidden">
-      <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 via-accent/5 to-transparent">
+    <Card className="border-primary/20 shadow-lg shadow-primary/5 overflow-hidden flex flex-col flex-1 min-h-0">
+      <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 via-accent/5 to-transparent shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary/10">
@@ -709,10 +717,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         </div>
       </CardHeader>
 
-      <CardContent className="p-0">
+      <CardContent className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden">
         {/* Search Bar */}
         {previews.length > 0 && (
-          <div className="px-6 py-3 border-b border-border/50">
+          <div className="px-6 py-3 border-b border-border/50 shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -737,7 +745,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
         {/* Filters Bar */}
         {(typeCounts.total > 0 || totalCount > 0) && (
-          <div className="flex flex-wrap items-center gap-3 px-6 py-3 bg-muted/30 border-b border-border/50">
+          <div className="flex flex-wrap items-center gap-3 px-6 py-3 bg-muted/30 border-b border-border/50 shrink-0">
             {/* Type Filters */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Tipo:</span>
@@ -817,7 +825,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
         {/* Categories Carousel */}
         {availableCategories.length > 0 && (
-          <div className="px-6 py-3 border-b border-border/50 bg-background">
+          <div className="px-6 py-3 border-b border-border/50 bg-background shrink-0">
             <div className="flex items-center gap-2 mb-2">
               <Tags className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium text-foreground">Categorias</span>
@@ -852,8 +860,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
         {/* Content Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-9 2xl:grid-cols-11 gap-2 p-2">
-            {Array.from({ length: 16 }).map((_, i) => (
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-7 2xl:grid-cols-7 gap-2 p-2 flex-1 min-h-0 overflow-y-auto">
+            {Array.from({ length: 14 }).map((_, i) => (
               <div key={i} className="space-y-2">
                 <Skeleton className="aspect-[2/3] w-full rounded-lg" />
                 <Skeleton className="h-4 w-3/4" />
@@ -891,7 +899,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         ) : (
           <>
             {/* Selection Controls */}
-            <div className="space-y-3 border-b border-border/50 px-6 py-3 bg-muted/20">
+            <div className="space-y-3 border-b border-border/50 px-6 py-3 bg-muted/20 shrink-0">
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 {loadingExistingContent ? (
                   <div className="flex flex-col gap-1.5 w-full max-w-md">
@@ -956,8 +964,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                 )}
               </div>
             </div>
-            <div className="rounded-md border bg-muted/10">
-              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-9 2xl:grid-cols-11 gap-2 p-2">
+            <div className="rounded-md border bg-muted/10 flex-1 min-h-0 overflow-y-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-7 2xl:grid-cols-7 gap-2 p-2">
                 {filteredPreviews.map((content) => {
                   const isSelected = selectedIds.has(content.id);
                   const highlight = previewHighlightMap.get(content.id);
@@ -1087,7 +1095,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
         {/* Footer with Pagination and CTA */}
         {previews.length > 0 && (
-          <div className="flex flex-col gap-3 px-6 py-4 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 border-t border-border/50">
+          <div className="flex flex-col gap-3 px-6 py-4 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 border-t border-border/50 shrink-0">
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2">
