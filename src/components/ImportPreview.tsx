@@ -97,6 +97,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'filme' | 'serie'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [genreFilter, setGenreFilter] = useState<string>('all');
   const [highlightFilter, setHighlightFilter] = useState<'all' | 'imported' | 'duplicates'>('all');
   const [sortBy, setSortBy] = useState<'nome' | 'ano' | 'rating'>('nome');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
@@ -113,6 +114,23 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [loadingExistingContent, setLoadingExistingContent] = useState(false);
   const [existingProgress, setExistingProgress] = useState<{ loaded: number; total: number }>({ loaded: 0, total: 0 });
   const pageSize = 30;
+
+  // Gêneros (filtro independente de Tipo e Categoria)
+  const GENRES = useMemo(() => [
+    'Dorama Chinês',
+    'Dorama Coreano',
+    'Dorama Tailandês',
+    'Dorama Taiwanês',
+    'Dorama Singapurense',
+    'Dorama Japonês',
+    'Novelas Mexicanas',
+    'Novelas Nacionais',
+    'Novelas Turcas',
+    'Reality',
+    'DORAMA DUBLADO',
+    'DORAMA BL',
+    'SÉRIES TURCAS',
+  ], []);
 
   // Keywords to exclude (TV channels, specific channel packages, etc.)
   const EXCLUDED_KEYWORDS = useMemo(() => [
@@ -359,12 +377,12 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   };
 
-  const fetchPreview = async (filterType?: 'all' | 'filme' | 'serie', category?: string, page: number = 1, options?: { forceApiPage?: number; skipInversion?: boolean; search?: string }) => {
+  const fetchPreview = async (filterType?: 'all' | 'filme' | 'serie', category?: string, page: number = 1, options?: { forceApiPage?: number; skipInversion?: boolean; search?: string; genre?: string }) => {
     if (!importConfig || !importConfig.sourceToken || !importConfig.sourceBaseUrl || !importConfig.contentTableId) {
       return;
     }
 
-    const { forceApiPage, skipInversion = false, search } = options || {};
+    const { forceApiPage, skipInversion = false, search, genre } = options || {};
 
     setLoading(true);
     setError(null);
@@ -385,6 +403,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         } else {
           filterQuery += `&filter__Categoria__contains=${encodeURIComponent(category)}`;
         }
+      }
+
+      if (genre && genre !== 'all') {
+        filterQuery += `&filter__Categoria__contains=${encodeURIComponent(genre)}`;
       }
 
       const searchValue = (search ?? '').trim();
@@ -413,7 +435,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         setInitialLoadDone(true);
 
         if (newTotalPages > 1 && page === 1) {
-          fetchPreview(filterType, category, 1, { forceApiPage: newTotalPages, search: searchValue });
+          fetchPreview(filterType, category, 1, { forceApiPage: newTotalPages, search: searchValue, genre });
           return;
         }
       }
@@ -443,7 +465,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     if (configValid && importConfig) {
       setCachedTotalPages(0);
       setInitialLoadDone(false);
-      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm });
+      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter });
       fetchTypeCounts();
       fetchCategories();
     }
@@ -550,9 +572,9 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       setCurrentPage(1);
       setCachedTotalPages(0);
       setInitialLoadDone(false);
-      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm });
+      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter });
     }
-  }, [typeFilter, categoryFilter]);
+  }, [typeFilter, categoryFilter, genreFilter]);
 
   // Debounced server-side search when searchTerm changes
   useEffect(() => {
@@ -561,7 +583,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       setCurrentPage(1);
       setCachedTotalPages(0);
       setInitialLoadDone(false);
-      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm });
+      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter });
     }, 400);
     return () => clearTimeout(handle);
   }, [searchTerm]);
@@ -569,7 +591,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   // Fetch when page changes
   useEffect(() => {
     if (configValid && currentPage > 0 && initialLoadDone) {
-      fetchPreview(typeFilter, categoryFilter, currentPage, { search: searchTerm });
+      fetchPreview(typeFilter, categoryFilter, currentPage, { search: searchTerm, genre: genreFilter });
     }
   }, [currentPage]);
 
@@ -577,7 +599,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     setCurrentPage(1);
     setCachedTotalPages(0);
     setInitialLoadDone(false);
-    fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm });
+    fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter });
     fetchCategories();
   };
 
@@ -592,6 +614,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const clearFilters = () => {
     setTypeFilter('all');
     setCategoryFilter('all');
+    setGenreFilter('all');
     setHighlightFilter('all');
     setSortBy('nome');
     setSearchTerm('');
@@ -820,7 +843,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             </div>
 
             {/* Clear filters button */}
-            {(typeFilter !== 'all' || categoryFilter !== 'all' || highlightFilter !== 'all' || sortBy !== 'nome' || searchTerm) && (
+            {(typeFilter !== 'all' || categoryFilter !== 'all' || genreFilter !== 'all' || highlightFilter !== 'all' || sortBy !== 'nome' || searchTerm) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -833,6 +856,39 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             )}
           </div>
         )}
+
+        {/* Gêneros Carousel */}
+        <div className="px-6 py-3 border-b border-border/50 bg-background">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-foreground">Gêneros</span>
+            <span className="text-xs text-muted-foreground">({GENRES.length})</span>
+          </div>
+          <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex w-max items-center gap-2 pb-2">
+              <Button
+                variant={genreFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setGenreFilter('all')}
+                className="h-8 text-xs rounded-full shrink-0"
+              >
+                Todos
+              </Button>
+              {GENRES.map((genre) => (
+                <Button
+                  key={genre}
+                  variant={genreFilter === genre ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setGenreFilter(genre)}
+                  className="h-8 text-xs rounded-full shrink-0"
+                >
+                  {genre}
+                </Button>
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </div>
 
         {/* Categories Carousel */}
         {availableCategories.length > 0 && (
