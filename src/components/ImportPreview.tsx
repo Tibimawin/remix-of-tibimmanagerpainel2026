@@ -898,7 +898,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                 onClick={() => setGenreFilter('all')}
                 className="h-8 text-xs rounded-full shrink-0"
               >
-                Todos
+                Todos ({genreCounts.all || 0})
               </Button>
               {GENRES.map((genre) => (
                 <Button
@@ -908,7 +908,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                   onClick={() => setGenreFilter(genre)}
                   className="h-8 text-xs rounded-full shrink-0"
                 >
-                  {genre}
+                  {genre} ({genreCounts[genre] || 0})
                 </Button>
               ))}
             </div>
