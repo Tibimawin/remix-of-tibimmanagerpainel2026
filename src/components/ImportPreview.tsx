@@ -967,7 +967,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                     <div
                       key={content.id}
                       onClick={() => toggleSelection(content.id)}
-                      className={`group relative bg-card rounded-lg border overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer w-full max-w-[160px] mx-auto ${
+                      className={`group relative bg-card rounded-md border overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer w-full ${
                         isAlreadyImported
                           ? 'border-emerald-500/50 bg-emerald-500/5 ring-1 ring-emerald-500/20'
                           : isDuplicateInPreview
