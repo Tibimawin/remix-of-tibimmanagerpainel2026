@@ -25,13 +25,14 @@ interface AsaasPixPaymentDialogProps {
   isUpgrade?: boolean;
   upgradeFromPlan?: string;
   existingFeatures?: string[];
+  requiredFeature?: string;
 }
 
 type Step = 'form' | 'processing' | 'pix' | 'confirmed' | 'error';
 
 const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
   isOpen, onOpenChange, planName, planPrice, planDescription,
-  isUpgrade = false, upgradeFromPlan = '', existingFeatures = []
+  isUpgrade = false, upgradeFromPlan = '', existingFeatures = [], requiredFeature
 }) => {
   const { userInfo } = useSimpleAuth();
   const { activePlans } = usePlans();
@@ -149,7 +150,15 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                 
                 // 🔓 Auto-liberar permissões baseado no plano assinado
                 try {
-                  const matchedPlan = activePlans.find(p => p.name === planName);
+                  // Tenta achar o plano exato; se não encontrar, faz fallback para
+                  // o plano "Empresa" / mais completo (importação ilimitada).
+                  const normalize = (s: string) => (s || '').toLowerCase().trim();
+                  const fallbackPlan =
+                    activePlans.find(p => normalize(p.name).includes('empresa')) ||
+                    activePlans.find(p => p.monthlyContentLimit === -1) ||
+                    [...activePlans].sort((a, b) => (b.features?.length || 0) - (a.features?.length || 0))[0];
+                  const matchedPlan =
+                    activePlans.find(p => normalize(p.name) === normalize(planName)) || fallbackPlan;
                   
                   if (isUpgrade) {
                     // UPGRADE: mesclar features existentes com a nova feature (minha-api)
@@ -193,9 +202,14 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                     const endDate2 = new Date();
                     endDate2.setDate(endDate2.getDate() + accessDays);
                     
-                    const featuresWithPlanos = matchedPlan.features.includes('planos')
-                      ? matchedPlan.features
-                      : [...matchedPlan.features, 'planos'];
+                    // Garante que a feature solicitada (ex.: importacao-automatica)
+                    // e o acesso a "planos" estejam sempre incluídos.
+                    const baseFeatures = Array.isArray(matchedPlan.features) ? matchedPlan.features : [];
+                    const featuresWithPlanos = Array.from(new Set([
+                      ...baseFeatures,
+                      'planos',
+                      ...(requiredFeature ? [requiredFeature] : []),
+                    ]));
 
                     await setDoc(doc(db, 'userPermissions', userInfo.id), {
                       userId: userInfo.id,
@@ -203,7 +217,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                       userName: name || userInfo.email?.split('@')[0] || 'Usuário',
                       planId: matchedPlan.id,
                       planName: matchedPlan.name,
-                      monthlyContentLimit: matchedPlan.monthlyContentLimit,
+                      monthlyContentLimit: matchedPlan.monthlyContentLimit ?? -1,
                       enabledFeatures: featuresWithPlanos,
                       currentMonthUsage: 0,
                       lastUpdated: new Date().toISOString(),
@@ -229,7 +243,33 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                       console.error('Erro ao salvar log de permissões:', logErr);
                     }
                   } else {
-                    console.warn('⚠️ Plano não encontrado para auto-liberar permissões:', planName);
+                    // Fallback final: nenhum plano cadastrado. Cria uma permissão
+                    // "Empresa" sintética com importação ilimitada para não bloquear o usuário.
+                    const endDate3 = new Date();
+                    endDate3.setDate(endDate3.getDate() + accessDays);
+                    const syntheticFeatures = Array.from(new Set([
+                      'dashboard','conteudos','episodios','categorias','banners',
+                      'duplicados','duplicados-episodios','importacao-automatica','automacao',
+                      'substituicao-urls','importar-m3u','adicionar-conteudo','usuarios',
+                      'sessoes','plataformas','produtos','estatisticas','relatorios-visualizacao',
+                      'recursos','clean-data','maxplus-import','precos-interno','configuracoes',
+                      'perfil','suporte-ao-vivo','priority-support','export','logs','planos',
+                      ...(requiredFeature ? [requiredFeature] : []),
+                    ]));
+                    await setDoc(doc(db, 'userPermissions', userInfo.id), {
+                      userId: userInfo.id,
+                      userEmail: userInfo.email,
+                      userName: name || userInfo.email?.split('@')[0] || 'Usuário',
+                      planId: 'empresa-auto',
+                      planName: 'Empresa',
+                      monthlyContentLimit: -1,
+                      enabledFeatures: syntheticFeatures,
+                      currentMonthUsage: 0,
+                      lastUpdated: new Date().toISOString(),
+                      expiryDate: endDate3.toISOString(),
+                      isActive: true
+                    });
+                    console.log('🔓 Permissão Empresa sintética concedida (fallback).');
                   }
                 } catch (permErr) {
                   console.error('Erro ao liberar permissões:', permErr);
