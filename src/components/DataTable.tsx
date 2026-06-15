@@ -546,7 +546,7 @@ export const DataTable: React.FC<DataTableProps & {
               )}
             </div>
           ) : (
-            <div className="w-full overflow-x-auto no-arrows max-h-[calc(100vh-23rem)] overflow-y-auto min-h-[200px]">
+            <div className="w-full overflow-x-auto no-arrows max-h-[calc(100vh-14rem)] overflow-y-auto min-h-[200px]">
               <Table className="no-arrows min-w-full">
                 <TableHeader className="no-arrows sticky top-0 bg-card/95 backdrop-blur-sm z-10 border-b border-border shadow-sm">
                   <TableRow className="no-arrows">
