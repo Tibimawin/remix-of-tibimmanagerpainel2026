@@ -4,7 +4,6 @@ import { Navigate } from 'react-router-dom';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { FirebaseUserService } from '@/services/FirebaseUserService';
-import AccessExpiredMessage from './AccessExpiredMessage';
 import { useMaintenanceMode } from '@/hooks/useMaintenanceMode';
 import { MaintenancePage } from './MaintenancePage';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
@@ -88,13 +87,13 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  // Access expired
-  if (hasAccess === false) {
-    return <AccessExpiredMessage expiryDate={expiryDate || undefined} />;
-  }
+  // Assinatura expirada: NÃO bloquear toda a navegação. As funcionalidades pagas
+  // ficam desabilitadas via permissões e o banner de renovação é exibido no Layout.
+  void hasAccess;
+  void expiryDate;
 
-  // If not configured, redirect to settings (only if has access)
-  if (!isConfigured && hasAccess === true) {
+  // If not configured, redirect to settings
+  if (!isConfigured) {
     return <Navigate to="/configuracoes" replace />;
   }
 
