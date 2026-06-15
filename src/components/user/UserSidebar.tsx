@@ -63,7 +63,7 @@ interface MenuItem {
   icon: any;
   category: string;
   description: string;
-  feature: string;
+  feature?: string;
   badge?: MenuBadge;
   children?: MenuItem[];
 }
