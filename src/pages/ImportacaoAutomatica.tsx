@@ -387,7 +387,7 @@ const ImportacaoAutomatica = () => {
 
   if (showImportInterface && importConfig) {
     return (
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="w-full space-y-6 animate-fade-in">
         <ImportContentInterface
           importConfig={importConfig}
           userConfig={userConfig}
@@ -399,7 +399,7 @@ const ImportacaoAutomatica = () => {
 
   return (
     <PermissionGate feature="importacao-automatica">
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="w-full space-y-6 animate-fade-in">
 
         {/* Hero Section Compacto */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl bg-card border border-border p-6">
