@@ -665,10 +665,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   };
 
   return (
-    <Card className="border-primary/20 shadow-lg shadow-primary/5 overflow-hidden flex flex-col flex-1 min-h-0">
-      <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 via-accent/5 to-transparent shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+    <Card className="border-primary/20 shadow-lg shadow-primary/5 overflow-hidden flex flex-col flex-1 min-h-0 w-full min-w-0">
+      <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 via-accent/5 to-transparent shrink-0 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="p-2 rounded-lg bg-primary/10">
               <Eye className="h-5 w-5 text-primary" />
             </div>
@@ -679,7 +679,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 justify-end">
             {selectedIds.size > 0 && (
               <Badge variant="secondary" className="text-xs">
                 {selectedIds.size} selecionado{selectedIds.size !== 1 ? 's' : ''}
@@ -860,7 +860,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
         {/* Content Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-7 2xl:grid-cols-7 gap-2 p-2 flex-1 min-h-0 overflow-y-auto">
+          <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-11 2xl:grid-cols-13 gap-1 p-1 flex-1 min-h-0 overflow-y-auto">
             {Array.from({ length: 14 }).map((_, i) => (
               <div key={i} className="space-y-2">
                 <Skeleton className="aspect-[2/3] w-full rounded-lg" />
@@ -964,8 +964,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                 )}
               </div>
             </div>
-            <div className="rounded-md border bg-muted/10 flex-1 min-h-0 overflow-y-auto">
-              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-7 2xl:grid-cols-7 gap-2 p-2">
+            <div className="rounded-md border bg-muted/10 flex-1 min-h-0 overflow-y-auto min-w-0">
+              <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-11 2xl:grid-cols-13 gap-1 p-1">
                 {filteredPreviews.map((content) => {
                   const isSelected = selectedIds.has(content.id);
                   const highlight = previewHighlightMap.get(content.id);
@@ -1064,11 +1064,11 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/95 to-transparent" />
                       </div>
 
-                      <div className="absolute inset-x-0 bottom-0 p-1.5 text-white">
-                        <h4 className="font-semibold text-[10.5px] line-clamp-2 leading-tight mb-0.5">
+                      <div className="absolute inset-x-0 bottom-0 p-1 text-white">
+                        <h4 className="font-semibold text-[9.5px] line-clamp-2 leading-tight mb-0.5">
                           {content.Nome || 'Sem título'}
                         </h4>
-                        <div className="flex items-center gap-1 text-[9.5px] text-white/70 mb-0.5">
+                        <div className="flex items-center gap-1 text-[8.5px] text-white/70 mb-0.5">
                           {content.Ano && (
                             <span className="flex items-center gap-0.5 shrink-0">
                               <Calendar className="h-2.5 w-2.5" />
@@ -1080,7 +1080,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                           )}
                         </div>
                         {highlight?.matchReasons?.length ? (
-                          <div className="rounded bg-black/45 px-1 py-0.5 text-[8.5px] text-white/85 line-clamp-1">
+                          <div className="rounded bg-black/45 px-1 py-0.5 text-[7.5px] text-white/85 line-clamp-1">
                             {highlight.matchReasons.join(' • ')}
                           </div>
                         ) : null}
@@ -1095,7 +1095,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
         {/* Footer with Pagination and CTA */}
         {previews.length > 0 && (
-          <div className="flex flex-col gap-3 px-6 py-4 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 border-t border-border/50 shrink-0">
+          <div className="flex flex-col gap-2 px-4 py-2 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 border-t border-border/50 shrink-0">
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2">

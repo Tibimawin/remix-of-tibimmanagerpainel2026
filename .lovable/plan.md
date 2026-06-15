@@ -1,62 +1,90 @@
 ## Objetivo
 
-Quando o usuário re-importar um conteúdo que já existe no Baserow, em vez de duplicar (ou atualizar só parcialmente), o sistema deve **atualizar todos os campos relevantes** com os dados mais novos da origem. Para séries, novos episódios/temporadas devem ser inseridos automaticamente, e episódios já existentes devem ter seus campos atualizados (não só o Link).
+Fazer com que toda a tela de Importação Automática caiba na viewport: header com botões (Atualizar, Importar Todos, Importar), filtros, grid de preview e paginação — todos visíveis ao mesmo tempo, sem scroll horizontal nem necessidade de zoom out. O container de Preview não pode "estourar" para fora da área útil à direita.
 
-## Situação atual
+## Diagnóstico do problema atual
 
-Em `src/services/AutoImportService.ts > importContents`:
+Ao revisar `src/components/ImportPreview.tsx`:
 
-- **Conteúdo já existe** → faz `updateRow` mas só com 3 campos: `Link`, `Sinopse`, `Capa`. Resto fica desatualizado (ex: `Temporadas`, `Categoria`, `Capa de fundo`, `Data de Lançamento`, `Imdb`, `Idioma`, `TMDB ID`, `Views`).
-- **Episódio já existe** → `updateRow` só com `Link`. `Nome`, `Sinopse`, vínculo `Conteudo` não atualizam.
-- **Novos episódios** → já são criados (essa parte já funciona, então séries com novas temporadas/episódios já ganham os registros novos).
+1. **Cards grandes demais** — grid usa breakpoints `2xl:grid-cols-10` mas em telas comuns (1366–1440px) cai em `xl:grid-cols-8` ou `lg:grid-cols-6`, deixando cada card com ~180–200px de largura. Isso empurra a altura do bloco para além da viewport, escondendo paginação e o footer de ação (linhas ~960, ~1090, ~1198).
+2. **Container Card sem max-width nem `min-w-0`** — o `Card` raiz (linha 660) e o grid interno tendem a expandir além do espaço do conteúdo principal quando a sidebar/menu está aberta, escondendo botões à direita.
+3. **Header com muitos botões em linha** (linhas 660–740) — "Atualizar Cache", "Importar Todos" e a busca dividem a mesma linha sem wrap controlado, encostando na borda.
+4. **Footer de ação (Importar) e paginação** (linhas 1090–1216) ficam empilhados depois do grid; com grid alto, ambos saem da viewport.
 
-Logo o que falta é: **atualizar de fato todos os campos** quando o registro já existir.
+## Mudanças propostas (somente UI, sem mexer em lógica)
 
-## Mudanças propostas
+### 1. Reduzir tamanho dos cards
 
-Tudo em `src/services/AutoImportService.ts`, no método `importContents` (sem mexer em UI nem em outros fluxos).
+Em `src/components/ImportPreview.tsx`:
 
-### 1. Atualização completa do conteúdo existente
+- Trocar o grid (linhas 855 e 960) para densidade maior em telas médias:
+  - de `grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10`
+  - para `grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-11 2xl:grid-cols-13`
+- Manter `gap-1 p-1` (já compacto).
+- Reduzir tipografia do título do card de `text-[10.5px]` para `text-[9.5px]` e meta de `text-[9.5px]` para `text-[8.5px]` (linhas 1060–1075) para acomodar card menor sem quebrar.
 
-Substituir o `updateData` parcial por um objeto com todos os campos mapeados, usando o valor da origem e caindo para o valor atual só quando a origem vier vazia:
+### 2. Garantir que o container não estoure para fora
+
+- No `Card` raiz (linha 660), adicionar `w-full min-w-0` para nunca passar do container pai.
+- Envolver a área do grid em wrapper com `min-w-0 overflow-hidden` para que os cards encolham ao invés de empurrar a largura.
+- Em `src/pages/ImportacaoAutomatica.tsx`, garantir que o pai do `<ImportPreview />` tenha `min-w-0` (necessário em flexbox para permitir encolhimento).
+
+### 3. Altura do grid limitada + scroll interno
+
+Em vez de o grid crescer infinitamente e empurrar paginação/botões para fora:
+
+- Dar ao grid um `max-h-[calc(100vh-380px)] overflow-y-auto` (margem para header da página + header do card + filtros + footer).
+- Assim a paginação e os botões "Importar Selecionados" ficam sempre fixos na parte inferior visível do card.
+
+### 4. Header e footer mais compactos
+
+- Header do card (linha 660): permitir wrap dos botões (`flex-wrap`) e reduzir gap para `gap-2`. Em telas estreitas, busca vai para linha de baixo.
+- Footer de paginação + ação (linhas 1090, 1198): reduzir padding de `px-6 py-4` para `px-4 py-2` e juntar paginação + botão "Importar Selecionados" na mesma linha quando couber.
+
+## Wireframe do resultado esperado
 
 ```text
-Nome, Tipo, Categoria, Sinopse, Capa, Link, Idioma, Views,
-Temporadas, Imdb, Data de Lançamento, Capa de fundo, TMDB ID
+┌─────────────────────────────────────────────────────────────────┐
+│ Importação Automática                          [Sair] [Config]  │
+├─────────────────────────────────────────────────────────────────┤
+│ Preview de Conteúdos          [Atualizar] [Importar Todos] [⌕] │
+│ Filtros: [Tipo▾] [Status▾] [Limpar]                             │
+├─────────────────────────────────────────────────────────────────┤
+│ ┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐  ← cards menores  │
+│ │  ││  ││  ││  ││  ││  ││  ││  ││  ││  ││  │     (11 colunas)  │
+│ └──┘└──┘└──┘└──┘└──┘└──┘└──┘└──┘└──┘└──┘└──┘                   │
+│ ┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐                   │
+│ │  ││  ││  ││  ││  ││  ││  ││  ││  ││  ││  │  (scroll interno) │
+│ └──┘└──┘└──┘└──┘└──┘└──┘└──┘└──┘└──┘└──┘└──┘                   │
+├─────────────────────────────────────────────────────────────────┤
+│ « ‹ 1 2 3 4 5 › »   320 itens  ·  12 selecionados [Importar →] │
+└─────────────────────────────────────────────────────────────────┘
+              ↑ tudo visível, sem precisar rolar nem zoom
 ```
 
-Regras:
-- `Nome` e `Tipo` permanecem (não sobrescrever Tipo se vier vazio).
-- `Temporadas`: sempre usar o valor da origem se presente — é o campo principal que o admin atualiza quando lança nova temporada.
-- `TMDB ID`: se o registro existente já tiver, manter; caso contrário, executar a mesma busca TMDB usada na criação e preencher.
-- Manter a função `cleanReadOnlyFields` já existente (documentada em `CORRECAO_BUG_READONLY.md`) antes de enviar ao Baserow.
-
-### 2. Atualização completa do episódio existente
-
-Substituir o update de apenas `Link` por:
+Comparado ao atual:
 
 ```text
-Nome, Serie, Temporada, Episódio, Link, Sinopse
+┌─────────────────────────────────────┐
+│ [Atualizar][Importar...           ▒│ ← botão cortado à direita
+│ Filtros...                         ▒│
+│ ┌────┐┌────┐┌────┐┌────┐┌────┐    ▒│ ← cards grandes
+│ │    ││    ││    ││    ││    │    ▒│
+│ │    ││    ││    ││    ││    │    ▒│
+│ └────┘└────┘└────┘└────┘└────┘    ▒│
+│ ┌────┐┌────┐┌────┐...               │
+│   (continua além da viewport)       │
+│   paginação e botão Importar        │
+│   escondidos abaixo da dobra        │
+└─────────────────────────────────────┘
 ```
 
-(`Conteudo` não precisa ser reescrito a cada vez; só preencher no update se estiver faltando no registro existente, apontando para o `createdOrUpdatedContent.id`.)
+## Arquivos afetados
 
-### 3. Novos episódios continuam sendo criados
-
-Sem mudança — o branch `else` já cria episódios inexistentes, então uma série com nova temporada (S04E01, S04E02…) recebe os registros novos automaticamente quando o usuário re-importa.
-
-### 4. Logs
-
-Atualizar os `console.log` de "atualizando" para indicar quais campos mudaram, mantendo o padrão atual de logs (útil para suporte).
+- `src/components/ImportPreview.tsx` — densidade do grid, alturas, paddings, `min-w-0`, scroll interno.
+- `src/pages/ImportacaoAutomatica.tsx` — `min-w-0` no wrapper do `<ImportPreview />` (1 linha).
 
 ## Fora do escopo
 
-- Não muda UI, nem `ImportPreview`, nem `AutoImportScheduleService` (importação 100% automática agendada — pode ser ajustado num passo seguinte, se você quiser).
-- Não toca em `BaserowService`, proxies, ou tipos.
-- Não cria migrações nem mexe em backend.
-
-## Validação
-
-1. Importar uma série existente após o admin alterar `Temporadas` de 3 → 4 e adicionar novos episódios na origem: o registro de conteúdo deve refletir `Temporadas = 4` e os novos episódios devem aparecer; episódios antigos com Link novo devem ter Link atualizado.
-2. Importar um filme existente após mudança de `Sinopse`/`Capa de fundo`/`Categoria`: todos os campos devem refletir o novo valor.
-3. Importar um conteúdo inalterado: não deve gerar erro nem duplicar (mesmo comportamento atual de "encontrou existente").
+- Nenhuma mudança em lógica de import, paginação, seleção, deduplicação, ou Baserow.
+- Sem alteração de cores/tema.
