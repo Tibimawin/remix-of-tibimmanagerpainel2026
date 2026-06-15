@@ -8,6 +8,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Menu, User, Bell, Search } from 'lucide-react';
 import UserNotifications from './UserNotifications';
 import GlobalSearch from './GlobalSearch';
+import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -19,16 +20,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isCollapsed }) 
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    loadUnreadCount();
-    
-    // Verificar novas notificações a cada 5 segundos
-    const interval = setInterval(loadUnreadCount, 5000);
-    
-    return () => clearInterval(interval);
-  }, []);
+  const unreadCount = useUnreadNotifications();
 
   // Atalho de teclado para pesquisa (Ctrl+K ou Cmd+K)
   useEffect(() => {
@@ -43,27 +35,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isCollapsed }) 
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const loadUnreadCount = () => {
-    try {
-      const savedNotifications = localStorage.getItem('user-notifications');
-      if (savedNotifications) {
-        const notifications = JSON.parse(savedNotifications);
-        const unread = notifications.filter((n: any) => !n.lida).length;
-        setUnreadCount(unread);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar contagem de notificações:', error);
-    }
-  };
-
   const handleNotificationsClick = () => {
     setShowNotifications(true);
   };
 
   const handleCloseNotifications = () => {
     setShowNotifications(false);
-    // Recarregar contagem após fechar o modal
-    setTimeout(loadUnreadCount, 100);
   };
 
   const handleSearchClick = () => {

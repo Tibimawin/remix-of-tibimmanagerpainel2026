@@ -24,6 +24,7 @@ import {
   Users
 } from 'lucide-react';
 import UserNotifications from '../UserNotifications';
+import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 import GlobalSearch from '../GlobalSearch';
 import { ZoomControl } from '../ZoomControl';
 import { Switch } from '@/components/ui/switch';
@@ -141,22 +142,13 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
   const location = useLocation();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const unreadCount = useUnreadNotifications();
 
   // Obter informações da rota atual
   const currentRoute = routeTitles[location.pathname] || { 
     title: 'StreamFlix', 
     subtitle: 'Management Panel' 
   };
-
-  useEffect(() => {
-    loadUnreadCount();
-    
-    // Verificar novas notificações a cada 30 segundos
-    const interval = setInterval(loadUnreadCount, 30000);
-    
-    return () => clearInterval(interval);
-  }, []);
 
   // Atalho de teclado para pesquisa (Ctrl+K ou Cmd+K)
   useEffect(() => {
@@ -176,26 +168,12 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const loadUnreadCount = () => {
-    try {
-      const savedNotifications = localStorage.getItem('user-notifications');
-      if (savedNotifications) {
-        const notifications = JSON.parse(savedNotifications);
-        const unread = notifications.filter((n: any) => !n.lida).length;
-        setUnreadCount(unread);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar contagem de notificações:', error);
-    }
-  };
-
   const handleNotificationsClick = () => {
     setShowNotifications(true);
   };
 
   const handleCloseNotifications = () => {
     setShowNotifications(false);
-    setTimeout(loadUnreadCount, 100);
   };
 
   const getUserInitials = () => {
