@@ -9,6 +9,7 @@ import { Menu, User, Bell, Search } from 'lucide-react';
 import UserNotifications from './UserNotifications';
 import GlobalSearch from './GlobalSearch';
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -107,20 +108,30 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isCollapsed }) 
             </Button>
             
             <div className="relative">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleNotificationsClick}
-                className="h-10 w-10 rounded-xl transition-all duration-200 hover:bg-accent hover:scale-105 hover-lift"
-                title="Notificações"
-              >
-                <Bell className="h-5 w-5 text-muted-foreground hover:text-foreground" />
-                {unreadCount > 0 && (
-                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-bold border-2 border-background modern-pulse">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </div>
-                )}
-              </Button>
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleNotificationsClick}
+                      className="h-10 w-10 rounded-xl transition-all duration-200 hover:bg-accent hover:scale-105 hover-lift"
+                    >
+                      <Bell className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+                      {unreadCount > 0 && (
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-bold border-2 border-background modern-pulse">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </div>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {unreadCount > 0
+                      ? `${unreadCount} notificação${unreadCount === 1 ? '' : 'ões'} não lida${unreadCount === 1 ? '' : 's'}`
+                      : 'Sem notificações novas'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
             
             <Button
