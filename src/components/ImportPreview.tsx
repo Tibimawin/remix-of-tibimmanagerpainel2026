@@ -665,10 +665,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   };
 
   return (
-    <Card className="border-primary/20 shadow-lg shadow-primary/5 overflow-hidden flex flex-col flex-1 min-h-0">
-      <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 via-accent/5 to-transparent shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+    <Card className="border-primary/20 shadow-lg shadow-primary/5 overflow-hidden flex flex-col flex-1 min-h-0 w-full min-w-0">
+      <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 via-accent/5 to-transparent shrink-0 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="p-2 rounded-lg bg-primary/10">
               <Eye className="h-5 w-5 text-primary" />
             </div>
@@ -679,7 +679,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 justify-end">
             {selectedIds.size > 0 && (
               <Badge variant="secondary" className="text-xs">
                 {selectedIds.size} selecionado{selectedIds.size !== 1 ? 's' : ''}
