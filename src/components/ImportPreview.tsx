@@ -1064,11 +1064,11 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/95 to-transparent" />
                       </div>
 
-                      <div className="absolute inset-x-0 bottom-0 p-1.5 text-white">
-                        <h4 className="font-semibold text-[10.5px] line-clamp-2 leading-tight mb-0.5">
+                      <div className="absolute inset-x-0 bottom-0 p-1 text-white">
+                        <h4 className="font-semibold text-[9.5px] line-clamp-2 leading-tight mb-0.5">
                           {content.Nome || 'Sem título'}
                         </h4>
-                        <div className="flex items-center gap-1 text-[9.5px] text-white/70 mb-0.5">
+                        <div className="flex items-center gap-1 text-[8.5px] text-white/70 mb-0.5">
                           {content.Ano && (
                             <span className="flex items-center gap-0.5 shrink-0">
                               <Calendar className="h-2.5 w-2.5" />
@@ -1080,7 +1080,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                           )}
                         </div>
                         {highlight?.matchReasons?.length ? (
-                          <div className="rounded bg-black/45 px-1 py-0.5 text-[8.5px] text-white/85 line-clamp-1">
+                          <div className="rounded bg-black/45 px-1 py-0.5 text-[7.5px] text-white/85 line-clamp-1">
                             {highlight.matchReasons.join(' • ')}
                           </div>
                         ) : null}
