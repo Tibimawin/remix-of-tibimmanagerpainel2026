@@ -264,6 +264,17 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     };
   }, [baseFilteredPreviews, previewHighlightMap]);
 
+  // Genre counts from currently loaded previews
+  const genreCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: previews.length };
+    GENRES.forEach((genre) => {
+      counts[genre] = previews.filter((content) =>
+        content.Categoria?.toLowerCase().includes(genre.toLowerCase())
+      ).length;
+    });
+    return counts;
+  }, [previews, GENRES]);
+
   // Local filtering and sorting
   const filteredPreviews = useMemo(() => {
     let filtered = baseFilteredPreviews;
