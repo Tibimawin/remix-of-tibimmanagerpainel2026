@@ -843,7 +843,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             </div>
 
             {/* Clear filters button */}
-            {(typeFilter !== 'all' || categoryFilter !== 'all' || highlightFilter !== 'all' || sortBy !== 'nome' || searchTerm) && (
+            {(typeFilter !== 'all' || categoryFilter !== 'all' || genreFilter !== 'all' || highlightFilter !== 'all' || sortBy !== 'nome' || searchTerm) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -856,6 +856,39 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             )}
           </div>
         )}
+
+        {/* Gêneros Carousel */}
+        <div className="px-6 py-3 border-b border-border/50 bg-background">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-foreground">Gêneros</span>
+            <span className="text-xs text-muted-foreground">({GENRES.length})</span>
+          </div>
+          <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex w-max items-center gap-2 pb-2">
+              <Button
+                variant={genreFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setGenreFilter('all')}
+                className="h-8 text-xs rounded-full shrink-0"
+              >
+                Todos
+              </Button>
+              {GENRES.map((genre) => (
+                <Button
+                  key={genre}
+                  variant={genreFilter === genre ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setGenreFilter(genre)}
+                  className="h-8 text-xs rounded-full shrink-0"
+                >
+                  {genre}
+                </Button>
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </div>
 
         {/* Categories Carousel */}
         {availableCategories.length > 0 && (
