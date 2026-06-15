@@ -264,6 +264,17 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     };
   }, [baseFilteredPreviews, previewHighlightMap]);
 
+  // Genre counts from currently loaded previews
+  const genreCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: previews.length };
+    GENRES.forEach((genre) => {
+      counts[genre] = previews.filter((content) =>
+        content.Categoria?.toLowerCase().includes(genre.toLowerCase())
+      ).length;
+    });
+    return counts;
+  }, [previews, GENRES]);
+
   // Local filtering and sorting
   const filteredPreviews = useMemo(() => {
     let filtered = baseFilteredPreviews;
@@ -887,7 +898,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                 onClick={() => setGenreFilter('all')}
                 className="h-8 text-xs rounded-full shrink-0"
               >
-                Todos
+                Todos ({genreCounts.all || 0})
               </Button>
               {GENRES.map((genre) => (
                 <Button
@@ -897,7 +908,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                   onClick={() => setGenreFilter(genre)}
                   className="h-8 text-xs rounded-full shrink-0"
                 >
-                  {genre}
+                  {genre} ({genreCounts[genre] || 0})
                 </Button>
               ))}
             </div>
