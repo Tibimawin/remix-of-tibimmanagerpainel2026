@@ -129,6 +129,15 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [existingProgress, setExistingProgress] = useState<{ loaded: number; total: number }>({ loaded: 0, total: 0 });
   const pageSize = 30;
 
+  // Per-series season/episode selection
+  const autoImportService = useAutoImportService();
+  const [seriesSeasonsMap, setSeriesSeasonsMap] = useState<Map<number, number[]>>(new Map());
+  const [seriesEpisodesMap, setSeriesEpisodesMap] = useState<Map<number, ImportEpisode[]>>(new Map());
+  const [seasonDialogOpen, setSeasonDialogOpen] = useState(false);
+  const [currentSeriesDialog, setCurrentSeriesDialog] = useState<ContentPreview | null>(null);
+  const [loadingEpisodes, setLoadingEpisodes] = useState(false);
+  const [pendingSeasons, setPendingSeasons] = useState<number[]>([]);
+
   // Gêneros (filtro independente de Tipo e Categoria)
   const GENRES = useMemo(() => [
     'Dorama Chinês',
