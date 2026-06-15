@@ -558,23 +558,23 @@ export const DataTable: React.FC<DataTableProps & {
                 </TableHeader>
                 <TableBody className="no-arrows">
                   {displayData.map((item) => (
-                    <TableRow key={item.id} className="no-arrows">
+                    <TableRow key={item.id} className="no-arrows h-10">
                       {columns.map((column) => (
-                        <TableCell key={column} className="no-arrows">
-                          <div className="max-w-xs truncate">
+                        <TableCell key={column} className="no-arrows py-1 px-2">
+                          <div className="max-w-xs truncate text-sm">
                             {formatValue(column, getValueByPossibleKeys(item, column), item)}
                           </div>
                         </TableCell>
                       ))}
-                      <TableCell className="no-arrows">
-                        <div className="flex space-x-2 no-arrows">
-                          <Button 
-                            variant="ghost" 
+                      <TableCell className="no-arrows py-1 px-2">
+                        <div className="flex space-x-1 no-arrows">
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleView(item)}
-                            className="no-arrows"
+                            className="no-arrows h-7 w-7 p-0"
                           >
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-3.5 w-3.5" />
                           </Button>
                           {tableKey === 'usuarios' && (
                             <Button
@@ -582,26 +582,26 @@ export const DataTable: React.FC<DataTableProps & {
                               size="sm"
                               onClick={() => handleRenew(item)}
                               title="Renovar Usuário (Mais 30 dias)"
-                              className="no-arrows text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                              className="no-arrows text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 h-7 w-7 p-0"
                             >
-                              <RefreshCw className="h-4 w-4" />
+                              <RefreshCw className="h-3.5 w-3.5" />
                             </Button>
                           )}
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleEdit(item)}
-                            className="no-arrows"
+                            className="no-arrows h-7 w-7 p-0"
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit className="h-3.5 w-3.5" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDelete(item.id)}
-                            className="no-arrows"
+                            className="no-arrows h-7 w-7 p-0"
                           >
-                            <Trash className="h-4 w-4" />
+                            <Trash className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </TableCell>
