@@ -549,11 +549,11 @@ export const DataTable: React.FC<DataTableProps & {
             <div className="w-full overflow-x-auto no-arrows max-h-[calc(100vh-14rem)] overflow-y-auto min-h-[200px]">
               <Table className="no-arrows min-w-full">
                 <TableHeader className="no-arrows sticky top-0 bg-card/95 backdrop-blur-sm z-10 border-b border-border shadow-sm">
-                  <TableRow className="no-arrows">
+                  <TableRow className="no-arrows h-8">
                     {columns.map((column) => (
-                      <TableHead key={column} className="no-arrows whitespace-nowrap">{column}</TableHead>
+                      <TableHead key={column} className="no-arrows whitespace-nowrap py-1 px-2 text-xs">{column}</TableHead>
                     ))}
-                    <TableHead className="no-arrows">Ações</TableHead>
+                    <TableHead className="no-arrows py-1 px-2 text-xs">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="no-arrows">
