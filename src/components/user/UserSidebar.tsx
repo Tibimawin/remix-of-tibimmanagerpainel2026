@@ -760,7 +760,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                           className="animate-fade-in-up"
                           style={{ animationDelay: `${(categoryIndex * items.length + index) * 0.05}s` }}
                         >
-                          {hasAccess ? (
+                       {true ? (
                             <>
                               {hasChildren ? (
                                 <div {...(item.id === 'configuracoes' ? { 'data-tour': 'settings' } : {})}>
@@ -800,23 +800,24 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
 
                                   {(!effectiveCollapsed || isMobile) && isOpen && (
                                     <ul className="mt-1 ml-4 space-y-1 border-l-2 border-border/40 pl-3 animate-fade-in">
-                                      {item.children.map((child) => {
+                                       {item.children.map((child) => {
                                         const ChildIcon = child.icon;
                                         const isChildActive = location.pathname === child.href;
                                         const childHasAccess = hasFeature(child.feature);
 
                                         return (
                                           <li key={child.id}>
-                                            {childHasAccess ? (
-                                              <Link
+                                            <Link
                                                 to={child.href!}
                                                 onClick={handleLinkClick}
                                                 className={cn(
                                                   "group relative flex items-center space-x-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-300",
                                                   isChildActive
                                                     ? "bg-gradient-to-r from-primary/20 via-primary/15 to-orange-500/20 text-primary border border-primary/30 shadow-md"
-                                                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50 hover:shadow-sm"
+                                                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50 hover:shadow-sm",
+                                                  !childHasAccess && "opacity-70"
                                                 )}
+                                                title={!childHasAccess ? "Recurso bloqueado - clique para ver planos" : undefined}
                                               >
                                                 <ChildIcon className={cn(
                                                   "w-4 h-4 flex-shrink-0 transition-all duration-300",
@@ -825,24 +826,13 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                                                 <div className="flex items-center space-x-2 flex-1 min-w-0">
                                                   <span className="truncate block">{child.label}</span>
                                                   {child.badge && <MenuBadge badge={child.badge} />}
+                                                  {!childHasAccess && <Lock className="w-3 h-3 text-orange-500/70" />}
                                                 </div>
 
                                                 {isChildActive && (
                                                   <div className="absolute right-3 w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-sm" />
                                                 )}
                                               </Link>
-                                            ) : (
-                                              <div
-                                                className="group relative flex items-center space-x-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 cursor-not-allowed bg-muted/10 text-muted-foreground/60 border border-border/20"
-                                                title="Recurso bloqueado - renove para liberar"
-                                              >
-                                                <ChildIcon className="w-4 h-4 flex-shrink-0 text-muted-foreground/40" />
-                                                <div className="flex items-center space-x-2 flex-1 min-w-0">
-                                                  <span className="truncate block">{child.label}</span>
-                                                  <Lock className="w-3 h-3 text-orange-500/70" />
-                                                </div>
-                                              </div>
-                                            )}
                                           </li>
                                         );
                                       })}
@@ -857,9 +847,10 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                                     "group relative flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 backdrop-blur-sm",
                                     isActive
                                       ? "bg-gradient-to-r from-primary/20 via-primary/15 to-orange-500/20 text-primary border border-primary/30 shadow-lg"
-                                      : "text-muted-foreground hover:text-foreground hover:bg-gradient-to-r hover:from-accent/10 hover:to-primary/5 hover:border hover:border-accent/20 hover:shadow-soft"
+                                      : "text-muted-foreground hover:text-foreground hover:bg-gradient-to-r hover:from-accent/10 hover:to-primary/5 hover:border hover:border-accent/20 hover:shadow-soft",
+                                    !hasAccess && "opacity-70"
                                   )}
-                                  title={effectiveCollapsed && !isMobile ? item.label : undefined}
+                                  title={!hasAccess ? "Recurso bloqueado - clique para ver planos" : (effectiveCollapsed && !isMobile ? item.label : undefined)}
                                   {...(item.id === 'conteudos' ? { 'data-tour': 'add-content' } : {})}
                                   {...(item.id === 'configuracoes' ? { 'data-tour': 'settings' } : {})}
                                 >
@@ -874,6 +865,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                                         <div className="flex items-center space-x-2">
                                           <span className="truncate block">{item.label}</span>
                                           {item.badge && <MenuBadge badge={item.badge} />}
+                                          {!hasAccess && <Lock className="w-3 h-3 text-orange-500/70" />}
                                         </div>
                                         <span className="text-xs text-muted-foreground/80 truncate block mt-0.5">
                                           {item.description}
