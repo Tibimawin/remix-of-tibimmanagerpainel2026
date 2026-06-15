@@ -38,6 +38,10 @@ import {
 } from 'lucide-react';
 import { ImportConfig, UserConfig } from '@/services/AutoImportService';
 import { makeProxyRequest } from '@/utils/proxyRequest';
+import { useAutoImportService, ImportEpisode } from '@/services/AutoImportService';
+import { SeasonSelectionDialog } from '@/components/SeasonSelectionDialog';
+import { toast } from 'sonner';
+import { Layers } from 'lucide-react';
 
 export interface ContentPreview {
   id: number;
@@ -74,7 +78,11 @@ interface PreviewHighlightStatus {
 interface ImportPreviewProps {
   importConfig: ImportConfig | null;
   userConfig?: UserConfig | null;
-  onStartImport: (selectedContents?: ContentPreview[]) => void;
+  onStartImport: (
+    selectedContents?: ContentPreview[],
+    seriesSeasons?: Map<string, number[]>,
+    seriesEpisodes?: Map<string, ImportEpisode[]>
+  ) => void;
   configValid: boolean;
   isImporting?: boolean;
   importProgress?: number;
@@ -120,6 +128,15 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [loadingExistingContent, setLoadingExistingContent] = useState(false);
   const [existingProgress, setExistingProgress] = useState<{ loaded: number; total: number }>({ loaded: 0, total: 0 });
   const pageSize = 30;
+
+  // Per-series season/episode selection
+  const autoImportService = useAutoImportService();
+  const [seriesSeasonsMap, setSeriesSeasonsMap] = useState<Map<number, number[]>>(new Map());
+  const [seriesEpisodesMap, setSeriesEpisodesMap] = useState<Map<number, ImportEpisode[]>>(new Map());
+  const [seasonDialogOpen, setSeasonDialogOpen] = useState(false);
+  const [currentSeriesDialog, setCurrentSeriesDialog] = useState<ContentPreview | null>(null);
+  const [loadingEpisodes, setLoadingEpisodes] = useState(false);
+  const [pendingSeasons, setPendingSeasons] = useState<number[]>([]);
 
   // Gêneros (filtro independente de Tipo e Categoria)
   const GENRES = useMemo(() => [
@@ -700,10 +717,121 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     if (selectedIds.size > 0) {
       // Get the full content data for selected items
       const selectedContents = previews.filter(p => selectedIds.has(p.id));
-      onStartImport(selectedContents);
+      // Convert numeric-id maps to string-id maps to match ImportContent.id
+      const seasonsByStringId = new Map<string, number[]>();
+      const episodesByStringId = new Map<string, ImportEpisode[]>();
+      seriesSeasonsMap.forEach((seasons, numId) => {
+        if (selectedIds.has(numId) && seasons && seasons.length > 0) {
+          seasonsByStringId.set(String(numId), seasons);
+        }
+      });
+      seriesEpisodesMap.forEach((eps, numId) => {
+        if (selectedIds.has(numId)) {
+          episodesByStringId.set(String(numId), eps);
+        }
+      });
+      onStartImport(selectedContents, seasonsByStringId, episodesByStringId);
     } else {
       onStartImport();
     }
+  };
+
+  const isSeriesType = (tipo?: string) => {
+    const t = tipo?.toLowerCase();
+    return t === 'série' || t === 'serie';
+  };
+
+  const fetchEpisodesFor = async (content: ContentPreview) => {
+    if (seriesEpisodesMap.has(content.id)) return;
+    if (!importConfig) return;
+    setLoadingEpisodes(true);
+    try {
+      toast.info('Carregando episódios...', {
+        description: `Buscando episódios de "${content.Nome}"`,
+      });
+      const episodes = await autoImportService.getSeriesEpisodesOptimized(
+        importConfig,
+        content.Nome || ''
+      );
+      setSeriesEpisodesMap(prev => {
+        const next = new Map(prev);
+        next.set(content.id, episodes);
+        return next;
+      });
+      toast.success(`${episodes.length} episódios encontrados`);
+    } catch (err) {
+      console.error('Erro ao carregar episódios:', err);
+      toast.error('Erro ao carregar episódios da série');
+    } finally {
+      setLoadingEpisodes(false);
+    }
+  };
+
+  const openSeriesDialog = async (content: ContentPreview) => {
+    setCurrentSeriesDialog(content);
+    // Initialize pending selection from existing map, or all seasons by default
+    const existing = seriesSeasonsMap.get(content.id);
+    if (existing && existing.length > 0) {
+      setPendingSeasons(existing);
+    } else {
+      const total = parseInt(content.Temporadas || '0') || 0;
+      setPendingSeasons(total > 0 ? Array.from({ length: total }, (_, i) => i + 1) : []);
+    }
+    setSeasonDialogOpen(true);
+    await fetchEpisodesFor(content);
+    // After episodes load, if user hasn't customized and Temporadas was 0, infer from episodes
+    setPendingSeasons(prev => {
+      if (prev.length > 0) return prev;
+      const eps = seriesEpisodesMap.get(content.id) || [];
+      const seasonsSet = new Set<number>();
+      eps.forEach(e => {
+        const s = parseInt(e.Temporada);
+        if (!Number.isNaN(s)) seasonsSet.add(s);
+      });
+      return Array.from(seasonsSet).sort((a, b) => a - b);
+    });
+  };
+
+  const confirmSeriesSelection = () => {
+    if (!currentSeriesDialog) return;
+    if (pendingSeasons.length === 0) {
+      toast.error('Selecione ao menos uma temporada');
+      return;
+    }
+    const id = currentSeriesDialog.id;
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    setSeriesSeasonsMap(prev => {
+      const next = new Map(prev);
+      next.set(id, pendingSeasons);
+      return next;
+    });
+    setSeasonDialogOpen(false);
+    setCurrentSeriesDialog(null);
+    toast.success('Temporadas definidas', {
+      description: `${pendingSeasons.length} temporada(s) marcadas para "${currentSeriesDialog.Nome}"`,
+    });
+  };
+
+  const handleCardClick = (content: ContentPreview) => {
+    if (isSeriesType(content.Tipo)) {
+      // If already selected, allow toggling off via card click
+      if (selectedIds.has(content.id)) {
+        toggleSelection(content.id);
+        setSeriesSeasonsMap(prev => {
+          const next = new Map(prev);
+          next.delete(content.id);
+          return next;
+        });
+        return;
+      }
+      void openSeriesDialog(content);
+      return;
+    }
+    toggleSelection(content.id);
   };
 
   if (!configValid || !importConfig) {
@@ -725,6 +853,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   };
 
   return (
+    <>
     <Card className="border-primary/20 shadow-lg shadow-primary/5 overflow-hidden">
       <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 via-accent/5 to-transparent">
         <div className="flex items-center justify-between">
@@ -1064,10 +1193,12 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                   const highlight = previewHighlightMap.get(content.id);
                   const isAlreadyImported = highlight?.isAlreadyImported;
                   const isDuplicateInPreview = highlight?.isDuplicateInPreview;
+                  const isSerie = isSeriesType(content.Tipo);
+                  const selectedSeasonsForCard = seriesSeasonsMap.get(content.id);
                   return (
                     <div
                       key={content.id}
-                      onClick={() => toggleSelection(content.id)}
+                      onClick={() => handleCardClick(content)}
                       className={`group relative bg-card rounded-lg border overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer ${
                         isAlreadyImported
                           ? 'border-emerald-500/50 bg-emerald-500/5 ring-1 ring-emerald-500/20'
@@ -1086,10 +1217,38 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                       >
                         <Checkbox
                           checked={isSelected}
-                          onCheckedChange={() => toggleSelection(content.id)}
+                          onCheckedChange={() => {
+                            if (isSerie && !isSelected) {
+                              void openSeriesDialog(content);
+                            } else {
+                              toggleSelection(content.id);
+                              if (isSerie) {
+                                setSeriesSeasonsMap(prev => {
+                                  const next = new Map(prev);
+                                  next.delete(content.id);
+                                  return next;
+                                });
+                              }
+                            }
+                          }}
                           className="border-white data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                         />
                       </div>
+
+                      {isSerie && isSelected && selectedSeasonsForCard && selectedSeasonsForCard.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void openSeriesDialog(content);
+                          }}
+                          className="absolute top-2 right-12 z-20 flex items-center gap-1 rounded-md bg-primary/90 px-2 py-1 text-[10px] font-semibold text-primary-foreground shadow hover:bg-primary"
+                          title="Editar temporadas selecionadas"
+                        >
+                          <Layers className="h-3 w-3" />
+                          {selectedSeasonsForCard.length}T
+                        </button>
+                      )}
                       
                       <div className="aspect-[2/3] relative overflow-hidden bg-muted">
                         {content.Capa ? (
@@ -1333,5 +1492,30 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         )}
       </CardContent>
     </Card>
+    {currentSeriesDialog && (
+      <SeasonSelectionDialog
+        open={seasonDialogOpen}
+        onOpenChange={(o) => {
+          setSeasonDialogOpen(o);
+          if (!o) setCurrentSeriesDialog(null);
+        }}
+        seriesTitle={currentSeriesDialog.Nome || ''}
+        totalSeasons={(() => {
+          const declared = parseInt(currentSeriesDialog.Temporadas || '0') || 0;
+          const eps = seriesEpisodesMap.get(currentSeriesDialog.id) || [];
+          const inferred = eps.reduce((max, e) => {
+            const s = parseInt(e.Temporada);
+            return Number.isNaN(s) ? max : Math.max(max, s);
+          }, 0);
+          return Math.max(declared, inferred, 1);
+        })()}
+        selectedSeasons={pendingSeasons}
+        episodes={seriesEpisodesMap.get(currentSeriesDialog.id) || []}
+        loadingEpisodes={loadingEpisodes}
+        onSeasonsChange={setPendingSeasons}
+        onConfirm={confirmSeriesSelection}
+      />
+    )}
+    </>
   );
 };
