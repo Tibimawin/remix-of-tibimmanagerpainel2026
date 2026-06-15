@@ -7,6 +7,7 @@ import { OnboardingTour } from './OnboardingTour';
 import { ErrorBoundary } from './ErrorBoundary';
 import ExpirationWarningBanner from './ExpirationWarningBanner';
 import SubscriptionExpiredBanner from './SubscriptionExpiredBanner';
+import { RouteFeatureGate } from './RouteFeatureGate';
 import { AIAssistant } from './AIAssistant';
 import { SeasonalThemeBanner, SeasonalThemeEffects } from './seasonal/SeasonalThemeWrapper';
 import { PlansPopup } from './PlansPopup';
@@ -201,7 +202,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             )}
 
             <ErrorBoundary>
-              {children}
+              <RouteFeatureGate>
+                {children}
+              </RouteFeatureGate>
             </ErrorBoundary>
           </main>
         </div>
