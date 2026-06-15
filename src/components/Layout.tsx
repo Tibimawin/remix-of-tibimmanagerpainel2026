@@ -6,6 +6,7 @@ import FloatingChat from './FloatingChat';
 import { OnboardingTour } from './OnboardingTour';
 import { ErrorBoundary } from './ErrorBoundary';
 import ExpirationWarningBanner from './ExpirationWarningBanner';
+import SubscriptionExpiredBanner from './SubscriptionExpiredBanner';
 import { AIAssistant } from './AIAssistant';
 import { SeasonalThemeBanner, SeasonalThemeEffects } from './seasonal/SeasonalThemeWrapper';
 import { PlansPopup } from './PlansPopup';
@@ -146,6 +147,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               showDismiss={true}
               onRenewClick={() => window.location.href = '/precos'}
             />
+
+            {/* Banner de Assinatura Expirada (acesso parcial liberado) */}
+            <SubscriptionExpiredBanner />
 
             {/* 🎨 Banner de Tema Sazonal */}
             <SeasonalThemeBanner />
