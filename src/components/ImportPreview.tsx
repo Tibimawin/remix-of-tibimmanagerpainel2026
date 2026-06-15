@@ -956,7 +956,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                 )}
               </div>
             </div>
-            <ScrollArea className="h-[calc(100vh-260px)] min-h-[780px] rounded-md border">
+            <div className="rounded-md border bg-muted/10">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-5 p-6">
                 {filteredPreviews.map((content) => {
                   const isSelected = selectedIds.has(content.id);
@@ -1081,7 +1081,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                   );
                 })}
               </div>
-            </ScrollArea>
+            </div>
           </>
         )}
 
