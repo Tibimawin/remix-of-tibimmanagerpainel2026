@@ -717,10 +717,121 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     if (selectedIds.size > 0) {
       // Get the full content data for selected items
       const selectedContents = previews.filter(p => selectedIds.has(p.id));
-      onStartImport(selectedContents);
+      // Convert numeric-id maps to string-id maps to match ImportContent.id
+      const seasonsByStringId = new Map<string, number[]>();
+      const episodesByStringId = new Map<string, ImportEpisode[]>();
+      seriesSeasonsMap.forEach((seasons, numId) => {
+        if (selectedIds.has(numId) && seasons && seasons.length > 0) {
+          seasonsByStringId.set(String(numId), seasons);
+        }
+      });
+      seriesEpisodesMap.forEach((eps, numId) => {
+        if (selectedIds.has(numId)) {
+          episodesByStringId.set(String(numId), eps);
+        }
+      });
+      onStartImport(selectedContents, seasonsByStringId, episodesByStringId);
     } else {
       onStartImport();
     }
+  };
+
+  const isSeriesType = (tipo?: string) => {
+    const t = tipo?.toLowerCase();
+    return t === 'série' || t === 'serie';
+  };
+
+  const fetchEpisodesFor = async (content: ContentPreview) => {
+    if (seriesEpisodesMap.has(content.id)) return;
+    if (!importConfig) return;
+    setLoadingEpisodes(true);
+    try {
+      toast.info('Carregando episódios...', {
+        description: `Buscando episódios de "${content.Nome}"`,
+      });
+      const episodes = await autoImportService.getSeriesEpisodesOptimized(
+        importConfig,
+        content.Nome || ''
+      );
+      setSeriesEpisodesMap(prev => {
+        const next = new Map(prev);
+        next.set(content.id, episodes);
+        return next;
+      });
+      toast.success(`${episodes.length} episódios encontrados`);
+    } catch (err) {
+      console.error('Erro ao carregar episódios:', err);
+      toast.error('Erro ao carregar episódios da série');
+    } finally {
+      setLoadingEpisodes(false);
+    }
+  };
+
+  const openSeriesDialog = async (content: ContentPreview) => {
+    setCurrentSeriesDialog(content);
+    // Initialize pending selection from existing map, or all seasons by default
+    const existing = seriesSeasonsMap.get(content.id);
+    if (existing && existing.length > 0) {
+      setPendingSeasons(existing);
+    } else {
+      const total = parseInt(content.Temporadas || '0') || 0;
+      setPendingSeasons(total > 0 ? Array.from({ length: total }, (_, i) => i + 1) : []);
+    }
+    setSeasonDialogOpen(true);
+    await fetchEpisodesFor(content);
+    // After episodes load, if user hasn't customized and Temporadas was 0, infer from episodes
+    setPendingSeasons(prev => {
+      if (prev.length > 0) return prev;
+      const eps = seriesEpisodesMap.get(content.id) || [];
+      const seasonsSet = new Set<number>();
+      eps.forEach(e => {
+        const s = parseInt(e.Temporada);
+        if (!Number.isNaN(s)) seasonsSet.add(s);
+      });
+      return Array.from(seasonsSet).sort((a, b) => a - b);
+    });
+  };
+
+  const confirmSeriesSelection = () => {
+    if (!currentSeriesDialog) return;
+    if (pendingSeasons.length === 0) {
+      toast.error('Selecione ao menos uma temporada');
+      return;
+    }
+    const id = currentSeriesDialog.id;
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    setSeriesSeasonsMap(prev => {
+      const next = new Map(prev);
+      next.set(id, pendingSeasons);
+      return next;
+    });
+    setSeasonDialogOpen(false);
+    setCurrentSeriesDialog(null);
+    toast.success('Temporadas definidas', {
+      description: `${pendingSeasons.length} temporada(s) marcadas para "${currentSeriesDialog.Nome}"`,
+    });
+  };
+
+  const handleCardClick = (content: ContentPreview) => {
+    if (isSeriesType(content.Tipo)) {
+      // If already selected, allow toggling off via card click
+      if (selectedIds.has(content.id)) {
+        toggleSelection(content.id);
+        setSeriesSeasonsMap(prev => {
+          const next = new Map(prev);
+          next.delete(content.id);
+          return next;
+        });
+        return;
+      }
+      void openSeriesDialog(content);
+      return;
+    }
+    toggleSelection(content.id);
   };
 
   if (!configValid || !importConfig) {
