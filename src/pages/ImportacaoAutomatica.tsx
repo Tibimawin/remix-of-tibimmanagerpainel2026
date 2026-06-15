@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ImportContentInterface } from '@/components/ImportContentInterface';
-import { useAutoImportService, ImportConfig, UserConfig, ImportContent } from '@/services/AutoImportService';
+import { useAutoImportService, ImportConfig, UserConfig, ImportContent, ImportEpisode } from '@/services/AutoImportService';
 import { useUserConfig } from '@/hooks/useUserConfig';
 import { useGlobalImportConfig } from '@/hooks/useGlobalImportConfig';
 import { useConfig } from '@/contexts/ConfigContext';
@@ -212,7 +212,11 @@ const ImportacaoAutomatica = () => {
     }
   };
 
-  const startImport = React.useCallback(async (selectedContents?: ContentPreview[]) => {
+  const startImport = React.useCallback(async (
+    selectedContents?: ContentPreview[],
+    seriesSeasons?: Map<string, number[]>,
+    seriesEpisodes?: Map<string, ImportEpisode[]>
+  ) => {
     if (!importConfig) {
       toast.error('O administrador ainda não configurou a origem dos conteúdos.', {
         description: 'Entre em contato com o administrador do sistema.'
@@ -304,8 +308,8 @@ const ImportacaoAutomatica = () => {
         importConfig,
         contentsToImport,
         userConfig,
-        undefined,
-        undefined,
+        seriesSeasons,
+        seriesEpisodes,
         typeMode,
         (ep) => {
           setEpisodeStatus(prev => {
