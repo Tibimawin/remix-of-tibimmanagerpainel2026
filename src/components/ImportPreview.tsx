@@ -138,28 +138,18 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     'SÉRIES TURCAS',
   ], []);
 
-  // Keywords to exclude (TV channels, adult content, etc.)
-  // Matched as whole tokens to avoid hiding legitimate content
-  // (ex.: "Novelas Globo", "Séries Record" não devem ser escondidas).
+  // Keywords to exclude (TV channels, specific channel packages, etc.)
   const EXCLUDED_KEYWORDS = useMemo(() => [
-    'canais', 'canal', 'aovivo', 'ao vivo', '24h', '24 horas',
-    'pay-per-view', 'ppv', 'adulto', 'xxx', '+18', 'sexo', 'erotico', 'eroticos'
+    'tv', 'canais', 'canal', 'hbo', 'telecine', 'premiere', 'combate', 
+    'sportv', 'espn', 'globo', 'sbt', 'record', 'band', 'redetv', 
+    'aovivo', 'ao vivo', '24h', '24 horas', 'bbb', 'fazenda', 
+    'pay-per-view', 'ppv', 'adulto', 'xxx', '+18', 'sexo', 'erotico'
   ], []);
 
-  const normalizeForMatch = (value: string) =>
-    value
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .trim();
-
   const isCategoryAllowed = (category: string) => {
-    if (!category) return true; // não esconder itens sem categoria
-    const normalized = ' ' + normalizeForMatch(category).replace(/[^a-z0-9+ ]+/g, ' ').replace(/\s+/g, ' ') + ' ';
-    return !EXCLUDED_KEYWORDS.some(keyword => {
-      const k = normalizeForMatch(keyword);
-      return normalized.includes(' ' + k + ' ');
-    });
+    if (!category) return false;
+    const lowerCat = category.toLowerCase();
+    return !EXCLUDED_KEYWORDS.some(keyword => lowerCat.includes(keyword));
   };
 
   const normalizeText = (value?: string | null) =>
