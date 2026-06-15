@@ -1095,7 +1095,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
         {/* Footer with Pagination and CTA */}
         {previews.length > 0 && (
-          <div className="flex flex-col gap-3 px-6 py-4 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 border-t border-border/50 shrink-0">
+          <div className="flex flex-col gap-2 px-4 py-2 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 border-t border-border/50 shrink-0">
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2">
