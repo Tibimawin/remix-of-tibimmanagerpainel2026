@@ -233,7 +233,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                       <ul className="space-y-2 mb-6 flex-1">
                         {plan.features.slice(0, 6).map((featureId) => (
                           <li key={featureId} className="flex items-start gap-2 text-sm">
-                            <Check className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                            <Check className={`w-4 h-4 shrink-0 mt-0.5 ${scheme.check}`} />
                             <span className="text-foreground/90 capitalize">
                               {featureId.replace(/-/g, ' ')}
                             </span>
