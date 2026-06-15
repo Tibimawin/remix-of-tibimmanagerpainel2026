@@ -97,6 +97,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'filme' | 'serie'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [genreFilter, setGenreFilter] = useState<string>('all');
   const [highlightFilter, setHighlightFilter] = useState<'all' | 'imported' | 'duplicates'>('all');
   const [sortBy, setSortBy] = useState<'nome' | 'ano' | 'rating'>('nome');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
@@ -113,6 +114,23 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [loadingExistingContent, setLoadingExistingContent] = useState(false);
   const [existingProgress, setExistingProgress] = useState<{ loaded: number; total: number }>({ loaded: 0, total: 0 });
   const pageSize = 30;
+
+  // Gêneros (filtro independente de Tipo e Categoria)
+  const GENRES = useMemo(() => [
+    'Dorama Chinês',
+    'Dorama Coreano',
+    'Dorama Tailandês',
+    'Dorama Taiwanês',
+    'Dorama Singapurense',
+    'Dorama Japonês',
+    'Novelas Mexicanas',
+    'Novelas Nacionais',
+    'Novelas Turcas',
+    'Reality',
+    'DORAMA DUBLADO',
+    'DORAMA BL',
+    'SÉRIES TURCAS',
+  ], []);
 
   // Keywords to exclude (TV channels, specific channel packages, etc.)
   const EXCLUDED_KEYWORDS = useMemo(() => [
