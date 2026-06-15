@@ -1216,10 +1216,38 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                       >
                         <Checkbox
                           checked={isSelected}
-                          onCheckedChange={() => toggleSelection(content.id)}
+                          onCheckedChange={() => {
+                            if (isSerie && !isSelected) {
+                              void openSeriesDialog(content);
+                            } else {
+                              toggleSelection(content.id);
+                              if (isSerie) {
+                                setSeriesSeasonsMap(prev => {
+                                  const next = new Map(prev);
+                                  next.delete(content.id);
+                                  return next;
+                                });
+                              }
+                            }
+                          }}
                           className="border-white data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                         />
                       </div>
+
+                      {isSerie && isSelected && selectedSeasonsForCard && selectedSeasonsForCard.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void openSeriesDialog(content);
+                          }}
+                          className="absolute top-2 right-12 z-20 flex items-center gap-1 rounded-md bg-primary/90 px-2 py-1 text-[10px] font-semibold text-primary-foreground shadow hover:bg-primary"
+                          title="Editar temporadas selecionadas"
+                        >
+                          <Layers className="h-3 w-3" />
+                          {selectedSeasonsForCard.length}T
+                        </button>
+                      )}
                       
                       <div className="aspect-[2/3] relative overflow-hidden bg-muted">
                         {content.Capa ? (
