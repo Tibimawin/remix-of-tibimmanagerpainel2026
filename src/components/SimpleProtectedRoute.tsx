@@ -6,18 +6,17 @@ import { useSessionManager } from '@/hooks/useSessionManager';
 import { useMaintenanceMode } from '@/hooks/useMaintenanceMode';
 import { useAccessControl } from '@/hooks/useAccessControl';
 import { MaintenancePage } from './MaintenancePage';
-import AccessExpiredMessage from './AccessExpiredMessage';
 
 interface SimpleProtectedRouteProps {
   children: React.ReactNode;
-  /** Quando true, permite acesso à rota mesmo com assinatura expirada (features grátis). */
+  /** @deprecated Mantido por compatibilidade — expirados agora navegam livremente; o bloqueio acontece via permissões/sidebar. */
   allowExpired?: boolean;
 }
 
-export const SimpleProtectedRoute: React.FC<SimpleProtectedRouteProps> = ({ children, allowExpired = false }) => {
+export const SimpleProtectedRoute: React.FC<SimpleProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, isLoading } = useSimpleAuth();
   const { maintenanceState, loading: maintenanceLoading, isMaintenanceActive } = useMaintenanceMode();
-  const { hasAccess, isChecking, expiryDate } = useAccessControl();
+  const { isChecking } = useAccessControl();
   
   // Validar sessão ativa em tempo real
   useSessionValidator();
@@ -51,11 +50,8 @@ export const SimpleProtectedRoute: React.FC<SimpleProtectedRouteProps> = ({ chil
     return <Navigate to="/login" replace />;
   }
 
-  // Verificar se o usuário tem acesso válido (não expirado).
-  // Se a rota for marcada como `allowExpired`, deixa passar mesmo expirado.
-  if (hasAccess === false && !allowExpired) {
-    return <AccessExpiredMessage expiryDate={expiryDate || undefined} />;
-  }
-
+  // Usuários com assinatura expirada navegam normalmente — o bloqueio das
+  // funcionalidades pagas é feito via permissões (sidebar/itens desabilitados)
+  // e pelo SubscriptionExpiredBanner exibido no Layout.
   return <>{children}</>;
 };
