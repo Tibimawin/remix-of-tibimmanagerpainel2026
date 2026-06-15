@@ -57,7 +57,7 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
                 const ok = await FirebaseUserService.checkUserAccess(userInfo.id);
                 if (!cancelled) setIsSubscriptionExpired(!ok);
             } catch {
-                if (!cancelled) setIsSubscriptionExpired(false);
+                if (!cancelled) setIsSubscriptionExpired(true);
             }
         };
         check();
