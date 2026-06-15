@@ -377,12 +377,12 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   };
 
-  const fetchPreview = async (filterType?: 'all' | 'filme' | 'serie', category?: string, page: number = 1, options?: { forceApiPage?: number; skipInversion?: boolean; search?: string }) => {
+  const fetchPreview = async (filterType?: 'all' | 'filme' | 'serie', category?: string, page: number = 1, options?: { forceApiPage?: number; skipInversion?: boolean; search?: string; genre?: string }) => {
     if (!importConfig || !importConfig.sourceToken || !importConfig.sourceBaseUrl || !importConfig.contentTableId) {
       return;
     }
 
-    const { forceApiPage, skipInversion = false, search } = options || {};
+    const { forceApiPage, skipInversion = false, search, genre } = options || {};
 
     setLoading(true);
     setError(null);
@@ -403,6 +403,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         } else {
           filterQuery += `&filter__Categoria__contains=${encodeURIComponent(category)}`;
         }
+      }
+
+      if (genre && genre !== 'all') {
+        filterQuery += `&filter__Categoria__contains=${encodeURIComponent(genre)}`;
       }
 
       const searchValue = (search ?? '').trim();
@@ -431,7 +435,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         setInitialLoadDone(true);
 
         if (newTotalPages > 1 && page === 1) {
-          fetchPreview(filterType, category, 1, { forceApiPage: newTotalPages, search: searchValue });
+          fetchPreview(filterType, category, 1, { forceApiPage: newTotalPages, search: searchValue, genre });
           return;
         }
       }
@@ -461,7 +465,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     if (configValid && importConfig) {
       setCachedTotalPages(0);
       setInitialLoadDone(false);
-      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm });
+      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter });
       fetchTypeCounts();
       fetchCategories();
     }
@@ -568,9 +572,9 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       setCurrentPage(1);
       setCachedTotalPages(0);
       setInitialLoadDone(false);
-      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm });
+      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter });
     }
-  }, [typeFilter, categoryFilter]);
+  }, [typeFilter, categoryFilter, genreFilter]);
 
   // Debounced server-side search when searchTerm changes
   useEffect(() => {
@@ -579,7 +583,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       setCurrentPage(1);
       setCachedTotalPages(0);
       setInitialLoadDone(false);
-      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm });
+      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter });
     }, 400);
     return () => clearTimeout(handle);
   }, [searchTerm]);
@@ -587,7 +591,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   // Fetch when page changes
   useEffect(() => {
     if (configValid && currentPage > 0 && initialLoadDone) {
-      fetchPreview(typeFilter, categoryFilter, currentPage, { search: searchTerm });
+      fetchPreview(typeFilter, categoryFilter, currentPage, { search: searchTerm, genre: genreFilter });
     }
   }, [currentPage]);
 
@@ -595,7 +599,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     setCurrentPage(1);
     setCachedTotalPages(0);
     setInitialLoadDone(false);
-    fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm });
+    fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter });
     fetchCategories();
   };
 
@@ -610,6 +614,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const clearFilters = () => {
     setTypeFilter('all');
     setCategoryFilter('all');
+    setGenreFilter('all');
     setHighlightFilter('all');
     setSortBy('nome');
     setSearchTerm('');
