@@ -13,6 +13,7 @@ import {
   Crown,
   Star,
   Rocket,
+  CreditCard,
 } from 'lucide-react';
 import { Plan } from '@/types/planTypes';
 import AsaasPixPaymentDialog from './AsaasPixPaymentDialog';
@@ -76,10 +77,36 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
     const canUpgrade = isApiFeature && hasActivePlan && upgradeDifference > 0;
 
     const planIcons = [Shield, Star, Rocket];
-    const planGradients = [
-      'from-blue-500 to-cyan-500',
-      'from-purple-500 to-pink-500',
-      'from-amber-500 to-orange-500',
+    // Esquemas de cor estilo "Assine o Premium" (referência)
+    const planSchemes = [
+      {
+        // Mensal (laranja)
+        cardBg: 'bg-gradient-to-b from-orange-500/20 to-orange-700/10 border-orange-500/40',
+        priceText: 'text-orange-400',
+        btn: 'bg-orange-500 hover:bg-orange-600 text-white',
+        badge: 'bg-orange-500 text-white',
+      },
+      {
+        // Trimestral (azul)
+        cardBg: 'bg-gradient-to-b from-blue-500/20 to-blue-800/10 border-blue-500/40',
+        priceText: 'text-blue-400',
+        btn: 'bg-blue-500 hover:bg-blue-600 text-white',
+        badge: 'bg-blue-500 text-white',
+      },
+      {
+        // Anual (roxo)
+        cardBg: 'bg-gradient-to-b from-purple-500/20 to-purple-800/10 border-purple-500/40',
+        priceText: 'text-purple-400',
+        btn: 'bg-purple-500 hover:bg-purple-600 text-white',
+        badge: 'bg-purple-500 text-white',
+      },
+      {
+        // Extra (verde)
+        cardBg: 'bg-gradient-to-b from-emerald-500/20 to-emerald-800/10 border-emerald-500/40',
+        priceText: 'text-emerald-400',
+        btn: 'bg-emerald-500 hover:bg-emerald-600 text-white',
+        badge: 'bg-emerald-500 text-white',
+      },
     ];
 
     const handleChoosePlan = (plan: Plan) => {
@@ -143,117 +170,111 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
 
           {activePlans.length > 0 && (
             <div>
-              <div className="text-center mb-4">
-                <div className="inline-flex items-center gap-2 text-primary font-semibold">
-                  <Sparkles className="h-4 w-4" />
-                  Escolha um plano para liberar tudo
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Compare os planos abaixo e assine em poucos cliques.
+              <div className="text-center mb-6">
+                <h2 className="text-3xl md:text-4xl font-bold text-foreground">
+                  Assine o Premium
+                </h2>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Aproveite recursos avançados para gerenciar sua plataforma
                 </p>
               </div>
 
               <div
-                className={`grid gap-4 ${
+                className={`grid gap-5 ${
                   activePlans.length === 1
                     ? 'grid-cols-1 max-w-sm mx-auto'
                     : activePlans.length === 2
-                    ? 'grid-cols-1 sm:grid-cols-2'
-                    : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                    ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl mx-auto'
+                    : activePlans.length === 3
+                    ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                    : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
                 }`}
               >
                 {activePlans.map((plan, index) => {
-                  const Icon = planIcons[index % planIcons.length];
-                  const gradient = planGradients[index % planGradients.length];
+                  const scheme = planSchemes[index % planSchemes.length];
                   const numericPrice =
                     parseFloat(plan.price.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
                   const isApiPlan = plan.features.includes('minha-api');
                   const showUpgradePrice =
                     isApiPlan && hasActivePlan && currentPlanPrice > 0 && numericPrice > currentPlanPrice;
                   const displayPrice = showUpgradePrice ? numericPrice - currentPlanPrice : numericPrice;
-                  const isPopular = index === 1 && activePlans.length >= 2;
+                  const isCurrent = permissions?.planId === plan.id;
+                  const isPopular = !isCurrent && index === activePlans.length - 1 && activePlans.length >= 3;
 
                   return (
                     <Card
                       key={plan.id}
-                      className={`relative p-5 border-2 transition-all duration-300 hover:shadow-lg cursor-pointer group ${
-                        isPopular ? 'border-primary/60' : 'hover:border-primary/40'
-                      }`}
-                      onClick={() => handleChoosePlan(plan)}
+                      className={`relative p-6 border-2 rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl flex flex-col ${scheme.cardBg}`}
                     >
                       {isPopular && (
-                        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs px-3">
-                          <Crown className="w-3 h-3 mr-1" /> Popular
+                        <Badge className={`absolute top-4 right-4 ${scheme.badge} text-[10px] px-2 py-0.5`}>
+                          Mais Popular
                         </Badge>
                       )}
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-10 h-10 rounded-xl bg-gradient-to-r ${gradient} flex items-center justify-center shadow-md`}
-                          >
-                            <Icon className="w-5 h-5 text-white" />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-foreground">{plan.name}</h4>
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                              {plan.description}
-                            </p>
-                          </div>
-                        </div>
+                      {isCurrent && (
+                        <Badge className="absolute top-4 right-4 bg-foreground/80 text-background text-[10px] px-2 py-0.5">
+                          Plano atual
+                        </Badge>
+                      )}
 
-                        <div className="text-center py-2 border-y">
-                          {showUpgradePrice ? (
-                            <>
-                              <span className="text-sm text-muted-foreground line-through mr-2">
-                                {plan.price}
-                              </span>
-                              <span className="text-2xl font-bold text-foreground">
-                                R$ {displayPrice.toFixed(2)}
-                              </span>
-                              <Badge variant="secondary" className="ml-2 text-xs">
-                                Upgrade
-                              </Badge>
-                            </>
-                          ) : (
-                            <>
-                              <span className="text-2xl font-bold text-foreground">
-                                {plan.price}
-                              </span>
-                              <span className="text-sm text-muted-foreground">/mês</span>
-                            </>
-                          )}
-                        </div>
-
-                        <ul className="space-y-1.5">
-                          {plan.features.slice(0, 6).map((featureId) => (
-                            <li
-                              key={featureId}
-                              className="flex items-center gap-2 text-sm"
-                            >
-                              <Check className="w-4 h-4 text-green-500 shrink-0" />
-                              <span className="text-muted-foreground capitalize">
-                                {featureId.replace(/-/g, ' ')}
-                              </span>
-                            </li>
-                          ))}
-                          {plan.features.length > 6 && (
-                            <li className="text-xs text-muted-foreground text-center pt-1">
-                              +{plan.features.length - 6} recursos incluídos
-                            </li>
-                          )}
-                        </ul>
-
-                        <Button className="w-full">
-                          {showUpgradePrice ? (
-                            <>
-                              <ArrowUpCircle className="h-4 w-4 mr-1" />
-                              Fazer Upgrade
-                            </>
-                          ) : (
-                            'Assinar agora'
-                          )}
-                        </Button>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Crown className={`w-5 h-5 ${scheme.priceText}`} />
+                        <h3 className="text-2xl font-bold text-foreground">{plan.name}</h3>
                       </div>
+                      <p className="text-xs text-muted-foreground mb-5 line-clamp-2">
+                        {plan.description || 'Acesso premium completo'}
+                      </p>
+
+                      <div className="mb-5">
+                        {showUpgradePrice ? (
+                          <>
+                            <div className={`text-3xl font-extrabold ${scheme.priceText}`}>
+                              R$ {displayPrice.toFixed(2).replace('.', ',')}
+                            </div>
+                            <div className="text-xs text-muted-foreground line-through">{plan.price}</div>
+                            <Badge variant="secondary" className="mt-1 text-[10px]">Upgrade</Badge>
+                          </>
+                        ) : (
+                          <>
+                            <div className={`text-3xl font-extrabold ${scheme.priceText}`}>
+                              {plan.price.replace(/\/.*$/, '')}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {plan.price.includes('/') ? `/${plan.price.split('/').pop()}` : '/mês'}
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      <ul className="space-y-2 mb-6 flex-1">
+                        {plan.features.slice(0, 6).map((featureId) => (
+                          <li key={featureId} className="flex items-start gap-2 text-sm">
+                            <Check className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                            <span className="text-foreground/90 capitalize">
+                              {featureId.replace(/-/g, ' ')}
+                            </span>
+                          </li>
+                        ))}
+                        {plan.features.length > 6 && (
+                          <li className="text-xs text-muted-foreground pl-6">
+                            +{plan.features.length - 6} recursos incluídos
+                          </li>
+                        )}
+                      </ul>
+
+                      {isCurrent ? (
+                        <Button disabled variant="outline" className="w-full rounded-full">
+                          Plano atual
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => handleChoosePlan(plan)}
+                          className={`w-full rounded-full font-semibold ${scheme.btn}`}
+                        >
+                          <CreditCard className="h-4 w-4 mr-2" />
+                          {showUpgradePrice ? 'Fazer Upgrade' : `Assinar ${plan.name}`}
+                        </Button>
+                      )}
                     </Card>
                   );
                 })}
