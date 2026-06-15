@@ -852,7 +852,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
         {/* Content Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-1 p-1">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-9 2xl:grid-cols-11 gap-2 p-2">
             {Array.from({ length: 16 }).map((_, i) => (
               <div key={i} className="space-y-2">
                 <Skeleton className="aspect-[2/3] w-full rounded-lg" />
@@ -957,7 +957,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
               </div>
             </div>
             <div className="rounded-md border bg-muted/10">
-              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-1 p-1">
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-9 2xl:grid-cols-11 gap-2 p-2">
                 {filteredPreviews.map((content) => {
                   const isSelected = selectedIds.has(content.id);
                   const highlight = previewHighlightMap.get(content.id);
@@ -967,7 +967,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                     <div
                       key={content.id}
                       onClick={() => toggleSelection(content.id)}
-                      className={`group relative bg-card rounded-md border overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer w-full ${
+                      className={`group relative bg-card rounded-md border overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer w-full max-w-[110px] mx-auto ${
                         isAlreadyImported
                           ? 'border-emerald-500/50 bg-emerald-500/5 ring-1 ring-emerald-500/20'
                           : isDuplicateInPreview
