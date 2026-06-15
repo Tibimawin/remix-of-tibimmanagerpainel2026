@@ -422,7 +422,6 @@ const menuItems: MenuItem[] = [
     icon: TrendingUp,
     category: 'main',
     description: 'Ganhe indicando pessoas',
-    feature: 'sistema-indicacao',
     badge: { type: 'new' }
   },
   {
