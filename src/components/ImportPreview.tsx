@@ -38,6 +38,10 @@ import {
 } from 'lucide-react';
 import { ImportConfig, UserConfig } from '@/services/AutoImportService';
 import { makeProxyRequest } from '@/utils/proxyRequest';
+import { useAutoImportService, ImportEpisode } from '@/services/AutoImportService';
+import { SeasonSelectionDialog } from '@/components/SeasonSelectionDialog';
+import { toast } from 'sonner';
+import { Layers } from 'lucide-react';
 
 export interface ContentPreview {
   id: number;
@@ -74,7 +78,11 @@ interface PreviewHighlightStatus {
 interface ImportPreviewProps {
   importConfig: ImportConfig | null;
   userConfig?: UserConfig | null;
-  onStartImport: (selectedContents?: ContentPreview[]) => void;
+  onStartImport: (
+    selectedContents?: ContentPreview[],
+    seriesSeasons?: Map<string, number[]>,
+    seriesEpisodes?: Map<string, ImportEpisode[]>
+  ) => void;
   configValid: boolean;
   isImporting?: boolean;
   importProgress?: number;
