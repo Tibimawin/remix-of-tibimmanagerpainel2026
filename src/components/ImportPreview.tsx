@@ -343,7 +343,15 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         }
       });
 
-      setAvailableCategories(Array.from(categories).sort());
+      const staticCategories = ['Lançamentos', '2026', '2025', '2024', '2023'];
+      const dynamicCategories = Array.from(categories)
+        .filter(c => !staticCategories.includes(c))
+        .sort();
+
+      setAvailableCategories([
+        ...staticCategories,
+        ...dynamicCategories
+      ]);
     } catch (err) {
       console.error('Erro ao buscar categorias:', err);
     } finally {
@@ -371,7 +379,12 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       }
       
       if (category && category !== 'all') {
-        filterQuery += `&filter__Categoria__contains=${encodeURIComponent(category)}`;
+        const isYear = /^\d{4}$/.test(category);
+        if (isYear) {
+          filterQuery += `&filter__Ano__equal=${encodeURIComponent(category)}`;
+        } else {
+          filterQuery += `&filter__Categoria__contains=${encodeURIComponent(category)}`;
+        }
       }
       
       // Calculate the inverted API page
