@@ -160,7 +160,7 @@ const App = () => {
 
                               {/* Rotas específicas do painel do cliente - protegidas */}
                               <Route path="/conteudos" element={
-                                <SimpleProtectedRoute>
+                                <SimpleProtectedRoute allowExpired>
                                   <Layout>
                                     <Conteudos />
                                   </Layout>
@@ -168,7 +168,7 @@ const App = () => {
                               } />
 
                               <Route path="/episodios" element={
-                                <SimpleProtectedRoute>
+                                <SimpleProtectedRoute allowExpired>
                                   <Layout>
                                     <Episodios />
                                   </Layout>
@@ -289,7 +289,7 @@ const App = () => {
                               } />
 
                               <Route path="/configuracoes" element={
-                                <SimpleProtectedRoute>
+                                <SimpleProtectedRoute allowExpired>
                                   <Layout>
                                     <Configuracoes />
                                   </Layout>
@@ -321,7 +321,7 @@ const App = () => {
                               } />
 
                               <Route path="/carrosseu" element={
-                                <SimpleProtectedRoute>
+                                <SimpleProtectedRoute allowExpired>
                                   <Layout>
                                     <Carrosseu />
                                   </Layout>
@@ -337,7 +337,7 @@ const App = () => {
                               } />
 
                               <Route path="/pedido" element={
-                                <SimpleProtectedRoute>
+                                <SimpleProtectedRoute allowExpired>
                                   <Layout>
                                     <Pedido />
                                   </Layout>
@@ -353,7 +353,7 @@ const App = () => {
                               } />
 
                               <Route path="/categoria-filmes" element={
-                                <SimpleProtectedRoute>
+                                <SimpleProtectedRoute allowExpired>
                                   <Layout>
                                     <CategoriaFilmes />
                                   </Layout>
@@ -361,7 +361,7 @@ const App = () => {
                               } />
 
                               <Route path="/categoria-series" element={
-                                <SimpleProtectedRoute>
+                                <SimpleProtectedRoute allowExpired>
                                   <Layout>
                                     <CategoriaSeries />
                                   </Layout>
@@ -369,7 +369,7 @@ const App = () => {
                               } />
 
                               <Route path="/categoria-dorama" element={
-                                <SimpleProtectedRoute>
+                                <SimpleProtectedRoute allowExpired>
                                   <Layout>
                                     <CategoriaDorama />
                                   </Layout>
@@ -377,7 +377,7 @@ const App = () => {
                               } />
 
                               <Route path="/categoria-animes" element={
-                                <SimpleProtectedRoute>
+                                <SimpleProtectedRoute allowExpired>
                                   <Layout>
                                     <CategoriaAnimes />
                                   </Layout>
@@ -385,7 +385,7 @@ const App = () => {
                               } />
 
                               <Route path="/categoria-novelas" element={
-                                <SimpleProtectedRoute>
+                                <SimpleProtectedRoute allowExpired>
                                   <Layout>
                                     <CategoriaNovelas />
                                   </Layout>
@@ -393,7 +393,7 @@ const App = () => {
                               } />
 
                               <Route path="/configuracoes-apis" element={
-                                <SimpleProtectedRoute>
+                                <SimpleProtectedRoute allowExpired>
                                   <Layout>
                                     <ConfiguracoesAPIs />
                                   </Layout>
@@ -401,7 +401,7 @@ const App = () => {
                               } />
 
                               <Route path="/configuracoes-seguranca" element={
-                                <SimpleProtectedRoute>
+                                <SimpleProtectedRoute allowExpired>
                                   <Layout>
                                     <ConfiguracoesSeguranca />
                                   </Layout>
@@ -409,7 +409,7 @@ const App = () => {
                               } />
 
                               <Route path="/configuracoes-auto-import" element={
-                                <SimpleProtectedRoute>
+                                <SimpleProtectedRoute allowExpired>
                                   <Layout>
                                     <ConfiguracoesAutoImport />
                                   </Layout>

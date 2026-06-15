@@ -4,6 +4,7 @@ import { UserPermissions } from '@/types/planTypes';
 import { db } from '@/config/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { FirebaseUserService } from '@/services/FirebaseUserService';
+import { isFreeFeatureWhenExpired } from '@/config/freeFeatures';
 
 interface UserPermissionsContextType {
     permissions: UserPermissions | null;
@@ -25,11 +26,35 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
     const [permissions, setPermissions] = useState<UserPermissions | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [isSubscriptionExpired, setIsSubscriptionExpired] = useState(false);
 
     const refreshPermissions = () => {
         console.log('🔄 Forçando refresh das permissões');
         setRefreshTrigger(prev => prev + 1);
     };
+
+    // Verifica periodicamente se a assinatura está expirada para liberar features grátis
+    useEffect(() => {
+        if (!userInfo?.id) {
+            setIsSubscriptionExpired(false);
+            return;
+        }
+        let cancelled = false;
+        const check = async () => {
+            try {
+                const ok = await FirebaseUserService.checkUserAccess(userInfo.id);
+                if (!cancelled) setIsSubscriptionExpired(!ok);
+            } catch {
+                if (!cancelled) setIsSubscriptionExpired(false);
+            }
+        };
+        check();
+        const interval = setInterval(check, 5 * 60 * 1000);
+        return () => {
+            cancelled = true;
+            clearInterval(interval);
+        };
+    }, [userInfo?.id, refreshTrigger]);
 
     useEffect(() => {
         if (!userInfo?.id) {
@@ -121,8 +146,12 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
     }, [userInfo?.id, userInfo?.email, refreshTrigger]);
 
     const hasFeature = (featureId: string): boolean => {
+        // Quando a assinatura está expirada, liberamos um conjunto fixo de features grátis
+        // para todos os usuários, independente do plano original.
+        if (isSubscriptionExpired && isFreeFeatureWhenExpired(featureId)) {
+            return true;
+        }
         const hasAccess = permissions?.enabledFeatures?.includes(featureId) || false;
-        // Removi o log excessivo aqui para reduzir ruído
         return hasAccess;
     };
 

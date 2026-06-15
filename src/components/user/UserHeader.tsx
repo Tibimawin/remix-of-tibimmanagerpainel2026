@@ -314,20 +314,28 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
               </Button>
               
               {/* Notificações */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleNotificationsClick}
-                className="h-10 w-10 rounded-xl transition-all duration-200 hover:bg-accent/50 hover:scale-105 relative"
-                title="Notificações"
-              >
-                <Bell className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
-                {unreadCount > 0 && (
-                  <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 bg-red-500 text-white text-xs border-2 border-background flex items-center justify-center animate-pulse">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </Badge>
-                )}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleNotificationsClick}
+                    className="h-10 w-10 rounded-xl transition-all duration-200 hover:bg-accent/50 hover:scale-105 relative"
+                  >
+                    <Bell className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+                    {unreadCount > 0 && (
+                      <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 bg-red-500 text-white text-xs border-2 border-background flex items-center justify-center animate-pulse">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {unreadCount > 0
+                    ? `${unreadCount} notificação${unreadCount === 1 ? '' : 'ões'} não lida${unreadCount === 1 ? '' : 's'}`
+                    : 'Sem notificações novas'}
+                </TooltipContent>
+              </Tooltip>
               
               {/* Configurações */}
               <Button

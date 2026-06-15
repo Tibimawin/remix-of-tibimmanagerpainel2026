@@ -4,7 +4,7 @@ import { FirebaseUserService } from '@/services/FirebaseUserService';
 import { toast } from 'sonner';
 
 export const useAccessControl = () => {
-  const { userInfo } = useSimpleAuth();
+  const { userInfo, isAuthenticated } = useSimpleAuth();
   const [hasAccess, setHasAccess] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
   const [expiryDate, setExpiryDate] = useState<string | null>(null);
@@ -58,6 +58,7 @@ export const useAccessControl = () => {
   return {
     hasAccess,
     isChecking,
-    expiryDate
+    expiryDate,
+    isExpired: isAuthenticated && !isChecking && !hasAccess,
   };
 };

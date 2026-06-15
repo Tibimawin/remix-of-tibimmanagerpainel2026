@@ -10,9 +10,11 @@ import AccessExpiredMessage from './AccessExpiredMessage';
 
 interface SimpleProtectedRouteProps {
   children: React.ReactNode;
+  /** Quando true, permite acesso à rota mesmo com assinatura expirada (features grátis). */
+  allowExpired?: boolean;
 }
 
-export const SimpleProtectedRoute: React.FC<SimpleProtectedRouteProps> = ({ children }) => {
+export const SimpleProtectedRoute: React.FC<SimpleProtectedRouteProps> = ({ children, allowExpired = false }) => {
   const { isAuthenticated, isLoading } = useSimpleAuth();
   const { maintenanceState, loading: maintenanceLoading, isMaintenanceActive } = useMaintenanceMode();
   const { hasAccess, isChecking, expiryDate } = useAccessControl();
@@ -49,8 +51,9 @@ export const SimpleProtectedRoute: React.FC<SimpleProtectedRouteProps> = ({ chil
     return <Navigate to="/login" replace />;
   }
 
-  // Verificar se o usuário tem acesso válido (não expirado)
-  if (hasAccess === false) {
+  // Verificar se o usuário tem acesso válido (não expirado).
+  // Se a rota for marcada como `allowExpired`, deixa passar mesmo expirado.
+  if (hasAccess === false && !allowExpired) {
     return <AccessExpiredMessage expiryDate={expiryDate || undefined} />;
   }
 
