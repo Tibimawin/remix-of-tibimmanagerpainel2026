@@ -4,7 +4,6 @@ import { Navigate } from 'react-router-dom';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { FirebaseUserService } from '@/services/FirebaseUserService';
-import AccessExpiredMessage from './AccessExpiredMessage';
 import { useMaintenanceMode } from '@/hooks/useMaintenanceMode';
 import { MaintenancePage } from './MaintenancePage';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
