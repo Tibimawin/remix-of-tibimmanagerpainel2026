@@ -6,8 +6,7 @@
  * Modo Tibim    (tibim):   estrutura própria    — Episódio, Visualizações, Selo, Elenco
  */
 
-// TypeMode é definido e exportado pelo TypeModeContext
-export type { TypeMode } from '@/contexts/TypeModeContext';
+export type TypeMode = 'singular' | 'plural' | 'tibim';
 
 export interface ColumnMap {
   // Conteúdos
