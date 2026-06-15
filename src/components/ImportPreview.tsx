@@ -957,7 +957,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
               </div>
             </div>
             <div className="rounded-md border bg-muted/10">
-              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 p-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-1 p-1">
                 {filteredPreviews.map((content) => {
                   const isSelected = selectedIds.has(content.id);
                   const highlight = previewHighlightMap.get(content.id);
