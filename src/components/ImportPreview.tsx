@@ -860,7 +860,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
         {/* Content Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-7 2xl:grid-cols-7 gap-2 p-2 flex-1 min-h-0 overflow-y-auto">
+          <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-11 2xl:grid-cols-13 gap-1 p-1 flex-1 min-h-0 overflow-y-auto">
             {Array.from({ length: 14 }).map((_, i) => (
               <div key={i} className="space-y-2">
                 <Skeleton className="aspect-[2/3] w-full rounded-lg" />
@@ -964,8 +964,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                 )}
               </div>
             </div>
-            <div className="rounded-md border bg-muted/10 flex-1 min-h-0 overflow-y-auto">
-              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-7 2xl:grid-cols-7 gap-2 p-2">
+            <div className="rounded-md border bg-muted/10 flex-1 min-h-0 overflow-y-auto min-w-0">
+              <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-11 2xl:grid-cols-13 gap-1 p-1">
                 {filteredPreviews.map((content) => {
                   const isSelected = selectedIds.has(content.id);
                   const highlight = previewHighlightMap.get(content.id);
