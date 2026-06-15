@@ -277,6 +277,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
             isUpgrade
             upgradeFromPlan={permissions?.planName || ''}
             existingFeatures={permissions?.enabledFeatures || []}
+            requiredFeature={feature}
           />
         )}
 
@@ -290,6 +291,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
             isUpgrade={selectedPlan.isUpgrade}
             upgradeFromPlan={selectedPlan.upgradeFromPlan}
             existingFeatures={selectedPlan.existingFeatures}
+            requiredFeature={feature}
           />
         )}
       </>
