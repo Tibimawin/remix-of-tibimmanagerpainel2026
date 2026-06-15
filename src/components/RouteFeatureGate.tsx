@@ -56,6 +56,11 @@ const routeFeatures: Record<string, string> = {
 
 const getFeatureForPath = (pathname: string): string | null => {
   if (pathname.startsWith('/oferta/')) return 'ofertas';
+  // Qualquer sub-rota de Configurações herda a permissão de "configuracoes"
+  // quando não houver mapeamento explícito (ex.: /configuracoes-xyz futuras).
+  if (pathname.startsWith('/configuracoes') && !routeFeatures[pathname]) {
+    return 'configuracoes';
+  }
   return routeFeatures[pathname] ?? null;
 };
 
