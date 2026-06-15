@@ -622,16 +622,15 @@ export const DataTable: React.FC<DataTableProps & {
 
           {/* Paginação */}
           {(effectiveTotalPages > 1) && (
-            <div className="mt-6 space-y-4 no-arrows">
-              <Pagination className="no-arrows">
-                <PaginationContent className="no-arrows">
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 no-arrows text-sm">
+              <Pagination className="no-arrows w-auto">
+                <PaginationContent className="no-arrows gap-1">
                   <PaginationItem className="no-arrows">
-                    <PaginationPrevious 
+                    <PaginationPrevious
                       onClick={() => setPage(page - 1)}
-                      className={`no-arrows ${page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+                      className={`no-arrows px-2 h-8 text-xs ${page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
                     />
                   </PaginationItem>
-                  {/* Paginação adaptada ao total */}
                   {Array.from({ length: Math.min(5, effectiveTotalPages) }, (_, i) => {
                     let pageNumber;
                     if (effectiveTotalPages <= 5) {
@@ -645,7 +644,7 @@ export const DataTable: React.FC<DataTableProps & {
                         <PaginationLink
                           onClick={() => setPage(pageNumber)}
                           isActive={pageNumber === page}
-                          className="cursor-pointer no-arrows"
+                          className="cursor-pointer no-arrows h-8 w-8 text-xs p-0 flex items-center justify-center"
                         >
                           {pageNumber}
                         </PaginationLink>
@@ -653,24 +652,23 @@ export const DataTable: React.FC<DataTableProps & {
                     );
                   })}
                   <PaginationItem className="no-arrows">
-                    <PaginationNext 
+                    <PaginationNext
                       onClick={() => setPage(page + 1)}
-                      className={`no-arrows ${page === effectiveTotalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+                      className={`no-arrows px-2 h-8 text-xs ${page === effectiveTotalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
                     />
                   </PaginationItem>
                 </PaginationContent>
               </Pagination>
-              <div className="text-center text-sm text-muted-foreground no-arrows">
-                Página {page} de {effectiveTotalPages} ({effectiveTotalCount} registros total)
-              </div>
-              {/* Navegação rápida */}
-              <div className="flex justify-center items-center space-x-2 no-arrows">
+              <span className="text-muted-foreground no-arrows whitespace-nowrap">
+                Página {page} de {effectiveTotalPages} ({effectiveTotalCount} registros)
+              </span>
+              <div className="flex items-center gap-1 no-arrows">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setPage(1)}
                   disabled={page === 1}
-                  className="no-arrows"
+                  className="no-arrows h-7 text-xs px-2"
                 >
                   Primeira
                 </Button>
@@ -679,7 +677,7 @@ export const DataTable: React.FC<DataTableProps & {
                   size="sm"
                   onClick={() => setPage(effectiveTotalPages)}
                   disabled={page === effectiveTotalPages}
-                  className="no-arrows"
+                  className="no-arrows h-7 text-xs px-2"
                 >
                   Última
                 </Button>
