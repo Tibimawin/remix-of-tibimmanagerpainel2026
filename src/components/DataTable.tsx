@@ -546,35 +546,35 @@ export const DataTable: React.FC<DataTableProps & {
               )}
             </div>
           ) : (
-            <div className="w-full overflow-x-auto no-arrows max-h-[calc(100vh-23rem)] overflow-y-auto min-h-[200px]">
+            <div className="w-full overflow-x-auto no-arrows max-h-[calc(100vh-14rem)] overflow-y-auto min-h-[200px]">
               <Table className="no-arrows min-w-full">
                 <TableHeader className="no-arrows sticky top-0 bg-card/95 backdrop-blur-sm z-10 border-b border-border shadow-sm">
-                  <TableRow className="no-arrows">
+                  <TableRow className="no-arrows h-8">
                     {columns.map((column) => (
-                      <TableHead key={column} className="no-arrows whitespace-nowrap">{column}</TableHead>
+                      <TableHead key={column} className="no-arrows whitespace-nowrap py-1 px-2 text-xs">{column}</TableHead>
                     ))}
-                    <TableHead className="no-arrows">Ações</TableHead>
+                    <TableHead className="no-arrows py-1 px-2 text-xs">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="no-arrows">
                   {displayData.map((item) => (
-                    <TableRow key={item.id} className="no-arrows">
+                    <TableRow key={item.id} className="no-arrows h-10">
                       {columns.map((column) => (
-                        <TableCell key={column} className="no-arrows">
-                          <div className="max-w-xs truncate">
+                        <TableCell key={column} className="no-arrows py-1 px-2">
+                          <div className="max-w-xs truncate text-sm">
                             {formatValue(column, getValueByPossibleKeys(item, column), item)}
                           </div>
                         </TableCell>
                       ))}
-                      <TableCell className="no-arrows">
-                        <div className="flex space-x-2 no-arrows">
-                          <Button 
-                            variant="ghost" 
+                      <TableCell className="no-arrows py-1 px-2">
+                        <div className="flex space-x-1 no-arrows">
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleView(item)}
-                            className="no-arrows"
+                            className="no-arrows h-7 w-7 p-0"
                           >
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-3.5 w-3.5" />
                           </Button>
                           {tableKey === 'usuarios' && (
                             <Button
@@ -582,26 +582,26 @@ export const DataTable: React.FC<DataTableProps & {
                               size="sm"
                               onClick={() => handleRenew(item)}
                               title="Renovar Usuário (Mais 30 dias)"
-                              className="no-arrows text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                              className="no-arrows text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 h-7 w-7 p-0"
                             >
-                              <RefreshCw className="h-4 w-4" />
+                              <RefreshCw className="h-3.5 w-3.5" />
                             </Button>
                           )}
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleEdit(item)}
-                            className="no-arrows"
+                            className="no-arrows h-7 w-7 p-0"
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit className="h-3.5 w-3.5" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDelete(item.id)}
-                            className="no-arrows"
+                            className="no-arrows h-7 w-7 p-0"
                           >
-                            <Trash className="h-4 w-4" />
+                            <Trash className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </TableCell>
@@ -622,16 +622,15 @@ export const DataTable: React.FC<DataTableProps & {
 
           {/* Paginação */}
           {(effectiveTotalPages > 1) && (
-            <div className="mt-6 space-y-4 no-arrows">
-              <Pagination className="no-arrows">
-                <PaginationContent className="no-arrows">
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 no-arrows text-sm">
+              <Pagination className="no-arrows w-auto">
+                <PaginationContent className="no-arrows gap-1">
                   <PaginationItem className="no-arrows">
-                    <PaginationPrevious 
+                    <PaginationPrevious
                       onClick={() => setPage(page - 1)}
-                      className={`no-arrows ${page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+                      className={`no-arrows px-2 h-8 text-xs ${page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
                     />
                   </PaginationItem>
-                  {/* Paginação adaptada ao total */}
                   {Array.from({ length: Math.min(5, effectiveTotalPages) }, (_, i) => {
                     let pageNumber;
                     if (effectiveTotalPages <= 5) {
@@ -645,7 +644,7 @@ export const DataTable: React.FC<DataTableProps & {
                         <PaginationLink
                           onClick={() => setPage(pageNumber)}
                           isActive={pageNumber === page}
-                          className="cursor-pointer no-arrows"
+                          className="cursor-pointer no-arrows h-8 w-8 text-xs p-0 flex items-center justify-center"
                         >
                           {pageNumber}
                         </PaginationLink>
@@ -653,24 +652,23 @@ export const DataTable: React.FC<DataTableProps & {
                     );
                   })}
                   <PaginationItem className="no-arrows">
-                    <PaginationNext 
+                    <PaginationNext
                       onClick={() => setPage(page + 1)}
-                      className={`no-arrows ${page === effectiveTotalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+                      className={`no-arrows px-2 h-8 text-xs ${page === effectiveTotalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
                     />
                   </PaginationItem>
                 </PaginationContent>
               </Pagination>
-              <div className="text-center text-sm text-muted-foreground no-arrows">
-                Página {page} de {effectiveTotalPages} ({effectiveTotalCount} registros total)
-              </div>
-              {/* Navegação rápida */}
-              <div className="flex justify-center items-center space-x-2 no-arrows">
+              <span className="text-muted-foreground no-arrows whitespace-nowrap">
+                Página {page} de {effectiveTotalPages} ({effectiveTotalCount} registros)
+              </span>
+              <div className="flex items-center gap-1 no-arrows">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setPage(1)}
                   disabled={page === 1}
-                  className="no-arrows"
+                  className="no-arrows h-7 text-xs px-2"
                 >
                   Primeira
                 </Button>
@@ -679,7 +677,7 @@ export const DataTable: React.FC<DataTableProps & {
                   size="sm"
                   onClick={() => setPage(effectiveTotalPages)}
                   disabled={page === effectiveTotalPages}
-                  className="no-arrows"
+                  className="no-arrows h-7 text-xs px-2"
                 >
                   Última
                 </Button>
