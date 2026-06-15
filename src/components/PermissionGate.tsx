@@ -139,44 +139,24 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
     return (
       <>
         <div className="space-y-6">
-          <Card className="bg-muted/40 border-destructive/20">
-            <CardContent className="py-8 text-center">
-              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
-                <Lock className="h-7 w-7 text-destructive" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground mb-1">
-                Recurso bloqueado
-              </h3>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
-                {canUpgrade
-                  ? `Faça upgrade para desbloquear a Integração API por apenas R$ ${upgradeDifference.toFixed(2)}/mês.`
-                  : 'Sua assinatura não cobre esta funcionalidade. Escolha um plano abaixo para liberar o acesso completo ao painel.'}
-              </p>
-              {canUpgrade && (
-                <Button
-                  onClick={() => setShowUpgradePayment(true)}
-                  className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
-                >
-                  <ArrowUpCircle className="h-4 w-4 mr-2" />
-                  Fazer Upgrade - R$ {upgradeDifference.toFixed(2)}/mês
-                </Button>
-              )}
-              <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-background/60 px-3 py-1 border text-xs text-muted-foreground">
-                <Shield className="h-3.5 w-3.5" />
-                Plano atual: <span className="font-medium text-foreground">{permissions?.planName || 'Sem plano'}</span>
-              </div>
-            </CardContent>
-          </Card>
-
           {activePlans.length > 0 && (
             <div>
-              <div className="text-center mb-6">
-                <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-                  Assine o Premium
-                </h2>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Aproveite recursos avançados para gerenciar sua plataforma
-                </p>
+              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
+                <div>
+                  <h2 className="text-3xl md:text-4xl font-bold text-foreground">
+                    Assine o Premium
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Aproveite recursos avançados para gerenciar sua plataforma
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-background/60 px-3 py-1 border text-xs text-muted-foreground self-start sm:self-end">
+                  <Shield className="h-3.5 w-3.5" />
+                  Plano atual:
+                  <span className="font-medium text-foreground">
+                    {permissions?.planName || 'Grátis'}
+                  </span>
+                </div>
               </div>
 
               <div
