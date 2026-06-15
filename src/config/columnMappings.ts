@@ -7,7 +7,8 @@
  */
 
 // TypeMode é definido e exportado pelo TypeModeContext
-export type { TypeMode } from '@/contexts/TypeModeContext';
+import type { TypeMode } from '@/contexts/TypeModeContext';
+export type { TypeMode };
 
 export interface ColumnMap {
   // Conteúdos
