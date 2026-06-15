@@ -35,6 +35,13 @@ import {
 import { toast } from 'sonner';
 import { ImportPreview, ContentPreview } from '@/components/ImportPreview';
 import { Progress } from '@/components/ui/progress';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 interface ImportacaoAutomaticaLocationState {
   autoImportContents?: ContentPreview[];
@@ -54,6 +61,7 @@ const ImportacaoAutomatica = () => {
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [showProgressModal, setShowProgressModal] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [importStatus, setImportStatus] = useState<{
     current: number;
@@ -233,6 +241,7 @@ const ImportacaoAutomatica = () => {
 
     // Direct import from preview
     setIsImporting(true);
+    setShowProgressModal(true);
     setImportProgress(0);
     setImportStatus({ current: 0, total: selectedContents.length, title: '', success: 0, errors: 0 });
     setEpisodeStatus({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
@@ -351,6 +360,7 @@ const ImportacaoAutomatica = () => {
         setImportProgress(0);
         setImportStatus({ current: 0, total: 0, title: '', success: 0, errors: 0 });
         setEpisodeStatus({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
+        setShowProgressModal(false);
       }, 2500);
     }
   }, [autoImportService, canAddMoreContent, configValid, importConfig, typeMode, userConfig]);
@@ -429,18 +439,33 @@ const ImportacaoAutomatica = () => {
           </div>
         </div>
 
-        {/* Barra de progresso da importação */}
-        {(isImporting || importProgress > 0) && importStatus.total > 0 && (
-          <Card className="border-primary/30 bg-primary/5 animate-in fade-in slide-in-from-top-2 duration-300">
-            <CardContent className="p-5 space-y-3">
+        {/* Modal/Popup de progresso da importação */}
+        <Dialog open={showProgressModal} onOpenChange={(open) => {
+          if (!isImporting) {
+            setShowProgressModal(open);
+          }
+        }}>
+          <DialogContent className="sm:max-w-md md:max-w-lg border-primary/20 shadow-xl" onPointerDownOutside={(e) => {
+            if (isImporting) e.preventDefault();
+          }}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Loader2 className={`h-5 w-5 text-primary ${isImporting ? 'animate-spin' : ''}`} />
+                {isImporting ? 'Importação em Andamento' : 'Importação Concluída'}
+              </DialogTitle>
+              <DialogDescription>
+                Acompanhe o progresso da importação dos conteúdos selecionados para o seu painel.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Loader2 className={`h-4 w-4 text-primary ${isImporting ? 'animate-spin' : ''}`} />
                   <span className="text-sm font-semibold">
                     Importando {importStatus.current} de {importStatus.total}
                   </span>
                   {importStatus.title && (
-                    <span className="text-xs text-muted-foreground truncate max-w-[280px] sm:max-w-md">
+                    <span className="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-xs">
                       · {importStatus.title}
                     </span>
                   )}
@@ -455,24 +480,25 @@ const ImportacaoAutomatica = () => {
                   <span className="text-muted-foreground font-mono">{importProgress}%</span>
                 </div>
               </div>
+              
               <Progress value={importProgress} className="h-2" />
 
               {/* Detalhes de série: temporadas + episódios */}
               {episodeStatus.total > 0 && (
-                <div className="rounded-lg border border-primary/20 bg-background/50 p-3 space-y-2">
+                <div className="rounded-lg border border-primary/20 bg-muted/40 p-4 space-y-2 animate-in fade-in duration-300">
                   <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
                     <div className="flex items-center gap-2 min-w-0">
-                      <Tv className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <Tv className="h-3.5 w-3.5 text-primary shrink-0 animate-pulse" />
                       <span className="font-medium truncate">
                         Série: <span className="text-primary">{episodeStatus.seriesTitle}</span>
                       </span>
                     </div>
                     <div className="flex items-center gap-3 text-muted-foreground">
                       <span>
-                        <span className="font-mono text-foreground">{episodeStatus.seasons.size}</span> temporada{episodeStatus.seasons.size !== 1 ? 's' : ''}
+                        <span className="font-mono text-foreground">{episodeStatus.seasons.size}</span> temp.
                       </span>
                       <span>
-                        <span className="font-mono text-foreground">{episodeStatus.current}</span>/<span className="font-mono">{episodeStatus.total}</span> episódios
+                        <span className="font-mono text-foreground">{episodeStatus.current}</span>/<span className="font-mono">{episodeStatus.total}</span> eps.
                       </span>
                       <span className="font-mono">
                         {Math.round((episodeStatus.current / episodeStatus.total) * 100)}%
@@ -484,20 +510,28 @@ const ImportacaoAutomatica = () => {
                     className="h-1.5"
                   />
                   {(episodeStatus.currentSeason || episodeStatus.episodeTitle) && (
-                    <div className="text-[11px] text-muted-foreground truncate">
+                    <div className="text-[11px] text-muted-foreground truncate flex items-center justify-between">
                       {episodeStatus.currentSeason && (
-                        <span className="font-mono mr-2">
+                        <span className="font-mono mr-2 bg-primary/10 text-primary px-1.5 py-0.5 rounded">
                           S{String(episodeStatus.currentSeason).padStart(2, '0')}E{String(episodeStatus.currentEpisode || '').padStart(2, '0')}
                         </span>
                       )}
-                      {episodeStatus.episodeTitle && <span>· {episodeStatus.episodeTitle}</span>}
+                      {episodeStatus.episodeTitle && <span className="truncate flex-1 text-right">· {episodeStatus.episodeTitle}</span>}
                     </div>
                   )}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        )}
+            </div>
+
+            {!isImporting && (
+              <div className="flex justify-end pt-2">
+                <Button onClick={() => setShowProgressModal(false)} className="w-full sm:w-auto">
+                  Fechar
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
 
         {/* Configuração Expandível */}
