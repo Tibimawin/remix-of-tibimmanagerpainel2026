@@ -853,6 +853,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   };
 
   return (
+    <>
     <Card className="border-primary/20 shadow-lg shadow-primary/5 overflow-hidden">
       <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 via-accent/5 to-transparent">
         <div className="flex items-center justify-between">
