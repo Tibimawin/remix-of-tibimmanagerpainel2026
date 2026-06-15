@@ -660,6 +660,7 @@ const ImportacaoAutomatica = () => {
         )}
 
         {/* Preview dos Conteúdos */}
+        <div className="flex flex-col flex-1 min-h-0 min-w-0 w-full">
         <ImportPreview
           importConfig={importConfig}
           userConfig={userConfig}
@@ -669,6 +670,7 @@ const ImportacaoAutomatica = () => {
           importProgress={importProgress}
           onPreviewsLoaded={setHasPreviews}
         />
+        </div>
 
         {/* Recursos da Importação */}
         {!hasPreviews && (
