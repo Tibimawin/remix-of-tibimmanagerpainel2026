@@ -9,6 +9,7 @@ import { isFreeFeatureWhenExpired } from '@/config/freeFeatures';
 interface UserPermissionsContextType {
     permissions: UserPermissions | null;
     loading: boolean;
+    isSubscriptionExpired: boolean;
     hasFeature: (featureId: string) => boolean;
     hasPrioritySupport: () => boolean;
     canAccessPremiumFeatures: () => boolean;
@@ -20,6 +21,17 @@ interface UserPermissionsContextType {
 }
 
 const UserPermissionsContext = createContext<UserPermissionsContextType | undefined>(undefined);
+
+const isExpiredByPermissions = (permissions: UserPermissions | null): boolean => {
+    if (!permissions) return false;
+    if (permissions.isActive === false) return true;
+    if (!permissions.expiryDate) return false;
+
+    const expiryTime = new Date(permissions.expiryDate).getTime();
+    if (Number.isNaN(expiryTime)) return false;
+
+    return expiryTime < Date.now();
+};
 
 export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { userInfo } = useSimpleAuth();
@@ -45,7 +57,7 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
                 const ok = await FirebaseUserService.checkUserAccess(userInfo.id);
                 if (!cancelled) setIsSubscriptionExpired(!ok);
             } catch {
-                if (!cancelled) setIsSubscriptionExpired(false);
+                if (!cancelled) setIsSubscriptionExpired(true);
             }
         };
         check();
@@ -87,6 +99,7 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
                     };
 
                     setPermissions(validatedPermissions);
+                    setIsSubscriptionExpired(isExpiredByPermissions(validatedPermissions));
                 } else {
                     console.log('⚠️ Documento de permissões não existe, criando padrão');
 
@@ -130,6 +143,7 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
                     };
                     console.log('📝 Criando permissões padrão (bloqueadas):', defaultPermissions);
                     setPermissions(defaultPermissions);
+                    setIsSubscriptionExpired(isExpiredByPermissions(defaultPermissions));
                 }
                 setLoading(false);
             },
@@ -146,10 +160,10 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
     }, [userInfo?.id, userInfo?.email, refreshTrigger]);
 
     const hasFeature = (featureId: string): boolean => {
-        // Quando a assinatura está expirada, liberamos um conjunto fixo de features grátis
-        // para todos os usuários, independente do plano original.
-        if (isSubscriptionExpired && isFreeFeatureWhenExpired(featureId)) {
-            return true;
+        // Assinatura expirada: ignora as permissões antigas do plano e libera SOMENTE
+        // o conjunto fixo de funcionalidades grátis definido para todos os usuários.
+        if (isSubscriptionExpired) {
+            return isFreeFeatureWhenExpired(featureId);
         }
         const hasAccess = permissions?.enabledFeatures?.includes(featureId) || false;
         return hasAccess;
@@ -160,6 +174,7 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
     };
 
     const canAccessPremiumFeatures = (): boolean => {
+        if (isSubscriptionExpired) return false;
         return permissions?.enabledFeatures.length > 0 || false;
     };
 
@@ -192,6 +207,7 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
     const value = {
         permissions,
         loading,
+        isSubscriptionExpired,
         hasFeature,
         hasPrioritySupport,
         canAccessPremiumFeatures,

@@ -750,7 +750,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                     {items.map((item, index) => {
                       const Icon = item.icon;
                       const isActive = isMenuActive(item);
-                      const hasAccess = item.id === 'sistema-indicacao' ? true : hasFeature(item.feature);
+                      const hasAccess = hasFeature(item.feature);
                       const hasChildren = item.children && item.children.length > 0;
                       const isOpen = openMenus[item.id];
 
@@ -803,32 +803,46 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                                       {item.children.map((child) => {
                                         const ChildIcon = child.icon;
                                         const isChildActive = location.pathname === child.href;
+                                        const childHasAccess = hasFeature(child.feature);
 
                                         return (
                                           <li key={child.id}>
-                                            <Link
-                                              to={child.href!}
-                                              onClick={handleLinkClick}
-                                              className={cn(
-                                                "group relative flex items-center space-x-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-300",
-                                                isChildActive
-                                                  ? "bg-gradient-to-r from-primary/20 via-primary/15 to-orange-500/20 text-primary border border-primary/30 shadow-md"
-                                                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50 hover:shadow-sm"
-                                              )}
-                                            >
-                                              <ChildIcon className={cn(
-                                                "w-4 h-4 flex-shrink-0 transition-all duration-300",
-                                                isChildActive ? "text-primary" : "group-hover:text-foreground"
-                                              )} />
-                                              <div className="flex items-center space-x-2 flex-1 min-w-0">
-                                                <span className="truncate block">{child.label}</span>
-                                                {child.badge && <MenuBadge badge={child.badge} />}
-                                              </div>
+                                            {childHasAccess ? (
+                                              <Link
+                                                to={child.href!}
+                                                onClick={handleLinkClick}
+                                                className={cn(
+                                                  "group relative flex items-center space-x-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-300",
+                                                  isChildActive
+                                                    ? "bg-gradient-to-r from-primary/20 via-primary/15 to-orange-500/20 text-primary border border-primary/30 shadow-md"
+                                                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50 hover:shadow-sm"
+                                                )}
+                                              >
+                                                <ChildIcon className={cn(
+                                                  "w-4 h-4 flex-shrink-0 transition-all duration-300",
+                                                  isChildActive ? "text-primary" : "group-hover:text-foreground"
+                                                )} />
+                                                <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                                  <span className="truncate block">{child.label}</span>
+                                                  {child.badge && <MenuBadge badge={child.badge} />}
+                                                </div>
 
-                                              {isChildActive && (
-                                                <div className="absolute right-3 w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-sm" />
-                                              )}
-                                            </Link>
+                                                {isChildActive && (
+                                                  <div className="absolute right-3 w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-sm" />
+                                                )}
+                                              </Link>
+                                            ) : (
+                                              <div
+                                                className="group relative flex items-center space-x-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 cursor-not-allowed bg-muted/10 text-muted-foreground/60 border border-border/20"
+                                                title="Recurso bloqueado - renove para liberar"
+                                              >
+                                                <ChildIcon className="w-4 h-4 flex-shrink-0 text-muted-foreground/40" />
+                                                <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                                  <span className="truncate block">{child.label}</span>
+                                                  <Lock className="w-3 h-3 text-orange-500/70" />
+                                                </div>
+                                              </div>
+                                            )}
                                           </li>
                                         );
                                       })}
