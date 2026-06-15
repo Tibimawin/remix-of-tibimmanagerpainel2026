@@ -359,12 +359,12 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   };
 
-  const fetchPreview = async (filterType?: 'all' | 'filme' | 'serie', category?: string, page: number = 1, options?: { forceApiPage?: number; skipInversion?: boolean }) => {
+  const fetchPreview = async (filterType?: 'all' | 'filme' | 'serie', category?: string, page: number = 1, options?: { forceApiPage?: number; skipInversion?: boolean; search?: string }) => {
     if (!importConfig || !importConfig.sourceToken || !importConfig.sourceBaseUrl || !importConfig.contentTableId) {
       return;
     }
 
-    const { forceApiPage, skipInversion = false } = options || {};
+    const { forceApiPage, skipInversion = false, search } = options || {};
 
     setLoading(true);
     setError(null);
@@ -386,12 +386,17 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
           filterQuery += `&filter__Categoria__contains=${encodeURIComponent(category)}`;
         }
       }
-      
+
+      const searchValue = (search ?? '').trim();
+      if (searchValue) {
+        filterQuery += `&search=${encodeURIComponent(searchValue)}`;
+      }
+
       // Calculate the inverted API page
       // If we have cachedTotalPages and not skipping inversion, use inverted pagination
       // Page 1 in UI = Last page in API, Page 2 in UI = Second-to-last in API, etc.
       let apiPage = forceApiPage || page;
-      if (cachedTotalPages > 0 && !forceApiPage && !skipInversion) {
+      if (cachedTotalPages > 0 && !forceApiPage && !skipInversion && !searchValue) {
         apiPage = cachedTotalPages - page + 1;
         if (apiPage < 1) apiPage = 1;
       }
@@ -403,20 +408,22 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
       setTotalCount(count);
 
-      if (skipInversion && newTotalPages > 0) {
+      if (skipInversion && newTotalPages > 0 && !searchValue) {
         setCachedTotalPages(newTotalPages);
         setInitialLoadDone(true);
 
         if (newTotalPages > 1 && page === 1) {
-          fetchPreview(filterType, category, 1, { forceApiPage: newTotalPages });
+          fetchPreview(filterType, category, 1, { forceApiPage: newTotalPages, search: searchValue });
           return;
         }
       }
 
       setCachedTotalPages(newTotalPages);
 
-      const reversedResults = [...(data.results || [])].reverse();
-      setPreviews(reversedResults);
+      // When searching, keep the natural order returned by the API (most relevant pagination).
+      const results = data.results || [];
+      const finalResults = searchValue ? results : [...results].reverse();
+      setPreviews(finalResults);
 
     } catch (err) {
       console.error('Erro ao buscar preview:', err);
@@ -436,7 +443,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     if (configValid && importConfig) {
       setCachedTotalPages(0);
       setInitialLoadDone(false);
-      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true });
+      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm });
       fetchTypeCounts();
       fetchCategories();
     }
@@ -543,14 +550,26 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       setCurrentPage(1);
       setCachedTotalPages(0);
       setInitialLoadDone(false);
-      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true });
+      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm });
     }
   }, [typeFilter, categoryFilter]);
+
+  // Debounced server-side search when searchTerm changes
+  useEffect(() => {
+    if (!configValid || !importConfig) return;
+    const handle = setTimeout(() => {
+      setCurrentPage(1);
+      setCachedTotalPages(0);
+      setInitialLoadDone(false);
+      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm });
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [searchTerm]);
 
   // Fetch when page changes
   useEffect(() => {
     if (configValid && currentPage > 0 && initialLoadDone) {
-      fetchPreview(typeFilter, categoryFilter, currentPage);
+      fetchPreview(typeFilter, categoryFilter, currentPage, { search: searchTerm });
     }
   }, [currentPage]);
 
@@ -558,7 +577,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     setCurrentPage(1);
     setCachedTotalPages(0);
     setInitialLoadDone(false);
-    fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true });
+    fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm });
     fetchCategories();
   };
 
