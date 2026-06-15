@@ -78,7 +78,6 @@ interface ImportPreviewProps {
   configValid: boolean;
   isImporting?: boolean;
   importProgress?: number;
-  onPreviewsLoaded?: (hasPreviews: boolean) => void;
 }
 
 export const ImportPreview: React.FC<ImportPreviewProps> = ({
@@ -87,8 +86,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   onStartImport,
   configValid,
   isImporting = false,
-  importProgress = 0,
-  onPreviewsLoaded
+  importProgress = 0
 }) => {
   const [previews, setPreviews] = useState<ContentPreview[]>([]);
   const [loading, setLoading] = useState(false);
@@ -556,12 +554,6 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   }, [currentPage]);
 
-  useEffect(() => {
-    if (onPreviewsLoaded) {
-      onPreviewsLoaded(previews.length > 0);
-    }
-  }, [previews.length, onPreviewsLoaded]);
-
   const handleRefresh = () => {
     setCurrentPage(1);
     setCachedTotalPages(0);
@@ -665,10 +657,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   };
 
   return (
-    <Card className="border-primary/20 shadow-lg shadow-primary/5 overflow-hidden flex flex-col flex-1 min-h-0 w-full min-w-0">
-      <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 via-accent/5 to-transparent shrink-0 px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-3 min-w-0">
+    <Card className="border-primary/20 shadow-lg shadow-primary/5 overflow-hidden">
+      <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 via-accent/5 to-transparent">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary/10">
               <Eye className="h-5 w-5 text-primary" />
             </div>
@@ -679,7 +671,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 justify-end">
+          <div className="flex items-center gap-2">
             {selectedIds.size > 0 && (
               <Badge variant="secondary" className="text-xs">
                 {selectedIds.size} selecionado{selectedIds.size !== 1 ? 's' : ''}
@@ -717,10 +709,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         </div>
       </CardHeader>
 
-      <CardContent className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden">
+      <CardContent className="p-0">
         {/* Search Bar */}
         {previews.length > 0 && (
-          <div className="px-6 py-3 border-b border-border/50 shrink-0">
+          <div className="px-6 py-3 border-b border-border/50">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -745,7 +737,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
         {/* Filters Bar */}
         {(typeCounts.total > 0 || totalCount > 0) && (
-          <div className="flex flex-wrap items-center gap-3 px-6 py-3 bg-muted/30 border-b border-border/50 shrink-0">
+          <div className="flex flex-wrap items-center gap-3 px-6 py-3 bg-muted/30 border-b border-border/50">
             {/* Type Filters */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Tipo:</span>
@@ -825,7 +817,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
         {/* Categories Carousel */}
         {availableCategories.length > 0 && (
-          <div className="px-6 py-3 border-b border-border/50 bg-background shrink-0">
+          <div className="px-6 py-3 border-b border-border/50 bg-background">
             <div className="flex items-center gap-2 mb-2">
               <Tags className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium text-foreground">Categorias</span>
@@ -860,8 +852,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
         {/* Content Grid */}
         {loading ? (
-          <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-11 2xl:grid-cols-13 gap-1 p-1 flex-1 min-h-0 overflow-y-auto">
-            {Array.from({ length: 14 }).map((_, i) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-5 p-6">
+            {Array.from({ length: 16 }).map((_, i) => (
               <div key={i} className="space-y-2">
                 <Skeleton className="aspect-[2/3] w-full rounded-lg" />
                 <Skeleton className="h-4 w-3/4" />
@@ -899,7 +891,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         ) : (
           <>
             {/* Selection Controls */}
-            <div className="space-y-3 border-b border-border/50 px-6 py-3 bg-muted/20 shrink-0">
+            <div className="space-y-3 border-b border-border/50 px-6 py-3 bg-muted/20">
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 {loadingExistingContent ? (
                   <div className="flex flex-col gap-1.5 w-full max-w-md">
@@ -964,8 +956,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                 )}
               </div>
             </div>
-            <div className="rounded-md border bg-muted/10 flex-1 min-h-0 overflow-y-auto min-w-0">
-              <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-11 2xl:grid-cols-13 gap-1 p-1">
+            <ScrollArea className="h-[calc(100vh-260px)] min-h-[780px] rounded-md border">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-5 p-6">
                 {filteredPreviews.map((content) => {
                   const isSelected = selectedIds.has(content.id);
                   const highlight = previewHighlightMap.get(content.id);
@@ -975,7 +967,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                     <div
                       key={content.id}
                       onClick={() => toggleSelection(content.id)}
-                      className={`group relative bg-card rounded-md border overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer w-full max-w-[110px] mx-auto ${
+                      className={`group relative bg-card rounded-lg border overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer ${
                         isAlreadyImported
                           ? 'border-emerald-500/50 bg-emerald-500/5 ring-1 ring-emerald-500/20'
                           : isDuplicateInPreview
@@ -1018,16 +1010,16 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                         {isAlreadyImported && (
                           <>
                             {/* Big centered "imported" overlay */}
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 z-20 pointer-events-none p-1">
-                              <div className="bg-emerald-500/95 text-white rounded-full p-1.5 shadow-xl shadow-emerald-500/40">
-                                <CheckCircle2 className="h-5 w-5" strokeWidth={2.5} />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-20 pointer-events-none">
+                              <div className="bg-emerald-500/95 text-white rounded-full p-3 shadow-xl shadow-emerald-500/40">
+                                <CheckCircle2 className="h-8 w-8" strokeWidth={2.5} />
                               </div>
-                              <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white border-0 text-[9px] font-bold tracking-wide shadow-lg px-1 py-0">
+                              <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white border-0 text-[11px] font-bold tracking-wide shadow-lg">
                                 JÁ IMPORTADO
                               </Badge>
                             </div>
                             {/* Diagonal ribbon */}
-                            <div className="absolute top-2 -right-10 z-10 rotate-45 bg-emerald-500 text-white text-[8px] font-bold px-8 py-0.5 shadow-md pointer-events-none">
+                            <div className="absolute top-3 -right-8 z-10 rotate-45 bg-emerald-500 text-white text-[9px] font-bold px-8 py-0.5 shadow-md pointer-events-none">
                               ✓ NO BANCO
                             </div>
                           </>
@@ -1036,16 +1028,16 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                         {content.Tipo && (
                           <Badge
                             variant={getTypeBadgeVariant(content.Tipo)}
-                            className="absolute top-1.5 left-1.5 text-[10px] gap-0.5 px-1 py-0"
+                            className="absolute top-2 left-2 text-xs gap-1"
                           >
                             {getTypeIcon(content.Tipo)}
                             {content.Tipo}
                           </Badge>
                         )}
 
-                        <div className="absolute left-1.5 right-1.5 top-8 z-10 flex flex-wrap gap-0.5">
+                        <div className="absolute left-2 right-2 top-10 z-10 flex flex-wrap gap-1">
                           {isDuplicateInPreview && !isAlreadyImported && (
-                            <Badge variant="destructive" className="text-[9px] px-1 py-0">
+                            <Badge variant="destructive" className="text-[10px]">
                               Duplicado
                             </Badge>
                           )}
@@ -1054,24 +1046,24 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                         {content.IMDb && (
                           <Badge
                             variant="warning"
-                            className="absolute bottom-11 right-1.5 text-[9px] gap-0.5 px-1 py-0"
+                            className="absolute bottom-16 right-2 text-xs gap-1"
                           >
-                            <Star className="h-2.5 w-2.5 fill-current" />
+                            <Star className="h-3 w-3 fill-current" />
                             {content.IMDb}
                           </Badge>
                         )}
 
-                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/95 to-transparent" />
+                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
                       </div>
 
-                      <div className="absolute inset-x-0 bottom-0 p-1 text-white">
-                        <h4 className="font-semibold text-[9.5px] line-clamp-2 leading-tight mb-0.5">
+                      <div className="absolute inset-x-0 bottom-0 p-3 text-white">
+                        <h4 className="font-medium text-sm line-clamp-2 leading-tight mb-1">
                           {content.Nome || 'Sem título'}
                         </h4>
-                        <div className="flex items-center gap-1 text-[8.5px] text-white/70 mb-0.5">
+                        <div className="flex items-center gap-2 text-xs text-white/70 mb-1">
                           {content.Ano && (
-                            <span className="flex items-center gap-0.5 shrink-0">
-                              <Calendar className="h-2.5 w-2.5" />
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
                               {content.Ano}
                             </span>
                           )}
@@ -1080,7 +1072,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                           )}
                         </div>
                         {highlight?.matchReasons?.length ? (
-                          <div className="rounded bg-black/45 px-1 py-0.5 text-[7.5px] text-white/85 line-clamp-1">
+                          <div className="rounded-md bg-black/45 px-2 py-1 text-[10px] text-white/85 line-clamp-2">
                             {highlight.matchReasons.join(' • ')}
                           </div>
                         ) : null}
@@ -1089,13 +1081,13 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                   );
                 })}
               </div>
-            </div>
+            </ScrollArea>
           </>
         )}
 
         {/* Footer with Pagination and CTA */}
         {previews.length > 0 && (
-          <div className="flex flex-col gap-2 px-4 py-2 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 border-t border-border/50 shrink-0">
+          <div className="flex flex-col gap-3 px-6 py-4 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 border-t border-border/50">
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2">

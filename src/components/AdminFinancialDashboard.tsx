@@ -32,8 +32,6 @@ interface FinancialRecord {
   endDate: string;
   confirmedAt: string;
   source: string;
-  isUpgrade?: boolean;
-  createdAt?: string;
 }
 
 interface AutoPermissionLog {
