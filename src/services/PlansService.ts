@@ -83,10 +83,24 @@ export const PlansService = {
   async deletePlan(planId: string) {
     try {
       console.log('Deletando plano:', planId);
-      
+
+      // Marcar nome do plano como deletado para evitar recriação automática
+      try {
+        const all = await this.getAllPlans();
+        const target = all.find(p => p.id === planId);
+        if (target?.name) {
+          const raw = localStorage.getItem('deleted-plan-names');
+          const set = new Set<string>(raw ? JSON.parse(raw) : []);
+          set.add(target.name.toLowerCase().trim());
+          localStorage.setItem('deleted-plan-names', JSON.stringify([...set]));
+        }
+      } catch (e) {
+        console.warn('Não foi possível marcar plano como deletado:', e);
+      }
+
       const planRef = doc(db, 'plans', planId);
       await deleteDoc(planRef);
-      
+
       console.log('Plano deletado com sucesso');
     } catch (error) {
       console.error('Erro ao deletar plano:', error);
@@ -129,8 +143,14 @@ export const PlansService = {
   // Migrar planos do localStorage para Firebase (função auxiliar)
   async migrateFromLocalStorage() {
     try {
+      // Executar migração apenas uma vez por dispositivo
+      if (localStorage.getItem('plans-migrated') === 'true') return;
+
       const savedPlans = localStorage.getItem('admin-plans');
-      if (!savedPlans) return;
+      if (!savedPlans) {
+        localStorage.setItem('plans-migrated', 'true');
+        return;
+      }
 
       const localPlans = JSON.parse(savedPlans) as Plan[];
       console.log('Migrando planos do localStorage:', localPlans.length);
@@ -138,6 +158,7 @@ export const PlansService = {
       const existingPlans = await this.getAllPlans();
       if (existingPlans.length > 0) {
         console.log('Planos já existem no Firebase, pulando migração');
+        localStorage.setItem('plans-migrated', 'true');
         return;
       }
 
@@ -146,6 +167,7 @@ export const PlansService = {
         await this.createPlan(planData);
       }
 
+      localStorage.setItem('plans-migrated', 'true');
       console.log('Migração concluída com sucesso');
     } catch (error) {
       console.error('Erro na migração:', error);
@@ -155,6 +177,19 @@ export const PlansService = {
   // Garantir que o plano de Integração API existe
   async ensureApiPlan() {
     try {
+      // Se o admin já deletou explicitamente o plano API, não recriar
+      try {
+        const raw = localStorage.getItem('deleted-plan-names');
+        const deleted: string[] = raw ? JSON.parse(raw) : [];
+        if (deleted.some(n => n.includes('api') || n.includes('integração') || n.includes('integracao'))) {
+          console.log('Plano API foi deletado pelo admin — não será recriado.');
+          return;
+        }
+      } catch {}
+
+      // Executar apenas uma vez por dispositivo
+      if (localStorage.getItem('api-plan-ensured') === 'true') return;
+
       const existingPlans = await this.getAllPlans();
       const hasApiPlan = existingPlans.some(p => 
         p.features.includes('minha-api') && p.name.toLowerCase().includes('api')
@@ -162,6 +197,7 @@ export const PlansService = {
 
       if (hasApiPlan) {
         console.log('Plano de Integração API já existe');
+        localStorage.setItem('api-plan-ensured', 'true');
         return;
       }
 
@@ -184,6 +220,7 @@ export const PlansService = {
         isActive: true
       });
 
+      localStorage.setItem('api-plan-ensured', 'true');
       console.log('✅ Plano de Integração API criado com sucesso');
     } catch (error) {
       console.error('Erro ao criar plano de Integração API:', error);
