@@ -31,7 +31,7 @@ const routeFeatures: Record<string, string> = {
   '/estatisticas': 'estatisticas',
   '/adicionar-conteudo': 'adicionar-conteudo',
   '/precos-interno': 'precos-interno',
-  '/sistema-indicacao': 'sistema-indicacao',
+  // '/sistema-indicacao' é sempre acessível (sem gate de permissão)
   '/relatorios-visualizacao': 'relatorios-visualizacao',
   '/perfil': 'perfil',
   '/historico-acoes': 'historico-acoes',
