@@ -1491,5 +1491,30 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         )}
       </CardContent>
     </Card>
+    {currentSeriesDialog && (
+      <SeasonSelectionDialog
+        open={seasonDialogOpen}
+        onOpenChange={(o) => {
+          setSeasonDialogOpen(o);
+          if (!o) setCurrentSeriesDialog(null);
+        }}
+        seriesTitle={currentSeriesDialog.Nome || ''}
+        totalSeasons={(() => {
+          const declared = parseInt(currentSeriesDialog.Temporadas || '0') || 0;
+          const eps = seriesEpisodesMap.get(currentSeriesDialog.id) || [];
+          const inferred = eps.reduce((max, e) => {
+            const s = parseInt(e.Temporada);
+            return Number.isNaN(s) ? max : Math.max(max, s);
+          }, 0);
+          return Math.max(declared, inferred, 1);
+        })()}
+        selectedSeasons={pendingSeasons}
+        episodes={seriesEpisodesMap.get(currentSeriesDialog.id) || []}
+        loadingEpisodes={loadingEpisodes}
+        onSeasonsChange={setPendingSeasons}
+        onConfirm={confirmSeriesSelection}
+      />
+    )}
+    </>
   );
 };
