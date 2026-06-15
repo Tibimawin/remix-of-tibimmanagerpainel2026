@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bell, X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
+import { Bell, BellOff, X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '@/config/firebase';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, where } from 'firebase/firestore';
@@ -179,6 +179,29 @@ const UserNotifications: React.FC<UserNotificationsProps> = ({ isOpen, onClose }
               window.location.href = '/precos';
             }}
           />
+
+          {/* Indicador de status das notificações não lidas */}
+          <div
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+              unreadCount > 0
+                ? 'border-blue-400/40 bg-blue-500/10 text-blue-200'
+                : 'border-border/40 bg-muted/30 text-muted-foreground'
+            }`}
+          >
+            {unreadCount > 0 ? (
+              <>
+                <Bell className="h-4 w-4" />
+                <span>
+                  Você tem <strong>{unreadCount}</strong> notificação{unreadCount === 1 ? '' : 'ões'} não lida{unreadCount === 1 ? '' : 's'}.
+                </span>
+              </>
+            ) : (
+              <>
+                <BellOff className="h-4 w-4" />
+                <span>Você não tem notificações novas.</span>
+              </>
+            )}
+          </div>
           
           {notifications.length > 0 ? (
             notifications.map((notification) => (
