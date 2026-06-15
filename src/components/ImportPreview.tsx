@@ -467,6 +467,15 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   };
 
+  // Persist genre filter across page navigations
+  useEffect(() => {
+    try {
+      localStorage.setItem('importPreview_genreFilter', genreFilter);
+    } catch {
+      // ignore storage errors
+    }
+  }, [genreFilter]);
+
   useEffect(() => {
     if (configValid && importConfig) {
       setCachedTotalPages(0);
