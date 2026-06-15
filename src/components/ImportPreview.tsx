@@ -97,7 +97,13 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'filme' | 'serie'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [genreFilter, setGenreFilter] = useState<string>('all');
+  const [genreFilter, setGenreFilter] = useState<string>(() => {
+    try {
+      return localStorage.getItem('importPreview_genreFilter') || 'all';
+    } catch {
+      return 'all';
+    }
+  });
   const [highlightFilter, setHighlightFilter] = useState<'all' | 'imported' | 'duplicates'>('all');
   const [sortBy, setSortBy] = useState<'nome' | 'ano' | 'rating'>('nome');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
@@ -460,6 +466,15 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       setLoading(false);
     }
   };
+
+  // Persist genre filter across page navigations
+  useEffect(() => {
+    try {
+      localStorage.setItem('importPreview_genreFilter', genreFilter);
+    } catch {
+      // ignore storage errors
+    }
+  }, [genreFilter]);
 
   useEffect(() => {
     if (configValid && importConfig) {
