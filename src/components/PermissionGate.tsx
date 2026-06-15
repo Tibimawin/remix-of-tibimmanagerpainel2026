@@ -77,35 +77,39 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
     const canUpgrade = isApiFeature && hasActivePlan && upgradeDifference > 0;
 
     const planIcons = [Shield, Star, Rocket];
-    // Esquemas de cor estilo "Assine o Premium" (referência)
+    // Esquemas de cor distintos (evitar parecer plágio de outras plataformas)
     const planSchemes = [
       {
-        // Mensal (laranja)
-        cardBg: 'bg-gradient-to-b from-orange-500/20 to-orange-700/10 border-orange-500/40',
-        priceText: 'text-orange-400',
-        btn: 'bg-orange-500 hover:bg-orange-600 text-white',
-        badge: 'bg-orange-500 text-white',
+        // Mensal (coral/rosa quente)
+        cardBg: 'bg-gradient-to-b from-rose-500/20 to-rose-700/10 border-rose-500/40',
+        priceText: 'text-rose-400',
+        btn: 'bg-rose-500 hover:bg-rose-600 text-white',
+        badge: 'bg-rose-500 text-white',
+        check: 'text-rose-400',
       },
       {
-        // Trimestral (azul)
-        cardBg: 'bg-gradient-to-b from-blue-500/20 to-blue-800/10 border-blue-500/40',
-        priceText: 'text-blue-400',
-        btn: 'bg-blue-500 hover:bg-blue-600 text-white',
-        badge: 'bg-blue-500 text-white',
+        // Trimestral (ciano/teal)
+        cardBg: 'bg-gradient-to-b from-teal-500/20 to-teal-700/10 border-teal-500/40',
+        priceText: 'text-teal-400',
+        btn: 'bg-teal-500 hover:bg-teal-600 text-white',
+        badge: 'bg-teal-500 text-white',
+        check: 'text-teal-400',
       },
       {
-        // Anual (roxo)
-        cardBg: 'bg-gradient-to-b from-purple-500/20 to-purple-800/10 border-purple-500/40',
-        priceText: 'text-purple-400',
-        btn: 'bg-purple-500 hover:bg-purple-600 text-white',
-        badge: 'bg-purple-500 text-white',
+        // Anual (âmbar/dourado)
+        cardBg: 'bg-gradient-to-b from-amber-500/20 to-amber-700/10 border-amber-500/40',
+        priceText: 'text-amber-400',
+        btn: 'bg-amber-500 hover:bg-amber-600 text-white',
+        badge: 'bg-amber-500 text-white',
+        check: 'text-amber-400',
       },
       {
-        // Extra (verde)
-        cardBg: 'bg-gradient-to-b from-emerald-500/20 to-emerald-800/10 border-emerald-500/40',
-        priceText: 'text-emerald-400',
-        btn: 'bg-emerald-500 hover:bg-emerald-600 text-white',
-        badge: 'bg-emerald-500 text-white',
+        // Extra (fúcsia/magenta)
+        cardBg: 'bg-gradient-to-b from-fuchsia-500/20 to-fuchsia-700/10 border-fuchsia-500/40',
+        priceText: 'text-fuchsia-400',
+        btn: 'bg-fuchsia-500 hover:bg-fuchsia-600 text-white',
+        badge: 'bg-fuchsia-500 text-white',
+        check: 'text-fuchsia-400',
       },
     ];
 
