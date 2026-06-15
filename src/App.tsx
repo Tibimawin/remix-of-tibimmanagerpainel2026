@@ -401,7 +401,7 @@ const App = () => {
                               } />
 
                               <Route path="/configuracoes-seguranca" element={
-                                <SimpleProtectedRoute>
+                                <SimpleProtectedRoute allowExpired>
                                   <Layout>
                                     <ConfiguracoesSeguranca />
                                   </Layout>
@@ -409,7 +409,7 @@ const App = () => {
                               } />
 
                               <Route path="/configuracoes-auto-import" element={
-                                <SimpleProtectedRoute>
+                                <SimpleProtectedRoute allowExpired>
                                   <Layout>
                                     <ConfiguracoesAutoImport />
                                   </Layout>
