@@ -749,7 +749,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                     {items.map((item, index) => {
                       const Icon = item.icon;
                       const isActive = isMenuActive(item);
-                      const hasAccess = hasFeature(item.feature);
+                      const hasAccess = item.feature ? hasFeature(item.feature) : true;
                       const hasChildren = item.children && item.children.length > 0;
                       const isOpen = openMenus[item.id];
 
@@ -802,7 +802,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                                        {item.children.map((child) => {
                                         const ChildIcon = child.icon;
                                         const isChildActive = location.pathname === child.href;
-                                        const childHasAccess = hasFeature(child.feature);
+                                        const childHasAccess = child.feature ? hasFeature(child.feature) : true;
 
                                         return (
                                           <li key={child.id}>
