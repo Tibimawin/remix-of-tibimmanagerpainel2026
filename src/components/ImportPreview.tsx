@@ -1192,10 +1192,12 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                   const highlight = previewHighlightMap.get(content.id);
                   const isAlreadyImported = highlight?.isAlreadyImported;
                   const isDuplicateInPreview = highlight?.isDuplicateInPreview;
+                  const isSerie = isSeriesType(content.Tipo);
+                  const selectedSeasonsForCard = seriesSeasonsMap.get(content.id);
                   return (
                     <div
                       key={content.id}
-                      onClick={() => toggleSelection(content.id)}
+                      onClick={() => handleCardClick(content)}
                       className={`group relative bg-card rounded-lg border overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer ${
                         isAlreadyImported
                           ? 'border-emerald-500/50 bg-emerald-500/5 ring-1 ring-emerald-500/20'
