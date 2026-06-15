@@ -957,7 +957,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
               </div>
             </div>
             <div className="rounded-md border bg-muted/10">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-5 p-6">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 2xl:grid-cols-12 gap-4 p-4">
                 {filteredPreviews.map((content) => {
                   const isSelected = selectedIds.has(content.id);
                   const highlight = previewHighlightMap.get(content.id);
@@ -1010,16 +1010,16 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                         {isAlreadyImported && (
                           <>
                             {/* Big centered "imported" overlay */}
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-20 pointer-events-none">
-                              <div className="bg-emerald-500/95 text-white rounded-full p-3 shadow-xl shadow-emerald-500/40">
-                                <CheckCircle2 className="h-8 w-8" strokeWidth={2.5} />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 z-20 pointer-events-none p-1">
+                              <div className="bg-emerald-500/95 text-white rounded-full p-1.5 shadow-xl shadow-emerald-500/40">
+                                <CheckCircle2 className="h-5 w-5" strokeWidth={2.5} />
                               </div>
-                              <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white border-0 text-[11px] font-bold tracking-wide shadow-lg">
+                              <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white border-0 text-[9px] font-bold tracking-wide shadow-lg px-1 py-0">
                                 JÁ IMPORTADO
                               </Badge>
                             </div>
                             {/* Diagonal ribbon */}
-                            <div className="absolute top-3 -right-8 z-10 rotate-45 bg-emerald-500 text-white text-[9px] font-bold px-8 py-0.5 shadow-md pointer-events-none">
+                            <div className="absolute top-2 -right-10 z-10 rotate-45 bg-emerald-500 text-white text-[8px] font-bold px-8 py-0.5 shadow-md pointer-events-none">
                               ✓ NO BANCO
                             </div>
                           </>
@@ -1028,16 +1028,16 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                         {content.Tipo && (
                           <Badge
                             variant={getTypeBadgeVariant(content.Tipo)}
-                            className="absolute top-2 left-2 text-xs gap-1"
+                            className="absolute top-1.5 left-1.5 text-[10px] gap-0.5 px-1 py-0"
                           >
                             {getTypeIcon(content.Tipo)}
                             {content.Tipo}
                           </Badge>
                         )}
 
-                        <div className="absolute left-2 right-2 top-10 z-10 flex flex-wrap gap-1">
+                        <div className="absolute left-1.5 right-1.5 top-8 z-10 flex flex-wrap gap-0.5">
                           {isDuplicateInPreview && !isAlreadyImported && (
-                            <Badge variant="destructive" className="text-[10px]">
+                            <Badge variant="destructive" className="text-[9px] px-1 py-0">
                               Duplicado
                             </Badge>
                           )}
@@ -1046,24 +1046,24 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                         {content.IMDb && (
                           <Badge
                             variant="warning"
-                            className="absolute bottom-16 right-2 text-xs gap-1"
+                            className="absolute bottom-14 right-1.5 text-[9px] gap-0.5 px-1 py-0"
                           >
-                            <Star className="h-3 w-3 fill-current" />
+                            <Star className="h-2.5 w-2.5 fill-current" />
                             {content.IMDb}
                           </Badge>
                         )}
 
-                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
+                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/95 to-transparent" />
                       </div>
 
-                      <div className="absolute inset-x-0 bottom-0 p-3 text-white">
-                        <h4 className="font-medium text-sm line-clamp-2 leading-tight mb-1">
+                      <div className="absolute inset-x-0 bottom-0 p-2 text-white">
+                        <h4 className="font-semibold text-xs line-clamp-2 leading-tight mb-0.5">
                           {content.Nome || 'Sem título'}
                         </h4>
-                        <div className="flex items-center gap-2 text-xs text-white/70 mb-1">
+                        <div className="flex items-center gap-1.5 text-[10px] text-white/70 mb-0.5">
                           {content.Ano && (
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
+                            <span className="flex items-center gap-0.5 shrink-0">
+                              <Calendar className="h-2.5 w-2.5" />
                               {content.Ano}
                             </span>
                           )}
@@ -1072,7 +1072,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                           )}
                         </div>
                         {highlight?.matchReasons?.length ? (
-                          <div className="rounded-md bg-black/45 px-2 py-1 text-[10px] text-white/85 line-clamp-2">
+                          <div className="rounded bg-black/45 px-1.5 py-0.5 text-[9px] text-white/85 line-clamp-1">
                             {highlight.matchReasons.join(' • ')}
                           </div>
                         ) : null}
