@@ -421,9 +421,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         }
       });
 
-      const staticCategories = ['Lançamentos', '2026', '2025', '2024', '2023'];
+      const staticCategories = ['Lançamentos'];
       const dynamicCategories = Array.from(categories)
         .filter(c => !staticCategories.includes(c))
+        .filter(c => !/^\d{4}$/.test(c))
         .sort();
 
       setAvailableCategories([
@@ -1131,17 +1132,19 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                 >
                   Todas
                 </Button>
-                {availableCategories.map((category) => (
-                  <Button
-                    key={category}
-                    variant={categoryFilter === category ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setCategoryFilter(category)}
-                    className="h-8 text-xs rounded-full shrink-0"
-                  >
-                    {category}
-                  </Button>
-                ))}
+                {availableCategories
+                  .filter((category) => !/^\d{4}$/.test(category))
+                  .map((category) => (
+                    <Button
+                      key={category}
+                      variant={categoryFilter === category ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setCategoryFilter(category)}
+                      className="h-8 text-xs rounded-full shrink-0"
+                    >
+                      {category}
+                    </Button>
+                  ))}
               </div>
               <ScrollBar orientation="horizontal" />
             </ScrollArea>
