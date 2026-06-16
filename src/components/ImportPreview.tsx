@@ -1544,9 +1544,11 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
           return Math.max(declared, inferred, 1);
         })()}
         selectedSeasons={pendingSeasons}
+        selectedEpisodes={pendingEpisodes}
         episodes={seriesEpisodesMap.get(currentSeriesDialog.id) || []}
         loadingEpisodes={loadingEpisodes}
         onSeasonsChange={setPendingSeasons}
+        onEpisodesChange={setPendingEpisodes}
         onConfirm={confirmSeriesSelection}
       />
     )}
