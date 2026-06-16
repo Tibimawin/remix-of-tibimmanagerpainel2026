@@ -480,6 +480,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         filterQuery += '&filter__Categoria__contains=Doram';
       } else if (filterType === 'anime') {
         filterQuery += '&filter__Categoria__contains=Anim';
+      } else if (filterType === 'novela') {
+        filterQuery += '&filter__Categoria__contains=Novel';
       }
       
       if (category && category !== 'all') {
@@ -1093,6 +1095,15 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 Animes ({typeCounts.animes.toLocaleString()})
+              </Button>
+              <Button
+                variant={typeFilter === 'novela' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTypeFilter('novela')}
+                className="h-7 text-xs gap-1.5"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Novelas ({typeCounts.novelas.toLocaleString()})
               </Button>
             </div>
 
