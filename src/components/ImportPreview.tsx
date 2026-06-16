@@ -729,7 +729,13 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       });
       seriesEpisodesMap.forEach((eps, numId) => {
         if (selectedIds.has(numId)) {
-          episodesByStringId.set(String(numId), eps);
+          const selectedEpIds = seriesSelectedEpisodesMap.get(numId) || [];
+          if (selectedEpIds.length > 0) {
+            const filtered = eps.filter(ep => selectedEpIds.includes(ep.id));
+            episodesByStringId.set(String(numId), filtered);
+          } else {
+            episodesByStringId.set(String(numId), eps);
+          }
         }
       });
       onStartImport(selectedContents, seasonsByStringId, episodesByStringId);
