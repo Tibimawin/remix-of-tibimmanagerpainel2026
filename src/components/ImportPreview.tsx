@@ -398,9 +398,9 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       await new Promise(r => setTimeout(r, 300));
       const seriesData = await makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Tipo__equal=Serie`);
       await new Promise(r => setTimeout(r, 300));
-      const doramasData = await makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Categoria__contains=Dorama`);
+      const doramasData = await makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Categoria__contains=Doram`);
       await new Promise(r => setTimeout(r, 300));
-      const animesData = await makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Categoria__contains=Anime`);
+      const animesData = await makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Categoria__contains=Anim`);
 
       setTypeCounts({
         total: totalData.count || 0,
@@ -474,9 +474,9 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       } else if (filterType === 'serie') {
         filterQuery += '&filter__Tipo__equal=Serie';
       } else if (filterType === 'dorama') {
-        filterQuery += '&filter__Categoria__contains=Dorama';
+        filterQuery += '&filter__Categoria__contains=Doram';
       } else if (filterType === 'anime') {
-        filterQuery += '&filter__Categoria__contains=Anime';
+        filterQuery += '&filter__Categoria__contains=Anim';
       }
       
       if (category && category !== 'all') {
