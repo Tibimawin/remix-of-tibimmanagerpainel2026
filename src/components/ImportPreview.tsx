@@ -771,17 +771,28 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
   const openSeriesDialog = async (content: ContentPreview) => {
     setCurrentSeriesDialog(content);
-    // Initialize pending selection from existing map, or all seasons by default
-    const existing = seriesSeasonsMap.get(content.id);
-    if (existing && existing.length > 0) {
-      setPendingSeasons(existing);
+    // Initialize pending selection from existing maps
+    const existingSeasons = seriesSeasonsMap.get(content.id);
+    const existingEpisodes = seriesSelectedEpisodesMap.get(content.id);
+    if (existingSeasons && existingSeasons.length > 0) {
+      setPendingSeasons(existingSeasons);
     } else {
       const total = parseInt(content.Temporadas || '0') || 0;
       setPendingSeasons(total > 0 ? Array.from({ length: total }, (_, i) => i + 1) : []);
     }
+    if (existingEpisodes && existingEpisodes.length > 0) {
+      setPendingEpisodes(existingEpisodes);
+    } else {
+      setPendingEpisodes([]);
+    }
     setSeasonDialogOpen(true);
     await fetchEpisodesFor(content);
-    // After episodes load, if user hasn't customized and Temporadas was 0, infer from episodes
+    // After episodes load, if no pending episodes set, default to all
+    setPendingEpisodes(prev => {
+      if (prev.length > 0) return prev;
+      const eps = seriesEpisodesMap.get(content.id) || [];
+      return eps.map(ep => ep.id);
+    });
     setPendingSeasons(prev => {
       if (prev.length > 0) return prev;
       const eps = seriesEpisodesMap.get(content.id) || [];
@@ -796,8 +807,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
   const confirmSeriesSelection = () => {
     if (!currentSeriesDialog) return;
-    if (pendingSeasons.length === 0) {
-      toast.error('Selecione ao menos uma temporada');
+    if (pendingEpisodes.length === 0) {
+      toast.error('Selecione ao menos um episódio');
       return;
     }
     const id = currentSeriesDialog.id;
@@ -811,10 +822,15 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       next.set(id, pendingSeasons);
       return next;
     });
+    setSeriesSelectedEpisodesMap(prev => {
+      const next = new Map(prev);
+      next.set(id, pendingEpisodes);
+      return next;
+    });
     setSeasonDialogOpen(false);
     setCurrentSeriesDialog(null);
-    toast.success('Temporadas definidas', {
-      description: `${pendingSeasons.length} temporada(s) marcadas para "${currentSeriesDialog.Nome}"`,
+    toast.success('Seleção definida', {
+      description: `${pendingEpisodes.length} episódio(s) marcados para "${currentSeriesDialog.Nome}"`,
     });
   };
 
@@ -824,6 +840,11 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       if (selectedIds.has(content.id)) {
         toggleSelection(content.id);
         setSeriesSeasonsMap(prev => {
+          const next = new Map(prev);
+          next.delete(content.id);
+          return next;
+        });
+        setSeriesSelectedEpisodesMap(prev => {
           const next = new Map(prev);
           next.delete(content.id);
           return next;
