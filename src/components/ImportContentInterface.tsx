@@ -850,6 +850,7 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
           seriesTitle={currentSeriesForSeasonSelection.Titulo}
           totalSeasons={parseInt(currentSeriesForSeasonSelection.Temporadas || '1')}
           selectedSeasons={seriesSeasons.get(currentSeriesForSeasonSelection.id) || []}
+          selectedEpisodes={pendingEpisodes}
           episodes={seriesEpisodes.get(currentSeriesForSeasonSelection.id) || []}
           loadingEpisodes={loadingEpisodes}
           onSeasonsChange={(seasons) => {
@@ -857,6 +858,7 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
             newSeriesSeasons.set(currentSeriesForSeasonSelection.id, seasons);
             setSeriesSeasons(newSeriesSeasons);
           }}
+          onEpisodesChange={setPendingEpisodes}
           onConfirm={handleSeasonSelectionConfirm}
         />
       )}
