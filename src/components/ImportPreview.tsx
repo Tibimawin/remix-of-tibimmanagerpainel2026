@@ -1182,10 +1182,26 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
         {/* Anos Carousel */}
         <div className="px-6 py-3 border-b border-border/50 bg-background">
-          <div className="flex items-center gap-2 mb-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium text-foreground">Anos</span>
-            <span className="text-xs text-muted-foreground">({YEARS.length})</span>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">Anos</span>
+              <span className="text-xs text-muted-foreground">({YEARS.length})</span>
+            </div>
+            {(yearFilter !== 'all' || platformFilter !== 'all') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setYearFilter('all');
+                  setPlatformFilter('all');
+                }}
+                className="h-6 text-[11px] gap-1 text-muted-foreground hover:text-foreground px-2"
+              >
+                <X className="h-3 w-3" />
+                Resetar filtros
+              </Button>
+            )}
           </div>
           <ScrollArea className="w-full whitespace-nowrap">
             <div className="flex w-max items-center gap-2 pb-2">
