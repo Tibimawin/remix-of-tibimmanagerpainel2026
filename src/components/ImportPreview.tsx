@@ -112,8 +112,20 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       return 'all';
     }
   });
-  const [yearFilter, setYearFilter] = useState<string>('all');
-  const [platformFilter, setPlatformFilter] = useState<string>('all');
+  const [yearFilter, setYearFilter] = useState<string>(() => {
+    try {
+      return localStorage.getItem('importPreview_yearFilter') || 'all';
+    } catch {
+      return 'all';
+    }
+  });
+  const [platformFilter, setPlatformFilter] = useState<string>(() => {
+    try {
+      return localStorage.getItem('importPreview_platformFilter') || 'all';
+    } catch {
+      return 'all';
+    }
+  });
   const [highlightFilter, setHighlightFilter] = useState<'all' | 'imported' | 'duplicates'>('all');
   const [sortBy, setSortBy] = useState<'nome' | 'ano' | 'rating'>('nome');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
@@ -543,6 +555,23 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       // ignore storage errors
     }
   }, [genreFilter]);
+
+  // Persist year and platform filters across page navigations
+  useEffect(() => {
+    try {
+      localStorage.setItem('importPreview_yearFilter', yearFilter);
+    } catch {
+      // ignore storage errors
+    }
+  }, [yearFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('importPreview_platformFilter', platformFilter);
+    } catch {
+      // ignore storage errors
+    }
+  }, [platformFilter]);
 
   useEffect(() => {
     if (configValid && importConfig) {
