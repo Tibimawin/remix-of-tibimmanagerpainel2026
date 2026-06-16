@@ -547,7 +547,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     if (configValid && importConfig) {
       setCachedTotalPages(0);
       setInitialLoadDone(false);
-      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter });
+      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
       fetchTypeCounts();
       fetchCategories();
     }
@@ -654,9 +654,9 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       setCurrentPage(1);
       setCachedTotalPages(0);
       setInitialLoadDone(false);
-      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter });
+      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     }
-  }, [typeFilter, categoryFilter, genreFilter]);
+  }, [typeFilter, categoryFilter, genreFilter, yearFilter, platformFilter]);
 
   // Debounced server-side search when searchTerm changes
   useEffect(() => {
@@ -665,7 +665,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       setCurrentPage(1);
       setCachedTotalPages(0);
       setInitialLoadDone(false);
-      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter });
+      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     }, 400);
     return () => clearTimeout(handle);
   }, [searchTerm]);
@@ -673,7 +673,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   // Fetch when page changes
   useEffect(() => {
     if (configValid && currentPage > 0 && initialLoadDone) {
-      fetchPreview(typeFilter, categoryFilter, currentPage, { search: searchTerm, genre: genreFilter });
+      fetchPreview(typeFilter, categoryFilter, currentPage, { search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     }
   }, [currentPage]);
 
@@ -681,7 +681,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     setCurrentPage(1);
     setCachedTotalPages(0);
     setInitialLoadDone(false);
-    fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter });
+    fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     fetchCategories();
   };
 
@@ -697,6 +697,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     setTypeFilter('all');
     setCategoryFilter('all');
     setGenreFilter('all');
+    setYearFilter('all');
+    setPlatformFilter('all');
     setHighlightFilter('all');
     setSortBy('nome');
     setSearchTerm('');
