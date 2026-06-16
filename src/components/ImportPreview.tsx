@@ -133,10 +133,12 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const autoImportService = useAutoImportService();
   const [seriesSeasonsMap, setSeriesSeasonsMap] = useState<Map<number, number[]>>(new Map());
   const [seriesEpisodesMap, setSeriesEpisodesMap] = useState<Map<number, ImportEpisode[]>>(new Map());
+  const [seriesSelectedEpisodesMap, setSeriesSelectedEpisodesMap] = useState<Map<number, string[]>>(new Map());
   const [seasonDialogOpen, setSeasonDialogOpen] = useState(false);
   const [currentSeriesDialog, setCurrentSeriesDialog] = useState<ContentPreview | null>(null);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
   const [pendingSeasons, setPendingSeasons] = useState<number[]>([]);
+  const [pendingEpisodes, setPendingEpisodes] = useState<string[]>([]);
 
   // Gêneros (filtro independente de Tipo e Categoria)
   const GENRES = useMemo(() => [
