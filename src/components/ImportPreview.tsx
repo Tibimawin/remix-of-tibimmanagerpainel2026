@@ -101,9 +101,9 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [cachedTotalPages, setCachedTotalPages] = useState<number>(0);
-  const [typeCounts, setTypeCounts] = useState({ total: 0, filmes: 0, series: 0 });
+  const [typeCounts, setTypeCounts] = useState({ total: 0, filmes: 0, series: 0, doramas: 0, animes: 0 });
   const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'filme' | 'serie'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'filme' | 'serie' | 'dorama' | 'anime'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [genreFilter, setGenreFilter] = useState<string>(() => {
     try {
@@ -397,11 +397,17 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       const filmesData = await makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Tipo__equal=Filme`);
       await new Promise(r => setTimeout(r, 300));
       const seriesData = await makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Tipo__equal=Serie`);
+      await new Promise(r => setTimeout(r, 300));
+      const doramasData = await makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Categoria__contains=Dorama`);
+      await new Promise(r => setTimeout(r, 300));
+      const animesData = await makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Categoria__contains=Anime`);
 
       setTypeCounts({
         total: totalData.count || 0,
         filmes: filmesData.count || 0,
-        series: seriesData.count || 0
+        series: seriesData.count || 0,
+        doramas: doramasData.count || 0,
+        animes: animesData.count || 0
       });
     } catch (err: any) {
       const msg = err?.message || '';
@@ -450,7 +456,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   };
 
-  const fetchPreview = async (filterType?: 'all' | 'filme' | 'serie', category?: string, page: number = 1, options?: { forceApiPage?: number; skipInversion?: boolean; search?: string; genre?: string; year?: string; platform?: string }) => {
+  const fetchPreview = async (filterType?: 'all' | 'filme' | 'serie' | 'dorama' | 'anime', category?: string, page: number = 1, options?: { forceApiPage?: number; skipInversion?: boolean; search?: string; genre?: string; year?: string; platform?: string }) => {
     if (!importConfig || !importConfig.sourceToken || !importConfig.sourceBaseUrl || !importConfig.contentTableId) {
       return;
     }
@@ -467,6 +473,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         filterQuery += '&filter__Tipo__equal=Filme';
       } else if (filterType === 'serie') {
         filterQuery += '&filter__Tipo__equal=Serie';
+      } else if (filterType === 'dorama') {
+        filterQuery += '&filter__Categoria__contains=Dorama';
+      } else if (filterType === 'anime') {
+        filterQuery += '&filter__Categoria__contains=Anime';
       }
       
       if (category && category !== 'all') {
@@ -1062,6 +1072,24 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
               >
                 <Tv className="h-3.5 w-3.5" />
                 Séries ({typeCounts.series.toLocaleString()})
+              </Button>
+              <Button
+                variant={typeFilter === 'dorama' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTypeFilter('dorama')}
+                className="h-7 text-xs gap-1.5"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Doramas ({typeCounts.doramas.toLocaleString()})
+              </Button>
+              <Button
+                variant={typeFilter === 'anime' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTypeFilter('anime')}
+                className="h-7 text-xs gap-1.5"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Animes ({typeCounts.animes.toLocaleString()})
               </Button>
             </div>
 
