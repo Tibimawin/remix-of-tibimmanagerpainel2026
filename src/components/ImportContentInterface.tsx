@@ -48,6 +48,8 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
   const [currentSeriesForSeasonSelection, setCurrentSeriesForSeasonSelection] = useState<ImportContent | null>(null);
   const [seriesSeasons, setSeriesSeasons] = useState<Map<string, number[]>>(new Map());
   const [seriesEpisodes, setSeriesEpisodes] = useState<Map<string, any[]>>(new Map());
+  const [seriesSelectedEpisodes, setSeriesSelectedEpisodes] = useState<Map<string, string[]>>(new Map());
+  const [pendingEpisodes, setPendingEpisodes] = useState<string[]>([]);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
   
   // Episode import progress tracking
@@ -183,6 +185,15 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
         }
       }
       
+      // Inicializar pendingEpisodes do estado salvo ou todos os episódios
+      const existingSelected = seriesSelectedEpisodes.get(contentId);
+      const allEps = seriesEpisodes.get(contentId) || [];
+      if (existingSelected && existingSelected.length > 0) {
+        setPendingEpisodes(existingSelected);
+      } else {
+        setPendingEpisodes(allEps.map((ep: any) => ep.id));
+      }
+      
       // Abrir dialog de seleção de temporadas
       setCurrentSeriesForSeasonSelection(content);
       setSeasonSelectionOpen(true);
@@ -192,10 +203,13 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
         newSelected.add(contentId);
       } else {
         newSelected.delete(contentId);
-        // Remover temporadas selecionadas se desmarcar
+        // Remover temporadas e episódios selecionados se desmarcar
         const newSeriesSeasons = new Map(seriesSeasons);
         newSeriesSeasons.delete(contentId);
         setSeriesSeasons(newSeriesSeasons);
+        const newSelectedEpisodes = new Map(seriesSelectedEpisodes);
+        newSelectedEpisodes.delete(contentId);
+        setSeriesSelectedEpisodes(newSelectedEpisodes);
       }
       setSelectedContents(newSelected);
     }
@@ -273,13 +287,19 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
     newSelected.add(content.id);
     setSelectedContents(newSelected);
     
+    // Selecionar todos os episódios por padrão
+    const allEpisodes = seriesEpisodes.get(content.id) || [];
+    const newSelectedEpisodes = new Map(seriesSelectedEpisodes);
+    newSelectedEpisodes.set(content.id, allEpisodes.map((ep: any) => ep.id));
+    setSeriesSelectedEpisodes(newSelectedEpisodes);
+    
     // Não definir temporadas específicas no map para importar todas
     const newSeriesSeasons = new Map(seriesSeasons);
     newSeriesSeasons.delete(content.id); // Remove qualquer seleção prévia
     setSeriesSeasons(newSeriesSeasons);
     
     toast.success('Série adicionada', {
-      description: `"${content.Titulo}" será importada com todas as temporadas.`
+      description: `"${content.Titulo}" será importada com todos os episódios.`
     });
   };
 
@@ -288,11 +308,17 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
       const newSelected = new Set(selectedContents);
       newSelected.add(currentSeriesForSeasonSelection.id);
       setSelectedContents(newSelected);
+      
+      // Salvar episódios selecionados
+      const newSelectedEpisodes = new Map(seriesSelectedEpisodes);
+      newSelectedEpisodes.set(currentSeriesForSeasonSelection.id, pendingEpisodes);
+      setSeriesSelectedEpisodes(newSelectedEpisodes);
+      
       setSeasonSelectionOpen(false);
       setCurrentSeriesForSeasonSelection(null);
       
       toast.success('Temporadas selecionadas', {
-        description: `Série "${currentSeriesForSeasonSelection.Titulo}" será importada com as temporadas selecionadas.`
+        description: `Série "${currentSeriesForSeasonSelection.Titulo}" será importada com ${pendingEpisodes.length} episódio(s) selecionado(s).`
       });
     }
   };
@@ -352,12 +378,21 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
         }
       }, 300);
 
+      // Filtrar episódios pelos selecionados antes de importar
+      const filteredSeriesEpisodes = new Map(seriesEpisodes);
+      seriesSelectedEpisodes.forEach((selectedEpIds, contentId) => {
+        const allEps = seriesEpisodes.get(contentId);
+        if (allEps && selectedEpIds.length > 0) {
+          filteredSeriesEpisodes.set(contentId, allEps.filter((ep: any) => selectedEpIds.includes(ep.id)));
+        }
+      });
+
       const result = await autoImportService.importContents(
         importConfig,
         contentsToImport,
         userConfig,
         seriesSeasons,
-        seriesEpisodes,
+        filteredSeriesEpisodes,
         mode,
         (progress) => {
           setEpisodeProgress(prev => {
@@ -456,6 +491,7 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
       setSelectedContents(new Set());
       setSeriesSeasons(new Map());
       setSeriesEpisodes(new Map());
+      setSeriesSelectedEpisodes(new Map());
       
     } catch (error) {
       console.error('Erro na importação:', error);
@@ -824,6 +860,7 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
           seriesTitle={currentSeriesForSeasonSelection.Titulo}
           totalSeasons={parseInt(currentSeriesForSeasonSelection.Temporadas || '1')}
           selectedSeasons={seriesSeasons.get(currentSeriesForSeasonSelection.id) || []}
+          selectedEpisodes={pendingEpisodes}
           episodes={seriesEpisodes.get(currentSeriesForSeasonSelection.id) || []}
           loadingEpisodes={loadingEpisodes}
           onSeasonsChange={(seasons) => {
@@ -831,6 +868,7 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
             newSeriesSeasons.set(currentSeriesForSeasonSelection.id, seasons);
             setSeriesSeasons(newSeriesSeasons);
           }}
+          onEpisodesChange={setPendingEpisodes}
           onConfirm={handleSeasonSelectionConfirm}
         />
       )}
