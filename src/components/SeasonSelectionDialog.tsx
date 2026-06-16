@@ -195,7 +195,7 @@ export const SeasonSelectionDialog: React.FC<SeasonSelectionDialogProps> = ({
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) setSearchTerm(''); onOpenChange(v); }}>
       <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+        <DialogHeader className="shrink-0">
           <DialogTitle>Selecionar Temporadas e Episódios</DialogTitle>
           <DialogDescription>
             Escolha quais episódios de "{seriesTitle}" você deseja importar
