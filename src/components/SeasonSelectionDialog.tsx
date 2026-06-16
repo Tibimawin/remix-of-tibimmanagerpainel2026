@@ -194,15 +194,15 @@ export const SeasonSelectionDialog: React.FC<SeasonSelectionDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) setSearchTerm(''); onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-[580px] max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Selecionar Temporadas e Episódios</DialogTitle>
           <DialogDescription>
             Escolha quais episódios de "{seriesTitle}" você deseja importar
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 py-3">
+        <div className="flex flex-col flex-1 min-h-0 space-y-3 py-3">
           {/* Barra de busca */}
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -259,7 +259,7 @@ export const SeasonSelectionDialog: React.FC<SeasonSelectionDialogProps> = ({
             </Badge>
           </div>
 
-          <ScrollArea className="h-[380px] rounded-md border p-3">
+          <ScrollArea className="flex-1 min-h-0 rounded-md border p-3">
             {loadingEpisodes ? (
               <div className="flex flex-col items-center justify-center h-full space-y-2">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -339,7 +339,7 @@ export const SeasonSelectionDialog: React.FC<SeasonSelectionDialogProps> = ({
           </ScrollArea>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 mt-2">
           <Button variant="outline" onClick={() => { setSearchTerm(''); onOpenChange(false); }}>
             Cancelar
           </Button>
@@ -347,7 +347,7 @@ export const SeasonSelectionDialog: React.FC<SeasonSelectionDialogProps> = ({
             onClick={onConfirm}
             disabled={selectedEpisodes.length === 0}
           >
-            Confirmar Seleção ({selectedEpisodes.length} episódios)
+            Confirmar ({selectedEpisodes.length})
           </Button>
         </DialogFooter>
       </DialogContent>
