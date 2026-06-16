@@ -1066,7 +1066,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             </div>
 
             {/* Clear filters button */}
-            {(typeFilter !== 'all' || categoryFilter !== 'all' || genreFilter !== 'all' || highlightFilter !== 'all' || sortBy !== 'nome' || searchTerm) && (
+            {(typeFilter !== 'all' || categoryFilter !== 'all' || genreFilter !== 'all' || yearFilter !== 'all' || platformFilter !== 'all' || highlightFilter !== 'all' || sortBy !== 'nome' || searchTerm) && (
               <Button
                 variant="ghost"
                 size="sm"
