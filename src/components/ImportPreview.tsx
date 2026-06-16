@@ -112,8 +112,20 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       return 'all';
     }
   });
-  const [yearFilter, setYearFilter] = useState<string>('all');
-  const [platformFilter, setPlatformFilter] = useState<string>('all');
+  const [yearFilter, setYearFilter] = useState<string>(() => {
+    try {
+      return localStorage.getItem('importPreview_yearFilter') || 'all';
+    } catch {
+      return 'all';
+    }
+  });
+  const [platformFilter, setPlatformFilter] = useState<string>(() => {
+    try {
+      return localStorage.getItem('importPreview_platformFilter') || 'all';
+    } catch {
+      return 'all';
+    }
+  });
   const [highlightFilter, setHighlightFilter] = useState<'all' | 'imported' | 'duplicates'>('all');
   const [sortBy, setSortBy] = useState<'nome' | 'ano' | 'rating'>('nome');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
