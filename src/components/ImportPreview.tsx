@@ -478,6 +478,11 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
       setCachedTotalPages(newTotalPages);
 
+      // Ensure pagination effect can run after a search (where inversion is skipped)
+      if (skipInversion) {
+        setInitialLoadDone(true);
+      }
+
       // When searching, keep the natural order returned by the API (most relevant pagination).
       const results = data.results || [];
       const finalResults = searchValue ? results : [...results].reverse();
