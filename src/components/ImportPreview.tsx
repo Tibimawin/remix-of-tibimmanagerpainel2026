@@ -437,12 +437,12 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   };
 
-  const fetchPreview = async (filterType?: 'all' | 'filme' | 'serie', category?: string, page: number = 1, options?: { forceApiPage?: number; skipInversion?: boolean; search?: string; genre?: string }) => {
+  const fetchPreview = async (filterType?: 'all' | 'filme' | 'serie', category?: string, page: number = 1, options?: { forceApiPage?: number; skipInversion?: boolean; search?: string; genre?: string; year?: string; platform?: string }) => {
     if (!importConfig || !importConfig.sourceToken || !importConfig.sourceBaseUrl || !importConfig.contentTableId) {
       return;
     }
 
-    const { forceApiPage, skipInversion = false, search, genre } = options || {};
+    const { forceApiPage, skipInversion = false, search, genre, year, platform } = options || {};
 
     setLoading(true);
     setError(null);
@@ -467,6 +467,14 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
       if (genre && genre !== 'all') {
         filterQuery += `&filter__Categoria__contains=${encodeURIComponent(genre)}`;
+      }
+
+      if (year && year !== 'all') {
+        filterQuery += `&filter__Ano__equal=${encodeURIComponent(year)}`;
+      }
+
+      if (platform && platform !== 'all') {
+        filterQuery += `&filter__Categoria__contains=${encodeURIComponent(platform)}`;
       }
 
       const searchValue = (search ?? '').trim();
@@ -495,7 +503,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         setInitialLoadDone(true);
 
         if (newTotalPages > 1 && page === 1) {
-          fetchPreview(filterType, category, 1, { forceApiPage: newTotalPages, search: searchValue, genre });
+          fetchPreview(filterType, category, 1, { forceApiPage: newTotalPages, search: searchValue, genre, year, platform });
           return;
         }
       }
