@@ -1277,10 +1277,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                             void openSeriesDialog(content);
                           }}
                           className="absolute top-2 right-12 z-20 flex items-center gap-1 rounded-md bg-primary/90 px-2 py-1 text-[10px] font-semibold text-primary-foreground shadow hover:bg-primary"
-                          title="Editar temporadas selecionadas"
+                          title="Editar episódios selecionados"
                         >
                           <Layers className="h-3 w-3" />
-                          {selectedSeasonsForCard.length}T
+                          {seriesSelectedEpisodesMap.get(content.id)?.length || selectedSeasonsForCard.length}E
                         </button>
                       )}
                       
