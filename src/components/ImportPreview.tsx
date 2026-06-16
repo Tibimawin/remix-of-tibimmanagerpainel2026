@@ -421,9 +421,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         }
       });
 
-      const staticCategories = ['Lançamentos', '2026', '2025', '2024', '2023'];
+      const staticCategories = ['Lançamentos'];
       const dynamicCategories = Array.from(categories)
         .filter(c => !staticCategories.includes(c))
+        .filter(c => !/^\d{4}$/.test(c))
         .sort();
 
       setAvailableCategories([
