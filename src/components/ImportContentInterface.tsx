@@ -378,12 +378,21 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
         }
       }, 300);
 
+      // Filtrar episódios pelos selecionados antes de importar
+      const filteredSeriesEpisodes = new Map(seriesEpisodes);
+      seriesSelectedEpisodes.forEach((selectedEpIds, contentId) => {
+        const allEps = seriesEpisodes.get(contentId);
+        if (allEps && selectedEpIds.length > 0) {
+          filteredSeriesEpisodes.set(contentId, allEps.filter((ep: any) => selectedEpIds.includes(ep.id)));
+        }
+      });
+
       const result = await autoImportService.importContents(
         importConfig,
         contentsToImport,
         userConfig,
         seriesSeasons,
-        seriesEpisodes,
+        filteredSeriesEpisodes,
         mode,
         (progress) => {
           setEpisodeProgress(prev => {
