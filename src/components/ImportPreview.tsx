@@ -1132,17 +1132,19 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                 >
                   Todas
                 </Button>
-                {availableCategories.map((category) => (
-                  <Button
-                    key={category}
-                    variant={categoryFilter === category ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setCategoryFilter(category)}
-                    className="h-8 text-xs rounded-full shrink-0"
-                  >
-                    {category}
-                  </Button>
-                ))}
+                {availableCategories
+                  .filter((category) => !/^\d{4}$/.test(category))
+                  .map((category) => (
+                    <Button
+                      key={category}
+                      variant={categoryFilter === category ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setCategoryFilter(category)}
+                      className="h-8 text-xs rounded-full shrink-0"
+                    >
+                      {category}
+                    </Button>
+                  ))}
               </div>
               <ScrollBar orientation="horizontal" />
             </ScrollArea>
