@@ -339,7 +339,7 @@ export const SeasonSelectionDialog: React.FC<SeasonSelectionDialogProps> = ({
           </ScrollArea>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 mt-2">
           <Button variant="outline" onClick={() => { setSearchTerm(''); onOpenChange(false); }}>
             Cancelar
           </Button>
@@ -347,7 +347,7 @@ export const SeasonSelectionDialog: React.FC<SeasonSelectionDialogProps> = ({
             onClick={onConfirm}
             disabled={selectedEpisodes.length === 0}
           >
-            Confirmar Seleção ({selectedEpisodes.length} episódios)
+            Confirmar ({selectedEpisodes.length})
           </Button>
         </DialogFooter>
       </DialogContent>
