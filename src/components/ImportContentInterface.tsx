@@ -491,6 +491,7 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
       setSelectedContents(new Set());
       setSeriesSeasons(new Map());
       setSeriesEpisodes(new Map());
+      setSeriesSelectedEpisodes(new Map());
       
     } catch (error) {
       console.error('Erro na importação:', error);
