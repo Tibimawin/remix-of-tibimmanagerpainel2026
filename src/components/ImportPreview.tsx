@@ -1257,6 +1257,11 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                                   next.delete(content.id);
                                   return next;
                                 });
+                                setSeriesSelectedEpisodesMap(prev => {
+                                  const next = new Map(prev);
+                                  next.delete(content.id);
+                                  return next;
+                                });
                               }
                             }
                           }}
