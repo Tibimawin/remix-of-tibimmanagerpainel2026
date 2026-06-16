@@ -194,7 +194,7 @@ export const SeasonSelectionDialog: React.FC<SeasonSelectionDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) setSearchTerm(''); onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-[580px] max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Selecionar Temporadas e Episódios</DialogTitle>
           <DialogDescription>
@@ -202,7 +202,7 @@ export const SeasonSelectionDialog: React.FC<SeasonSelectionDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 py-3">
+        <div className="flex flex-col flex-1 min-h-0 space-y-3 py-3">
           {/* Barra de busca */}
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
