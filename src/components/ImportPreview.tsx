@@ -112,6 +112,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       return 'all';
     }
   });
+  const [yearFilter, setYearFilter] = useState<string>('all');
+  const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [highlightFilter, setHighlightFilter] = useState<'all' | 'imported' | 'duplicates'>('all');
   const [sortBy, setSortBy] = useState<'nome' | 'ano' | 'rating'>('nome');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
@@ -155,6 +157,28 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     'DORAMA DUBLADO',
     'DORAMA BL',
     'SÉRIES TURCAS',
+  ], []);
+
+  // Anos (2026 → 2000)
+  const YEARS = useMemo(
+    () => Array.from({ length: 2026 - 2000 + 1 }, (_, i) => String(2026 - i)),
+    []
+  );
+
+  // Plataformas de streaming (filtro por Categoria contendo o nome)
+  const PLATFORMS = useMemo(() => [
+    'Netflix',
+    'Prime Video',
+    'HBO MAX',
+    'DC',
+    'Disney',
+    'Apple',
+    'Marvel',
+    'Globo Play',
+    'Warner',
+    'Telemundo',
+    'Paramount',
+    'Viki Rakuten',
   ], []);
 
   // Keywords to exclude (TV channels, specific channel packages, etc.)
@@ -413,12 +437,12 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   };
 
-  const fetchPreview = async (filterType?: 'all' | 'filme' | 'serie', category?: string, page: number = 1, options?: { forceApiPage?: number; skipInversion?: boolean; search?: string; genre?: string }) => {
+  const fetchPreview = async (filterType?: 'all' | 'filme' | 'serie', category?: string, page: number = 1, options?: { forceApiPage?: number; skipInversion?: boolean; search?: string; genre?: string; year?: string; platform?: string }) => {
     if (!importConfig || !importConfig.sourceToken || !importConfig.sourceBaseUrl || !importConfig.contentTableId) {
       return;
     }
 
-    const { forceApiPage, skipInversion = false, search, genre } = options || {};
+    const { forceApiPage, skipInversion = false, search, genre, year, platform } = options || {};
 
     setLoading(true);
     setError(null);
@@ -443,6 +467,14 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
       if (genre && genre !== 'all') {
         filterQuery += `&filter__Categoria__contains=${encodeURIComponent(genre)}`;
+      }
+
+      if (year && year !== 'all') {
+        filterQuery += `&filter__Ano__equal=${encodeURIComponent(year)}`;
+      }
+
+      if (platform && platform !== 'all') {
+        filterQuery += `&filter__Categoria__contains=${encodeURIComponent(platform)}`;
       }
 
       const searchValue = (search ?? '').trim();
@@ -471,7 +503,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         setInitialLoadDone(true);
 
         if (newTotalPages > 1 && page === 1) {
-          fetchPreview(filterType, category, 1, { forceApiPage: newTotalPages, search: searchValue, genre });
+          fetchPreview(filterType, category, 1, { forceApiPage: newTotalPages, search: searchValue, genre, year, platform });
           return;
         }
       }
@@ -515,7 +547,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     if (configValid && importConfig) {
       setCachedTotalPages(0);
       setInitialLoadDone(false);
-      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter });
+      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
       fetchTypeCounts();
       fetchCategories();
     }
@@ -622,9 +654,9 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       setCurrentPage(1);
       setCachedTotalPages(0);
       setInitialLoadDone(false);
-      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter });
+      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     }
-  }, [typeFilter, categoryFilter, genreFilter]);
+  }, [typeFilter, categoryFilter, genreFilter, yearFilter, platformFilter]);
 
   // Debounced server-side search when searchTerm changes
   useEffect(() => {
@@ -633,7 +665,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       setCurrentPage(1);
       setCachedTotalPages(0);
       setInitialLoadDone(false);
-      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter });
+      fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     }, 400);
     return () => clearTimeout(handle);
   }, [searchTerm]);
@@ -641,7 +673,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   // Fetch when page changes
   useEffect(() => {
     if (configValid && currentPage > 0 && initialLoadDone) {
-      fetchPreview(typeFilter, categoryFilter, currentPage, { search: searchTerm, genre: genreFilter });
+      fetchPreview(typeFilter, categoryFilter, currentPage, { search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     }
   }, [currentPage]);
 
@@ -649,7 +681,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     setCurrentPage(1);
     setCachedTotalPages(0);
     setInitialLoadDone(false);
-    fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter });
+    fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     fetchCategories();
   };
 
@@ -665,6 +697,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     setTypeFilter('all');
     setCategoryFilter('all');
     setGenreFilter('all');
+    setYearFilter('all');
+    setPlatformFilter('all');
     setHighlightFilter('all');
     setSortBy('nome');
     setSearchTerm('');
@@ -1032,7 +1066,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             </div>
 
             {/* Clear filters button */}
-            {(typeFilter !== 'all' || categoryFilter !== 'all' || genreFilter !== 'all' || highlightFilter !== 'all' || sortBy !== 'nome' || searchTerm) && (
+            {(typeFilter !== 'all' || categoryFilter !== 'all' || genreFilter !== 'all' || yearFilter !== 'all' || platformFilter !== 'all' || highlightFilter !== 'all' || sortBy !== 'nome' || searchTerm) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -1113,6 +1147,72 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             </ScrollArea>
           </div>
         )}
+
+        {/* Anos Carousel */}
+        <div className="px-6 py-3 border-b border-border/50 bg-background">
+          <div className="flex items-center gap-2 mb-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-foreground">Anos</span>
+            <span className="text-xs text-muted-foreground">({YEARS.length})</span>
+          </div>
+          <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex w-max items-center gap-2 pb-2">
+              <Button
+                variant={yearFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setYearFilter('all')}
+                className="h-8 text-xs rounded-full shrink-0"
+              >
+                Todos
+              </Button>
+              {YEARS.map((year) => (
+                <Button
+                  key={year}
+                  variant={yearFilter === year ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setYearFilter(year)}
+                  className="h-8 text-xs rounded-full shrink-0"
+                >
+                  {year}
+                </Button>
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </div>
+
+        {/* Plataformas Carousel */}
+        <div className="px-6 py-3 border-b border-border/50 bg-background">
+          <div className="flex items-center gap-2 mb-2">
+            <Tv className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-foreground">Plataforma</span>
+            <span className="text-xs text-muted-foreground">({PLATFORMS.length})</span>
+          </div>
+          <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex w-max items-center gap-2 pb-2">
+              <Button
+                variant={platformFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPlatformFilter('all')}
+                className="h-8 text-xs rounded-full shrink-0"
+              >
+                Todas
+              </Button>
+              {PLATFORMS.map((platform) => (
+                <Button
+                  key={platform}
+                  variant={platformFilter === platform ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPlatformFilter(platform)}
+                  className="h-8 text-xs rounded-full shrink-0"
+                >
+                  {platform}
+                </Button>
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </div>
 
         {/* Content Grid */}
         {loading ? (
