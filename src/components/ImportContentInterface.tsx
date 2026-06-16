@@ -48,6 +48,8 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
   const [currentSeriesForSeasonSelection, setCurrentSeriesForSeasonSelection] = useState<ImportContent | null>(null);
   const [seriesSeasons, setSeriesSeasons] = useState<Map<string, number[]>>(new Map());
   const [seriesEpisodes, setSeriesEpisodes] = useState<Map<string, any[]>>(new Map());
+  const [seriesSelectedEpisodes, setSeriesSelectedEpisodes] = useState<Map<string, string[]>>(new Map());
+  const [pendingEpisodes, setPendingEpisodes] = useState<string[]>([]);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
   
   // Episode import progress tracking
