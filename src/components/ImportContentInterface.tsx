@@ -185,6 +185,15 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
         }
       }
       
+      // Inicializar pendingEpisodes do estado salvo ou todos os episódios
+      const existingSelected = seriesSelectedEpisodes.get(contentId);
+      const allEps = seriesEpisodes.get(contentId) || [];
+      if (existingSelected && existingSelected.length > 0) {
+        setPendingEpisodes(existingSelected);
+      } else {
+        setPendingEpisodes(allEps.map((ep: any) => ep.id));
+      }
+      
       // Abrir dialog de seleção de temporadas
       setCurrentSeriesForSeasonSelection(content);
       setSeasonSelectionOpen(true);
@@ -194,10 +203,13 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
         newSelected.add(contentId);
       } else {
         newSelected.delete(contentId);
-        // Remover temporadas selecionadas se desmarcar
+        // Remover temporadas e episódios selecionados se desmarcar
         const newSeriesSeasons = new Map(seriesSeasons);
         newSeriesSeasons.delete(contentId);
         setSeriesSeasons(newSeriesSeasons);
+        const newSelectedEpisodes = new Map(seriesSelectedEpisodes);
+        newSelectedEpisodes.delete(contentId);
+        setSeriesSelectedEpisodes(newSelectedEpisodes);
       }
       setSelectedContents(newSelected);
     }
