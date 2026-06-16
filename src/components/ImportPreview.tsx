@@ -401,13 +401,16 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       const doramasData = await makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Categoria__contains=Doram`);
       await new Promise(r => setTimeout(r, 300));
       const animesData = await makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Categoria__contains=Anim`);
+      await new Promise(r => setTimeout(r, 300));
+      const novelasData = await makeApiRequest<{ count?: number }>(`${baseUrl}&filter__Categoria__contains=Novel`);
 
       setTypeCounts({
         total: totalData.count || 0,
         filmes: filmesData.count || 0,
         series: seriesData.count || 0,
         doramas: doramasData.count || 0,
-        animes: animesData.count || 0
+        animes: animesData.count || 0,
+        novelas: novelasData.count || 0
       });
     } catch (err: any) {
       const msg = err?.message || '';
@@ -456,7 +459,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   };
 
-  const fetchPreview = async (filterType?: 'all' | 'filme' | 'serie' | 'dorama' | 'anime', category?: string, page: number = 1, options?: { forceApiPage?: number; skipInversion?: boolean; search?: string; genre?: string; year?: string; platform?: string }) => {
+  const fetchPreview = async (filterType?: 'all' | 'filme' | 'serie' | 'dorama' | 'anime' | 'novela', category?: string, page: number = 1, options?: { forceApiPage?: number; skipInversion?: boolean; search?: string; genre?: string; year?: string; platform?: string }) => {
     if (!importConfig || !importConfig.sourceToken || !importConfig.sourceBaseUrl || !importConfig.contentTableId) {
       return;
     }
