@@ -259,7 +259,7 @@ export const SeasonSelectionDialog: React.FC<SeasonSelectionDialogProps> = ({
             </Badge>
           </div>
 
-          <ScrollArea className="h-[380px] rounded-md border p-3">
+          <ScrollArea className="flex-1 min-h-0 rounded-md border p-3">
             {loadingEpisodes ? (
               <div className="flex flex-col items-center justify-center h-full space-y-2">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
