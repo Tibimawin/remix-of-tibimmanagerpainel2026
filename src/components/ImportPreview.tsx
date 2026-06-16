@@ -556,6 +556,23 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   }, [genreFilter]);
 
+  // Persist year and platform filters across page navigations
+  useEffect(() => {
+    try {
+      localStorage.setItem('importPreview_yearFilter', yearFilter);
+    } catch {
+      // ignore storage errors
+    }
+  }, [yearFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('importPreview_platformFilter', platformFilter);
+    } catch {
+      // ignore storage errors
+    }
+  }, [platformFilter]);
+
   useEffect(() => {
     if (configValid && importConfig) {
       setCachedTotalPages(0);
