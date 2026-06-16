@@ -112,6 +112,8 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       return 'all';
     }
   });
+  const [yearFilter, setYearFilter] = useState<string>('all');
+  const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [highlightFilter, setHighlightFilter] = useState<'all' | 'imported' | 'duplicates'>('all');
   const [sortBy, setSortBy] = useState<'nome' | 'ano' | 'rating'>('nome');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
@@ -155,6 +157,28 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     'DORAMA DUBLADO',
     'DORAMA BL',
     'SÉRIES TURCAS',
+  ], []);
+
+  // Anos (2026 → 2000)
+  const YEARS = useMemo(
+    () => Array.from({ length: 2026 - 2000 + 1 }, (_, i) => String(2026 - i)),
+    []
+  );
+
+  // Plataformas de streaming (filtro por Categoria contendo o nome)
+  const PLATFORMS = useMemo(() => [
+    'Netflix',
+    'Prime Video',
+    'HBO MAX',
+    'DC',
+    'Disney',
+    'Apple',
+    'Marvel',
+    'Globo Play',
+    'Warner',
+    'Telemundo',
+    'Paramount',
+    'Viki Rakuten',
   ], []);
 
   // Keywords to exclude (TV channels, specific channel packages, etc.)
