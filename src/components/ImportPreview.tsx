@@ -101,9 +101,9 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [cachedTotalPages, setCachedTotalPages] = useState<number>(0);
-  const [typeCounts, setTypeCounts] = useState({ total: 0, filmes: 0, series: 0, doramas: 0, animes: 0 });
+  const [typeCounts, setTypeCounts] = useState({ total: 0, filmes: 0, series: 0, doramas: 0, animes: 0, novelas: 0 });
   const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'filme' | 'serie' | 'dorama' | 'anime'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'filme' | 'serie' | 'dorama' | 'anime' | 'novela'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [genreFilter, setGenreFilter] = useState<string>(() => {
     try {
