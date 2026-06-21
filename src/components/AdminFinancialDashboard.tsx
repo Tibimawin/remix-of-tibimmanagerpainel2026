@@ -256,7 +256,7 @@ const AdminFinancialDashboard: React.FC = () => {
   // Métricas
   const metrics = useMemo(() => {
     const confirmedRecords = filteredRecords.filter(r => r.status === 'confirmed');
-    const totalRevenue = confirmedRecords.reduce((sum, r) => sum + r.planPrice, 0);
+    const totalRevenue = confirmedRecords.reduce((sum, r) => sum + (Number(r.planPrice) || 0), 0);
     const totalSubscribers = new Set(confirmedRecords.map(r => r.userId)).size;
     const monthlyPlans = confirmedRecords.filter(r => r.accessDays <= 31).length;
     const annualPlans = confirmedRecords.filter(r => r.accessDays > 31).length;
@@ -273,8 +273,8 @@ const AdminFinancialDashboard: React.FC = () => {
       const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
     });
-    const thisMonthRevenue = thisMonth.reduce((s, r) => s + r.planPrice, 0);
-    const lastMonthRevenue = lastMonth.reduce((s, r) => s + r.planPrice, 0);
+    const thisMonthRevenue = thisMonth.reduce((s, r) => s + (Number(r.planPrice) || 0), 0);
+    const lastMonthRevenue = lastMonth.reduce((s, r) => s + (Number(r.planPrice) || 0), 0);
     const revenueGrowth = lastMonthRevenue > 0
       ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
       : thisMonthRevenue > 0 ? 100 : 0;
@@ -291,7 +291,7 @@ const AdminFinancialDashboard: React.FC = () => {
     confirmedRecords.forEach(r => {
       const d = new Date(r.confirmedAt);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      monthlyMap[key] = (monthlyMap[key] || 0) + r.planPrice;
+      monthlyMap[key] = (monthlyMap[key] || 0) + (Number(r.planPrice) || 0);
     });
     const monthlyRevenue = Object.entries(monthlyMap)
       .sort(([a], [b]) => a.localeCompare(b))
