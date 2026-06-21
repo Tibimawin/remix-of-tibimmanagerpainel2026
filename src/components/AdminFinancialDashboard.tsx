@@ -17,6 +17,19 @@ import {
   PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
 
+// Safe currency formatter — guarantees no NaN/strings reach the UI.
+const toNumber = (v: unknown): number => {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+  if (typeof v === 'string') {
+    const cleaned = v.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.');
+    const n = parseFloat(cleaned);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+};
+const formatBRL = (v: unknown): string =>
+  `R$ ${toNumber(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 interface FinancialRecord {
   id: string;
   userId: string;
@@ -174,7 +187,7 @@ const AdminFinancialDashboard: React.FC = () => {
             }
 
             reconciledCount++;
-            toast.success(`Pagamento de R$ ${record.planPrice.toFixed(2)} (${record.userName}) reconciliado e acesso liberado!`);
+            toast.success(`Pagamento de ${formatBRL(record.planPrice)} (${record.userName}) reconciliado e acesso liberado!`);
           } else if (asaasStatus.status === 'OVERDUE' || asaasStatus.status === 'REFUNDED' || asaasStatus.status === 'CHARGEBACK') {
             await setDoc(doc(db, 'financialRecords', record.paymentId), {
               status: asaasStatus.status.toLowerCase(),
@@ -256,7 +269,7 @@ const AdminFinancialDashboard: React.FC = () => {
   // Métricas
   const metrics = useMemo(() => {
     const confirmedRecords = filteredRecords.filter(r => r.status === 'confirmed');
-    const totalRevenue = confirmedRecords.reduce((sum, r) => sum + (Number(r.planPrice) || 0), 0);
+    const totalRevenue = confirmedRecords.reduce((sum, r) => sum + toNumber(r.planPrice), 0);
     const totalSubscribers = new Set(confirmedRecords.map(r => r.userId)).size;
     const monthlyPlans = confirmedRecords.filter(r => r.accessDays <= 31).length;
     const annualPlans = confirmedRecords.filter(r => r.accessDays > 31).length;
@@ -273,8 +286,8 @@ const AdminFinancialDashboard: React.FC = () => {
       const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
     });
-    const thisMonthRevenue = thisMonth.reduce((s, r) => s + (Number(r.planPrice) || 0), 0);
-    const lastMonthRevenue = lastMonth.reduce((s, r) => s + (Number(r.planPrice) || 0), 0);
+    const thisMonthRevenue = thisMonth.reduce((s, r) => s + toNumber(r.planPrice), 0);
+    const lastMonthRevenue = lastMonth.reduce((s, r) => s + toNumber(r.planPrice), 0);
     const revenueGrowth = lastMonthRevenue > 0
       ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
       : thisMonthRevenue > 0 ? 100 : 0;
@@ -291,7 +304,7 @@ const AdminFinancialDashboard: React.FC = () => {
     confirmedRecords.forEach(r => {
       const d = new Date(r.confirmedAt);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      monthlyMap[key] = (monthlyMap[key] || 0) + (Number(r.planPrice) || 0);
+      monthlyMap[key] = (monthlyMap[key] || 0) + toNumber(r.planPrice);
     });
     const monthlyRevenue = Object.entries(monthlyMap)
       .sort(([a], [b]) => a.localeCompare(b))
@@ -361,7 +374,7 @@ const AdminFinancialDashboard: React.FC = () => {
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Receita Total</p>
                 <p className="text-2xl font-bold text-foreground mt-1">
-                  R$ {(metrics.totalRevenue ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {formatBRL(metrics.totalRevenue)}
                 </p>
                 <div className="flex items-center gap-1 mt-2">
                   {metrics.revenueGrowth >= 0 ? (
@@ -370,7 +383,7 @@ const AdminFinancialDashboard: React.FC = () => {
                     <ArrowDownRight className="h-3.5 w-3.5 text-red-500" />
                   )}
                   <span className={`text-xs font-medium ${metrics.revenueGrowth >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {metrics.revenueGrowth.toFixed(1)}% vs mês anterior
+                    {toNumber(metrics.revenueGrowth).toFixed(1)}% vs mês anterior
                   </span>
                 </div>
               </div>
@@ -387,7 +400,7 @@ const AdminFinancialDashboard: React.FC = () => {
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Este Mês</p>
                 <p className="text-2xl font-bold text-foreground mt-1">
-                  R$ {(metrics.thisMonthRevenue ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {formatBRL(metrics.thisMonthRevenue)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">Receita do mês atual</p>
               </div>
@@ -421,7 +434,7 @@ const AdminFinancialDashboard: React.FC = () => {
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ticket Médio</p>
                 <p className="text-2xl font-bold text-foreground mt-1">
-                  R$ {(metrics.avgTicket ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {formatBRL(metrics.avgTicket)}
                 </p>
                 <div className="flex items-center gap-2 mt-2">
                   <Badge variant="secondary" className="text-xs">{metrics.monthlyPlans} mensais</Badge>
@@ -459,7 +472,7 @@ const AdminFinancialDashboard: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
                   <YAxis tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
-                    tickFormatter={(v) => `R$${v}`} />
+                    tickFormatter={(v) => `R$${toNumber(v)}`} />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: 'hsl(var(--card))',
@@ -467,7 +480,7 @@ const AdminFinancialDashboard: React.FC = () => {
                       borderRadius: '8px',
                       color: 'hsl(var(--foreground))'
                     }}
-                    formatter={(value: number) => [`R$ ${(value ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Receita']}
+                    formatter={(value: number) => [formatBRL(value), 'Receita']}
                   />
                   <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="url(#colorRevenue)" strokeWidth={2} />
                 </AreaChart>
@@ -653,7 +666,7 @@ const AdminFinancialDashboard: React.FC = () => {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="font-bold text-foreground">
-                        R$ {(record.planPrice ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {formatBRL(record.planPrice)}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5 font-mono">
                         {getPaymentDateString()}
