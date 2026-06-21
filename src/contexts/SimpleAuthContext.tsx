@@ -1,11 +1,47 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth } from '@/config/firebase';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { auth, authReady } from '@/config/firebase';
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+} from 'firebase/auth';
 import { UserInfo, LoginResult, SimpleAuthContextType } from '@/types/authTypes';
 import { toast } from '@/hooks/use-toast';
 
 const SimpleAuthContext = createContext<SimpleAuthContextType | undefined>(undefined);
+
+// Janela em ms em que ignoramos um flip transitório para firebaseUser=null
+// logo após um login bem-sucedido (Safari iOS pode disparar listener com null
+// antes da persistência se estabilizar).
+const JUST_LOGGED_IN_KEY = 'auth-just-logged-in';
+const JUST_LOGGED_IN_GRACE_MS = 5000;
+
+const markJustLoggedIn = () => {
+  try {
+    sessionStorage.setItem(JUST_LOGGED_IN_KEY, String(Date.now()));
+  } catch {
+    // sessionStorage pode falhar em modos restritos — não é crítico
+  }
+};
+
+export const isWithinLoginGrace = (): boolean => {
+  try {
+    const ts = Number(sessionStorage.getItem(JUST_LOGGED_IN_KEY) || 0);
+    return ts > 0 && Date.now() - ts < JUST_LOGGED_IN_GRACE_MS;
+  } catch {
+    return false;
+  }
+};
+
+const isMobileDevice = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+};
 
 export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(() => {
@@ -25,6 +61,14 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   });
   const [isLoading, setIsLoading] = useState(true);
   useEffect(() => {
+    // Capturar resultado do signInWithRedirect (fluxo Google em mobile).
+    // Precisa rodar no mount para finalizar a autenticação após o retorno do Google.
+    getRedirectResult(auth).catch((err) => {
+      if (err?.code && err.code !== 'auth/no-auth-event') {
+        console.warn('Firebase: getRedirectResult falhou:', err?.code);
+      }
+    });
+
     // Listener do Firebase Auth para manter sessão persistente
     // OTIMIZADO: Usa APENAS Firebase Auth + localStorage (ZERO writes no Firestore)
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -74,13 +118,20 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           // O registro no Firestore só acontece no LOGIN INICIAL
           // Sessões subsequentes usam APENAS localStorage
         } else {
-          // Não há usuário autenticado no Firebase
-          // Limpar dados locais se existirem
-          const savedUser = localStorage.getItem('simple-auth-user');
-          if (savedUser) {
-            localStorage.removeItem('simple-auth-user');
-            localStorage.removeItem('simple-auth-status');
-            setUserInfo(null);
+          // Não há usuário autenticado no Firebase.
+          // ⚠️ Safari iOS pode disparar este callback com `null` momentaneamente
+          // logo após um login bem-sucedido (antes da persistência se estabilizar).
+          // Se acabamos de logar, ignoramos o flip transitório para não derrubar
+          // a sessão e mandar o usuário de volta para /login.
+          if (isWithinLoginGrace()) {
+            console.log('🔐 Ignorando firebaseUser=null durante janela pós-login');
+          } else {
+            const savedUser = localStorage.getItem('simple-auth-user');
+            if (savedUser) {
+              localStorage.removeItem('simple-auth-user');
+              localStorage.removeItem('simple-auth-status');
+              setUserInfo(null);
+            }
           }
         }
       } catch (error) {
@@ -103,6 +154,9 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     try {
       setIsLoading(true);
+      // Garantir que a persistência foi configurada antes do signIn,
+      // evitando que o Safari iOS perca a sessão entre a navegação.
+      await authReady;
       const credential = await signInWithEmailAndPassword(auth, email, password);
       const user = credential.user;
 
@@ -125,6 +179,7 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setUserInfo(userData);
       localStorage.setItem('simple-auth-user', JSON.stringify(userData));
       localStorage.setItem('simple-auth-status', 'authenticated');
+      markJustLoggedIn();
 
       // ✅ OTIMIZADO: Registrar login e criar usuário no Firestore se não existir
       // IMPORTANTE: Isso é OPCIONAL - Login funciona SEM Firestore!
@@ -212,7 +267,19 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const loginWithGoogle = async (): Promise<LoginResult> => {
     try {
       setIsLoading(true);
+      await authReady;
       const provider = new GoogleAuthProvider();
+
+      // Em mobile (especialmente Safari iOS), popups são bloqueados ou perdem
+      // o callback. Usar redirect garante o retorno via getRedirectResult.
+      if (isMobileDevice()) {
+        markJustLoggedIn();
+        await signInWithRedirect(auth, provider);
+        // signInWithRedirect navega para fora da página; o retorno é
+        // processado por getRedirectResult no mount.
+        return { success: true };
+      }
+
       const credential = await signInWithPopup(auth, provider);
       const user = credential.user;
 
@@ -234,6 +301,7 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setUserInfo(userData);
       localStorage.setItem('simple-auth-user', JSON.stringify(userData));
       localStorage.setItem('simple-auth-status', 'authenticated');
+      markJustLoggedIn();
 
       // ✅ OTIMIZADO: Processar usuário no Firestore (OPCIONAL)
       // Login funciona mesmo se Firestore estiver com quota excedida
@@ -315,6 +383,7 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       localStorage.removeItem('simple-auth-user');
       localStorage.removeItem('simple-auth-status');
       localStorage.removeItem('user-config-cache');
+      try { sessionStorage.removeItem(JUST_LOGGED_IN_KEY); } catch { /* noop */ }
 
       // Fazer signOut do Firebase
       await signOut(auth);
