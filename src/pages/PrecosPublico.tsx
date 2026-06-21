@@ -151,7 +151,7 @@ const PrecosPublico = () => {
                     <p className="text-muted-foreground text-sm">
                       {plan.monthlyContentLimit === -1 ? 'Conteúdos ilimitados' : 
                        plan.monthlyContentLimit === 0 ? 'Sem acesso a conteúdos' :
-                       `Até ${plan.monthlyContentLimit.toLocaleString()} conteúdos/mês`}
+                       `Até ${(plan.monthlyContentLimit ?? 0).toLocaleString()} conteúdos/mês`}
                     </p>
                   </div>
                   
