@@ -242,7 +242,7 @@ const AdminPlans = () => {
                   <TableCell>
                     {plan.monthlyContentLimit === -1 ? 'Ilimitado' : 
                      plan.monthlyContentLimit === 0 ? 'Sem acesso' :
-                     plan.monthlyContentLimit.toLocaleString()}
+                     (plan.monthlyContentLimit ?? 0).toLocaleString()}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
