@@ -156,7 +156,7 @@ const AdminOverviewMetrics: React.FC<AdminOverviewMetricsProps> = ({ users, logs
             <CardContent className="relative z-10">
               <div className="flex items-baseline space-x-2">
                 <div className="text-3xl font-extrabold text-foreground tracking-tight">
-                  {metric.value.toLocaleString()}
+                  {(metric.value ?? 0).toLocaleString()}
                 </div>
                 {metric.trend !== null && (
                   <Badge 

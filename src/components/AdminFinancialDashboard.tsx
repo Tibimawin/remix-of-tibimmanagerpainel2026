@@ -361,7 +361,7 @@ const AdminFinancialDashboard: React.FC = () => {
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Receita Total</p>
                 <p className="text-2xl font-bold text-foreground mt-1">
-                  R$ {metrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {(metrics.totalRevenue ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
                 <div className="flex items-center gap-1 mt-2">
                   {metrics.revenueGrowth >= 0 ? (
@@ -387,7 +387,7 @@ const AdminFinancialDashboard: React.FC = () => {
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Este Mês</p>
                 <p className="text-2xl font-bold text-foreground mt-1">
-                  R$ {metrics.thisMonthRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {(metrics.thisMonthRevenue ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">Receita do mês atual</p>
               </div>
@@ -421,7 +421,7 @@ const AdminFinancialDashboard: React.FC = () => {
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ticket Médio</p>
                 <p className="text-2xl font-bold text-foreground mt-1">
-                  R$ {metrics.avgTicket.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {(metrics.avgTicket ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
                 <div className="flex items-center gap-2 mt-2">
                   <Badge variant="secondary" className="text-xs">{metrics.monthlyPlans} mensais</Badge>
@@ -467,7 +467,7 @@ const AdminFinancialDashboard: React.FC = () => {
                       borderRadius: '8px',
                       color: 'hsl(var(--foreground))'
                     }}
-                    formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Receita']}
+                    formatter={(value: number) => [`R$ ${(value ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Receita']}
                   />
                   <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="url(#colorRevenue)" strokeWidth={2} />
                 </AreaChart>
@@ -653,7 +653,7 @@ const AdminFinancialDashboard: React.FC = () => {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="font-bold text-foreground">
-                        R$ {record.planPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {(record.planPrice ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5 font-mono">
                         {getPaymentDateString()}
