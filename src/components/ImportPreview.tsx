@@ -767,9 +767,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   }, [currentPage]);
 
   const handleRefresh = () => {
-    setCurrentPage(1);
+    // Preserve the current page on manual refresh
     setCachedTotalPages(0);
     setInitialLoadDone(false);
+    setPageRestored(false); // allow restore-effect to jump back to currentPage after totals load
     fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     fetchCategories();
   };
@@ -792,6 +793,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     setSortBy('nome');
     setSearchTerm('');
     setCurrentPage(1);
+    setPageRestored(true);
   };
 
   const toggleSelection = (id: number) => {
