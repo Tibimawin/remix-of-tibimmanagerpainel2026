@@ -596,6 +596,30 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   }, [platformFilter]);
 
+  // Persist current page across reloads
+  useEffect(() => {
+    try {
+      localStorage.setItem('importPreview_currentPage', String(currentPage));
+    } catch {
+      // ignore storage errors
+    }
+  }, [currentPage]);
+
+  // After initial load completes, restore saved page (if within range) one time
+  useEffect(() => {
+    if (!initialLoadDone || pageRestored) return;
+    const total = Math.ceil(totalCount / pageSize);
+    try {
+      const saved = parseInt(localStorage.getItem('importPreview_currentPage') || '1', 10);
+      if (Number.isFinite(saved) && saved > 1 && saved <= total && saved !== currentPage) {
+        setCurrentPage(saved);
+      }
+    } catch {
+      // ignore
+    }
+    setPageRestored(true);
+  }, [initialLoadDone, totalCount]);
+
   useEffect(() => {
     if (configValid && importConfig) {
       setCachedTotalPages(0);
