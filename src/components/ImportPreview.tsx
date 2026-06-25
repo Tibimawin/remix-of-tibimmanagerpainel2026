@@ -725,12 +725,18 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     fetchExistingContentSnapshot();
   }, [configValid, userConfig?.apiToken, userConfig?.baseUrl, userConfig?.contentTableId, previews]);
 
-  // Fetch when filters change (reset to page 1)
+  // Fetch when filters change (reset to page 1) — skip on first mount to preserve restored page
+  const filterMountRef = React.useRef(true);
   useEffect(() => {
+    if (filterMountRef.current) {
+      filterMountRef.current = false;
+      return;
+    }
     if (configValid && importConfig) {
       setCurrentPage(1);
       setCachedTotalPages(0);
       setInitialLoadDone(false);
+      setPageRestored(true); // user changed filters; don't restore old page
       fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     }
   }, [typeFilter, categoryFilter, genreFilter, yearFilter, platformFilter]);
