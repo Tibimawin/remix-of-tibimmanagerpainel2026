@@ -175,9 +175,13 @@ const AdminUserPermissions = () => {
         monthlyContentLimit: userPermissions.monthlyContentLimit
       });
 
-      // Atualizar o timestamp e garantir dados válidos
+      // Atualizar o timestamp e garantir dados válidos.
+      // IMPORTANTE: não persistir expiryDate/isActive aqui — a expiração é
+      // determinada pelo doc `users/{uid}` para evitar que dados defasados
+      // anulem funcionalidades habilitadas manualmente.
+      const { expiryDate: _ignoredExpiry, isActive: _ignoredActive, ...rest } = userPermissions;
       const updatedPermissions = {
-        ...userPermissions,
+        ...rest,
         lastUpdated: new Date().toISOString(),
         enabledFeatures: Array.isArray(userPermissions.enabledFeatures) ? userPermissions.enabledFeatures : []
       };
