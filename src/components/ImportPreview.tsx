@@ -130,7 +130,15 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [sortBy, setSortBy] = useState<'nome' | 'ano' | 'rating'>('nome');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState<number>(() => {
+    try {
+      const saved = parseInt(localStorage.getItem('importPreview_currentPage') || '1', 10);
+      return Number.isFinite(saved) && saved > 0 ? saved : 1;
+    } catch {
+      return 1;
+    }
+  });
+  const [pageRestored, setPageRestored] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [existingContentSnapshot, setExistingContentSnapshot] = useState<ExistingContentSnapshot>({
@@ -588,6 +596,30 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   }, [platformFilter]);
 
+  // Persist current page across reloads
+  useEffect(() => {
+    try {
+      localStorage.setItem('importPreview_currentPage', String(currentPage));
+    } catch {
+      // ignore storage errors
+    }
+  }, [currentPage]);
+
+  // After initial load completes, restore saved page (if within range) one time
+  useEffect(() => {
+    if (!initialLoadDone || pageRestored) return;
+    const total = Math.ceil(totalCount / pageSize);
+    try {
+      const saved = parseInt(localStorage.getItem('importPreview_currentPage') || '1', 10);
+      if (Number.isFinite(saved) && saved > 1 && saved <= total && saved !== currentPage) {
+        setCurrentPage(saved);
+      }
+    } catch {
+      // ignore
+    }
+    setPageRestored(true);
+  }, [initialLoadDone, totalCount]);
+
   useEffect(() => {
     if (configValid && importConfig) {
       setCachedTotalPages(0);
@@ -693,23 +725,35 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     fetchExistingContentSnapshot();
   }, [configValid, userConfig?.apiToken, userConfig?.baseUrl, userConfig?.contentTableId, previews]);
 
-  // Fetch when filters change (reset to page 1)
+  // Fetch when filters change (reset to page 1) — skip on first mount to preserve restored page
+  const filterMountRef = React.useRef(true);
   useEffect(() => {
+    if (filterMountRef.current) {
+      filterMountRef.current = false;
+      return;
+    }
     if (configValid && importConfig) {
       setCurrentPage(1);
       setCachedTotalPages(0);
       setInitialLoadDone(false);
+      setPageRestored(true); // user changed filters; don't restore old page
       fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     }
   }, [typeFilter, categoryFilter, genreFilter, yearFilter, platformFilter]);
 
-  // Debounced server-side search when searchTerm changes
+  // Debounced server-side search when searchTerm changes — skip first mount
+  const searchMountRef = React.useRef(true);
   useEffect(() => {
+    if (searchMountRef.current) {
+      searchMountRef.current = false;
+      return;
+    }
     if (!configValid || !importConfig) return;
     const handle = setTimeout(() => {
       setCurrentPage(1);
       setCachedTotalPages(0);
       setInitialLoadDone(false);
+      setPageRestored(true);
       fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     }, 400);
     return () => clearTimeout(handle);
@@ -723,9 +767,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   }, [currentPage]);
 
   const handleRefresh = () => {
-    setCurrentPage(1);
+    // Preserve the current page on manual refresh
     setCachedTotalPages(0);
     setInitialLoadDone(false);
+    setPageRestored(false); // allow restore-effect to jump back to currentPage after totals load
     fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     fetchCategories();
   };
@@ -748,6 +793,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     setSortBy('nome');
     setSearchTerm('');
     setCurrentPage(1);
+    setPageRestored(true);
   };
 
   const toggleSelection = (id: number) => {
