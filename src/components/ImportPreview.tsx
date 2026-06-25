@@ -741,13 +741,19 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   }, [typeFilter, categoryFilter, genreFilter, yearFilter, platformFilter]);
 
-  // Debounced server-side search when searchTerm changes
+  // Debounced server-side search when searchTerm changes — skip first mount
+  const searchMountRef = React.useRef(true);
   useEffect(() => {
+    if (searchMountRef.current) {
+      searchMountRef.current = false;
+      return;
+    }
     if (!configValid || !importConfig) return;
     const handle = setTimeout(() => {
       setCurrentPage(1);
       setCachedTotalPages(0);
       setInitialLoadDone(false);
+      setPageRestored(true);
       fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     }, 400);
     return () => clearTimeout(handle);
