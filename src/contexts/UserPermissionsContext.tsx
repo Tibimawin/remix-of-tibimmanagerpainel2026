@@ -22,16 +22,10 @@ interface UserPermissionsContextType {
 
 const UserPermissionsContext = createContext<UserPermissionsContextType | undefined>(undefined);
 
-const isExpiredByPermissions = (permissions: UserPermissions | null): boolean => {
-    if (!permissions) return false;
-    if (permissions.isActive === false) return true;
-    if (!permissions.expiryDate) return false;
-
-    const expiryTime = new Date(permissions.expiryDate).getTime();
-    if (Number.isNaN(expiryTime)) return false;
-
-    return expiryTime < Date.now();
-};
+// NOTA: A expiração é determinada exclusivamente pelo documento `users/{uid}`
+// via FirebaseUserService.checkUserAccess. Campos `isActive`/`expiryDate`
+// salvos dentro de `userPermissions` são ignorados aqui para evitar que dados
+// defasados anulem funcionalidades habilitadas manualmente pelo admin.
 
 export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { userInfo } = useSimpleAuth();
@@ -99,7 +93,6 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
                     };
 
                     setPermissions(validatedPermissions);
-                    setIsSubscriptionExpired(isExpiredByPermissions(validatedPermissions));
                 } else {
                     console.log('⚠️ Documento de permissões não existe, criando padrão');
 
@@ -143,7 +136,6 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
                     };
                     console.log('📝 Criando permissões padrão (bloqueadas):', defaultPermissions);
                     setPermissions(defaultPermissions);
-                    setIsSubscriptionExpired(isExpiredByPermissions(defaultPermissions));
                 }
                 setLoading(false);
             },
@@ -160,13 +152,15 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
     }, [userInfo?.id, userInfo?.email, refreshTrigger]);
 
     const hasFeature = (featureId: string): boolean => {
-        // Assinatura expirada: ignora as permissões antigas do plano e libera SOMENTE
-        // o conjunto fixo de funcionalidades grátis definido para todos os usuários.
-        if (isSubscriptionExpired) {
-            return isFreeFeatureWhenExpired(featureId);
-        }
-        const hasAccess = permissions?.enabledFeatures?.includes(featureId) || false;
-        return hasAccess;
+        // Regra: liberado se o admin habilitou a feature OU se a feature é grátis
+        // quando a assinatura está expirada. Liberações manuais do admin sempre
+        // são respeitadas, mesmo com assinatura expirada.
+        const enabled = Array.isArray(permissions?.enabledFeatures)
+            ? permissions!.enabledFeatures.includes(featureId)
+            : false;
+        if (enabled) return true;
+        if (isSubscriptionExpired) return isFreeFeatureWhenExpired(featureId);
+        return false;
     };
 
     const hasPrioritySupport = (): boolean => {
@@ -174,8 +168,7 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
     };
 
     const canAccessPremiumFeatures = (): boolean => {
-        if (isSubscriptionExpired) return false;
-        return permissions?.enabledFeatures.length > 0 || false;
+        return (permissions?.enabledFeatures?.length ?? 0) > 0;
     };
 
     const hasContentLimit = (): boolean => {
