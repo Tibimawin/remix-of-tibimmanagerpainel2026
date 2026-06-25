@@ -130,7 +130,15 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [sortBy, setSortBy] = useState<'nome' | 'ano' | 'rating'>('nome');
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState<number>(() => {
+    try {
+      const saved = parseInt(localStorage.getItem('importPreview_currentPage') || '1', 10);
+      return Number.isFinite(saved) && saved > 0 ? saved : 1;
+    } catch {
+      return 1;
+    }
+  });
+  const [pageRestored, setPageRestored] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [existingContentSnapshot, setExistingContentSnapshot] = useState<ExistingContentSnapshot>({
