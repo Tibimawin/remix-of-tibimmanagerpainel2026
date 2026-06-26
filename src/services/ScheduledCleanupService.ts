@@ -34,6 +34,8 @@ export class ScheduledCleanupService {
       let page = 1;
       const pageSize = 200; // processar 200 registros por vez (limite do Baserow)
       let hasMore = true;
+      let consecutiveErrors = 0;
+      let aborted = false;
 
       console.log(`🧹 Iniciando limpeza otimizada da tabela ${schedule.tableId}`);
 
@@ -73,10 +75,38 @@ export class ScheduledCleanupService {
 
         } catch (error) {
           console.error(`❌ Erro ao processar página ${page}:`, error);
+
+          const message = error instanceof Error ? error.message : String(error);
+          const isPermanentError = /Erro\s+(400|401|403|404)\b/i.test(message);
+
+          // Evita loop infinito de 404/403 quando a tabela/token do agendamento
+          // está errado ou sem permissão. Antes isso ficava tentando página 1, 2,
+          // 3... sem parar e gerava vários POST 404 no proxy.
+          if (isPermanentError) {
+            await this.markScheduleFailed(scheduleId, message, true);
+            await this.updateNextRun(scheduleId, schedule.frequency, schedule.time);
+            console.error(`🛑 Agendamento "${schedule.name}" pausado por erro permanente: ${message}`);
+            aborted = true;
+            break;
+          }
+
+          consecutiveErrors++;
+          if (consecutiveErrors >= 3) {
+            await this.markScheduleFailed(scheduleId, message, false);
+            await this.updateNextRun(scheduleId, schedule.frequency, schedule.time);
+            console.error(`🛑 Agendamento "${schedule.name}" interrompido após 3 erros consecutivos.`);
+            aborted = true;
+            break;
+          }
+
           page++;
           // Pausa maior em caso de erro
           await new Promise(resolve => setTimeout(resolve, 500));
         }
+      }
+
+      if (aborted) {
+        return;
       }
 
       // Atualizar dados da execução
@@ -99,11 +129,22 @@ export class ScheduledCleanupService {
   /**
    * Verifica e executa agendamentos prontos para execução
    */
-  static async checkAndExecuteSchedules(): Promise<void> {
+  static async checkAndExecuteSchedules(userId?: string): Promise<void> {
     try {
+      // Segurança: o executor roda no navegador. Sem userId, ele não deve varrer
+      // nem executar agendamentos de todos os usuários.
+      if (!userId) {
+        console.log('⏸️ Verificador de limpezas não iniciado: usuário não autenticado.');
+        return;
+      }
+
       const now = new Date();
       const schedulesRef = collection(db, 'scheduledCleanups');
-      const q = query(schedulesRef, where('isActive', '==', true));
+      const q = query(
+        schedulesRef,
+        where('userId', '==', userId),
+        where('isActive', '==', true)
+      );
 
       const snapshot = await getDocs(q);
 
@@ -139,6 +180,20 @@ export class ScheduledCleanupService {
       });
     } catch (error) {
       console.error('Erro ao atualizar última execução:', error);
+    }
+  }
+
+  private static async markScheduleFailed(scheduleId: string, errorMessage: string, deactivate: boolean): Promise<void> {
+    try {
+      const scheduleRef = doc(db, 'scheduledCleanups', scheduleId);
+      await updateDoc(scheduleRef, {
+        lastRun: new Date().toISOString(),
+        lastRunDeletedCount: 0,
+        lastError: errorMessage,
+        ...(deactivate ? { isActive: false } : {})
+      });
+    } catch (error) {
+      console.error('Erro ao registrar falha do agendamento:', error);
     }
   }
 

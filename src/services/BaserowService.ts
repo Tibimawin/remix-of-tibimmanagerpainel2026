@@ -1,14 +1,12 @@
 import { useConfig } from '../contexts/ConfigContext';
 import { logger } from '@/utils/logger';
 import BASEROW_PROXY_CONFIG from '@/config/proxyConfig';
-import { supabase } from '@/integrations/supabase/client';
 
 export class BaserowService {
   private apiToken: string;
   private baseUrl: string;
   // 🔧 Detecção automática de ambiente (desenvolvimento/produção)
   private proxyUrl = BASEROW_PROXY_CONFIG.ACTIVE_PROXY_URL;
-  private isUsingSupabase = BASEROW_PROXY_CONFIG.isUsingSupabase();
 
   constructor(apiToken: string, baseUrl: string) {
     this.apiToken = apiToken;
@@ -18,7 +16,7 @@ export class BaserowService {
     console.log(`🌐 BaserowService inicializado:`, {
       proxyUrl: this.proxyUrl,
       environment: BASEROW_PROXY_CONFIG.getEnvironment(),
-      usingSupabase: this.isUsingSupabase
+      usingSupabase: false
     });
   }
 
@@ -39,42 +37,11 @@ export class BaserowService {
         body: options.body || null
       };
 
-      // Usar supabase.functions.invoke para Supabase Edge Function (evita CORS)
-      if (this.isUsingSupabase) {
-        console.log(`🌐 [BaserowService] Requisição via SUPABASE (functions.invoke):`, {
-          method,
-          originalUrl: originalUrl,
-          tokenPreview: this.apiToken.substring(0, 15) + '...',
-        });
-
-        console.log('📦 [BaserowService] Payload para Supabase:', {
-          url: proxyPayload.url,
-          method: proxyPayload.method,
-          hasToken: !!proxyPayload.token,
-          hasBody: !!proxyPayload.body
-        });
-
-        const { data, error } = await supabase.functions.invoke('baserow-proxy', {
-          body: proxyPayload
-        });
-
-        if (error) {
-          console.error('❌ [BaserowService] Erro na Edge Function:', error);
-          throw new Error(`Edge Function error: ${error.message}`);
-        }
-
-        // Retornar um objeto Response-like para manter compatibilidade
-        return {
-          ok: true,
-          status: 200,
-          statusText: 'OK',
-          headers: new Headers({ 'content-type': 'application/json' }),
-          json: async () => data,
-          text: async () => JSON.stringify(data),
-        } as Response;
-      }
-
-      // Usar fetch direto para Vercel Serverless (com fallback para Supabase)
+      // Usar fetch direto para Vercel Serverless.
+      // Importante: não fazer fallback automático em status 404, porque esse 404
+      // pode ser a resposta real do Baserow (tabela/registro inexistente), não a
+      // ausência da rota /api/baserow-proxy. O fallback para Edge Function estava
+      // gerando erro de CORS quando o proxy apenas repassava um 404 válido.
       console.log(`🌐 [BaserowService] Requisição via VERCEL PROXY:`, {
         method,
         proxyUrl: this.proxyUrl,
@@ -98,29 +65,6 @@ export class BaserowService {
         },
         body: JSON.stringify(proxyPayload)
       });
-
-      // Se Vercel proxy retornar 404, fazer fallback para Supabase Edge Function
-      if (response.status === 404) {
-        console.warn('⚠️ [BaserowService] Vercel proxy retornou 404, usando fallback Supabase...');
-        
-        const { data, error } = await supabase.functions.invoke('baserow-proxy', {
-          body: proxyPayload
-        });
-
-        if (error) {
-          console.error('❌ [BaserowService] Erro no fallback Supabase:', error);
-          throw new Error(`Proxy fallback error: ${error.message}`);
-        }
-
-        return {
-          ok: true,
-          status: 200,
-          statusText: 'OK',
-          headers: new Headers({ 'content-type': 'application/json' }),
-          json: async () => data,
-          text: async () => JSON.stringify(data),
-        } as Response;
-      }
 
       return response;
     } else {

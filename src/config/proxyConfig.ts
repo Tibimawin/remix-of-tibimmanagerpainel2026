@@ -3,7 +3,8 @@
  * 
  * Detecta automaticamente o ambiente:
  * - Produção Vercel: usa /api/baserow-proxy (Vercel Serverless)
- * - Preview Lovable/Dev: usa Supabase Edge Function
+ * - Lovable/domínio custom: usa URL absoluta do Vercel Serverless
+ * - Localhost: usa /api/baserow-proxy via proxy do Vite
  */
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://kuszskrqzxwpzsmfsjwg.supabase.co';
@@ -46,7 +47,8 @@ const shouldUseAbsoluteVercelUrl = (env: string) => {
 };
 
 export const BASEROW_PROXY_CONFIG = {
-    // Supabase Edge Function URL (fallback)
+    // Mantido apenas por compatibilidade visual/diagnóstico.
+    // O app NÃO usa mais Supabase como fallback do Baserow para evitar CORS.
     SUPABASE_PROXY_URL: `${SUPABASE_URL}/functions/v1/baserow-proxy`,
 
     // Vercel Serverless Function (relative, funciona quando o host é Vercel/custom domain)
@@ -61,9 +63,9 @@ export const BASEROW_PROXY_CONFIG = {
     get ACTIVE_PROXY_URL() {
         const envType = getEnvironmentType();
 
-        // Preview/published em Lovable: usar URL ABSOLUTA do Vercel proxy
+        // Preview/published em Lovable e domínio custom: usar URL ABSOLUTA do Vercel proxy
         if (shouldUseAbsoluteVercelUrl(envType)) {
-            console.log('🌐 [PROXY] Ambiente Lovable detectado, usando Vercel Proxy ABSOLUTO:', this.VERCEL_PROXY_ABSOLUTE_URL);
+            console.log(`🌐 [PROXY] Ambiente ${envType} detectado, usando Vercel Proxy ABSOLUTO:`, this.VERCEL_PROXY_ABSOLUTE_URL);
             return this.VERCEL_PROXY_ABSOLUTE_URL;
         }
 
@@ -72,11 +74,12 @@ export const BASEROW_PROXY_CONFIG = {
         return this.VERCEL_PROXY_URL;
     },
 
-    // Verifica se está usando Supabase
-    // - Somente em localhost/dev (quando /api/baserow-proxy pode não existir)
-    // - Em preview/published/produção: sempre usar Vercel Serverless (/api)
+    // Supabase desativado definitivamente como fallback do proxy Baserow.
+    // O fallback antigo tentava a Edge Function após qualquer 404 do Vercel,
+    // mas esse 404 muitas vezes é uma resposta real do Baserow (tabela inexistente
+    // ou sem permissão), gerando erro de CORS e mascarando a causa real.
     isUsingSupabase() {
-        return this.getEnvironment() === 'development';
+        return false;
     },
 
     // Ambiente

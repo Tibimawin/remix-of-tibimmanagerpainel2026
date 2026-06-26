@@ -15,7 +15,6 @@ import { M3UProgressBar } from './M3UProgressBar';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useEnhancedActionHistory } from '@/hooks/useEnhancedActionHistory';
 import { useActionNotifier } from '@/hooks/useActionNotifier';
-import { useScheduleExecutor } from '@/hooks/useScheduleExecutor';
 import { useExpirationMonitor } from '@/hooks/useExpirationMonitor';
 import { useAITracking } from '@/hooks/useAITracking';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
@@ -44,9 +43,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { zoom } = useZoom();
 
   const hasNoFeatures = !permLoading && (!permissions?.enabledFeatures || permissions.enabledFeatures.length === 0);
-
-  // Hook para executar agendamentos automaticamente
-  useScheduleExecutor();
 
   // Hook para monitorar expirações e enviar notificações (apenas se usuário logado)
   useExpirationMonitor();
