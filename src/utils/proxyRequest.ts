@@ -73,10 +73,10 @@ async function makeProxyRequestOnce(payload: ProxyPayload): Promise<ProxyRespons
       body: JSON.stringify(payload)
     });
 
-      const contentType = response.headers.get('content-type') || '';
-      const isJson = contentType.includes('application/json');
+    const contentType = response.headers.get('content-type') || '';
+    const isJson = contentType.includes('application/json');
 
-      const data = isJson ? await response.json() : await response.text();
+    const data = isJson ? await response.json() : await response.text();
 
     if (!response.ok) {
       console.error('❌ [ProxyRequest] Erro HTTP no Vercel Proxy:', {
