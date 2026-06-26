@@ -36,7 +36,26 @@ function sanitizeData(data) {
   return data;
 }
 
+// In-memory caches (per warm serverless instance) to reduce Firestore REST quota usage
+const KEY_CACHE = new Map();   // apiKey -> { value, expiresAt }
+const SUB_CACHE = new Map();   // userId -> { value, expiresAt }
+const KEY_TTL_MS = 120_000;    // 2 min
+const SUB_TTL_MS = 60_000;     // 1 min
+
+function cacheGet(map, k) {
+  const e = map.get(k);
+  if (!e) return undefined;
+  if (Date.now() > e.expiresAt) { map.delete(k); return undefined; }
+  return e.value;
+}
+function cacheSet(map, k, value, ttl) {
+  map.set(k, { value, expiresAt: Date.now() + ttl });
+}
+
 async function validateApiKey(apiKey) {
+  const cached = cacheGet(KEY_CACHE, apiKey);
+  if (cached !== undefined) return cached;
+
   // Query Firestore REST API for the API key
   const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery?key=${FIREBASE_API_KEY}`;
   
@@ -74,51 +93,75 @@ async function validateApiKey(apiKey) {
     body: JSON.stringify(body)
   });
 
+  if (!resp.ok) {
+    console.warn('[public-api] Firestore validateApiKey HTTP', resp.status);
+    return null; // do not cache transient failure (e.g. 429 quota)
+  }
+
   const results = await resp.json();
-  
+
   if (!results || !results[0] || !results[0].document) {
+    cacheSet(KEY_CACHE, apiKey, null, KEY_TTL_MS);
     return null;
   }
 
   const doc = results[0].document;
   const docPath = doc.name;
   const fields = doc.fields;
-  
-  return {
+
+  const data = {
     docPath,
     userId: fields.userId?.stringValue,
     rateLimit: fields.rateLimit?.integerValue || 60,
     requestCount: fields.requestCount?.integerValue || 0,
     allowedEndpoints: (fields.allowedEndpoints?.arrayValue?.values || []).map(v => v.stringValue),
   };
+  cacheSet(KEY_CACHE, apiKey, data, KEY_TTL_MS);
+  return data;
 }
 
 async function checkUserSubscription(userId) {
+  const cached = cacheGet(SUB_CACHE, userId);
+  if (cached !== undefined) return cached;
   try {
     const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/userPermissions/${userId}?key=${FIREBASE_API_KEY}`;
     const resp = await fetch(url);
-    
-    if (!resp.ok) return { active: false, reason: 'Permissões não encontradas' };
-    
+
+    if (!resp.ok) {
+      // Do not cache transient HTTP failures (e.g. 429 quota)
+      if (resp.status === 429 || resp.status >= 500) {
+        return { active: false, reason: 'Erro temporário ao verificar assinatura' };
+      }
+      const result = { active: false, reason: 'Permissões não encontradas' };
+      cacheSet(SUB_CACHE, userId, result, SUB_TTL_MS);
+      return result;
+    }
+
     const doc = await resp.json();
     const fields = doc.fields || {};
-    
+
     // Check if user has the 'minha-api' feature enabled
     const enabledFeatures = (fields.enabledFeatures?.arrayValue?.values || []).map(v => v.stringValue);
     if (!enabledFeatures.includes('minha-api')) {
-      return { active: false, reason: 'Plano não inclui acesso à API' };
+      const result = { active: false, reason: 'Plano não inclui acesso à API' };
+      cacheSet(SUB_CACHE, userId, result, SUB_TTL_MS);
+      return result;
     }
-    
+
     // Check subscription expiry
     const expiryDateStr = fields.subscriptionExpiry?.timestampValue || fields.expiryDate?.stringValue;
     if (expiryDateStr) {
       const expiryDate = new Date(expiryDateStr);
       if (expiryDate < new Date()) {
-        return { active: false, reason: 'Assinatura expirada' };
+        const result = { active: false, reason: 'Assinatura expirada' };
+        cacheSet(SUB_CACHE, userId, result, SUB_TTL_MS);
+        return result;
       }
     }
-    
-    return { active: true };
+
+    const result = { active: true };
+    cacheSet(SUB_CACHE, userId, result, SUB_TTL_MS);
+    return result;
   } catch (error) {
     console.error('Error checking subscription:', error);
     return { active: false, reason: 'Erro ao verificar assinatura' };
