@@ -36,7 +36,26 @@ function sanitizeData(data) {
   return data;
 }
 
+// In-memory caches (per warm serverless instance) to reduce Firestore REST quota usage
+const KEY_CACHE = new Map();   // apiKey -> { value, expiresAt }
+const SUB_CACHE = new Map();   // userId -> { value, expiresAt }
+const KEY_TTL_MS = 120_000;    // 2 min
+const SUB_TTL_MS = 60_000;     // 1 min
+
+function cacheGet(map, k) {
+  const e = map.get(k);
+  if (!e) return undefined;
+  if (Date.now() > e.expiresAt) { map.delete(k); return undefined; }
+  return e.value;
+}
+function cacheSet(map, k, value, ttl) {
+  map.set(k, { value, expiresAt: Date.now() + ttl });
+}
+
 async function validateApiKey(apiKey) {
+  const cached = cacheGet(KEY_CACHE, apiKey);
+  if (cached !== undefined) return cached;
+
   // Query Firestore REST API for the API key
   const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery?key=${FIREBASE_API_KEY}`;
   
