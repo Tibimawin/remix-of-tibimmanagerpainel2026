@@ -11,7 +11,7 @@ const FIREBASE_API_KEY = 'AIzaSyBN7cODHg978T4S2jPvrBsr5sqwZhGidtU';
 // Firebase Service Account (preferred) — set FIREBASE_SERVICE_ACCOUNT_JSON in Vercel
 // When present, all Firestore REST calls authenticate as the service account
 // (no Web API Key quota limits).
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 let SERVICE_ACCOUNT = null;
 try {
