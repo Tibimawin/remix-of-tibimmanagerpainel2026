@@ -116,7 +116,15 @@ const MinhaApi = () => {
     setTesting(true);
     setTestResult(null);
     try {
-      const url = `/api/public-api?api_key=${activeKey.key}&endpoint=${testEndpoint}&size=2`;
+      // Em domínios custom/Lovable, /api/* não é servido localmente.
+      // Roteia para o Vercel quando o host atual não é vercel.app nem localhost.
+      const host = window.location.hostname;
+      const isLocal = host === 'localhost' || host === '127.0.0.1';
+      const isVercel = host.endsWith('vercel.app');
+      const apiBase = isLocal || isVercel
+        ? ''
+        : (import.meta.env.VITE_VERCEL_PROXY_BASE || 'https://tibimmanagerpain2025.vercel.app');
+      const url = `${apiBase}/api/public-api?api_key=${activeKey.key}&endpoint=${testEndpoint}&size=2`;
       const resp = await fetch(url);
       const data = await resp.json();
       setTestResult(JSON.stringify(data, null, 2));
