@@ -8,6 +8,88 @@
 const FIREBASE_PROJECT_ID = 'tibimmanagerpainelvercel';
 const FIREBASE_API_KEY = 'AIzaSyBN7cODHg978T4S2jPvrBsr5sqwZhGidtU';
 
+// Firebase Service Account (preferred) — set FIREBASE_SERVICE_ACCOUNT_JSON in Vercel
+// When present, all Firestore REST calls authenticate as the service account
+// (no Web API Key quota limits).
+import crypto from 'crypto';
+
+let SERVICE_ACCOUNT = null;
+try {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (raw) {
+    SERVICE_ACCOUNT = JSON.parse(raw);
+  }
+} catch (e) {
+  console.error('[public-api] Invalid FIREBASE_SERVICE_ACCOUNT_JSON:', e?.message);
+}
+
+let ACCESS_TOKEN_CACHE = { token: null, expiresAt: 0 };
+
+function base64url(input) {
+  return Buffer.from(input).toString('base64')
+    .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+async function getServiceAccountAccessToken() {
+  if (!SERVICE_ACCOUNT) return null;
+  const now = Math.floor(Date.now() / 1000);
+  if (ACCESS_TOKEN_CACHE.token && ACCESS_TOKEN_CACHE.expiresAt - 60 > now) {
+    return ACCESS_TOKEN_CACHE.token;
+  }
+  try {
+    const header = { alg: 'RS256', typ: 'JWT' };
+    const payload = {
+      iss: SERVICE_ACCOUNT.client_email,
+      scope: 'https://www.googleapis.com/auth/datastore',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600,
+    };
+    const unsigned = `${base64url(JSON.stringify(header))}.${base64url(JSON.stringify(payload))}`;
+    const signer = crypto.createSign('RSA-SHA256');
+    signer.update(unsigned);
+    const signature = signer.sign(SERVICE_ACCOUNT.private_key);
+    const jwt = `${unsigned}.${signature.toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')}`;
+
+    const resp = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `grant_type=${encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer')}&assertion=${jwt}`,
+    });
+    if (!resp.ok) {
+      console.error('[public-api] OAuth token error', resp.status, await resp.text());
+      return null;
+    }
+    const json = await resp.json();
+    ACCESS_TOKEN_CACHE = {
+      token: json.access_token,
+      expiresAt: now + (json.expires_in || 3600),
+    };
+    return ACCESS_TOKEN_CACHE.token;
+  } catch (e) {
+    console.error('[public-api] getServiceAccountAccessToken failed:', e?.message);
+    return null;
+  }
+}
+
+// Build a Firestore REST URL + headers. Uses service account when available,
+// otherwise falls back to the Web API Key.
+async function firestoreFetch(path, init = {}) {
+  const accessToken = await getServiceAccountAccessToken();
+  if (accessToken) {
+    const url = `https://firestore.googleapis.com/v1/${path}`;
+    const headers = {
+      ...(init.headers || {}),
+      Authorization: `Bearer ${accessToken}`,
+    };
+    return fetch(url, { ...init, headers });
+  }
+  // Fallback: Web API Key
+  const sep = path.includes('?') ? '&' : '?';
+  const url = `https://firestore.googleapis.com/v1/${path}${sep}key=${FIREBASE_API_KEY}`;
+  return fetch(url, init);
+}
+
 // Baserow config - uses env vars set in Vercel
 const BASEROW_TOKEN = process.env.BASEROW_ADMIN_TOKEN || '';
 const BASEROW_BASE_URL = process.env.BASEROW_BASE_URL || 'https://api.baserow.io';
@@ -56,9 +138,6 @@ async function validateApiKey(apiKey) {
   const cached = cacheGet(KEY_CACHE, apiKey);
   if (cached !== undefined) return cached;
 
-  // Query Firestore REST API for the API key
-  const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery?key=${FIREBASE_API_KEY}`;
-  
   const body = {
     structuredQuery: {
       from: [{ collectionId: 'apiKeys' }],
@@ -87,7 +166,7 @@ async function validateApiKey(apiKey) {
     }
   };
 
-  const resp = await fetch(url, {
+  const resp = await firestoreFetch(`projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
@@ -124,8 +203,7 @@ async function checkUserSubscription(userId) {
   const cached = cacheGet(SUB_CACHE, userId);
   if (cached !== undefined) return cached;
   try {
-    const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/userPermissions/${userId}?key=${FIREBASE_API_KEY}`;
-    const resp = await fetch(url);
+    const resp = await firestoreFetch(`projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/userPermissions/${userId}`);
 
     if (!resp.ok) {
       // Do not cache transient HTTP failures (e.g. 429 quota)
@@ -169,10 +247,8 @@ async function checkUserSubscription(userId) {
 }
 
 async function updateKeyUsage(docPath) {
-  const url = `https://firestore.googleapis.com/v1/${docPath}?updateMask.fieldPaths=lastUsedAt&updateMask.fieldPaths=requestCount&key=${FIREBASE_API_KEY}`;
-  
   try {
-    await fetch(url, {
+    await firestoreFetch(`${docPath}?updateMask.fieldPaths=lastUsedAt&updateMask.fieldPaths=requestCount`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -188,10 +264,8 @@ async function updateKeyUsage(docPath) {
 }
 
 async function incrementRequestCount(docPath, currentCount) {
-  const url = `https://firestore.googleapis.com/v1/${docPath}?updateMask.fieldPaths=lastUsedAt&updateMask.fieldPaths=requestCount&key=${FIREBASE_API_KEY}`;
-  
   try {
-    await fetch(url, {
+    await firestoreFetch(`${docPath}?updateMask.fieldPaths=lastUsedAt&updateMask.fieldPaths=requestCount`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
