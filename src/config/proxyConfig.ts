@@ -38,8 +38,11 @@ const getEnvironmentType = () => {
 };
 
 const shouldUseAbsoluteVercelUrl = (env: string) => {
-    // Em domínios Lovable, /api/* aponta para o próprio app (retorna HTML)
-    return env === 'lovable-preview' || env === 'lovable-production';
+    // Em domínios Lovable e em domínios custom (não-Vercel), /api/* não existe
+    // localmente — precisamos chamar o Vercel pela URL absoluta.
+    return env === 'lovable-preview'
+        || env === 'lovable-production'
+        || env === 'vercel-production';
 };
 
 export const BASEROW_PROXY_CONFIG = {
