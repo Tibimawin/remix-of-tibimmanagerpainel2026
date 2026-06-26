@@ -74,7 +74,11 @@ export class BaserowService {
         } as Response;
       }
 
-      // Usar fetch direto para Vercel Serverless (com fallback para Supabase)
+      // Usar fetch direto para Vercel Serverless.
+      // Importante: não fazer fallback automático em status 404, porque esse 404
+      // pode ser a resposta real do Baserow (tabela/registro inexistente), não a
+      // ausência da rota /api/baserow-proxy. O fallback para Edge Function estava
+      // gerando erro de CORS quando o proxy apenas repassava um 404 válido.
       console.log(`🌐 [BaserowService] Requisição via VERCEL PROXY:`, {
         method,
         proxyUrl: this.proxyUrl,
@@ -98,29 +102,6 @@ export class BaserowService {
         },
         body: JSON.stringify(proxyPayload)
       });
-
-      // Se Vercel proxy retornar 404, fazer fallback para Supabase Edge Function
-      if (response.status === 404) {
-        console.warn('⚠️ [BaserowService] Vercel proxy retornou 404, usando fallback Supabase...');
-        
-        const { data, error } = await supabase.functions.invoke('baserow-proxy', {
-          body: proxyPayload
-        });
-
-        if (error) {
-          console.error('❌ [BaserowService] Erro no fallback Supabase:', error);
-          throw new Error(`Proxy fallback error: ${error.message}`);
-        }
-
-        return {
-          ok: true,
-          status: 200,
-          statusText: 'OK',
-          headers: new Headers({ 'content-type': 'application/json' }),
-          json: async () => data,
-          text: async () => JSON.stringify(data),
-        } as Response;
-      }
 
       return response;
     } else {
