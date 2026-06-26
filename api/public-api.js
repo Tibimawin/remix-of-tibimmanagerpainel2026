@@ -93,26 +93,36 @@ async function validateApiKey(apiKey) {
     body: JSON.stringify(body)
   });
 
+  if (!resp.ok) {
+    console.warn('[public-api] Firestore validateApiKey HTTP', resp.status);
+    return null; // do not cache transient failure (e.g. 429 quota)
+  }
+
   const results = await resp.json();
-  
+
   if (!results || !results[0] || !results[0].document) {
+    cacheSet(KEY_CACHE, apiKey, null, KEY_TTL_MS);
     return null;
   }
 
   const doc = results[0].document;
   const docPath = doc.name;
   const fields = doc.fields;
-  
-  return {
+
+  const data = {
     docPath,
     userId: fields.userId?.stringValue,
     rateLimit: fields.rateLimit?.integerValue || 60,
     requestCount: fields.requestCount?.integerValue || 0,
     allowedEndpoints: (fields.allowedEndpoints?.arrayValue?.values || []).map(v => v.stringValue),
   };
+  cacheSet(KEY_CACHE, apiKey, data, KEY_TTL_MS);
+  return data;
 }
 
 async function checkUserSubscription(userId) {
+  const cached = cacheGet(SUB_CACHE, userId);
+  if (cached !== undefined) return cached;
   try {
     const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/userPermissions/${userId}?key=${FIREBASE_API_KEY}`;
     const resp = await fetch(url);
