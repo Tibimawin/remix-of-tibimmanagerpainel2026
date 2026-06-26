@@ -35,6 +35,7 @@ export class ScheduledCleanupService {
       const pageSize = 200; // processar 200 registros por vez (limite do Baserow)
       let hasMore = true;
       let consecutiveErrors = 0;
+      let aborted = false;
 
       console.log(`🧹 Iniciando limpeza otimizada da tabela ${schedule.tableId}`);
 
@@ -85,6 +86,7 @@ export class ScheduledCleanupService {
             await this.markScheduleFailed(scheduleId, message, true);
             await this.updateNextRun(scheduleId, schedule.frequency, schedule.time);
             console.error(`🛑 Agendamento "${schedule.name}" pausado por erro permanente: ${message}`);
+            aborted = true;
             break;
           }
 
@@ -93,6 +95,7 @@ export class ScheduledCleanupService {
             await this.markScheduleFailed(scheduleId, message, false);
             await this.updateNextRun(scheduleId, schedule.frequency, schedule.time);
             console.error(`🛑 Agendamento "${schedule.name}" interrompido após 3 erros consecutivos.`);
+            aborted = true;
             break;
           }
 
@@ -100,6 +103,10 @@ export class ScheduledCleanupService {
           // Pausa maior em caso de erro
           await new Promise(resolve => setTimeout(resolve, 500));
         }
+      }
+
+      if (aborted) {
+        return;
       }
 
       // Atualizar dados da execução
