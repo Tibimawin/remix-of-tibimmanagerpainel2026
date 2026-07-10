@@ -1,47 +1,60 @@
-## Plano
+## Problema
 
-Vou corrigir o fluxo para que as funcionalidades marcadas manualmente em **Funcionalidades Habilitadas** sejam respeitadas no painel do usuário.
+Usuários com assinatura expirada continuam usando funcionalidades pagas porque a regra atual de permissões **ignora a expiração** quando o admin habilitou a feature no plano.
 
-### 1. Corrigir a lógica central de permissões
+Em `src/contexts/UserPermissionsContext.tsx`, `hasFeature` faz:
 
-No contexto global de permissões, ajustar `hasFeature(featureId)` para que:
-
-- Se o admin habilitou a funcionalidade em `enabledFeatures`, ela seja liberada para o usuário.
-- As funcionalidades grátis em assinatura expirada continuem liberadas normalmente.
-- O estado de assinatura expirada não anule permissões manuais dadas pelo admin.
-
-Ou seja, a regra passará a ser:
-
-```text
-liberado = feature está em enabledFeatures OU feature é grátis quando expirada
+```ts
+if (enabled) return true;                          // ← libera mesmo expirado
+if (isSubscriptionExpired) return isFreeFeatureWhenExpired(featureId);
+return false;
 ```
 
-### 2. Corrigir inconsistência causada por expiração salva no documento de permissões
+O comentário no arquivo confirma o comportamento atual:
+> "Liberações manuais do admin sempre são respeitadas, mesmo com assinatura expirada."
 
-Hoje o app usa o documento `userPermissions` para sobrescrever `isSubscriptionExpired`, e isso pode marcar o usuário como expirado mesmo depois do admin salvar recursos.
+Ou seja, `enabledFeatures` do plano sempre vence, e a `expiryDate` em `users/{uid}` não bloqueia nada. Resultado: usuário aparece como "Expirado" no admin, mas continua usando tudo do plano.
 
-Vou ajustar para que:
+## Correção (Opção A — bloqueio por feature)
 
-- O listener de `userPermissions` carregue apenas plano, limite e funcionalidades.
-- A verificação de acesso/expiração continue centralizada no serviço do usuário.
-- Campos antigos como `expiryDate` e `isActive` dentro de `userPermissions` não bloqueiem recursos habilitados manualmente.
+Inverter a regra: **expiração tem prioridade sobre `enabledFeatures`**. Quando expirado, só liberar features de `FREE_FEATURES_WHEN_EXPIRED` (Conteúdos, Episódios, Configurações, Pedido, Carrossel, Categorias). Todas as outras ficam bloqueadas via `hasFeature`, o que já esconde/desabilita itens na sidebar e nos gates de UI existentes.
 
-### 3. Tornar o salvamento do admin mais seguro
+### Mudanças
 
-No painel admin de permissões:
+1. **`src/contexts/UserPermissionsContext.tsx`**
+   - `hasFeature`: nova regra
+     ```ts
+     if (isSubscriptionExpired) return isFreeFeatureWhenExpired(featureId);
+     return permissions?.enabledFeatures?.includes(featureId) ?? false;
+     ```
+   - `canAccessPremiumFeatures`: retornar `false` quando `isSubscriptionExpired`.
+   - `canAddMoreContent`: retornar `false` quando `isSubscriptionExpired` (usuário expirado não adiciona conteúdo).
+   - Remover/atualizar o comentário antigo que dizia o contrário.
 
-- Normalizar `enabledFeatures` sempre como array.
-- Salvar permissões sem depender de dados antigos de expiração.
-- Garantir que, após clicar em **Salvar Permissões**, o documento atualizado tenha as funcionalidades certas e o painel do usuário consiga receber a atualização em tempo real.
+2. **Revalidação de expiração mais rápida**
+   - Hoje `isSubscriptionExpired` só é recalculado a cada 5 min. Um usuário logado no momento da expiração fica com acesso por até 5 min.
+   - Reduzir intervalo para **60s** e revalidar também em `window` `focus` e `document` `visibilitychange` (quando o usuário volta pra aba).
+   - Continua usando `FirebaseUserService.checkUserAccess` (compara `expiryDate` com `now` e `isActive`). Sem novos índices, sem novas queries.
 
-### 4. Manter o comportamento atual do painel
+### Comportamento resultante
 
-Não vou mudar a interface principal nem o jeito do admin habilitar recursos. O admin continuará usando os mesmos switches e o mesmo botão **Salvar Permissões**.
+- Usuário com assinatura ativa: sem mudança — usa tudo do plano.
+- Usuário expirado: banner de renovação (já existe no Layout) + acesso apenas às features grátis + sidebar/itens pagos automaticamente desabilitados via `hasFeature`.
+- Ao renovar (admin ou pagamento): em ≤ 60s (ou ao focar a aba) as features do plano voltam sozinhas, sem logout.
 
-### Resultado esperado
+### Fora de escopo (não muda)
 
-Quando o admin ativar uma funcionalidade para um usuário e salvar:
+- `enabledFeatures` no Firestore.
+- `SimpleProtectedRoute` / `ProtectedRoute` continuam permitindo navegação (bloqueio é por feature).
+- Fluxo de pagamento, admin, sidebar, banner.
 
-- A funcionalidade aparece liberada no painel do usuário.
-- Rotas protegidas por `PermissionGate` e `RouteFeatureGate` passam a abrir.
-- Assinatura expirada ainda mostra os recursos grátis, mas não bloqueia mais liberações manuais feitas pelo admin.
+### Arquivos editados
+
+- `src/contexts/UserPermissionsContext.tsx`
+
+### Como validar
+
+1. No admin, setar `expiryDate` de um usuário de teste no passado.
+2. Logar como esse usuário: sidebar mostra só features de `FREE_FEATURES_WHEN_EXPIRED`; banner de assinatura expirada aparece.
+3. Tentar acessar rota paga direto pela URL (ex.: `/importar-m3u`): a página carrega mas controles gated por `hasFeature` ficam bloqueados.
+4. Renovar no admin (expiryDate futuro) → em até 60s ou ao focar a aba, features do plano voltam.
