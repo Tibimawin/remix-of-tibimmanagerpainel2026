@@ -241,16 +241,26 @@ class CacheManager {
       const tipo = content.Tipo;
       if (!tipo) return false;
 
-      const tipoLower = tipo.toString().toLowerCase();
-      return tipoLower.includes('filme') ||
-        tipoLower.includes('film') ||
-        tipoLower.includes('movie') ||
-        tipoLower.includes('serie') ||
-        tipoLower.includes('series') ||
-        tipoLower.includes('tv') ||
-        tipo === 'Filme' ||
-        tipo === 'Serie' ||
-        tipo === 'TV';
+      // Normaliza para remover acentos (ex.: "Série" -> "serie") antes de
+      // comparar. Sem isso, itens com Tipo acentuado eram descartados do
+      // cache e ficavam invisíveis na busca (ex.: "Silo").
+      const tipoNorm = tipo
+        .toString()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      return (
+        tipoNorm.includes('filme') ||
+        tipoNorm.includes('film') ||
+        tipoNorm.includes('movie') ||
+        tipoNorm.includes('serie') ||
+        tipoNorm.includes('series') ||
+        tipoNorm.includes('show') ||
+        tipoNorm.includes('anime') ||
+        tipoNorm.includes('dorama') ||
+        tipoNorm.includes('novela') ||
+        tipoNorm.includes('tv')
+      );
     }).map((content: any) => ({
       ...content,
       Titulo: content.Titulo || content.Nome || content.Title || 'Sem título',
