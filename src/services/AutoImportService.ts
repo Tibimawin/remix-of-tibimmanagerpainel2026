@@ -360,6 +360,24 @@ export class AutoImportService {
 
       let allContents = await this.getAllAvailableContents(config);
 
+      // 🔎 Busca reforçada: quando o usuário digitou um termo, também consultamos
+      // a tabela de origem diretamente via Baserow (?search=) para trazer itens
+      // que possam estar fora do cache local (limite de 10k registros) e
+      // mesclamos com os resultados locais evitando duplicados por id.
+      if (searchTerm && searchTerm.trim()) {
+        try {
+          const remote = await this.searchContentsOnSource(config, searchTerm.trim());
+          if (remote.length > 0) {
+            const byId = new Map<any, ImportContent>();
+            [...allContents, ...remote].forEach((c) => byId.set(c.id, c));
+            allContents = Array.from(byId.values());
+            console.log(`🔎 Busca remota trouxe ${remote.length} itens (total após merge: ${allContents.length})`);
+          }
+        } catch (err) {
+          console.warn('Busca remota falhou, usando apenas cache local:', err);
+        }
+      }
+
       if (typeFilter && typeFilter !== 'all') {
         const filterLower = typeFilter.toLowerCase();
         allContents = allContents.filter((content: ImportContent) => {
@@ -396,17 +414,26 @@ export class AutoImportService {
       }
 
       if (searchTerm && searchTerm.trim()) {
-        const searchLower = searchTerm.toLowerCase().trim();
-        allContents = allContents.filter((content: ImportContent) => {
-          const titulo = content.Titulo || '';
-          const genero = content.Genero || '';
-          const sinopse = content.Sinopse || '';
-          const categoria = content.Categoria || '';
-
-          return titulo.toLowerCase().includes(searchLower) ||
-            genero.toLowerCase().includes(searchLower) ||
-            sinopse.toLowerCase().includes(searchLower) ||
-            categoria.toLowerCase().includes(searchLower);
+        const normalize = (v: any) =>
+          String(v ?? '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // remove acentos
+            .trim();
+        const searchLower = normalize(searchTerm);
+        allContents = allContents.filter((content: any) => {
+          const haystack = [
+            content.Titulo,
+            content.Nome,
+            content.Title,
+            content.TituloOriginal,
+            content.Genero,
+            content.Sinopse,
+            content.Categoria,
+          ]
+            .map(normalize)
+            .join(' | ');
+          return haystack.includes(searchLower);
         });
 
         console.log(`Busca global por "${searchTerm}" encontrou ${allContents.length} resultados`);
@@ -429,6 +456,59 @@ export class AutoImportService {
       console.error('Erro ao buscar conteúdos disponíveis:', error);
       throw error;
     }
+  }
+
+  // Consulta direta na tabela de origem usando o parâmetro nativo `search` do Baserow.
+  // Isso ignora o cache local (limitado a ~10k registros) e permite achar conteúdos
+  // que existem na tabela origem mas ainda não estão no cache.
+  private async searchContentsOnSource(
+    config: ImportConfig,
+    term: string
+  ): Promise<ImportContent[]> {
+    const results: any[] = [];
+    const pageSize = 200;
+    const maxPages = 10; // até 2.000 correspondências remotas — suficiente
+    const encoded = encodeURIComponent(term);
+
+    for (let page = 1; page <= maxPages; page++) {
+      const endpoint = `/api/database/rows/table/${config.contentTableId}/?user_field_names=true&page=${page}&size=${pageSize}&search=${encoded}`;
+      const originalUrl = `${config.sourceBaseUrl}${endpoint}`;
+
+      const result = await makeProxyRequest({
+        url: originalUrl,
+        method: 'GET',
+        token: config.sourceToken,
+        body: null,
+      });
+
+      if (!result.ok) {
+        console.warn(`Busca remota página ${page} falhou:`, result.status, result.error);
+        break;
+      }
+
+      const data = result.data || {};
+      const pageResults: any[] = data.results || [];
+      results.push(...pageResults);
+
+      if (pageResults.length < pageSize || !data.next) break;
+    }
+
+    // Mesma normalização usada em loadAllContent para manter o formato consistente.
+    return results
+      .filter((content: any) => !!content?.Tipo)
+      .map((content: any) => ({
+        ...content,
+        Titulo: content.Titulo || content.Nome || content.Title || 'Sem título',
+        Tipo: content.Tipo || '',
+        Categoria: content.Categoria || content.Category || '',
+        Sinopse: content.Sinopse || content.Synopsis || content.Description || '',
+        Poster: content.Poster || content.Capa || content.Image || '',
+        Capa: content.Capa || content.Poster || content.Image || '',
+        Link: content.Link || content.Url || '',
+        Idioma: content.Idioma || content.Language || '',
+        Views: content.Views || '',
+        Temporadas: content.Temporadas || content.Seasons || '',
+      }));
   }
 
   clearCache() {
