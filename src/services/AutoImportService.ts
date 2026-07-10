@@ -520,10 +520,18 @@ export class AutoImportService {
     config: ImportConfig,
     term: string
   ): Promise<ImportContent[]> {
-    const results: any[] = [];
+    const byId = new Map<any, any>();
     const pageSize = 200;
     const maxPages = 10; // até 2.000 correspondências remotas — suficiente
     const encoded = encodeURIComponent(term);
+
+    const addResults = (items: any[]) => {
+      items.forEach((item) => {
+        if (item?.id !== undefined && item?.id !== null) {
+          byId.set(item.id, item);
+        }
+      });
+    };
 
     for (let page = 1; page <= maxPages; page++) {
       const endpoint = `/api/database/rows/table/${config.contentTableId}/?user_field_names=true&page=${page}&size=${pageSize}&search=${encoded}`;
@@ -543,13 +551,40 @@ export class AutoImportService {
 
       const data = result.data || {};
       const pageResults: any[] = data.results || [];
-      results.push(...pageResults);
+      addResults(pageResults);
 
       if (pageResults.length < pageSize || !data.next) break;
     }
 
+    // Busca direta nos campos de nome. A busca ampla do Baserow pode retornar
+    // itens que batem em sinopse/categoria primeiro; assim garantimos que um
+    // título como "Silo" seja encontrado pelo nome do conteúdo.
+    for (const field of CONTENT_TITLE_FIELDS) {
+      for (let page = 1; page <= 3; page++) {
+        const endpoint = `/api/database/rows/table/${config.contentTableId}/?user_field_names=true&page=${page}&size=${pageSize}&filter__${encodeURIComponent(field)}__contains=${encoded}`;
+        const originalUrl = `${config.sourceBaseUrl}${endpoint}`;
+
+        const result = await makeProxyRequest({
+          url: originalUrl,
+          method: 'GET',
+          token: config.sourceToken,
+          body: null,
+        });
+
+        if (!result.ok) {
+          break;
+        }
+
+        const data = result.data || {};
+        const pageResults: any[] = data.results || [];
+        addResults(pageResults);
+
+        if (pageResults.length < pageSize || !data.next) break;
+      }
+    }
+
     // Mesma normalização usada em loadAllContent para manter o formato consistente.
-    return results
+    return Array.from(byId.values())
       // Não descartamos por Tipo aqui: se o Baserow devolveu na busca,
       // é porque bate com o termo — deixamos o filtro de Tipo para o
       // consumidor (que aplica o typeFilter apenas quando != 'all').
