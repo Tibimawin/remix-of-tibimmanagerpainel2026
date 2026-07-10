@@ -391,8 +391,10 @@ export class AutoImportService {
       if (typeFilter && typeFilter !== 'all') {
         const filterLower = typeFilter.toLowerCase();
         allContents = allContents.filter((content: ImportContent) => {
-          const tipoLower = content.Tipo.toLowerCase();
-          const categoriaLower = (content.Categoria || '').toLowerCase();
+          const stripAccents = (v: string) =>
+            v.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const tipoLower = stripAccents((content.Tipo || '').toLowerCase());
+          const categoriaLower = stripAccents((content.Categoria || '').toLowerCase());
 
           if (filterLower === 'filme') {
             return tipoLower.includes('filme') || tipoLower.includes('film') || tipoLower.includes('movie');
