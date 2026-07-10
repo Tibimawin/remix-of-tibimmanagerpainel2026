@@ -1166,7 +1166,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nome ou categoria..."
+                placeholder="Buscar pelo nome do conteúdo..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 pr-10 bg-muted/30"
