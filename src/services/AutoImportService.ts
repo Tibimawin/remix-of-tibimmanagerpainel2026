@@ -5,7 +5,12 @@ import { getColumnMap, TypeMode } from '@/config/columnMappings';
 
 export interface ImportContent {
   id: string;
+  Nome?: string;
   Titulo: string;
+  Title?: string;
+  TituloOriginal?: string;
+  'Nome do Conteúdo'?: string;
+  'Nome do Conteudo'?: string;
   Tipo: 'Filme' | 'Serie' | 'TV';
   Ano?: string;
   Genero?: string;
@@ -20,6 +25,7 @@ export interface ImportContent {
   Imdb?: string;
   'Data de Lançamento'?: string;
   'Capa de fundo'?: string;
+  [key: string]: any;
 }
 
 export interface ImportEpisode {
@@ -61,6 +67,50 @@ export interface PaginatedResponse {
   next: string | null;
   previous: string | null;
 }
+
+const CONTENT_TITLE_FIELDS = [
+  'Nome',
+  'Nome do Conteúdo',
+  'Nome do Conteudo',
+  'NomeConteudo',
+  'Titulo',
+  'Título',
+  'Title',
+  'TituloOriginal',
+  'Título Original',
+  'name',
+];
+
+const normalizeSearchText = (value: any) =>
+  String(value ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+const getFirstTextField = (record: any, fields: string[]) => {
+  for (const field of fields) {
+    const value = record?.[field];
+    if (value !== undefined && value !== null && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return '';
+};
+
+const getContentTitle = (record: any) => getFirstTextField(record, CONTENT_TITLE_FIELDS) || 'Sem título';
+
+const getContentSearchText = (record: any) => {
+  const preferredValues = CONTENT_TITLE_FIELDS.map((field) => record?.[field]);
+  const allPrimitiveValues = Object.values(record || {}).filter(
+    (value) => typeof value === 'string' || typeof value === 'number'
+  );
+  return [...preferredValues, ...allPrimitiveValues]
+    .map(normalizeSearchText)
+    .filter(Boolean)
+    .join(' | ');
+};
 
 // Singleton cache manager - improved with better loading state management
 class CacheManager {
