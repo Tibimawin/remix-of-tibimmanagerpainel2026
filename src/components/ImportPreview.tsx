@@ -294,11 +294,28 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     });
 
     if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(content => 
-        content.Nome?.toLowerCase().includes(term) ||
-        content.Categoria?.toLowerCase().includes(term)
-      );
+      const normalize = (v: any) =>
+        String(v ?? '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .trim();
+      const term = normalize(searchTerm);
+      filtered = filtered.filter((content: any) => {
+        const haystack = [
+          content.Nome,
+          content.Titulo,
+          content.Title,
+          content.TituloOriginal,
+          content.Categoria,
+          content.Genero,
+          content.Sinopse,
+          content.Imdb,
+        ]
+          .map(normalize)
+          .join(' | ');
+        return haystack.includes(term);
+      });
     }
 
     return filtered;
