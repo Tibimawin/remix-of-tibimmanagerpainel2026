@@ -585,8 +585,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
       let data = await makeApiRequest<{ count?: number; results?: ContentPreview[] }>(buildUrl());
 
-      if (searchValue && (!data.results || data.results.length === 0)) {
+      if (searchValue) {
         const titleSearchFields = ['Nome', 'Nome do Conteúdo', 'Nome do Conteudo', 'Titulo', 'Título', 'Title'];
+        const titleResults = new Map<number, ContentPreview>();
+        let titleCount = 0;
 
         for (const field of titleSearchFields) {
           try {
@@ -594,12 +596,26 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             const titleData = await makeApiRequest<{ count?: number; results?: ContentPreview[] }>(buildUrl(titleOnlyQuery));
 
             if (titleData.results && titleData.results.length > 0) {
-              data = titleData;
-              break;
+              titleCount = Math.max(titleCount, titleData.count || titleData.results.length);
+              titleData.results.forEach((item) => titleResults.set(item.id, item));
             }
           } catch (fieldError) {
             console.warn(`Busca por campo de nome "${field}" falhou:`, fieldError);
           }
+        }
+
+        if (titleResults.size > 0) {
+          (data.results || []).forEach((item) => {
+            if (!titleResults.has(item.id)) {
+              titleResults.set(item.id, item);
+            }
+          });
+
+          data = {
+            ...data,
+            count: Math.max(titleCount, titleResults.size),
+            results: Array.from(titleResults.values()),
+          };
         }
       }
 
