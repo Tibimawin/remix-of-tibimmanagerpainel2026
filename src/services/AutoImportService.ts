@@ -313,7 +313,8 @@ class CacheManager {
       );
     }).map((content: any) => ({
       ...content,
-      Titulo: content.Titulo || content.Nome || content.Title || 'Sem título',
+      Nome: content.Nome || getContentTitle(content),
+      Titulo: getContentTitle(content),
       Tipo: content.Tipo || '',
       Categoria: content.Categoria || content.Category || '',
       Sinopse: content.Sinopse || content.Synopsis || content.Description || '',
@@ -485,16 +486,8 @@ export class AutoImportService {
         const searchLower = normalize(searchTerm);
         allContents = allContents.filter((content: any) => {
           const haystack = [
-            content.Titulo,
-            content.Nome,
-            content.Title,
-            content.TituloOriginal,
-            content.Genero,
-            content.Sinopse,
-            content.Categoria,
-          ]
-            .map(normalize)
-            .join(' | ');
+            getContentSearchText(content),
+          ].map(normalize).join(' | ');
           return haystack.includes(searchLower);
         });
 
@@ -563,7 +556,8 @@ export class AutoImportService {
       .filter((content: any) => !!content)
       .map((content: any) => ({
         ...content,
-        Titulo: content.Titulo || content.Nome || content.Title || 'Sem título',
+        Nome: content.Nome || getContentTitle(content),
+        Titulo: getContentTitle(content),
         Tipo: content.Tipo || '',
         Categoria: content.Categoria || content.Category || '',
         Sinopse: content.Sinopse || content.Synopsis || content.Description || '',
