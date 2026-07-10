@@ -586,7 +586,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       let data = await makeApiRequest<{ count?: number; results?: ContentPreview[] }>(buildUrl());
 
       if (searchValue) {
-        const titleSearchFields = ['Nome', 'Nome do Conteúdo', 'Nome do Conteudo', 'Titulo', 'Título', 'Title'];
+        const titleSearchFields = ['Nome', 'Nome do Conteúdo', 'Nome do Conteudo', 'NomeConteudo', 'Titulo', 'Título', 'Title', 'name'];
         const titleResults = new Map<number, ContentPreview>();
         let titleCount = 0;
 
