@@ -46,6 +46,11 @@ import { Layers } from 'lucide-react';
 export interface ContentPreview {
   id: number;
   Nome?: string;
+  Titulo?: string;
+  Title?: string;
+  TituloOriginal?: string;
+  'Nome do Conteúdo'?: string;
+  'Nome do Conteudo'?: string;
   Tipo?: string;
   Capa?: string;
   Categoria?: string;
@@ -60,6 +65,7 @@ export interface ContentPreview {
   'Data de Lançamento'?: string;
   'Capa de fundo'?: string;
   'TMDB ID'?: string | number;
+  [key: string]: any;
 }
 
 interface ExistingContentSnapshot {
@@ -223,6 +229,29 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       .replace(/[^a-z0-9]+/g, ' ')
       .trim();
 
+  const getFirstTextField = (record: any, fields: string[]) => {
+    for (const field of fields) {
+      const value = record?.[field];
+      if (value !== undefined && value !== null && String(value).trim()) {
+        return String(value).trim();
+      }
+    }
+    return '';
+  };
+
+  const getContentName = (record: any) => getFirstTextField(record, [
+    'Nome',
+    'Nome do Conteúdo',
+    'Nome do Conteudo',
+    'NomeConteudo',
+    'Titulo',
+    'Título',
+    'Title',
+    'TituloOriginal',
+    'Título Original',
+    'name',
+  ]);
+
   const normalizeTmdbId = (value?: string | number | null) => {
     if (value === null || value === undefined) return '';
     return String(value).trim();
@@ -288,10 +317,12 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const baseFilteredPreviews = useMemo(() => {
     let filtered = previews;
 
-    filtered = filtered.filter(content => {
-      if (!content.Categoria) return true;
-      return isCategoryAllowed(content.Categoria);
-    });
+    if (!searchTerm.trim()) {
+      filtered = filtered.filter(content => {
+        if (!content.Categoria) return true;
+        return isCategoryAllowed(content.Categoria);
+      });
+    }
 
     if (searchTerm.trim()) {
       const normalize = (v: any) =>
@@ -304,9 +335,14 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       filtered = filtered.filter((content: any) => {
         const haystack = [
           content.Nome,
+          content['Nome do Conteúdo'],
+          content['Nome do Conteudo'],
+          content.NomeConteudo,
           content.Titulo,
+          content['Título'],
           content.Title,
           content.TituloOriginal,
+          content['Título Original'],
           content.Categoria,
           content.Genero,
           content.Sinopse,
