@@ -46,6 +46,11 @@ import { Layers } from 'lucide-react';
 export interface ContentPreview {
   id: number;
   Nome?: string;
+  Titulo?: string;
+  Title?: string;
+  TituloOriginal?: string;
+  'Nome do Conteúdo'?: string;
+  'Nome do Conteudo'?: string;
   Tipo?: string;
   Capa?: string;
   Categoria?: string;
@@ -60,6 +65,7 @@ export interface ContentPreview {
   'Data de Lançamento'?: string;
   'Capa de fundo'?: string;
   'TMDB ID'?: string | number;
+  [key: string]: any;
 }
 
 interface ExistingContentSnapshot {
@@ -223,6 +229,29 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       .replace(/[^a-z0-9]+/g, ' ')
       .trim();
 
+  const getFirstTextField = (record: any, fields: string[]) => {
+    for (const field of fields) {
+      const value = record?.[field];
+      if (value !== undefined && value !== null && String(value).trim()) {
+        return String(value).trim();
+      }
+    }
+    return '';
+  };
+
+  const getContentName = (record: any) => getFirstTextField(record, [
+    'Nome',
+    'Nome do Conteúdo',
+    'Nome do Conteudo',
+    'NomeConteudo',
+    'Titulo',
+    'Título',
+    'Title',
+    'TituloOriginal',
+    'Título Original',
+    'name',
+  ]);
+
   const normalizeTmdbId = (value?: string | number | null) => {
     if (value === null || value === undefined) return '';
     return String(value).trim();
@@ -288,10 +317,12 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const baseFilteredPreviews = useMemo(() => {
     let filtered = previews;
 
-    filtered = filtered.filter(content => {
-      if (!content.Categoria) return true;
-      return isCategoryAllowed(content.Categoria);
-    });
+    if (!searchTerm.trim()) {
+      filtered = filtered.filter(content => {
+        if (!content.Categoria) return true;
+        return isCategoryAllowed(content.Categoria);
+      });
+    }
 
     if (searchTerm.trim()) {
       const normalize = (v: any) =>
@@ -304,9 +335,14 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       filtered = filtered.filter((content: any) => {
         const haystack = [
           content.Nome,
+          content['Nome do Conteúdo'],
+          content['Nome do Conteudo'],
+          content.NomeConteudo,
           content.Titulo,
+          content['Título'],
           content.Title,
           content.TituloOriginal,
+          content['Título Original'],
           content.Categoria,
           content.Genero,
           content.Sinopse,
@@ -544,8 +580,45 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         if (apiPage < 1) apiPage = 1;
       }
       
-      const originalUrl = `${importConfig.sourceBaseUrl}/api/database/rows/table/${importConfig.contentTableId}/?user_field_names=true&size=${pageSize}&page=${apiPage}${filterQuery}`;
-      const data = await makeApiRequest<{ count?: number; results?: ContentPreview[] }>(originalUrl);
+      const buildUrl = (extraQuery = filterQuery) =>
+        `${importConfig.sourceBaseUrl}/api/database/rows/table/${importConfig.contentTableId}/?user_field_names=true&size=${pageSize}&page=${apiPage}${extraQuery}`;
+
+      let data = await makeApiRequest<{ count?: number; results?: ContentPreview[] }>(buildUrl());
+
+      if (searchValue) {
+        const titleSearchFields = ['Nome', 'Nome do Conteúdo', 'Nome do Conteudo', 'NomeConteudo', 'Titulo', 'Título', 'Title', 'name'];
+        const titleResults = new Map<number, ContentPreview>();
+        let titleCount = 0;
+
+        for (const field of titleSearchFields) {
+          try {
+            const titleOnlyQuery = `&filter__${field}__contains=${encodeURIComponent(searchValue)}`;
+            const titleData = await makeApiRequest<{ count?: number; results?: ContentPreview[] }>(buildUrl(titleOnlyQuery));
+
+            if (titleData.results && titleData.results.length > 0) {
+              titleCount = Math.max(titleCount, titleData.count || titleData.results.length);
+              titleData.results.forEach((item) => titleResults.set(item.id, item));
+            }
+          } catch (fieldError) {
+            console.warn(`Busca por campo de nome "${field}" falhou:`, fieldError);
+          }
+        }
+
+        if (titleResults.size > 0) {
+          (data.results || []).forEach((item) => {
+            if (!titleResults.has(item.id)) {
+              titleResults.set(item.id, item);
+            }
+          });
+
+          data = {
+            ...data,
+            count: Math.max(titleCount, titleResults.size),
+            results: Array.from(titleResults.values()),
+          };
+        }
+      }
+
       const count = data.count || 0;
       const newTotalPages = Math.ceil(count / pageSize);
 
@@ -570,7 +643,11 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
       // When searching, keep the natural order returned by the API (most relevant pagination).
       const results = data.results || [];
-      const finalResults = searchValue ? results : [...results].reverse();
+      const normalizedResults = results.map((content: any) => ({
+        ...content,
+        Nome: content.Nome || getContentName(content) || 'Sem título',
+      }));
+      const finalResults = searchValue ? normalizedResults : [...normalizedResults].reverse();
       setPreviews(finalResults);
 
     } catch (err) {
@@ -1089,7 +1166,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nome ou categoria..."
+                placeholder="Buscar pelo nome do conteúdo..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 pr-10 bg-muted/30"

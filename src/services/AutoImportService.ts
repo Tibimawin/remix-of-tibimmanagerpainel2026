@@ -5,7 +5,12 @@ import { getColumnMap, TypeMode } from '@/config/columnMappings';
 
 export interface ImportContent {
   id: string;
+  Nome?: string;
   Titulo: string;
+  Title?: string;
+  TituloOriginal?: string;
+  'Nome do Conteúdo'?: string;
+  'Nome do Conteudo'?: string;
   Tipo: 'Filme' | 'Serie' | 'TV';
   Ano?: string;
   Genero?: string;
@@ -20,6 +25,7 @@ export interface ImportContent {
   Imdb?: string;
   'Data de Lançamento'?: string;
   'Capa de fundo'?: string;
+  [key: string]: any;
 }
 
 export interface ImportEpisode {
@@ -61,6 +67,50 @@ export interface PaginatedResponse {
   next: string | null;
   previous: string | null;
 }
+
+const CONTENT_TITLE_FIELDS = [
+  'Nome',
+  'Nome do Conteúdo',
+  'Nome do Conteudo',
+  'NomeConteudo',
+  'Titulo',
+  'Título',
+  'Title',
+  'TituloOriginal',
+  'Título Original',
+  'name',
+];
+
+const normalizeSearchText = (value: any) =>
+  String(value ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+const getFirstTextField = (record: any, fields: string[]) => {
+  for (const field of fields) {
+    const value = record?.[field];
+    if (value !== undefined && value !== null && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return '';
+};
+
+const getContentTitle = (record: any) => getFirstTextField(record, CONTENT_TITLE_FIELDS) || 'Sem título';
+
+const getContentSearchText = (record: any) => {
+  const preferredValues = CONTENT_TITLE_FIELDS.map((field) => record?.[field]);
+  const allPrimitiveValues = Object.values(record || {}).filter(
+    (value) => typeof value === 'string' || typeof value === 'number'
+  );
+  return [...preferredValues, ...allPrimitiveValues]
+    .map(normalizeSearchText)
+    .filter(Boolean)
+    .join(' | ');
+};
 
 // Singleton cache manager - improved with better loading state management
 class CacheManager {
@@ -263,7 +313,8 @@ class CacheManager {
       );
     }).map((content: any) => ({
       ...content,
-      Titulo: content.Titulo || content.Nome || content.Title || 'Sem título',
+      Nome: content.Nome || getContentTitle(content),
+      Titulo: getContentTitle(content),
       Tipo: content.Tipo || '',
       Categoria: content.Categoria || content.Category || '',
       Sinopse: content.Sinopse || content.Synopsis || content.Description || '',
@@ -435,16 +486,8 @@ export class AutoImportService {
         const searchLower = normalize(searchTerm);
         allContents = allContents.filter((content: any) => {
           const haystack = [
-            content.Titulo,
-            content.Nome,
-            content.Title,
-            content.TituloOriginal,
-            content.Genero,
-            content.Sinopse,
-            content.Categoria,
-          ]
-            .map(normalize)
-            .join(' | ');
+            getContentSearchText(content),
+          ].map(normalize).join(' | ');
           return haystack.includes(searchLower);
         });
 
@@ -477,10 +520,18 @@ export class AutoImportService {
     config: ImportConfig,
     term: string
   ): Promise<ImportContent[]> {
-    const results: any[] = [];
+    const byId = new Map<any, any>();
     const pageSize = 200;
     const maxPages = 10; // até 2.000 correspondências remotas — suficiente
     const encoded = encodeURIComponent(term);
+
+    const addResults = (items: any[]) => {
+      items.forEach((item) => {
+        if (item?.id !== undefined && item?.id !== null) {
+          byId.set(item.id, item);
+        }
+      });
+    };
 
     for (let page = 1; page <= maxPages; page++) {
       const endpoint = `/api/database/rows/table/${config.contentTableId}/?user_field_names=true&page=${page}&size=${pageSize}&search=${encoded}`;
@@ -500,20 +551,48 @@ export class AutoImportService {
 
       const data = result.data || {};
       const pageResults: any[] = data.results || [];
-      results.push(...pageResults);
+      addResults(pageResults);
 
       if (pageResults.length < pageSize || !data.next) break;
     }
 
+    // Busca direta nos campos de nome. A busca ampla do Baserow pode retornar
+    // itens que batem em sinopse/categoria primeiro; assim garantimos que um
+    // título como "Silo" seja encontrado pelo nome do conteúdo.
+    for (const field of CONTENT_TITLE_FIELDS) {
+      for (let page = 1; page <= 3; page++) {
+        const endpoint = `/api/database/rows/table/${config.contentTableId}/?user_field_names=true&page=${page}&size=${pageSize}&filter__${encodeURIComponent(field)}__contains=${encoded}`;
+        const originalUrl = `${config.sourceBaseUrl}${endpoint}`;
+
+        const result = await makeProxyRequest({
+          url: originalUrl,
+          method: 'GET',
+          token: config.sourceToken,
+          body: null,
+        });
+
+        if (!result.ok) {
+          break;
+        }
+
+        const data = result.data || {};
+        const pageResults: any[] = data.results || [];
+        addResults(pageResults);
+
+        if (pageResults.length < pageSize || !data.next) break;
+      }
+    }
+
     // Mesma normalização usada em loadAllContent para manter o formato consistente.
-    return results
+    return Array.from(byId.values())
       // Não descartamos por Tipo aqui: se o Baserow devolveu na busca,
       // é porque bate com o termo — deixamos o filtro de Tipo para o
       // consumidor (que aplica o typeFilter apenas quando != 'all').
       .filter((content: any) => !!content)
       .map((content: any) => ({
         ...content,
-        Titulo: content.Titulo || content.Nome || content.Title || 'Sem título',
+        Nome: content.Nome || getContentTitle(content),
+        Titulo: getContentTitle(content),
         Tipo: content.Tipo || '',
         Categoria: content.Categoria || content.Category || '',
         Sinopse: content.Sinopse || content.Synopsis || content.Description || '',
