@@ -580,8 +580,29 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         if (apiPage < 1) apiPage = 1;
       }
       
-      const originalUrl = `${importConfig.sourceBaseUrl}/api/database/rows/table/${importConfig.contentTableId}/?user_field_names=true&size=${pageSize}&page=${apiPage}${filterQuery}`;
-      const data = await makeApiRequest<{ count?: number; results?: ContentPreview[] }>(originalUrl);
+      const buildUrl = (extraQuery = filterQuery) =>
+        `${importConfig.sourceBaseUrl}/api/database/rows/table/${importConfig.contentTableId}/?user_field_names=true&size=${pageSize}&page=${apiPage}${extraQuery}`;
+
+      let data = await makeApiRequest<{ count?: number; results?: ContentPreview[] }>(buildUrl());
+
+      if (searchValue && (!data.results || data.results.length === 0)) {
+        const titleSearchFields = ['Nome', 'Nome do Conteúdo', 'Nome do Conteudo', 'Titulo', 'Título', 'Title'];
+
+        for (const field of titleSearchFields) {
+          try {
+            const titleOnlyQuery = `&filter__${field}__contains=${encodeURIComponent(searchValue)}`;
+            const titleData = await makeApiRequest<{ count?: number; results?: ContentPreview[] }>(buildUrl(titleOnlyQuery));
+
+            if (titleData.results && titleData.results.length > 0) {
+              data = titleData;
+              break;
+            }
+          } catch (fieldError) {
+            console.warn(`Busca por campo de nome "${field}" falhou:`, fieldError);
+          }
+        }
+      }
+
       const count = data.count || 0;
       const newTotalPages = Math.ceil(count / pageSize);
 
@@ -606,7 +627,11 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
 
       // When searching, keep the natural order returned by the API (most relevant pagination).
       const results = data.results || [];
-      const finalResults = searchValue ? results : [...results].reverse();
+      const normalizedResults = results.map((content: any) => ({
+        ...content,
+        Nome: content.Nome || getContentName(content) || 'Sem título',
+      }));
+      const finalResults = searchValue ? normalizedResults : [...normalizedResults].reverse();
       setPreviews(finalResults);
 
     } catch (err) {
