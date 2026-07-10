@@ -505,7 +505,10 @@ export class AutoImportService {
 
     // Mesma normalização usada em loadAllContent para manter o formato consistente.
     return results
-      .filter((content: any) => !!content?.Tipo)
+      // Não descartamos por Tipo aqui: se o Baserow devolveu na busca,
+      // é porque bate com o termo — deixamos o filtro de Tipo para o
+      // consumidor (que aplica o typeFilter apenas quando != 'all').
+      .filter((content: any) => !!content)
       .map((content: any) => ({
         ...content,
         Titulo: content.Titulo || content.Nome || content.Title || 'Sem título',
