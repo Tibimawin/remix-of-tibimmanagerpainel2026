@@ -241,16 +241,26 @@ class CacheManager {
       const tipo = content.Tipo;
       if (!tipo) return false;
 
-      const tipoLower = tipo.toString().toLowerCase();
-      return tipoLower.includes('filme') ||
-        tipoLower.includes('film') ||
-        tipoLower.includes('movie') ||
-        tipoLower.includes('serie') ||
-        tipoLower.includes('series') ||
-        tipoLower.includes('tv') ||
-        tipo === 'Filme' ||
-        tipo === 'Serie' ||
-        tipo === 'TV';
+      // Normaliza para remover acentos (ex.: "Série" -> "serie") antes de
+      // comparar. Sem isso, itens com Tipo acentuado eram descartados do
+      // cache e ficavam invisíveis na busca (ex.: "Silo").
+      const tipoNorm = tipo
+        .toString()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      return (
+        tipoNorm.includes('filme') ||
+        tipoNorm.includes('film') ||
+        tipoNorm.includes('movie') ||
+        tipoNorm.includes('serie') ||
+        tipoNorm.includes('series') ||
+        tipoNorm.includes('show') ||
+        tipoNorm.includes('anime') ||
+        tipoNorm.includes('dorama') ||
+        tipoNorm.includes('novela') ||
+        tipoNorm.includes('tv')
+      );
     }).map((content: any) => ({
       ...content,
       Titulo: content.Titulo || content.Nome || content.Title || 'Sem título',
@@ -381,8 +391,10 @@ export class AutoImportService {
       if (typeFilter && typeFilter !== 'all') {
         const filterLower = typeFilter.toLowerCase();
         allContents = allContents.filter((content: ImportContent) => {
-          const tipoLower = content.Tipo.toLowerCase();
-          const categoriaLower = (content.Categoria || '').toLowerCase();
+          const stripAccents = (v: string) =>
+            v.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const tipoLower = stripAccents((content.Tipo || '').toLowerCase());
+          const categoriaLower = stripAccents((content.Categoria || '').toLowerCase());
 
           if (filterLower === 'filme') {
             return tipoLower.includes('filme') || tipoLower.includes('film') || tipoLower.includes('movie');
@@ -495,7 +507,10 @@ export class AutoImportService {
 
     // Mesma normalização usada em loadAllContent para manter o formato consistente.
     return results
-      .filter((content: any) => !!content?.Tipo)
+      // Não descartamos por Tipo aqui: se o Baserow devolveu na busca,
+      // é porque bate com o termo — deixamos o filtro de Tipo para o
+      // consumidor (que aplica o typeFilter apenas quando != 'all').
+      .filter((content: any) => !!content)
       .map((content: any) => ({
         ...content,
         Titulo: content.Titulo || content.Nome || content.Title || 'Sem título',
