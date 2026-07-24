@@ -10,7 +10,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Loader2, Search, CheckSquare, Square, Trash2 } from 'lucide-react';
@@ -259,7 +258,7 @@ export const SeasonSelectionDialog: React.FC<SeasonSelectionDialogProps> = ({
             </Badge>
           </div>
 
-          <ScrollArea className="flex-1 min-h-0 rounded-md border p-3">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain rounded-md border p-3">
             {loadingEpisodes ? (
               <div className="flex flex-col items-center justify-center h-full space-y-2">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -305,7 +304,7 @@ export const SeasonSelectionDialog: React.FC<SeasonSelectionDialogProps> = ({
 
                       {/* Lista de episódios com checkboxes */}
                       {seasonEpisodes.length > 0 && (
-                        <div className="mt-2 ml-6 space-y-1 max-h-[200px] overflow-y-auto pr-1">
+                        <div className="mt-2 ml-6 space-y-1 pr-1">
                           {seasonEpisodes.map((ep) => {
                             const epSelected = selectedEpisodes.includes(ep.id);
                             return (
@@ -336,7 +335,7 @@ export const SeasonSelectionDialog: React.FC<SeasonSelectionDialogProps> = ({
                 })}
               </div>
             )}
-          </ScrollArea>
+          </div>
         </div>
 
         <DialogFooter className="shrink-0 mt-2">
