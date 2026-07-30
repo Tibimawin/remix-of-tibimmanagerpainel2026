@@ -22,7 +22,8 @@ import {
   Loader2, 
   Shield, 
   Lock,
-  Tv
+  Tv,
+  BarChart3
 } from 'lucide-react';
 import { toast } from 'sonner';
 
