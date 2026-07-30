@@ -39,7 +39,7 @@ const AtualizacaoSeries = () => {
   const [availableSeries, setAvailableSeries] = useState<string[]>([]);
   const [progress, setProgress] = useState<{ processed: number; total: number; current?: string; startedAt: number } | null>(null);
   const [elapsed, setElapsed] = useState(0);
-  const [lastSummary, setLastSummary] = useState<{ created: number; updated: number; ignored: number; total: number } | null>(null);
+  const [lastSummary, setLastSummary] = useState<{ created: number; updated: number; ignored: number; total: number; seasonsUpdated?: { nome: string; from: number; to: number }[] } | null>(null);
 
   const seriesUpdateService = useSeriesUpdateService();
   const { config: cloudConfig } = useUserConfig();
