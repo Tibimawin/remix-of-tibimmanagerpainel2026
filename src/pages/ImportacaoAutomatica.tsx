@@ -319,14 +319,12 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
       });
 
       // 🔒 Camuflagem de links (apenas Minisséries): o link original nunca vai para o Baserow
-      let cloakActive = false;
       if (isMiniseries && userInfo?.id) {
         const token = await CloakService.ensureToken({
           uid: userInfo.id,
           email: userInfo.email,
         });
         if (token) {
-          cloakActive = true;
           autoImportService.linkTransform = (url, contentName, kind) =>
             CloakService.cloakUrl(userInfo.id, token, {
               originalUrl: url,
