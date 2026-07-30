@@ -2,6 +2,10 @@ import { getMessaging, getToken, onMessage, Messaging } from 'firebase/messaging
 import { app } from '@/config/firebase';
 import { toast } from 'sonner';
 
+// Mantenha em sincronia com SW_VERSION em public/firebase-messaging-sw.js
+const SW_VERSION = '1.0.1';
+
+
 interface NotificationPayload {
   title: string;
   body: string;
@@ -27,9 +31,15 @@ class PushNotificationService {
         return false;
       }
 
-      // Registrar Service Worker
-      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-      console.log('Service Worker registrado:', registration);
+      // Registrar Service Worker com versão explícita (evita cache antigo do navegador)
+      const registration = await navigator.serviceWorker.register(
+        `/firebase-messaging-sw.js?v=${SW_VERSION}`,
+        { updateViaCache: 'none' }
+      );
+      // Força checagem de atualização a cada inicialização
+      registration.update().catch(() => {});
+      console.log('Service Worker registrado (v' + SW_VERSION + '):', registration);
+
 
       this.messaging = getMessaging(app);
       
