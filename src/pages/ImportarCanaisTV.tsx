@@ -66,7 +66,9 @@ const ImportarCanaisTV = () => {
   const [categoriaAtiva, setCategoriaAtiva] = useState('todas');
   const [somenteOnline, setSomenteOnline] = useState(false);
   const [importando, setImportando] = useState<string | null>(null);
+  const [carregandoMais, setCarregandoMais] = useState(false);
   const autoCarregado = useRef(false);
+  const timerCarregarMais = useRef<number | null>(null);
 
   const {
     canais,
@@ -118,15 +120,23 @@ const ImportarCanaisTV = () => {
     if (!el) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
-          setVisiveis((v) => Math.min(v + PAGE_SIZE, canaisFiltrados.length));
+        if (entries[0].isIntersecting && !carregandoMais) {
+          setCarregandoMais(true);
+          // dá tempo de mostrar os skeletons antes de renderizar o próximo lote
+          timerCarregarMais.current = window.setTimeout(() => {
+            setVisiveis((v) => Math.min(v + PAGE_SIZE, canaisFiltrados.length));
+            setCarregandoMais(false);
+          }, 350);
         }
       },
       { rootMargin: '600px' }
     );
     observer.observe(el);
-    return () => observer.disconnect();
-  }, [canaisFiltrados.length]);
+    return () => {
+      observer.disconnect();
+      if (timerCarregarMais.current) window.clearTimeout(timerCarregarMais.current);
+    };
+  }, [canaisFiltrados.length, carregandoMais]);
 
   const canaisVisiveis = useMemo(
     () => canaisFiltrados.slice(0, visiveis),
@@ -337,15 +347,45 @@ const ImportarCanaisTV = () => {
         </div>
 
         {visiveis < canaisFiltrados.length && (
-          <div ref={sentinelaRef} className="py-8 flex flex-col items-center gap-3">
-            <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" />
-            <p className="text-xs text-muted-foreground">
-              Mostrando {canaisVisiveis.length} de {canaisFiltrados.length} canais
-            </p>
-            <Button variant="outline" size="sm" onClick={() => setVisiveis((v) => v + PAGE_SIZE)}>
-              Carregar mais
-            </Button>
-          </div>
+          <>
+            {/* Skeletons do próximo lote durante o scroll infinito */}
+            {carregandoMais && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
+                {Array.from({ length: Math.min(PAGE_SIZE, canaisFiltrados.length - visiveis) }).map((_, i) => (
+                  <div
+                    key={`skeleton-${visiveis}-${i}`}
+                    className="rounded-2xl overflow-hidden border border-border/20 bg-card/40"
+                  >
+                    <div className="aspect-[3/4] bg-muted/50 animate-pulse" />
+                    <div className="p-3 space-y-2">
+                      <div className="h-4 bg-muted/60 rounded animate-pulse w-3/4" />
+                      <div className="h-3 bg-muted/50 rounded animate-pulse w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div ref={sentinelaRef} className="py-8 flex flex-col items-center gap-3">
+              <RefreshCw className={cn('w-5 h-5 text-muted-foreground', carregandoMais && 'animate-spin')} />
+              <p className="text-xs text-muted-foreground">
+                Mostrando {canaisVisiveis.length} de {canaisFiltrados.length} canais
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={carregandoMais}
+                onClick={() => {
+                  setCarregandoMais(true);
+                  timerCarregarMais.current = window.setTimeout(() => {
+                    setVisiveis((v) => Math.min(v + PAGE_SIZE, canaisFiltrados.length));
+                    setCarregandoMais(false);
+                  }, 250);
+                }}
+              >
+                {carregandoMais ? 'Carregando...' : 'Carregar mais'}
+              </Button>
+            </div>
+          </>
         )}
         </>
       )}
