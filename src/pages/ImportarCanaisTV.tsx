@@ -103,6 +103,36 @@ const ImportarCanaisTV = () => {
     });
   }, [canais, busca, categoriaAtiva, somenteOnline]);
 
+  // Scroll infinito: renderiza em lotes para não travar com milhares de canais
+  const [visiveis, setVisiveis] = useState(PAGE_SIZE);
+  const sentinelaRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setVisiveis(PAGE_SIZE);
+  }, [busca, categoriaAtiva, somenteOnline, canais]);
+
+  useEffect(() => {
+    const el = sentinelaRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisiveis((v) => Math.min(v + PAGE_SIZE, canaisFiltrados.length));
+        }
+      },
+      { rootMargin: '600px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [canaisFiltrados.length]);
+
+  const canaisVisiveis = useMemo(
+    () => canaisFiltrados.slice(0, visiveis),
+    [canaisFiltrados, visiveis]
+  );
+
+
+
   const handleImportCanal = async (canal: CanalTV) => {
     setImportando(canal.id);
     try {
