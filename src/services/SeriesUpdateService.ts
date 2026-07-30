@@ -17,6 +17,12 @@ export interface UpdateEpisode {
   [key: string]: any;
 }
 
+export interface SeasonUpdateInfo {
+  nome: string;
+  from: number;
+  to: number;
+}
+
 export interface ImportResult {
   success: boolean;
   imported: number;
@@ -24,6 +30,7 @@ export interface ImportResult {
   ignored?: number;
   total: number;
   errors?: string[];
+  seasonsUpdated?: SeasonUpdateInfo[];
 }
 
 class SeriesUpdateService {
@@ -244,6 +251,64 @@ class SeriesUpdateService {
     return index;
   }
 
+  // Cache de conteúdos (séries) buscados durante a importação
+  private contentCache = new Map<string, any | null>();
+
+  private async findContentByName(nome: string): Promise<any | null> {
+    const key = this.normalize(nome);
+    if (!key) return null;
+    if (this.contentCache.has(key)) return this.contentCache.get(key) ?? null;
+
+    let found: any | null = null;
+    try {
+      const res = await this.baserowService.getTableData(
+        this.config.tableIds.conteudos,
+        1,
+        5,
+        `Nome=${encodeURIComponent(nome)}`
+      );
+      const rows = res?.results || [];
+      found = rows.find((r: any) => this.normalize(r.Nome) === key) || rows[0] || null;
+    } catch (error) {
+      console.warn('Erro ao buscar conteúdo associado:', error);
+    }
+
+    this.contentCache.set(key, found);
+    return found;
+  }
+
+  // Atualizar o número de temporadas na tabela de Conteúdos quando aumentou
+  private async syncSeasonCounts(
+    seriesMaxSeason: Map<string, { nome: string; maxSeason: number; row: any }>
+  ): Promise<SeasonUpdateInfo[]> {
+    const results: SeasonUpdateInfo[] = [];
+
+    for (const [contentId, info] of seriesMaxSeason.entries()) {
+      try {
+        const row = info.row || {};
+        // Descobrir qual coluna de temporadas existe na linha
+        const field = ['Temporadas', 'Temporada', 'Seasons', 'Season'].find(f => f in row) || 'Temporadas';
+        const currentRaw = row[field];
+        const current = parseInt(String(currentRaw ?? '').replace(/\D/g, ''), 10) || 0;
+
+        if (info.maxSeason > current) {
+          const isNumeric = typeof currentRaw === 'number';
+          await this.baserowService.updateRow(
+            this.config.tableIds.conteudos,
+            String(contentId),
+            { [field]: isNumeric ? info.maxSeason : String(info.maxSeason) }
+          );
+          results.push({ nome: info.nome, from: current, to: info.maxSeason });
+          console.log(`📺 Temporadas atualizadas em "${info.nome}": ${current} → ${info.maxSeason}`);
+        }
+      } catch (error) {
+        console.warn(`⚠️ Não foi possível atualizar temporadas de "${info.nome}":`, error);
+      }
+    }
+
+    return results;
+  }
+
 
   // Importar (ou atualizar) episódios selecionados para a tabela do usuário
   async importEpisodes(
@@ -254,6 +319,8 @@ class SeriesUpdateService {
     let updated = 0;
     let ignored = 0;
     const errors: string[] = [];
+    const seriesMaxSeason = new Map<string, { nome: string; maxSeason: number; row: any }>();
+    this.contentCache.clear();
 
     console.log(`🚀 Iniciando importação de ${episodes.length} episódios...`);
 
@@ -288,19 +355,23 @@ class SeriesUpdateService {
 
         // Tentar associar a conteúdo se houver série especificada
         if (episode.Serie) {
-          try {
-            const existingContent = await this.baserowService.getTableData(
-              this.config.tableIds.conteudos,
-              1,
-              5,
-              `Nome=${encodeURIComponent(episode.Serie)}`
-            );
+          const contentRow = await this.findContentByName(String(episode.Serie));
+          if (contentRow) {
+            episodePayload['Conteudo'] = [contentRow.id];
 
-            if (existingContent.results && existingContent.results.length > 0) {
-              episodePayload['Conteudo'] = [existingContent.results[0].id];
+            // Registrar a maior temporada importada por série
+            const seasonNum = parseInt(String(episode.Temporada ?? '').replace(/\D/g, ''), 10);
+            if (!isNaN(seasonNum) && seasonNum > 0) {
+              const key = String(contentRow.id);
+              const prev = seriesMaxSeason.get(key);
+              if (!prev || seasonNum > prev.maxSeason) {
+                seriesMaxSeason.set(key, {
+                  nome: contentRow.Nome || String(episode.Serie),
+                  maxSeason: seasonNum,
+                  row: contentRow
+                });
+              }
             }
-          } catch (error) {
-            console.warn('Erro ao buscar conteúdo associado:', error);
           }
         }
 
@@ -366,13 +437,17 @@ class SeriesUpdateService {
 
     console.log(`🎉 Importação concluída: ${imported} novos, ${updated} atualizados, ${ignored} ignorados de ${episodes.length}`);
 
+    // Atualizar automaticamente o número de temporadas na tabela de Conteúdos
+    const seasonsUpdated = await this.syncSeasonCounts(seriesMaxSeason);
+
     return {
       success: imported + updated > 0,
       imported,
       updated,
       ignored,
       total: episodes.length,
-      errors: errors.length > 0 ? errors : undefined
+      errors: errors.length > 0 ? errors : undefined,
+      seasonsUpdated: seasonsUpdated.length > 0 ? seasonsUpdated : undefined
     };
   }
 }

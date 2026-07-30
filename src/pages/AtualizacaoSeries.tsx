@@ -39,7 +39,7 @@ const AtualizacaoSeries = () => {
   const [availableSeries, setAvailableSeries] = useState<string[]>([]);
   const [progress, setProgress] = useState<{ processed: number; total: number; current?: string; startedAt: number } | null>(null);
   const [elapsed, setElapsed] = useState(0);
-  const [lastSummary, setLastSummary] = useState<{ created: number; updated: number; ignored: number; total: number } | null>(null);
+  const [lastSummary, setLastSummary] = useState<{ created: number; updated: number; ignored: number; total: number; seasonsUpdated?: { nome: string; from: number; to: number }[] } | null>(null);
 
   const seriesUpdateService = useSeriesUpdateService();
   const { config: cloudConfig } = useUserConfig();
@@ -165,7 +165,8 @@ const AtualizacaoSeries = () => {
         created: result.imported || 0,
         updated: updatedCount,
         ignored: ignoredCount,
-        total: episodesToImport.length
+        total: episodesToImport.length,
+        seasonsUpdated: result.seasonsUpdated
       });
 
       if (result.success) {
@@ -173,6 +174,7 @@ const AtualizacaoSeries = () => {
         if (result.imported > 0) partes.push(`${result.imported} novos episódios`);
         if (updatedCount > 0) partes.push(`${updatedCount} atualizados`);
         if (ignoredCount > 0) partes.push(`${ignoredCount} ignorados`);
+        if (result.seasonsUpdated?.length) partes.push(`${result.seasonsUpdated.length} série(s) com temporada atualizada`);
         toast.success(partes.join(' • ') || 'Importação concluída');
         setSelectedEpisodes(new Set());
         
@@ -365,6 +367,21 @@ const AtualizacaoSeries = () => {
                   <p className="text-sm text-muted-foreground">Total Selecionados</p>
                 </div>
               </div>
+
+              {lastSummary.seasonsUpdated && lastSummary.seasonsUpdated.length > 0 && (
+                <div className="mt-4 rounded-lg border bg-background p-4">
+                  <p className="text-sm font-medium mb-2">
+                    Séries com temporada atualizada: {lastSummary.seasonsUpdated.length}
+                  </p>
+                  <ul className="space-y-1">
+                    {lastSummary.seasonsUpdated.map((s) => (
+                      <li key={s.nome} className="text-sm text-muted-foreground">
+                        <span className="font-medium text-foreground">{s.nome}</span>: {s.from} → {s.to}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
