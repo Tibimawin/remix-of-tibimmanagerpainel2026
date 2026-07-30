@@ -17,6 +17,12 @@ export interface UpdateEpisode {
   [key: string]: any;
 }
 
+export interface SeasonUpdateInfo {
+  nome: string;
+  from: number;
+  to: number;
+}
+
 export interface ImportResult {
   success: boolean;
   imported: number;
@@ -24,6 +30,7 @@ export interface ImportResult {
   ignored?: number;
   total: number;
   errors?: string[];
+  seasonsUpdated?: SeasonUpdateInfo[];
 }
 
 class SeriesUpdateService {
