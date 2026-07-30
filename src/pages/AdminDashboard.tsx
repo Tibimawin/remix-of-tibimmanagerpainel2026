@@ -39,6 +39,7 @@ import { AdminRegistrationControl } from '@/components/AdminRegistrationControl'
 import AdminFinancialDashboard from '@/components/AdminFinancialDashboard';
 import AdminPlanosConfig from '@/components/AdminPlanosConfig';
 import AdminSeriesUpdateConfig from '@/components/AdminSeriesUpdateConfig';
+import AdminMiniseriesConfig from '@/components/AdminMiniseriesConfig';
 import AdminApiKeys from '@/components/AdminApiKeys';
 import AdminProtectedChannels from '@/components/AdminProtectedChannels';
 import { AdminSidebar, AdminView } from '@/components/admin/AdminSidebar';
