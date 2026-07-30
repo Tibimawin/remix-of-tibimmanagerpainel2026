@@ -217,9 +217,9 @@ const AdminFinancialDashboard: React.FC = () => {
       }
 
       if (reconciledCount > 0) {
-        const finSnapshot = await getDocs(query(collection(db, 'financialRecords'), orderBy('confirmedAt', 'desc')));
-        const permSnapshot = await getDocs(query(collection(db, 'autoPermissionLogs'), orderBy('grantedAt', 'desc')));
-        setRecords(finSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as FinancialRecord)));
+        const finSnapshot = await getDocs(collection(db, 'financialRecords'));
+        const permSnapshot = await getDocs(collection(db, 'autoPermissionLogs'));
+        setRecords(sortRecords(finSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as FinancialRecord))));
         setPermLogs(permSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as AutoPermissionLog)));
       } else {
         if (isManual) toast.success('Todos os pagamentos pendentes estão em dia.');
