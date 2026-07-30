@@ -335,7 +335,21 @@ const ImportarCanaisTV = () => {
             );
           })}
         </div>
+
+        {visiveis < canaisFiltrados.length && (
+          <div ref={sentinelaRef} className="py-8 flex flex-col items-center gap-3">
+            <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">
+              Mostrando {canaisVisiveis.length} de {canaisFiltrados.length} canais
+            </p>
+            <Button variant="outline" size="sm" onClick={() => setVisiveis((v) => v + PAGE_SIZE)}>
+              Carregar mais
+            </Button>
+          </div>
+        )}
+        </>
       )}
+
     </div>
   );
 };
