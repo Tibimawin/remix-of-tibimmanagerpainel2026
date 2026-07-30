@@ -31,7 +31,10 @@ import {
   Server,
   Key,
   Table2,
-  Tv
+  Tv,
+  Clapperboard,
+  Sparkles,
+  ListVideo
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ImportPreview, ContentPreview } from '@/components/ImportPreview';
