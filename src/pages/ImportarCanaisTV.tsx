@@ -120,15 +120,23 @@ const ImportarCanaisTV = () => {
     if (!el) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
-          setVisiveis((v) => Math.min(v + PAGE_SIZE, canaisFiltrados.length));
+        if (entries[0].isIntersecting && !carregandoMais) {
+          setCarregandoMais(true);
+          // dá tempo de mostrar os skeletons antes de renderizar o próximo lote
+          timerCarregarMais.current = window.setTimeout(() => {
+            setVisiveis((v) => Math.min(v + PAGE_SIZE, canaisFiltrados.length));
+            setCarregandoMais(false);
+          }, 350);
         }
       },
       { rootMargin: '600px' }
     );
     observer.observe(el);
-    return () => observer.disconnect();
-  }, [canaisFiltrados.length]);
+    return () => {
+      observer.disconnect();
+      if (timerCarregarMais.current) window.clearTimeout(timerCarregarMais.current);
+    };
+  }, [canaisFiltrados.length, carregandoMais]);
 
   const canaisVisiveis = useMemo(
     () => canaisFiltrados.slice(0, visiveis),
