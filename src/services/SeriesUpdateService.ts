@@ -159,71 +159,66 @@ class SeriesUpdateService {
     return allEpisodes;
   }
 
-  // Verificar se um episódio já existe na tabela do usuário
-  private async episodeExists(episode: UpdateEpisode): Promise<boolean> {
-    try {
-      const searchFields = [];
-
-      // Buscar por título
-      if (episode.Titulo) {
-        searchFields.push(`Titulo=${encodeURIComponent(episode.Titulo)}`);
-        searchFields.push(`Nome=${encodeURIComponent(episode.Titulo)}`);
-      }
-
-      // Buscar por temporada e episódio se disponível
-      if (episode.Temporada && episode.Episodio && episode.Serie) {
-        searchFields.push(`Temporada=${episode.Temporada}`);
-        searchFields.push(`Episodio=${episode.Episodio}`);
-      }
-
-      // Fazer busca simples na tabela de episódios do usuário
-      const existingEpisodes = await this.baserowService.getTableData(
-        this.config.tableIds.episodios,
-        1,
-        10, // Busca pequena apenas para verificar existência
-        searchFields.length > 0 ? searchFields[0] : '' // Usar primeiro critério
-      );
-
-      if (existingEpisodes.results && existingEpisodes.results.length > 0) {
-        // Verificar se algum episódio corresponde
-        return existingEpisodes.results.some((existing: any) => {
-          const titleMatch = existing.Titulo === episode.Titulo || existing.Nome === episode.Titulo;
-
-          if (episode.Temporada && episode.Episodio) {
-            const seasonMatch = existing.Temporada == episode.Temporada;
-            const existingEpisodeValue = existing['Episódio'] ?? existing.Episodio ?? existing['Episódios'];
-            const episodeMatch = existingEpisodeValue == episode.Episodio;
-            return titleMatch || (seasonMatch && episodeMatch);
-          }
-
-          return titleMatch;
-        });
-      }
-
-      return false;
-    } catch (error) {
-      console.warn('Erro ao verificar existência do episódio, assumindo que não existe:', error);
-      return false;
-    }
+  // Normalizar texto para comparação
+  private normalize(value: any): string {
+    return String(value ?? '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ');
   }
 
-  // Importar episódios selecionados para a tabela do usuário
+  private normalizeNumber(value: any): string {
+    const num = parseInt(String(value ?? '').replace(/\D/g, ''), 10);
+    return isNaN(num) ? '' : String(num);
+  }
+
+  // Chaves de identificação de um episódio (nome + temporada + episódio, e link)
+  private buildKeys(row: any): string[] {
+    const nome = this.normalize(row.Nome ?? row.Titulo);
+    const temporada = this.normalizeNumber(row.Temporada ?? row.Temporadas ?? row.Season);
+    const episodio = this.normalizeNumber(
+      row['Episódio'] ?? row.Episodio ?? row['Episódios'] ?? row.Episodios ?? row.Episode
+    );
+    const link = this.normalize(row.Link ?? row.Url);
+
+    const keys: string[] = [];
+    if (nome && (temporada || episodio)) keys.push(`te::${nome}|${temporada}|${episodio}`);
+    if (link) keys.push(`link::${link}`);
+    return keys;
+  }
+
+  // Carregar índice dos episódios já existentes na tabela do usuário
+  private async loadExistingIndex(): Promise<Map<string, any>> {
+    const index = new Map<string, any>();
+    try {
+      const existing = await this.baserowService.getAllTableData(this.config.tableIds.episodios);
+      const rows = existing?.results || [];
+      console.log(`📚 ${rows.length} episódios já existentes carregados para comparação`);
+      rows.forEach((row: any) => {
+        this.buildKeys(row).forEach(key => {
+          if (!index.has(key)) index.set(key, row);
+        });
+      });
+    } catch (error) {
+      console.warn('⚠️ Não foi possível carregar episódios existentes, seguindo sem deduplicação:', error);
+    }
+    return index;
+  }
+
+  // Importar (ou atualizar) episódios selecionados para a tabela do usuário
   async importEpisodes(episodes: UpdateEpisode[]): Promise<ImportResult> {
     let imported = 0;
+    let updated = 0;
     const errors: string[] = [];
 
     console.log(`🚀 Iniciando importação de ${episodes.length} episódios...`);
 
+    const existingIndex = await this.loadExistingIndex();
+
     for (const episode of episodes) {
       try {
-        // Verificar se o episódio já existe
-        const exists = await this.episodeExists(episode);
-
-        if (exists) {
-          console.log(`⏭️ Episódio já existe, pulando: ${episode.Titulo}`);
-          continue;
-        }
-
         // Preparar payload para a tabela do usuário
         const episodePayload: any = {
           'Nome': episode.Titulo,
@@ -246,8 +241,6 @@ class SeriesUpdateService {
         if (episode.Link) episodePayload['Link'] = episode.Link;
         if (episode.Sinopse) episodePayload['Sinopse'] = episode.Sinopse;
 
-        console.log('💾 Payload sendo enviado para a tabela:', episodePayload);
-
         // Tentar associar a conteúdo se houver série especificada
         if (episode.Serie) {
           try {
@@ -266,9 +259,49 @@ class SeriesUpdateService {
           }
         }
 
+        // Verificar se já existe (mesmo nome + temporada + episódio, ou mesmo link)
+        const keys = this.buildKeys({
+          Nome: episode.Titulo,
+          Temporada: episode.Temporada,
+          'Episódio': episode.Episodio,
+          Link: episode.Link
+        });
+        const existingRow = keys.map(k => existingIndex.get(k)).find(Boolean);
+
+        if (existingRow) {
+          // Atualizar informações em vez de duplicar
+          const updatePayload = { ...episodePayload };
+          // Só enviar campos que realmente existem na linha do usuário
+          Object.keys(updatePayload).forEach(field => {
+            if (!(field in existingRow)) delete updatePayload[field];
+          });
+
+          if (Object.keys(updatePayload).length > 0) {
+            await this.baserowService.updateRow(
+              this.config.tableIds.episodios,
+              String(existingRow.id),
+              updatePayload
+            );
+          }
+
+          updated++;
+          console.log(`♻️ Episódio atualizado (sem duplicar): ${episode.Titulo}`);
+
+          // Manter o índice atualizado
+          keys.forEach(k => existingIndex.set(k, { ...existingRow, ...updatePayload }));
+
+          await new Promise(resolve => setTimeout(resolve, 100));
+          continue;
+        }
+
+        console.log('💾 Payload sendo enviado para a tabela:', episodePayload);
+
         // Criar episódio na tabela do usuário
-        await this.baserowService.createRow(this.config.tableIds.episodios, episodePayload);
+        const created = await this.baserowService.createRow(this.config.tableIds.episodios, episodePayload);
         imported++;
+
+        // Registrar no índice para evitar duplicatas dentro da mesma execução
+        keys.forEach(k => existingIndex.set(k, created || episodePayload));
 
         console.log(`✅ Episódio importado: ${episode.Titulo}`);
 
@@ -281,11 +314,12 @@ class SeriesUpdateService {
       }
     }
 
-    console.log(`🎉 Importação concluída: ${imported}/${episodes.length} episódios importados`);
+    console.log(`🎉 Importação concluída: ${imported} novos, ${updated} atualizados de ${episodes.length}`);
 
     return {
-      success: imported > 0,
+      success: imported + updated > 0,
       imported,
+      updated,
       total: episodes.length,
       errors: errors.length > 0 ? errors : undefined
     };
