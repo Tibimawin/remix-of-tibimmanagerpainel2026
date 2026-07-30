@@ -81,7 +81,11 @@ Deno.serve(async (req) => {
     }
 
     // Permissão da funcionalidade no plano do usuário (ex.: minisséries)
-    const requiredFeature = link.source === "miniseries" ? "miniseries" : null;
+    const FEATURE_BY_SOURCE: Record<string, string> = {
+      miniseries: "miniseries",
+      "canais-tv": "importar-canais-tv",
+    };
+    const requiredFeature = FEATURE_BY_SOURCE[link.source as string] ?? null;
     const features: string[] = Array.isArray(user.features) ? user.features : [];
     if (requiredFeature && !features.includes(requiredFeature)) {
       await log({ link_short_id: id, owner_uid: user.firebase_uid, status: "feature_denied", ip, user_agent: userAgent });
