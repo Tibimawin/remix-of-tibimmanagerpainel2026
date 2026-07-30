@@ -174,56 +174,30 @@ export const PlansService = {
     }
   },
 
-  // Garantir que o plano de Integração API existe
+  // Removida a criação automática do plano "Integração API".
+  // Planos agora são criados apenas manualmente pelo admin.
   async ensureApiPlan() {
-    try {
-      // Se o admin já deletou explicitamente o plano API, não recriar
-      try {
-        const raw = localStorage.getItem('deleted-plan-names');
-        const deleted: string[] = raw ? JSON.parse(raw) : [];
-        if (deleted.some(n => n.includes('api') || n.includes('integração') || n.includes('integracao'))) {
-          console.log('Plano API foi deletado pelo admin — não será recriado.');
-          return;
-        }
-      } catch {}
+    return;
+  },
 
-      // Executar apenas uma vez por dispositivo
-      if (localStorage.getItem('api-plan-ensured') === 'true') return;
+  // Remover planos duplicados (mesmo nome), mantendo o mais recente
+  async removeDuplicatePlans(): Promise<number> {
+    const plans = await this.getAllPlans();
+    const seen = new Set<string>();
+    let removed = 0;
 
-      const existingPlans = await this.getAllPlans();
-      const hasApiPlan = existingPlans.some(p => 
-        p.features.includes('minha-api') && p.name.toLowerCase().includes('api')
-      );
-
-      if (hasApiPlan) {
-        console.log('Plano de Integração API já existe');
-        localStorage.setItem('api-plan-ensured', 'true');
-        return;
+    for (const plan of plans) {
+      const key = (plan.name || '').toLowerCase().trim();
+      if (!key) continue;
+      if (seen.has(key)) {
+        await this.deletePlan(plan.id);
+        removed++;
+      } else {
+        seen.add(key);
       }
-
-      console.log('Criando plano de Integração API...');
-      await this.createPlan({
-        name: 'Integração API',
-        price: 'R$ 50,00/mês',
-        description: 'Plano exclusivo para integrar conteúdos em sites e apps externos via API. Inclui geração de API Keys, documentação e suporte técnico.',
-        monthlyContentLimit: -1,
-        features: [
-          'dashboard',
-          'conteudos',
-          'minha-api',
-          'planos',
-          'perfil',
-          'configuracoes',
-          'suporte-ao-vivo'
-        ],
-        blockingMessage: 'Esta funcionalidade requer o plano Integração API (R$ 50,00/mês). Faça upgrade para desbloquear.',
-        isActive: true
-      });
-
-      localStorage.setItem('api-plan-ensured', 'true');
-      console.log('✅ Plano de Integração API criado com sucesso');
-    } catch (error) {
-      console.error('Erro ao criar plano de Integração API:', error);
     }
+
+    console.log('Planos duplicados removidos:', removed);
+    return removed;
   }
 };
