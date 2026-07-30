@@ -134,6 +134,16 @@ const ImportarCanaisTV = () => {
     return Array.from(contagem.entries()).sort((a, b) => b[1] - a[1]);
   }, [canais]);
 
+  // Se a categoria salva não existir mais nos dados carregados, volta para "todas"
+  useEffect(() => {
+    if (categoriaAtiva === 'todas' || categorias.length === 0) return;
+    if (!categorias.some(([cat]) => cat === categoriaAtiva)) {
+      setCategoriaAtiva('todas');
+    }
+  }, [categorias, categoriaAtiva]);
+
+
+
   const canaisFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return canais.filter((canal) => {
