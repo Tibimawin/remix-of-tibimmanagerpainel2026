@@ -4,44 +4,106 @@
  */
 
 const ASAAS_API_KEY = process.env.ASAAS_API_KEY || '';
-const ASAAS_BASE_URL = 'https://api.asaas.com/v3';
+const ASAAS_BASE_URL = process.env.ASAAS_BASE_URL || 'https://api.asaas.com/v3';
+const ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
-export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Content-Type', 'application/json');
+const sendJson = (res, status, payload) => {
+    res.status(status).json(payload);
+};
 
-    if (req.method === 'OPTIONS') {
-        return res.status(200).json({ ok: true });
+const readAsaasResponse = async (response) => {
+    const contentType = response.headers.get('content-type') || '';
+    const text = await response.text();
+
+    if (!text) return null;
+
+    if (contentType.includes('application/json')) {
+        try {
+            return JSON.parse(text);
+        } catch {
+            return { raw: text };
+        }
     }
 
     try {
+        return JSON.parse(text);
+    } catch {
+        return { raw: text.substring(0, 500) };
+    }
+};
+
+export default async function handler(req, res) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, access_token');
+    res.setHeader('Content-Type', 'application/json');
+
+    if (req.method === 'OPTIONS') {
+        return sendJson(res, 200, { ok: true });
+    }
+
+    try {
+        if (req.method === 'GET' && req.query?.health === '1') {
+            return sendJson(res, 200, {
+                ok: true,
+                service: 'asaas-proxy',
+                hasApiKey: Boolean(ASAAS_API_KEY),
+                baseUrl: ASAAS_BASE_URL,
+            });
+        }
+
+        if (!ASAAS_API_KEY) {
+            return sendJson(res, 503, {
+                error: 'ASAAS_API_KEY não configurada na Vercel',
+                details: 'Configure a variável ASAAS_API_KEY no projeto da Vercel e faça redeploy.',
+            });
+        }
+
         const { endpoint, method = 'GET', body } = req.method === 'GET' ? req.query : req.body;
+        const normalizedMethod = String(method).toUpperCase();
 
         if (!endpoint) {
-            return res.status(400).json({ error: 'Endpoint é obrigatório' });
+            return sendJson(res, 400, { error: 'Endpoint é obrigatório' });
+        }
+
+        if (!String(endpoint).startsWith('/')) {
+            return sendJson(res, 400, { error: 'Endpoint inválido: deve começar com /' });
+        }
+
+        if (!ALLOWED_METHODS.includes(normalizedMethod)) {
+            return sendJson(res, 405, { error: `Método não permitido: ${normalizedMethod}` });
         }
 
         const url = `${ASAAS_BASE_URL}${endpoint}`;
 
         const fetchOptions = {
-            method,
+            method: normalizedMethod,
             headers: {
                 'Content-Type': 'application/json',
                 'access_token': ASAAS_API_KEY,
             },
         };
 
-        if (['POST', 'PUT', 'PATCH'].includes(method.toUpperCase()) && body) {
+        if (['POST', 'PUT', 'PATCH'].includes(normalizedMethod) && body) {
             fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
         }
 
         const response = await fetch(url, fetchOptions);
-        const data = await response.json();
+        const data = await readAsaasResponse(response);
 
-        return res.status(response.status).json(data);
+        if (!response.ok) {
+            return sendJson(res, response.status, {
+                error: data?.errors?.[0]?.description || data?.message || 'Erro retornado pela API Asaas',
+                status: response.status,
+                asaas: data,
+            });
+        }
+
+        return sendJson(res, response.status, data ?? { success: true });
     } catch (error) {
-        return res.status(500).json({ error: 'Erro no proxy Asaas', message: error.message });
+        return sendJson(res, 500, {
+            error: 'Erro no proxy Asaas',
+            message: error instanceof Error ? error.message : String(error),
+        });
     }
 }
