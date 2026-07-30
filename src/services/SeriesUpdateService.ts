@@ -2,8 +2,9 @@ import { useBaserowService } from './BaserowService';
 import { useUserConfig } from '@/hooks/useUserConfig';
 import { useConfig } from '@/contexts/ConfigContext';
 import { BASEROW_PROXY_CONFIG } from '../config/proxyConfig';
+import { UserConfigService } from './UserConfigService';
+import { DEFAULT_SERIES_UPDATE_CONFIG } from '@/hooks/useGlobalSeriesUpdateConfig';
 
-const SERIES_UPDATE_TABLE_ID = '3777'; // ID da tabela central de episódios atualizados
 
 export interface UpdateEpisode {
   id: string;
