@@ -1,16 +1,16 @@
 // Firebase Cloud Messaging Service Worker
 
-importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/11.0.2/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/11.0.2/firebase-messaging-compat.js');
 
-// Configuração do Firebase (mesma do projeto)
+// Configuração do Firebase (mesma do projeto tibimmanagerpainelvercel)
 firebase.initializeApp({
-  apiKey: "AIzaSyDFvzwCxkBDrBDq4EF7cR8b9GjH5IiK6Lm",
-  authDomain: "streming-d89c7.firebaseapp.com",
-  projectId: "streming-d89c7",
-  storageBucket: "streming-d89c7.firebasestorage.app",
-  messagingSenderId: "123456789012",
-  appId: "1:123456789012:web:abcdef123456"
+  apiKey: "AIzaSyBN7cODHg978T4S2jPvrBsr5sqwZhGidtU",
+  authDomain: "tibimmanagerpainelvercel.firebaseapp.com",
+  projectId: "tibimmanagerpainelvercel",
+  storageBucket: "tibimmanagerpainelvercel.firebasestorage.app",
+  messagingSenderId: "915232934037",
+  appId: "1:915232934037:web:e9386fab78107ba226339c"
 });
 
 const messaging = firebase.messaging();
