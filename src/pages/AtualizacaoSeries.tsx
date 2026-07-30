@@ -367,6 +367,21 @@ const AtualizacaoSeries = () => {
                   <p className="text-sm text-muted-foreground">Total Selecionados</p>
                 </div>
               </div>
+
+              {lastSummary.seasonsUpdated && lastSummary.seasonsUpdated.length > 0 && (
+                <div className="mt-4 rounded-lg border bg-background p-4">
+                  <p className="text-sm font-medium mb-2">
+                    Séries com temporada atualizada: {lastSummary.seasonsUpdated.length}
+                  </p>
+                  <ul className="space-y-1">
+                    {lastSummary.seasonsUpdated.map((s) => (
+                      <li key={s.nome} className="text-sm text-muted-foreground">
+                        <span className="font-medium text-foreground">{s.nome}</span>: {s.from} → {s.to}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
