@@ -190,8 +190,44 @@ class SeriesUpdateService {
     return keys;
   }
 
+  // Índice leve: busca só os episódios relevantes (rápido para poucas seleções)
+  private async loadTargetedIndex(episodes: UpdateEpisode[]): Promise<Map<string, any>> {
+    const index = new Map<string, any>();
+    const terms = Array.from(
+      new Set(episodes.map(e => String(e.Titulo ?? '').trim()).filter(Boolean))
+    );
+
+    await Promise.all(
+      terms.map(async term => {
+        try {
+          const res = await this.baserowService.getTableData(
+            this.config.tableIds.episodios,
+            1,
+            50,
+            term
+          );
+          (res?.results || []).forEach((row: any) => {
+            this.buildKeys(row).forEach(key => {
+              if (!index.has(key)) index.set(key, row);
+            });
+          });
+        } catch (error) {
+          console.warn(`⚠️ Busca falhou para "${term}":`, error);
+        }
+      })
+    );
+
+    console.log(`⚡ Índice direcionado: ${index.size} chaves de ${terms.length} buscas`);
+    return index;
+  }
+
   // Carregar índice dos episódios já existentes na tabela do usuário
-  private async loadExistingIndex(): Promise<Map<string, any>> {
+  private async loadExistingIndex(episodes?: UpdateEpisode[]): Promise<Map<string, any>> {
+    // Para poucas seleções, evitar varrer a tabela inteira
+    if (episodes && episodes.length > 0 && episodes.length <= 30) {
+      return this.loadTargetedIndex(episodes);
+    }
+
     const index = new Map<string, any>();
     try {
       const existing = await this.baserowService.getAllTableData(this.config.tableIds.episodios);
@@ -208,6 +244,7 @@ class SeriesUpdateService {
     return index;
   }
 
+
   // Importar (ou atualizar) episódios selecionados para a tabela do usuário
   async importEpisodes(episodes: UpdateEpisode[]): Promise<ImportResult> {
     let imported = 0;
@@ -217,7 +254,8 @@ class SeriesUpdateService {
 
     console.log(`🚀 Iniciando importação de ${episodes.length} episódios...`);
 
-    const existingIndex = await this.loadExistingIndex();
+    const existingIndex = await this.loadExistingIndex(episodes);
+    const throttleMs = episodes.length > 20 ? 100 : 0;
 
     for (const episode of episodes) {
       try {
@@ -294,7 +332,7 @@ class SeriesUpdateService {
           // Manter o índice atualizado
           keys.forEach(k => existingIndex.set(k, { ...existingRow, ...updatePayload }));
 
-          await new Promise(resolve => setTimeout(resolve, 100));
+          if (throttleMs) await new Promise(resolve => setTimeout(resolve, throttleMs));
           continue;
         }
 
@@ -310,7 +348,7 @@ class SeriesUpdateService {
         console.log(`✅ Episódio importado: ${episode.Titulo}`);
 
         // Pequena pausa entre importações
-        await new Promise(resolve => setTimeout(resolve, 100));
+        if (throttleMs) await new Promise(resolve => setTimeout(resolve, throttleMs));
 
       } catch (error) {
         console.error(`❌ Erro ao importar episódio ${episode.Titulo}:`, error);
