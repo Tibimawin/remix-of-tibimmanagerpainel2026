@@ -1,60 +1,22 @@
-## Problema
+## Plano: Corrigir `public/firebase-messaging-sw.js`
 
-Usuários com assinatura expirada continuam usando funcionalidades pagas porque a regra atual de permissões **ignora a expiração** quando o admin habilitou a feature no plano.
+### Problema
+O service worker atual está hardcoded com as configurações de outro projeto Firebase (`streming-d89c7`). Isso faz com que as notificações push tentem registrar no projeto errado, causando falhas de autenticação e assinatura no Firebase Cloud Messaging.
 
-Em `src/contexts/UserPermissionsContext.tsx`, `hasFeature` faz:
+### Solução proposta
+Service workers são arquivos estáticos que não conseguem ler variáveis de ambiente do Vite em tempo de execução. Portanto, a correção será trocar os valores hardcoded para os do projeto atual, mantendo o arquivo compatível com a configuração do frontend (`src/config/firebase.ts`).
 
-```ts
-if (enabled) return true;                          // ← libera mesmo expirado
-if (isSubscriptionExpired) return isFreeFeatureWhenExpired(featureId);
-return false;
-```
+### Alterações
+1. **Atualizar `public/firebase-messaging-sw.js`**
+   - Substituir `apiKey`, `authDomain`, `projectId`, `storageBucket`, `messagingSenderId` e `appId` pelos valores do projeto `tibimmanagerpainelvercel` (mesmos usados como fallback no frontend).
+   - Manter a lógica de background messages e notification click intacta.
 
-O comentário no arquivo confirma o comportamento atual:
-> "Liberações manuais do admin sempre são respeitadas, mesmo com assinatura expirada."
+2. **Validar compatibilidade da versão do SDK**
+   - Verificar se a versão `9.0.0` do compat SDK no service worker ainda é compatível com o projeto Firebase atual. Se necessário, atualizar para a mesma versão usada pelo frontend.
 
-Ou seja, `enabledFeatures` do plano sempre vence, e a `expiryDate` em `users/{uid}` não bloqueia nada. Resultado: usuário aparece como "Expirado" no admin, mas continua usando tudo do plano.
+3. **Verificação pós-implantação**
+   - Após o deploy na Vercel, inspecionar o service worker publicado em `https://SEU-DOMINIO-VERCEL/firebase-messaging-sw.js` para confirmar que os valores estão corretos.
+   - Observar os logs do console para garantir que não aparecem mais erros de projeto incompatível.
 
-## Correção (Opção A — bloqueio por feature)
-
-Inverter a regra: **expiração tem prioridade sobre `enabledFeatures`**. Quando expirado, só liberar features de `FREE_FEATURES_WHEN_EXPIRED` (Conteúdos, Episódios, Configurações, Pedido, Carrossel, Categorias). Todas as outras ficam bloqueadas via `hasFeature`, o que já esconde/desabilita itens na sidebar e nos gates de UI existentes.
-
-### Mudanças
-
-1. **`src/contexts/UserPermissionsContext.tsx`**
-   - `hasFeature`: nova regra
-     ```ts
-     if (isSubscriptionExpired) return isFreeFeatureWhenExpired(featureId);
-     return permissions?.enabledFeatures?.includes(featureId) ?? false;
-     ```
-   - `canAccessPremiumFeatures`: retornar `false` quando `isSubscriptionExpired`.
-   - `canAddMoreContent`: retornar `false` quando `isSubscriptionExpired` (usuário expirado não adiciona conteúdo).
-   - Remover/atualizar o comentário antigo que dizia o contrário.
-
-2. **Revalidação de expiração mais rápida**
-   - Hoje `isSubscriptionExpired` só é recalculado a cada 5 min. Um usuário logado no momento da expiração fica com acesso por até 5 min.
-   - Reduzir intervalo para **60s** e revalidar também em `window` `focus` e `document` `visibilitychange` (quando o usuário volta pra aba).
-   - Continua usando `FirebaseUserService.checkUserAccess` (compara `expiryDate` com `now` e `isActive`). Sem novos índices, sem novas queries.
-
-### Comportamento resultante
-
-- Usuário com assinatura ativa: sem mudança — usa tudo do plano.
-- Usuário expirado: banner de renovação (já existe no Layout) + acesso apenas às features grátis + sidebar/itens pagos automaticamente desabilitados via `hasFeature`.
-- Ao renovar (admin ou pagamento): em ≤ 60s (ou ao focar a aba) as features do plano voltam sozinhas, sem logout.
-
-### Fora de escopo (não muda)
-
-- `enabledFeatures` no Firestore.
-- `SimpleProtectedRoute` / `ProtectedRoute` continuam permitindo navegação (bloqueio é por feature).
-- Fluxo de pagamento, admin, sidebar, banner.
-
-### Arquivos editados
-
-- `src/contexts/UserPermissionsContext.tsx`
-
-### Como validar
-
-1. No admin, setar `expiryDate` de um usuário de teste no passado.
-2. Logar como esse usuário: sidebar mostra só features de `FREE_FEATURES_WHEN_EXPIRED`; banner de assinatura expirada aparece.
-3. Tentar acessar rota paga direto pela URL (ex.: `/importar-m3u`): a página carrega mas controles gated por `hasFeature` ficam bloqueados.
-4. Renovar no admin (expiryDate futuro) → em até 60s ou ao focar a aba, features do plano voltam.
+### Próximo passo
+Aprova aí que eu aplico a correção no arquivo.
