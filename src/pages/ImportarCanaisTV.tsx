@@ -66,7 +66,9 @@ const ImportarCanaisTV = () => {
   const [categoriaAtiva, setCategoriaAtiva] = useState('todas');
   const [somenteOnline, setSomenteOnline] = useState(false);
   const [importando, setImportando] = useState<string | null>(null);
+  const [carregandoMais, setCarregandoMais] = useState(false);
   const autoCarregado = useRef(false);
+  const timerCarregarMais = useRef<number | null>(null);
 
   const {
     canais,
