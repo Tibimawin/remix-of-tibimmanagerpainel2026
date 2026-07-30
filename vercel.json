@@ -12,12 +12,20 @@
       "memory": 1024,
       "maxDuration": 30
     },
+    "api/stream-proxy.js": {
+      "memory": 1024,
+      "maxDuration": 60
+    },
     "api/**/*.js": {
       "memory": 1024,
       "maxDuration": 10
     }
   },
   "rewrites": [
+    {
+      "source": "/api/s/:token/:id",
+      "destination": "/api/stream-proxy?token=:token&id=:id"
+    },
     {
       "source": "/api/:path*",
       "destination": "/api/:path*"

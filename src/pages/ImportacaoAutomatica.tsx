@@ -37,6 +37,8 @@ import {
   ListVideo
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { CloakService } from '@/services/CloakService';
+import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { ImportPreview, ContentPreview } from '@/components/ImportPreview';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -91,6 +93,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
   }>({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
 
   const autoImportService = useAutoImportService();
+  const { userInfo } = useSimpleAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const hasTriggeredAutoImportRef = React.useRef(false);
@@ -315,6 +318,25 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
         return mappedContent;
       });
 
+      // 🔒 Camuflagem de links (apenas Minisséries): o link original nunca vai para o Baserow
+      if (isMiniseries && userInfo?.id) {
+        const token = await CloakService.ensureToken({
+          uid: userInfo.id,
+          email: userInfo.email,
+        });
+        if (token) {
+          autoImportService.linkTransform = (url, contentName, kind) =>
+            CloakService.cloakUrl(userInfo.id, token, {
+              originalUrl: url,
+              contentName,
+              kind,
+              source: 'miniseries',
+            });
+        } else {
+          toast.warning('Não foi possível ativar a proteção de links; importando com links originais.');
+        }
+      }
+
       toast.info(`Importando ${contentsToImport.length} conteúdo(s)...`);
 
       const result = await autoImportService.importContents(
@@ -371,6 +393,11 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
       console.error('Erro na importação:', error);
       toast.error('Erro ao importar conteúdos');
     } finally {
+      // Persiste os links camuflados gerados durante a importação
+      if (autoImportService.linkTransform) {
+        await CloakService.flush();
+        autoImportService.linkTransform = undefined;
+      }
       setIsImporting(false);
       // manter progresso final visível por um curto período
       setTimeout(() => {
@@ -380,7 +407,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
         setShowProgressModal(false);
       }, 2500);
     }
-  }, [autoImportService, canAddMoreContent, configValid, importConfig, typeMode, userConfig]);
+  }, [autoImportService, canAddMoreContent, configValid, importConfig, isMiniseries, typeMode, userConfig, userInfo]);
 
   useEffect(() => {
     const state = location.state as ImportacaoAutomaticaLocationState | null;
