@@ -10,7 +10,7 @@ import {
   AlertCircle, Loader2
 } from 'lucide-react';
 import { db } from '@/config/firebase';
-import { collection, query, orderBy, getDocs, doc, setDoc, getDoc, addDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, getDoc, addDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -29,6 +29,25 @@ const toNumber = (v: unknown): number => {
 };
 const formatBRL = (v: unknown): string =>
   `R$ ${toNumber(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+// Status considerados como receita efetivada (tolerante a variações vindas do Asaas)
+const CONFIRMED_STATUSES = ['confirmed', 'received', 'paid', 'received_in_cash', 'confirmado', 'pago'];
+const isConfirmed = (status?: string): boolean =>
+  CONFIRMED_STATUSES.includes((status || '').toLowerCase().trim());
+
+// Data efetiva do registro: usa confirmação, senão criação/início
+const effectiveDate = (r: { confirmedAt?: string; createdAt?: string; startDate?: string }): Date | null => {
+  for (const raw of [r.confirmedAt, r.createdAt, r.startDate]) {
+    if (!raw) continue;
+    const d = new Date(raw);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return null;
+};
+
+const sortRecords = <T extends { confirmedAt?: string; createdAt?: string; startDate?: string }>(list: T[]): T[] =>
+  [...list].sort((a, b) => (effectiveDate(b)?.getTime() || 0) - (effectiveDate(a)?.getTime() || 0));
+
 
 interface FinancialRecord {
   id: string;
@@ -201,9 +220,9 @@ const AdminFinancialDashboard: React.FC = () => {
       }
 
       if (reconciledCount > 0) {
-        const finSnapshot = await getDocs(query(collection(db, 'financialRecords'), orderBy('confirmedAt', 'desc')));
-        const permSnapshot = await getDocs(query(collection(db, 'autoPermissionLogs'), orderBy('grantedAt', 'desc')));
-        setRecords(finSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as FinancialRecord)));
+        const finSnapshot = await getDocs(collection(db, 'financialRecords'));
+        const permSnapshot = await getDocs(collection(db, 'autoPermissionLogs'));
+        setRecords(sortRecords(finSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as FinancialRecord))));
         setPermLogs(permSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as AutoPermissionLog)));
       } else {
         if (isManual) toast.success('Todos os pagamentos pendentes estão em dia.');
@@ -219,16 +238,24 @@ const AdminFinancialDashboard: React.FC = () => {
   const loadRecords = async () => {
     try {
       setLoading(true);
+      // Sem orderBy: o Firestore exclui documentos que não tenham o campo do orderBy,
+      // então registros sem "confirmedAt" (pendentes/antigos) sumiam do histórico.
       const [finSnapshot, permSnapshot] = await Promise.all([
-        getDocs(query(collection(db, 'financialRecords'), orderBy('confirmedAt', 'desc'))),
-        getDocs(query(collection(db, 'autoPermissionLogs'), orderBy('grantedAt', 'desc')))
+        getDocs(collection(db, 'financialRecords')),
+        getDocs(collection(db, 'autoPermissionLogs'))
       ]);
-      const loadedRecords = finSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as FinancialRecord));
+      const loadedRecords = sortRecords(
+        finSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as FinancialRecord))
+      );
       setRecords(loadedRecords);
-      setPermLogs(permSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as AutoPermissionLog)));
+      setPermLogs(
+        permSnapshot.docs
+          .map(d => ({ id: d.id, ...d.data() } as AutoPermissionLog))
+          .sort((a, b) => new Date(b.grantedAt || 0).getTime() - new Date(a.grantedAt || 0).getTime())
+      );
 
       // Iniciar reconciliação em segundo plano se houver pendências
-      const pending = loadedRecords.filter(r => r.status === 'pending');
+      const pending = loadedRecords.filter(r => !isConfirmed(r.status) && (r.status || '').toLowerCase() === 'pending');
       if (pending.length > 0) {
         reconcilePendingPayments(pending, false);
       }
@@ -250,9 +277,9 @@ const AdminFinancialDashboard: React.FC = () => {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(r =>
-        r.userEmail.toLowerCase().includes(term) ||
-        r.userName.toLowerCase().includes(term) ||
-        r.planName.toLowerCase().includes(term)
+        (r.userEmail || '').toLowerCase().includes(term) ||
+        (r.userName || '').toLowerCase().includes(term) ||
+        (r.planName || '').toLowerCase().includes(term)
       );
     }
 
@@ -260,31 +287,35 @@ const AdminFinancialDashboard: React.FC = () => {
       const now = new Date();
       const daysBack = periodFilter === '7d' ? 7 : periodFilter === '30d' ? 30 : periodFilter === '90d' ? 90 : 365;
       const cutoff = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
-      filtered = filtered.filter(r => new Date(r.confirmedAt) >= cutoff);
+      filtered = filtered.filter(r => {
+        const d = effectiveDate(r);
+        return d ? d >= cutoff : false;
+      });
     }
 
     return filtered;
   }, [records, searchTerm, periodFilter]);
 
+
   // Métricas
   const metrics = useMemo(() => {
-    const confirmedRecords = filteredRecords.filter(r => r.status === 'confirmed');
+    const confirmedRecords = filteredRecords.filter(r => isConfirmed(r.status));
     const totalRevenue = confirmedRecords.reduce((sum, r) => sum + toNumber(r.planPrice), 0);
     const totalSubscribers = new Set(confirmedRecords.map(r => r.userId)).size;
-    const monthlyPlans = confirmedRecords.filter(r => r.accessDays <= 31).length;
-    const annualPlans = confirmedRecords.filter(r => r.accessDays > 31).length;
+    const monthlyPlans = confirmedRecords.filter(r => toNumber(r.accessDays) <= 31).length;
+    const annualPlans = confirmedRecords.filter(r => toNumber(r.accessDays) > 31).length;
     const avgTicket = confirmedRecords.length > 0 ? totalRevenue / confirmedRecords.length : 0;
 
     // Último mês vs mês anterior
     const now = new Date();
+    const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const thisMonth = confirmedRecords.filter(r => {
-      const d = new Date(r.confirmedAt);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      const d = effectiveDate(r);
+      return !!d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
     const lastMonth = confirmedRecords.filter(r => {
-      const d = new Date(r.confirmedAt);
-      const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
+      const d = effectiveDate(r);
+      return !!d && d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
     });
     const thisMonthRevenue = thisMonth.reduce((s, r) => s + toNumber(r.planPrice), 0);
     const lastMonthRevenue = lastMonth.reduce((s, r) => s + toNumber(r.planPrice), 0);
@@ -297,12 +328,13 @@ const AdminFinancialDashboard: React.FC = () => {
 
   // Dados para gráficos
   const chartData = useMemo(() => {
-    const confirmedRecords = filteredRecords.filter(r => r.status === 'confirmed');
-    
+    const confirmedRecords = filteredRecords.filter(r => isConfirmed(r.status));
+
     // Receita por mês
     const monthlyMap: Record<string, number> = {};
     confirmedRecords.forEach(r => {
-      const d = new Date(r.confirmedAt);
+      const d = effectiveDate(r);
+      if (!d) return;
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       monthlyMap[key] = (monthlyMap[key] || 0) + toNumber(r.planPrice);
     });
@@ -316,12 +348,14 @@ const AdminFinancialDashboard: React.FC = () => {
     // Planos distribuição
     const planMap: Record<string, number> = {};
     confirmedRecords.forEach(r => {
-      planMap[r.planName] = (planMap[r.planName] || 0) + 1;
+      const name = r.planName || 'Sem plano';
+      planMap[name] = (planMap[name] || 0) + 1;
     });
     const planDistribution = Object.entries(planMap).map(([name, value]) => ({ name, value }));
 
     return { monthlyRevenue, planDistribution };
   }, [filteredRecords]);
+
 
   if (loading) {
     return (
@@ -592,49 +626,43 @@ const AdminFinancialDashboard: React.FC = () => {
             <div className="space-y-2 max-h-[500px] overflow-y-auto">
               {filteredRecords.map((record) => {
                 const getStatusIcon = (status: string) => {
-                  switch (status) {
-                    case 'confirmed':
-                      return (
-                        <div className="p-2 bg-emerald-500/10 rounded-lg">
-                          <CheckCircle className="h-4 w-4 text-emerald-500" />
-                        </div>
-                      );
-                    case 'pending':
-                      return (
-                        <div className="p-2 bg-amber-500/10 rounded-lg animate-pulse">
-                          <Clock className="h-4 w-4 text-amber-500" />
-                        </div>
-                      );
-                    default:
-                      return (
-                        <div className="p-2 bg-red-500/10 rounded-lg">
-                          <AlertCircle className="h-4 w-4 text-red-500" />
-                        </div>
-                      );
+                  if (isConfirmed(status)) {
+                    return (
+                      <div className="p-2 bg-emerald-500/10 rounded-lg">
+                        <CheckCircle className="h-4 w-4 text-emerald-500" />
+                      </div>
+                    );
                   }
+                  if ((status || '').toLowerCase() === 'pending') {
+                    return (
+                      <div className="p-2 bg-amber-500/10 rounded-lg animate-pulse">
+                        <Clock className="h-4 w-4 text-amber-500" />
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="p-2 bg-red-500/10 rounded-lg">
+                      <AlertCircle className="h-4 w-4 text-red-500" />
+                    </div>
+                  );
                 };
 
                 const getStatusBadge = (status: string) => {
-                  switch (status) {
-                    case 'confirmed':
-                      return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-xs">Confirmado</Badge>;
-                    case 'pending':
-                      return <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-xs animate-pulse">Pendente</Badge>;
-                    default:
-                      return <Badge className="bg-red-500/10 text-red-500 border-red-500/20 text-xs">{status || 'Cancelado'}</Badge>;
+                  if (isConfirmed(status)) {
+                    return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-xs">Confirmado</Badge>;
                   }
+                  if ((status || '').toLowerCase() === 'pending') {
+                    return <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-xs animate-pulse">Pendente</Badge>;
+                  }
+                  return <Badge className="bg-red-500/10 text-red-500 border-red-500/20 text-xs">{status || 'Cancelado'}</Badge>;
                 };
 
                 const getPaymentDateString = () => {
-                  const dateStr = record.status === 'confirmed' ? record.confirmedAt : record.createdAt;
-                  if (!dateStr) return 'Sem data';
-                  try {
-                    const d = new Date(dateStr);
-                    return `${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
-                  } catch {
-                    return 'Data inválida';
-                  }
+                  const d = effectiveDate(record);
+                  if (!d) return 'Sem data';
+                  return `${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
                 };
+
 
                 return (
                   <div
