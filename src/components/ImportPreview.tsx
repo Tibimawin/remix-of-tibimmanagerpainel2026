@@ -92,6 +92,12 @@ interface ImportPreviewProps {
   configValid: boolean;
   isImporting?: boolean;
   importProgress?: number;
+  /** Oculta o carrossel de Gêneros */
+  hideGenreFilter?: boolean;
+  /** Oculta o carrossel de Anos */
+  hideYearFilter?: boolean;
+  /** Oculta o carrossel de Plataformas */
+  hidePlatformFilter?: boolean;
 }
 
 export const ImportPreview: React.FC<ImportPreviewProps> = ({
@@ -100,7 +106,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   onStartImport,
   configValid,
   isImporting = false,
-  importProgress = 0
+  importProgress = 0,
+  hideGenreFilter = false,
+  hideYearFilter = false,
+  hidePlatformFilter = false
 }) => {
   const [previews, setPreviews] = useState<ContentPreview[]>([]);
   const [loading, setLoading] = useState(false);
