@@ -7,6 +7,13 @@ export interface GlobalPlanosConfig {
   updatedAt: string;
 }
 
+export interface GlobalSeriesUpdateConfig {
+  sourceToken: string;
+  sourceBaseUrl: string;
+  sourceTableId: string;
+  updatedAt: string;
+}
+
 export interface GlobalAutomationConfig {
   isEnabled: boolean;
   updatedAt: string;
@@ -464,6 +471,53 @@ export const UserConfigService = {
       },
       (error) => {
         logger.error('Erro no listener da config global de Canais TV', error);
+        callback(null);
+      }
+    );
+  },
+
+  // ============================================================
+  // Configuração Global da Atualização de Séries (admin → todos)
+  // Firestore path: globalConfig/seriesUpdateSource
+  // ============================================================
+
+  async getGlobalSeriesUpdateConfig(): Promise<GlobalSeriesUpdateConfig | null> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'seriesUpdateSource');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as GlobalSeriesUpdateConfig;
+      }
+      return null;
+    } catch (error) {
+      logger.error('Erro ao buscar configuração global de atualização de séries', error);
+      return null;
+    }
+  },
+
+  async saveGlobalSeriesUpdateConfig(config: Omit<GlobalSeriesUpdateConfig, 'updatedAt'>): Promise<void> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'seriesUpdateSource');
+      await setDoc(docRef, {
+        ...config,
+        updatedAt: new Date().toISOString()
+      });
+      logger.debug('Configuração global de atualização de séries salva');
+    } catch (error) {
+      logger.error('Erro ao salvar configuração global de atualização de séries', error);
+      throw error;
+    }
+  },
+
+  onGlobalSeriesUpdateConfigChange(callback: (config: GlobalSeriesUpdateConfig | null) => void): () => void {
+    const docRef = doc(db, 'globalConfig', 'seriesUpdateSource');
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
+        callback(docSnap.exists() ? (docSnap.data() as GlobalSeriesUpdateConfig) : null);
+      },
+      (error) => {
+        logger.error('Erro no listener da config global de atualização de séries', error);
         callback(null);
       }
     );
