@@ -251,6 +251,64 @@ class SeriesUpdateService {
     return index;
   }
 
+  // Cache de conteúdos (séries) buscados durante a importação
+  private contentCache = new Map<string, any | null>();
+
+  private async findContentByName(nome: string): Promise<any | null> {
+    const key = this.normalize(nome);
+    if (!key) return null;
+    if (this.contentCache.has(key)) return this.contentCache.get(key) ?? null;
+
+    let found: any | null = null;
+    try {
+      const res = await this.baserowService.getTableData(
+        this.config.tableIds.conteudos,
+        1,
+        5,
+        `Nome=${encodeURIComponent(nome)}`
+      );
+      const rows = res?.results || [];
+      found = rows.find((r: any) => this.normalize(r.Nome) === key) || rows[0] || null;
+    } catch (error) {
+      console.warn('Erro ao buscar conteúdo associado:', error);
+    }
+
+    this.contentCache.set(key, found);
+    return found;
+  }
+
+  // Atualizar o número de temporadas na tabela de Conteúdos quando aumentou
+  private async syncSeasonCounts(
+    seriesMaxSeason: Map<string, { nome: string; maxSeason: number; row: any }>
+  ): Promise<SeasonUpdateInfo[]> {
+    const results: SeasonUpdateInfo[] = [];
+
+    for (const [contentId, info] of seriesMaxSeason.entries()) {
+      try {
+        const row = info.row || {};
+        // Descobrir qual coluna de temporadas existe na linha
+        const field = ['Temporadas', 'Temporada', 'Seasons', 'Season'].find(f => f in row) || 'Temporadas';
+        const currentRaw = row[field];
+        const current = parseInt(String(currentRaw ?? '').replace(/\D/g, ''), 10) || 0;
+
+        if (info.maxSeason > current) {
+          const isNumeric = typeof currentRaw === 'number';
+          await this.baserowService.updateRow(
+            this.config.tableIds.conteudos,
+            String(contentId),
+            { [field]: isNumeric ? info.maxSeason : String(info.maxSeason) }
+          );
+          results.push({ nome: info.nome, from: current, to: info.maxSeason });
+          console.log(`📺 Temporadas atualizadas em "${info.nome}": ${current} → ${info.maxSeason}`);
+        }
+      } catch (error) {
+        console.warn(`⚠️ Não foi possível atualizar temporadas de "${info.nome}":`, error);
+      }
+    }
+
+    return results;
+  }
+
 
   // Importar (ou atualizar) episódios selecionados para a tabela do usuário
   async importEpisodes(
