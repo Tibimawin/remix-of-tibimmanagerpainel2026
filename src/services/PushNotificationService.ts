@@ -2,6 +2,10 @@ import { getMessaging, getToken, onMessage, Messaging } from 'firebase/messaging
 import { app } from '@/config/firebase';
 import { toast } from 'sonner';
 
+// Mantenha em sincronia com SW_VERSION em public/firebase-messaging-sw.js
+const SW_VERSION = '1.0.1';
+
+
 interface NotificationPayload {
   title: string;
   body: string;
