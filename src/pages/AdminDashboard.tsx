@@ -415,6 +415,8 @@ const AdminDashboard = () => {
         return <AdminPlanosConfig />;
       case 'series-update-config':
         return <AdminSeriesUpdateConfig />;
+      case 'miniseries-config':
+        return <AdminMiniseriesConfig />;
       case 'api-keys':
         return <AdminApiKeys />;
       case 'protected-channels':
