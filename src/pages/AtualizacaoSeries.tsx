@@ -35,6 +35,7 @@ const AtualizacaoSeries = () => {
   const [selectedEpisodes, setSelectedEpisodes] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [seriesFilter, setSeriesFilter] = useState('');
+  const [showOnlySelectedSeriesWarnings, setShowOnlySelectedSeriesWarnings] = useState(true);
   const [importing, setImporting] = useState(false);
   const [availableSeries, setAvailableSeries] = useState<string[]>([]);
   const [progress, setProgress] = useState<{ processed: number; total: number; current?: string; startedAt: number } | null>(null);
@@ -401,7 +402,7 @@ const AtualizacaoSeries = () => {
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar episódios..."
+                      placeholder="Buscar episódios por título, série ou sinopse..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10"
@@ -409,17 +410,30 @@ const AtualizacaoSeries = () => {
                   </div>
                 </div>
                 
-                <div className="sm:w-64">
-                  <select
-                    value={seriesFilter}
-                    onChange={(e) => setSeriesFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
-                  >
-                    <option value="">Todas as séries</option>
-                    {availableSeries.map(series => (
-                      <option key={series} value={series}>{series}</option>
-                    ))}
-                  </select>
+                <div className="sm:w-72">
+                  <div className="relative">
+                    <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <select
+                      value={seriesFilter}
+                      onChange={(e) => setSeriesFilter(e.target.value)}
+                      className="w-full pl-10 pr-8 py-2 border border-input bg-background rounded-md text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      <option value="">Todas as séries</option>
+                      {availableSeries.map(series => {
+                        const count = episodes.filter(ep => (ep.Serie || ep.Titulo) === series).length;
+                        return (
+                          <option key={series} value={series}>
+                            {series} ({count} episódios)
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
 
                 <Button
@@ -436,8 +450,84 @@ const AtualizacaoSeries = () => {
                 </Button>
               </div>
 
+              {/* Filtros rápidos por série */}
+              {availableSeries.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Filtro rápido por série
+                    </p>
+                    {(searchTerm || seriesFilter) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSearchTerm('');
+                          setSeriesFilter('');
+                        }}
+                        className="h-6 text-xs"
+                      >
+                        Limpar filtros
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant={seriesFilter === '' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setSeriesFilter('')}
+                      className="text-xs"
+                    >
+                      Todas
+                      <Badge variant="secondary" className="ml-2">
+                        {episodes.length}
+                      </Badge>
+                    </Button>
+                    {availableSeries.map(series => {
+                      const count = episodes.filter(ep => (ep.Serie || ep.Titulo) === series).length;
+                      const isActive = seriesFilter === series;
+                      return (
+                        <Button
+                          key={series}
+                          variant={isActive ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setSeriesFilter(isActive ? '' : series)}
+                          className="text-xs max-w-[200px] truncate"
+                          title={series}
+                        >
+                          <span className="truncate">{series}</span>
+                          <Badge variant={isActive ? 'secondary' : 'outline'} className="ml-2 shrink-0">
+                            {count}
+                          </Badge>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {seriesFilter && (
+                <div className="mt-4 p-3 rounded-lg border border-primary/20 bg-primary/5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-primary" />
+                    <span className="text-sm">
+                      Visualizando apenas episódios de{' '}
+                      <strong className="text-primary">{seriesFilter}</strong>
+                    </span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSeriesFilter('')}
+                    className="h-7 text-xs"
+                  >
+                    Remover filtro
+                  </Button>
+                </div>
+              )}
+
               {episodes.length > 0 && (
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mt-4">
                   <div className="flex items-center gap-4">
                     <Button
                       variant="outline"
