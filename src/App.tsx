@@ -40,6 +40,7 @@ import Configuracoes from "./pages/Configuracoes";
 import Recursos from "./pages/Recursos";
 import ImportarM3U from "./pages/ImportarM3U";
 import ImportacaoAutomatica from "./pages/ImportacaoAutomatica";
+import Miniseries from "./pages/Miniseries";
 import AtualizacaoSeries from "./pages/AtualizacaoSeries";
 import Perfil from "./pages/Perfil";
 import HistoricoAcoes from "./pages/HistoricoAcoes";
