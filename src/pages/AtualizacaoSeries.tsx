@@ -39,7 +39,7 @@ const AtualizacaoSeries = () => {
   const [availableSeries, setAvailableSeries] = useState<string[]>([]);
   const [progress, setProgress] = useState<{ processed: number; total: number; current?: string; startedAt: number } | null>(null);
   const [elapsed, setElapsed] = useState(0);
-  const [lastSummary, setLastSummary] = useState<{ created: number; updated: number; ignored: number; total: number; seasonsUpdated?: { nome: string; from: number; to: number }[] } | null>(null);
+  const [lastSummary, setLastSummary] = useState<{ created: number; updated: number; ignored: number; total: number; seasonsUpdated?: { nome: string; from: number; to: number; episodes?: number; at?: string }[] } | null>(null);
 
   const seriesUpdateService = useSeriesUpdateService();
   const { config: cloudConfig } = useUserConfig();
@@ -369,19 +369,25 @@ const AtualizacaoSeries = () => {
               </div>
 
               {lastSummary.seasonsUpdated && lastSummary.seasonsUpdated.length > 0 && (
-                <div className="mt-4 rounded-lg border bg-background p-4">
-                  <p className="text-sm font-medium mb-2">
-                    Séries com temporada atualizada: {lastSummary.seasonsUpdated.length}
+                <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-4">
+                  <p className="text-sm font-semibold mb-2 text-emerald-700 dark:text-emerald-400">
+                    Temporada atualizada automaticamente em {lastSummary.seasonsUpdated.length} série(s)
                   </p>
-                  <ul className="space-y-1">
+                  <ul className="space-y-2">
                     {lastSummary.seasonsUpdated.map((s) => (
                       <li key={s.nome} className="text-sm text-muted-foreground">
-                        <span className="font-medium text-foreground">{s.nome}</span>: {s.from} → {s.to}
+                        <span className="font-medium text-foreground">{s.nome}</span>:{' '}
+                        <span className="font-mono">Temporadas {s.from} → {s.to}</span>
+                        <span className="block text-xs">
+                          {s.episodes} episódio(s) impactado(s)
+                          {s.at ? ` • ${new Date(s.at).toLocaleString('pt-BR')}` : ''}
+                        </span>
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
+
             </CardContent>
           </Card>
         )}
