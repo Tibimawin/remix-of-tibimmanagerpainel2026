@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
 
     const { data: user } = await supabase
       .from("cloak_users")
-      .select("firebase_uid, expires_at, blocked")
+      .select("firebase_uid, expires_at, blocked, features")
       .eq("public_token", token)
       .maybeSingle();
 
@@ -60,14 +60,14 @@ Deno.serve(async (req) => {
       await log({ link_short_id: id, owner_uid: user.firebase_uid, status: "blocked", ip, user_agent: userAgent });
       return deny("Acesso bloqueado", 403);
     }
-    if (user.expires_at && new Date(user.expires_at) < new Date()) {
+    if (!user.expires_at || new Date(user.expires_at) < new Date()) {
       await log({ link_short_id: id, owner_uid: user.firebase_uid, status: "expired", ip, user_agent: userAgent });
       return deny("Assinatura expirada", 403);
     }
 
     const { data: link } = await supabase
       .from("cloaked_links")
-      .select("original_url, owner_uid, active, access_count, bytes_served")
+      .select("original_url, owner_uid, active, access_count, bytes_served, source")
       .eq("short_id", id)
       .maybeSingle();
 
@@ -78,6 +78,14 @@ Deno.serve(async (req) => {
     if (link.owner_uid !== user.firebase_uid) {
       await log({ link_short_id: id, owner_uid: user.firebase_uid, status: "forbidden", ip, user_agent: userAgent });
       return deny("Acesso negado", 403);
+    }
+
+    // Permissão da funcionalidade no plano do usuário (ex.: minisséries)
+    const requiredFeature = link.source === "miniseries" ? "miniseries" : null;
+    const features: string[] = Array.isArray(user.features) ? user.features : [];
+    if (requiredFeature && !features.includes(requiredFeature)) {
+      await log({ link_short_id: id, owner_uid: user.firebase_uid, status: "feature_denied", ip, user_agent: userAgent });
+      return deny("Funcionalidade não disponível no seu plano", 403);
     }
 
     let target = link.original_url as string;

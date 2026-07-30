@@ -53,10 +53,12 @@ export type Database = {
           created_at: string
           email: string | null
           expires_at: string | null
+          features: string[]
           firebase_uid: string
           id: string
           last_seen_at: string | null
           name: string | null
+          permissions_synced_at: string | null
           public_token: string
           updated_at: string
         }
@@ -65,10 +67,12 @@ export type Database = {
           created_at?: string
           email?: string | null
           expires_at?: string | null
+          features?: string[]
           firebase_uid: string
           id?: string
           last_seen_at?: string | null
           name?: string | null
+          permissions_synced_at?: string | null
           public_token: string
           updated_at?: string
         }
@@ -77,10 +81,12 @@ export type Database = {
           created_at?: string
           email?: string | null
           expires_at?: string | null
+          features?: string[]
           firebase_uid?: string
           id?: string
           last_seen_at?: string | null
           name?: string | null
+          permissions_synced_at?: string | null
           public_token?: string
           updated_at?: string
         }
