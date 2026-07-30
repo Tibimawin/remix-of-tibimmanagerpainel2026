@@ -370,9 +370,10 @@ class SeriesUpdateService {
         if (episode.Link) episodePayload['Link'] = episode.Link;
         if (episode.Sinopse) episodePayload['Sinopse'] = episode.Sinopse;
 
-        // Tentar associar a conteúdo se houver série especificada
-        if (episode.Serie) {
-          const contentRow = await this.findContentByName(String(episode.Serie));
+        // Tentar associar a conteúdo (usa a série informada ou o próprio título como fallback)
+        const serieNome = String(episode.Serie || episode.Titulo || '').trim();
+        if (serieNome) {
+          const contentRow = await this.findContentByName(serieNome);
           if (contentRow) {
             episodePayload['Conteudo'] = [contentRow.id];
 
@@ -381,16 +382,16 @@ class SeriesUpdateService {
             if (!isNaN(seasonNum) && seasonNum > 0) {
               const key = String(contentRow.id);
               const prev = seriesMaxSeason.get(key);
-              if (!prev || seasonNum > prev.maxSeason) {
-                seriesMaxSeason.set(key, {
-                  nome: contentRow.Nome || String(episode.Serie),
-                  maxSeason: seasonNum,
-                  row: contentRow
-                });
-              }
+              seriesMaxSeason.set(key, {
+                nome: contentRow.Nome || serieNome,
+                maxSeason: Math.max(seasonNum, prev?.maxSeason ?? 0),
+                row: contentRow,
+                episodes: (prev?.episodes ?? 0) + 1,
+              });
             }
           }
         }
+
 
         // Verificar se já existe (mesmo nome + temporada + episódio, ou mesmo link)
         const keys = this.buildKeys({
