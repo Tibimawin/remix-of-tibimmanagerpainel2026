@@ -1337,6 +1337,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
         </div>
+        )}
 
         {/* Categories Carousel */}
         {availableCategories.length > 0 && (
