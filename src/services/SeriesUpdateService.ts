@@ -437,13 +437,17 @@ class SeriesUpdateService {
 
     console.log(`🎉 Importação concluída: ${imported} novos, ${updated} atualizados, ${ignored} ignorados de ${episodes.length}`);
 
+    // Atualizar automaticamente o número de temporadas na tabela de Conteúdos
+    const seasonsUpdated = await this.syncSeasonCounts(seriesMaxSeason);
+
     return {
       success: imported + updated > 0,
       imported,
       updated,
       ignored,
       total: episodes.length,
-      errors: errors.length > 0 ? errors : undefined
+      errors: errors.length > 0 ? errors : undefined,
+      seasonsUpdated: seasonsUpdated.length > 0 ? seasonsUpdated : undefined
     };
   }
 }
