@@ -8,6 +8,8 @@ import { useTypeMode } from '@/contexts/TypeModeContext';
 import { BASEROW_PROXY_CONFIG } from '@/config/proxyConfig';
 import { makeProxyRequest } from '@/utils/proxyRequest';
 import { supabase } from '@/integrations/supabase/client';
+import { CloakService } from '@/services/CloakService';
+import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 
 interface CanalTV {
   id: string;
@@ -30,6 +32,7 @@ export const useImportarCanaisTV = () => {
   const { addLog } = useSystemLogs();
   const { adminConfig } = useAdminConfig();
   const { mode } = useTypeMode();
+  const { userInfo } = useSimpleAuth();
 
   // Resolve a tabela alvo conforme o modo (singular/tibim → conteúdos, plural → canais de TV)
   const resolveTargetTableId = (): string => {
@@ -196,15 +199,27 @@ export const useImportarCanaisTV = () => {
     }
   };
 
+  /**
+   * Camufla o link do canal: o link original nunca vai para o Baserow.
+   * A URL gerada só funciona enquanto a assinatura do usuário estiver ativa
+   * e a funcionalidade "Importar Canais TV" estiver no plano dele.
+   */
   const protectLink = async (url: string, channelName: string): Promise<string> => {
     try {
-      const { data, error } = await supabase.functions.invoke('generate-protected-link', {
-        body: { url, channelName, expiresInDays: 30 },
+      if (!url || !userInfo?.id) return url;
+      const token = await CloakService.ensureToken({
+        uid: userInfo.id,
+        email: userInfo.email,
       });
-      if (error || !data?.protectedUrl) return url;
-      return data.protectedUrl;
+      if (!token) return url;
+      return CloakService.cloakUrl(userInfo.id, token, {
+        originalUrl: url,
+        contentName: channelName,
+        kind: 'content',
+        source: 'canais-tv',
+      });
     } catch {
-      return url; // Fallback to original if protection fails
+      return url; // Fallback para o link original se a camuflagem falhar
     }
   };
 
@@ -243,6 +258,7 @@ export const useImportarCanaisTV = () => {
           };
 
           await baserowService.updateRow(targetTableId, existingCanal.id, updatePayload);
+          await CloakService.flush();
 
           toast.success('Canal atualizado com sucesso!', {
             description: `Link de "${canal.Nome}" foi atualizado e protegido`
@@ -267,6 +283,7 @@ export const useImportarCanaisTV = () => {
       };
 
       await baserowService.createRow(targetTableId, payload);
+      await CloakService.flush();
 
       toast.success('Canal importado com sucesso!', {
         description: `"${canal.Nome}" foi adicionado com link protegido`
@@ -359,6 +376,8 @@ export const useImportarCanaisTV = () => {
           falhas++;
         }
       }
+
+      await CloakService.flush();
 
       if (importados > 0 || atualizados > 0) {
         const totalProcessados = importados + atualizados;
