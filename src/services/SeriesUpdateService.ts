@@ -20,6 +20,7 @@ export interface UpdateEpisode {
 export interface ImportResult {
   success: boolean;
   imported: number;
+  updated?: number;
   total: number;
   errors?: string[];
 }
