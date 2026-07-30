@@ -747,7 +747,36 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
           configValid={configValid}
           isImporting={isImporting}
           importProgress={importProgress}
+          hideGenreFilter={isMiniseries}
+          hideYearFilter={isMiniseries}
+          hidePlatformFilter={isMiniseries}
         />
+
+        {isMiniseries && (
+          <div className="rounded-2xl border border-border/60 bg-muted/20 p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              {[
+                { icon: ListVideo, title: 'Episódios completos', desc: 'Todas as temporadas vêm juntas' },
+                { icon: Shield, title: 'Sem duplicados', desc: 'Itens já importados são detectados' },
+                { icon: Cloud, title: 'Salvo na nuvem', desc: 'Suas credenciais ficam sincronizadas' }
+              ].map((f, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="rounded-xl bg-primary/10 p-2">
+                    <f.icon className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold leading-none">{f.title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{f.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!isMiniseries && (
+        <>
+
 
         {/* Recursos da Importação */}
         <section className="space-y-3">
