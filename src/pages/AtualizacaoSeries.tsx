@@ -26,6 +26,7 @@ import {
   BarChart3
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Progress } from '@/components/ui/progress';
 
 const AtualizacaoSeries = () => {
   const [loading, setLoading] = useState(false);
@@ -36,6 +37,8 @@ const AtualizacaoSeries = () => {
   const [seriesFilter, setSeriesFilter] = useState('');
   const [importing, setImporting] = useState(false);
   const [availableSeries, setAvailableSeries] = useState<string[]>([]);
+  const [progress, setProgress] = useState<{ processed: number; total: number; current?: string; startedAt: number } | null>(null);
+  const [elapsed, setElapsed] = useState(0);
   const [lastSummary, setLastSummary] = useState<{ created: number; updated: number; ignored: number; total: number } | null>(null);
 
   const seriesUpdateService = useSeriesUpdateService();
@@ -145,7 +148,16 @@ const AtualizacaoSeries = () => {
         description: `Importando ${episodesToImport.length} episódios selecionados` 
       });
 
-      const result = await seriesUpdateService.importEpisodes(episodesToImport);
+      setProgress({ processed: 0, total: episodesToImport.length, startedAt: Date.now() });
+
+      const result = await seriesUpdateService.importEpisodes(episodesToImport, (p) => {
+        setProgress(prev => ({
+          processed: p.processed,
+          total: p.total,
+          current: p.current,
+          startedAt: prev?.startedAt ?? Date.now()
+        }));
+      });
       const updatedCount = result.updated || 0;
       const ignoredCount = result.ignored || 0;
 
@@ -177,8 +189,33 @@ const AtualizacaoSeries = () => {
       toast.error('Erro ao importar episódios');
     } finally {
       setImporting(false);
+      setProgress(null);
     }
   };
+
+  // Cronômetro da importação em andamento
+  useEffect(() => {
+    if (!importing || !progress) return;
+    const startedAt = progress.startedAt;
+    const timer = setInterval(() => setElapsed(Date.now() - startedAt), 500);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [importing, progress?.startedAt]);
+
+  const formatDuration = (ms: number) => {
+    const totalSeconds = Math.max(0, Math.round(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+  };
+
+  const progressPercent = progress && progress.total > 0
+    ? Math.round((progress.processed / progress.total) * 100)
+    : 0;
+
+  const estimatedRemaining = progress && progress.processed > 0
+    ? ((elapsed / progress.processed) * (progress.total - progress.processed))
+    : null;
 
   // Agrupar episódios por série
   const groupedEpisodes = filteredEpisodes.reduce((acc, episode) => {
@@ -267,6 +304,35 @@ const AtualizacaoSeries = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Progresso da Importação */}
+        {importing && progress && (
+          <Card className="mb-6 border-primary/30 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-primary">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Importando episódios...
+              </CardTitle>
+              <CardDescription className="truncate">
+                {progress.current ? `Último processado: ${progress.current}` : 'Preparando importação...'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Progress value={progressPercent} />
+              <div className="flex flex-wrap justify-between gap-2 text-sm text-muted-foreground">
+                <span>
+                  <strong className="text-foreground">{progress.processed}</strong> de {progress.total} ({progressPercent}%)
+                </span>
+                <span>Tempo decorrido: {formatDuration(elapsed)}</span>
+                <span>
+                  {estimatedRemaining !== null
+                    ? `Tempo restante estimado: ${formatDuration(estimatedRemaining)}`
+                    : 'Calculando tempo restante...'}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Resumo da Última Importação */}
         {lastSummary && (
