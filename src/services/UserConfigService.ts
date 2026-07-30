@@ -524,6 +524,49 @@ export const UserConfigService = {
   },
 
   // ============================================================
+  // Configuração Global de MINISÉRIES (admin → todos usuários)
+  // Firestore path: globalConfig/miniseriesSource
+  // ============================================================
+
+  async getGlobalMiniseriesConfig(): Promise<GlobalMiniseriesConfig | null> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'miniseriesSource');
+      const docSnap = await getDoc(docRef);
+      return docSnap.exists() ? (docSnap.data() as GlobalMiniseriesConfig) : null;
+    } catch (error) {
+      logger.error('Erro ao buscar configuração global de minisséries', error);
+      return null;
+    }
+  },
+
+  async saveGlobalMiniseriesConfig(config: Omit<GlobalMiniseriesConfig, 'updatedAt'>): Promise<void> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'miniseriesSource');
+      await setDoc(docRef, { ...config, updatedAt: new Date().toISOString() });
+      logger.debug('Configuração global de minisséries salva');
+    } catch (error) {
+      logger.error('Erro ao salvar configuração global de minisséries', error);
+      throw error;
+    }
+  },
+
+  onGlobalMiniseriesConfigChange(callback: (config: GlobalMiniseriesConfig | null) => void): () => void {
+    const docRef = doc(db, 'globalConfig', 'miniseriesSource');
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
+        callback(docSnap.exists() ? (docSnap.data() as GlobalMiniseriesConfig) : null);
+      },
+      (error) => {
+        logger.error('Erro no listener da config global de minisséries', error);
+        callback(null);
+      }
+    );
+  },
+
+
+
+  // ============================================================
   // Kill-switch GLOBAL da Automação (admin → todos usuários)
   // Firestore path: globalConfig/automation
   // Quando isEnabled = false NENHUM usuário executa importação
