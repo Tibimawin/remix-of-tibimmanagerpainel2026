@@ -59,16 +59,53 @@ const resolverCapa = (capa: any): string => {
   return '';
 };
 const PAGE_SIZE = 60;
+const FILTROS_STORAGE_KEY = 'importar-canais-tv:filtros';
+
+type FiltrosPersistidos = {
+  busca: string;
+  categoriaAtiva: string;
+  somenteOnline: boolean;
+};
+
+const carregarFiltrosSalvos = (): FiltrosPersistidos => {
+  const padrao: FiltrosPersistidos = { busca: '', categoriaAtiva: 'todas', somenteOnline: false };
+  try {
+    const raw = localStorage.getItem(FILTROS_STORAGE_KEY);
+    if (!raw) return padrao;
+    const parsed = JSON.parse(raw);
+    return {
+      busca: typeof parsed?.busca === 'string' ? parsed.busca : padrao.busca,
+      categoriaAtiva: typeof parsed?.categoriaAtiva === 'string' ? parsed.categoriaAtiva : padrao.categoriaAtiva,
+      somenteOnline: typeof parsed?.somenteOnline === 'boolean' ? parsed.somenteOnline : padrao.somenteOnline,
+    };
+  } catch {
+    return padrao;
+  }
+};
 
 const ImportarCanaisTV = () => {
+  const filtrosIniciais = useRef<FiltrosPersistidos>(carregarFiltrosSalvos());
 
-  const [busca, setBusca] = useState('');
-  const [categoriaAtiva, setCategoriaAtiva] = useState('todas');
-  const [somenteOnline, setSomenteOnline] = useState(false);
+  const [busca, setBusca] = useState(filtrosIniciais.current.busca);
+  const [categoriaAtiva, setCategoriaAtiva] = useState(filtrosIniciais.current.categoriaAtiva);
+  const [somenteOnline, setSomenteOnline] = useState(filtrosIniciais.current.somenteOnline);
   const [importando, setImportando] = useState<string | null>(null);
   const [carregandoMais, setCarregandoMais] = useState(false);
   const autoCarregado = useRef(false);
   const timerCarregarMais = useRef<number | null>(null);
+
+  // Persiste filtros e busca para manter o estado ao recarregar a página
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        FILTROS_STORAGE_KEY,
+        JSON.stringify({ busca, categoriaAtiva, somenteOnline })
+      );
+    } catch {
+      // ignora falhas de storage (modo privado / quota)
+    }
+  }, [busca, categoriaAtiva, somenteOnline]);
+
 
   const {
     canais,
@@ -96,6 +133,16 @@ const ImportarCanaisTV = () => {
     });
     return Array.from(contagem.entries()).sort((a, b) => b[1] - a[1]);
   }, [canais]);
+
+  // Se a categoria salva não existir mais nos dados carregados, volta para "todas"
+  useEffect(() => {
+    if (categoriaAtiva === 'todas' || categorias.length === 0) return;
+    if (!categorias.some(([cat]) => cat === categoriaAtiva)) {
+      setCategoriaAtiva('todas');
+    }
+  }, [categorias, categoriaAtiva]);
+
+
 
   const canaisFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
