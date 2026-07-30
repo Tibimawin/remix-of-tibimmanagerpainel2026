@@ -1,22 +1,26 @@
-## Plano: Corrigir `public/firebase-messaging-sw.js`
+## Objetivo
 
-### Problema
-O service worker atual está hardcoded com as configurações de outro projeto Firebase (`streming-d89c7`). Isso faz com que as notificações push tentem registrar no projeto errado, causando falhas de autenticação e assinatura no Firebase Cloud Messaging.
+Quando o usuário importar novos episódios pela tela **Atualização de Séries**, o sistema deve atualizar sozinho a coluna **Temporadas** da série na tabela **Conteúdos**, para que os episódios novos apareçam no app sem edição manual.
 
-### Solução proposta
-Service workers são arquivos estáticos que não conseguem ler variáveis de ambiente do Vite em tempo de execução. Portanto, a correção será trocar os valores hardcoded para os do projeto atual, mantendo o arquivo compatível com a configuração do frontend (`src/config/firebase.ts`).
+## Como vai funcionar
 
-### Alterações
-1. **Atualizar `public/firebase-messaging-sw.js`**
-   - Substituir `apiKey`, `authDomain`, `projectId`, `storageBucket`, `messagingSenderId` e `appId` pelos valores do projeto `tibimmanagerpainelvercel` (mesmos usados como fallback no frontend).
-   - Manter a lógica de background messages e notification click intacta.
+1. Durante a importação, o serviço já procura a série correspondente na tabela de Conteúdos (busca pelo Nome) para vincular o episódio. Vou aproveitar essa mesma busca e guardar, por série, o **maior número de temporada** entre os episódios importados/atualizados.
+2. Ao final da importação, para cada série tocada:
+   - Lê o valor atual de `Temporadas` no registro de Conteúdos.
+   - Se o maior número de temporada importado for **maior** que o atual, atualiza o campo. Se for igual ou menor, não mexe (nunca diminui).
+3. O resumo da importação ganha uma linha extra: **"Séries com temporada atualizada: N"**, listando por exemplo `Silo: 2 → 3`.
 
-2. **Validar compatibilidade da versão do SDK**
-   - Verificar se a versão `9.0.0` do compat SDK no service worker ainda é compatível com o projeto Firebase atual. Se necessário, atualizar para a mesma versão usada pelo frontend.
+## Detalhes técnicos
 
-3. **Verificação pós-implantação**
-   - Após o deploy na Vercel, inspecionar o service worker publicado em `https://SEU-DOMINIO-VERCEL/firebase-messaging-sw.js` para confirmar que os valores estão corretos.
-   - Observar os logs do console para garantir que não aparecem mais erros de projeto incompatível.
+- `src/services/SeriesUpdateService.ts`
+  - Novo mapa `seriesMaxSeason: Map<contentId, { nome, maxSeason }>` preenchido no loop de importação (usando o `Temporada` já normalizado e o `Conteudo` resolvido).
+  - Cachear a busca por série (hoje é feita uma requisição por episódio) para evitar chamadas repetidas quando vários episódios são da mesma série — ganho de performance junto.
+  - Nova etapa final `syncSeasonCounts()` que faz `updateRow` na tabela de Conteúdos apenas nos casos em que o número aumenta, respeitando o nome real da coluna (`Temporadas`, com fallback para `Temporada`/`Seasons` conforme o que existir na linha).
+  - `ImportResult` ganha `seasonsUpdated: { nome, from, to }[]`.
+- `src/pages/AtualizacaoSeries.tsx`
+  - Exibe no card de resumo os itens de temporada atualizada e inclui a informação no toast de sucesso.
 
-### Próximo passo
-Aprova aí que eu aplico a correção no arquivo.
+## Fora do escopo
+
+- Não altera a lógica de deduplicação/upsert já existente.
+- Não mexe na importação automática nem no importador MaxPlus (esses já gravam `Temporadas` no cadastro).
