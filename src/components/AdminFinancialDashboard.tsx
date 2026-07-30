@@ -235,16 +235,24 @@ const AdminFinancialDashboard: React.FC = () => {
   const loadRecords = async () => {
     try {
       setLoading(true);
+      // Sem orderBy: o Firestore exclui documentos que não tenham o campo do orderBy,
+      // então registros sem "confirmedAt" (pendentes/antigos) sumiam do histórico.
       const [finSnapshot, permSnapshot] = await Promise.all([
-        getDocs(query(collection(db, 'financialRecords'), orderBy('confirmedAt', 'desc'))),
-        getDocs(query(collection(db, 'autoPermissionLogs'), orderBy('grantedAt', 'desc')))
+        getDocs(collection(db, 'financialRecords')),
+        getDocs(collection(db, 'autoPermissionLogs'))
       ]);
-      const loadedRecords = finSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as FinancialRecord));
+      const loadedRecords = sortRecords(
+        finSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as FinancialRecord))
+      );
       setRecords(loadedRecords);
-      setPermLogs(permSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as AutoPermissionLog)));
+      setPermLogs(
+        permSnapshot.docs
+          .map(d => ({ id: d.id, ...d.data() } as AutoPermissionLog))
+          .sort((a, b) => new Date(b.grantedAt || 0).getTime() - new Date(a.grantedAt || 0).getTime())
+      );
 
       // Iniciar reconciliação em segundo plano se houver pendências
-      const pending = loadedRecords.filter(r => r.status === 'pending');
+      const pending = loadedRecords.filter(r => !isConfirmed(r.status) && (r.status || '').toLowerCase() === 'pending');
       if (pending.length > 0) {
         reconcilePendingPayments(pending, false);
       }
@@ -266,9 +274,9 @@ const AdminFinancialDashboard: React.FC = () => {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(r =>
-        r.userEmail.toLowerCase().includes(term) ||
-        r.userName.toLowerCase().includes(term) ||
-        r.planName.toLowerCase().includes(term)
+        (r.userEmail || '').toLowerCase().includes(term) ||
+        (r.userName || '').toLowerCase().includes(term) ||
+        (r.planName || '').toLowerCase().includes(term)
       );
     }
 
@@ -276,11 +284,15 @@ const AdminFinancialDashboard: React.FC = () => {
       const now = new Date();
       const daysBack = periodFilter === '7d' ? 7 : periodFilter === '30d' ? 30 : periodFilter === '90d' ? 90 : 365;
       const cutoff = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
-      filtered = filtered.filter(r => new Date(r.confirmedAt) >= cutoff);
+      filtered = filtered.filter(r => {
+        const d = effectiveDate(r);
+        return d ? d >= cutoff : false;
+      });
     }
 
     return filtered;
   }, [records, searchTerm, periodFilter]);
+
 
   // Métricas
   const metrics = useMemo(() => {
