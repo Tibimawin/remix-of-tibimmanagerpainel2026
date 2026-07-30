@@ -1456,6 +1456,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
         </div>
+        )}
 
         {/* Content Grid */}
         {loading ? (
