@@ -353,19 +353,23 @@ class SeriesUpdateService {
 
         // Tentar associar a conteúdo se houver série especificada
         if (episode.Serie) {
-          try {
-            const existingContent = await this.baserowService.getTableData(
-              this.config.tableIds.conteudos,
-              1,
-              5,
-              `Nome=${encodeURIComponent(episode.Serie)}`
-            );
+          const contentRow = await this.findContentByName(String(episode.Serie));
+          if (contentRow) {
+            episodePayload['Conteudo'] = [contentRow.id];
 
-            if (existingContent.results && existingContent.results.length > 0) {
-              episodePayload['Conteudo'] = [existingContent.results[0].id];
+            // Registrar a maior temporada importada por série
+            const seasonNum = parseInt(String(episode.Temporada ?? '').replace(/\D/g, ''), 10);
+            if (!isNaN(seasonNum) && seasonNum > 0) {
+              const key = String(contentRow.id);
+              const prev = seriesMaxSeason.get(key);
+              if (!prev || seasonNum > prev.maxSeason) {
+                seriesMaxSeason.set(key, {
+                  nome: contentRow.Nome || String(episode.Serie),
+                  maxSeason: seasonNum,
+                  row: contentRow
+                });
+              }
             }
-          } catch (error) {
-            console.warn('Erro ao buscar conteúdo associado:', error);
           }
         }
 
