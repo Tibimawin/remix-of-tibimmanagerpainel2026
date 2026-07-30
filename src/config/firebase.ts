@@ -10,12 +10,12 @@ import {
 } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBN7cODHg978T4S2jPvrBsr5sqwZhGidtU",
-  authDomain: "tibimmanagerpainelvercel.firebaseapp.com",
-  projectId: "tibimmanagerpainelvercel",
-  storageBucket: "tibimmanagerpainelvercel.firebasestorage.app",
-  messagingSenderId: "915232934037",
-  appId: "1:915232934037:web:e9386fab78107ba226339c"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBN7cODHg978T4S2jPvrBsr5sqwZhGidtU",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "tibimmanagerpainelvercel.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "tibimmanagerpainelvercel",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "tibimmanagerpainelvercel.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "915232934037",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:915232934037:web:e9386fab78107ba226339c"
 };
 
 const app = initializeApp(firebaseConfig);

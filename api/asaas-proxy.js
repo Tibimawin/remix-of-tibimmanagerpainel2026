@@ -3,7 +3,7 @@
  * Protege a API key e resolve CORS
  */
 
-const ASAAS_API_KEY = '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjE1ZGE0NDBlLWJjNjMtNDNiZi05NzBiLWRiMDZjZDg1NDJiYzo6JGFhY2hfOGU1OGRhZTYtMDEyMS00MmI3LWFiZDgtMmM3NDM2NDU5YWRk';
+const ASAAS_API_KEY = process.env.ASAAS_API_KEY || '';
 const ASAAS_BASE_URL = 'https://api.asaas.com/v3';
 
 export default async function handler(req, res) {
