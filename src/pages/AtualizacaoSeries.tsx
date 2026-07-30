@@ -144,9 +144,13 @@ const AtualizacaoSeries = () => {
       });
 
       const result = await seriesUpdateService.importEpisodes(episodesToImport);
-      
+      const updatedCount = result.updated || 0;
+
       if (result.success) {
-        toast.success(`${result.imported} episódios importados com sucesso!`);
+        const partes: string[] = [];
+        if (result.imported > 0) partes.push(`${result.imported} novos episódios`);
+        if (updatedCount > 0) partes.push(`${updatedCount} atualizados (sem duplicar)`);
+        toast.success(partes.join(' • ') || 'Importação concluída');
         setSelectedEpisodes(new Set());
         
         // Recarregar para atualizar a lista
