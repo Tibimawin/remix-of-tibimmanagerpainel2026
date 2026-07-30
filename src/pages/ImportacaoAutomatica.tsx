@@ -415,20 +415,77 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
     <PermissionGate feature="importacao-automatica">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        {/* Hero Section Compacto */}
+        {/* Hero — Minisséries (layout dedicado) */}
+        {isMiniseries ? (
+          <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/15 via-background to-background p-8">
+            <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-primary/10 blur-3xl" />
+            <div className="relative flex flex-col gap-6">
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl bg-primary/15 p-3">
+                  <Clapperboard className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wider text-primary">
+                    <Sparkles className="h-3 w-3" />
+                    Catálogo exclusivo
+                  </span>
+                  <h1 className="mt-1.5 text-3xl font-bold tracking-tight">Minisséries</h1>
+                </div>
+              </div>
+
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                Um acervo curado de minisséries completas — histórias fechadas, poucas temporadas.
+                Escolha os títulos e leve todos os episódios direto para o seu aplicativo.
+              </p>
+
+              {/* Status em linha */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${configValid ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500' : 'border-destructive/30 bg-destructive/10 text-destructive'}`}>
+                  {configValid ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Shield className="h-3.5 w-3.5" />}
+                  {configValid ? 'Destino conectado' : 'Credenciais pendentes'}
+                </div>
+                <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${importConfig ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border bg-muted text-muted-foreground'}`}>
+                  <Database className="h-3.5 w-3.5" />
+                  {importConfig ? 'Fonte de minisséries ativa' : 'Fonte não configurada pelo admin'}
+                </div>
+                {hasContentLimit() && (
+                  <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                    <Zap className="h-3.5 w-3.5" />
+                    {getRemainingContent()} importações restantes
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  onClick={() => startImport()}
+                  size="lg"
+                  disabled={!configValid || !canAddMoreContent() || isImporting}
+                  className="group gap-2 rounded-full px-6"
+                >
+                  {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 transition-transform group-hover:-translate-y-0.5" />}
+                  {isImporting ? 'Importando...' : 'Explorar minisséries'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  onClick={() => setShowConfig(!showConfig)}
+                  className="gap-2 rounded-full px-6"
+                >
+                  <Settings className="h-4 w-4" />
+                  {showConfig ? 'Ocultar credenciais' : 'Minhas credenciais'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl bg-card border border-border p-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              {isMiniseries ? (
-                <>Conteúdos <span className="text-primary">Minisséries</span></>
-              ) : (
-                <>Importação <span className="text-primary">Automática</span></>
-              )}
+              Importação <span className="text-primary">Automática</span>
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {isMiniseries
-                ? 'Importe minisséries e seus episódios para o seu aplicativo.'
-                : 'Importe conteúdos de outros Baserows rapidamente.'}
+              Importe conteúdos de outros Baserows rapidamente.
             </p>
           </div>
 
@@ -458,6 +515,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
             </Button>
           </div>
         </div>
+        )}
 
         {/* Modal/Popup de progresso da importação */}
         <Dialog open={showProgressModal} onOpenChange={(open) => {
