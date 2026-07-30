@@ -1423,6 +1423,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
         </div>
+        )}
 
         {/* Plataformas Carousel */}
         {!hidePlatformFilter && (
