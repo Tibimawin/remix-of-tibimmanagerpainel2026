@@ -146,11 +146,20 @@ const AtualizacaoSeries = () => {
 
       const result = await seriesUpdateService.importEpisodes(episodesToImport);
       const updatedCount = result.updated || 0;
+      const ignoredCount = result.ignored || 0;
+
+      setLastSummary({
+        created: result.imported || 0,
+        updated: updatedCount,
+        ignored: ignoredCount,
+        total: episodesToImport.length
+      });
 
       if (result.success) {
         const partes: string[] = [];
         if (result.imported > 0) partes.push(`${result.imported} novos episódios`);
-        if (updatedCount > 0) partes.push(`${updatedCount} atualizados (sem duplicar)`);
+        if (updatedCount > 0) partes.push(`${updatedCount} atualizados`);
+        if (ignoredCount > 0) partes.push(`${ignoredCount} ignorados`);
         toast.success(partes.join(' • ') || 'Importação concluída');
         setSelectedEpisodes(new Set());
         
