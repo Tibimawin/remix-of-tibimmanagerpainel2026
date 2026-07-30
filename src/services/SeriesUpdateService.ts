@@ -35,21 +35,28 @@ class SeriesUpdateService {
     this.config = config;
   }
 
-  // Fazer requisição para a tabela central usando credenciais do sistema
-  private async makeSystemRequest(endpoint: string, options: RequestInit = {}) {
-    const systemConfig = {
-      token: 'TH0lxs0P4EzApqjqMXjEqHvtRsjemFgn',
-      baseUrl: 'http://213.199.56.115'
+  // Buscar a configuração global da tabela de origem (definida no painel admin)
+  private async getSourceConfig() {
+    const global = await UserConfigService.getGlobalSeriesUpdateConfig();
+    return {
+      token: global?.sourceToken || DEFAULT_SERIES_UPDATE_CONFIG.sourceToken,
+      baseUrl: (global?.sourceBaseUrl || DEFAULT_SERIES_UPDATE_CONFIG.sourceBaseUrl).replace(/\/$/, ''),
+      tableId: global?.sourceTableId || DEFAULT_SERIES_UPDATE_CONFIG.sourceTableId,
     };
+  }
 
-    const originalUrl = `${systemConfig.baseUrl}${endpoint}`;
+  // Fazer requisição para a tabela central usando credenciais do sistema
+  private async makeSystemRequest(endpoint: string, options: RequestInit = {}, systemConfig?: { token: string; baseUrl: string }) {
+    const source = systemConfig || (await this.getSourceConfig());
+
+    const originalUrl = `${source.baseUrl}${endpoint}`;
     const method = options.method || 'GET';
 
     // 🔧 Usar proxy local configurado
     const proxyPayload = {
       url: originalUrl,
       method: method,
-      token: systemConfig.token,
+      token: source.token,
       body: options.body || null
     };
 
@@ -67,14 +74,16 @@ class SeriesUpdateService {
     let hasMore = true;
     const pageSize = 200;
 
-    console.log('🔍 Buscando episódios da tabela central ID:', SERIES_UPDATE_TABLE_ID);
+    const source = await this.getSourceConfig();
+    console.log('🔍 Buscando episódios da tabela central ID:', source.tableId);
 
     while (hasMore) {
       try {
         console.log(`📖 Carregando página ${page}...`);
 
-        const endpoint = `/api/database/rows/table/${SERIES_UPDATE_TABLE_ID}/?user_field_names=true&page=${page}&size=${pageSize}`;
-        const response = await this.makeSystemRequest(endpoint);
+        const endpoint = `/api/database/rows/table/${source.tableId}/?user_field_names=true&page=${page}&size=${pageSize}`;
+        const response = await this.makeSystemRequest(endpoint, {}, source);
+
 
         if (!response.ok) {
           const errorText = await response.text();
