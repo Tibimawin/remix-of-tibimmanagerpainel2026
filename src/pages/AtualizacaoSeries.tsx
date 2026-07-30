@@ -371,11 +371,21 @@ const AtualizacaoSeries = () => {
 
               {lastSummary.seasonsUpdated && lastSummary.seasonsUpdated.length > 0 && (
                 <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-4">
-                  <p className="text-sm font-semibold mb-2 text-emerald-700 dark:text-emerald-400">
-                    Temporada atualizada automaticamente em {lastSummary.seasonsUpdated.length} série(s)
-                  </p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                      Temporada atualizada automaticamente em {lastSummary.seasonsUpdated.length} série(s)
+                    </p>
+                    {seriesFilter && (
+                      <p className="text-xs text-muted-foreground">
+                        Mostrando avisos de <strong>{seriesFilter}</strong>
+                      </p>
+                    )}
+                  </div>
                   <ul className="space-y-2">
-                    {lastSummary.seasonsUpdated.map((s) => (
+                    {(seriesFilter
+                      ? lastSummary.seasonsUpdated.filter(s => s.nome === seriesFilter)
+                      : lastSummary.seasonsUpdated
+                    ).map((s) => (
                       <li key={s.nome} className="text-sm text-muted-foreground">
                         <span className="font-medium text-foreground">{s.nome}</span>:{' '}
                         <span className="font-mono">Temporadas {s.from} → {s.to}</span>
@@ -385,6 +395,11 @@ const AtualizacaoSeries = () => {
                         </span>
                       </li>
                     ))}
+                    {seriesFilter && !lastSummary.seasonsUpdated.some(s => s.nome === seriesFilter) && (
+                      <li className="text-sm text-muted-foreground italic">
+                        Nenhuma atualização de temporada para {seriesFilter} na última importação.
+                      </li>
+                    )}
                   </ul>
                 </div>
               )}
