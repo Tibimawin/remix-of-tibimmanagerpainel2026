@@ -246,7 +246,10 @@ class SeriesUpdateService {
 
 
   // Importar (ou atualizar) episódios selecionados para a tabela do usuário
-  async importEpisodes(episodes: UpdateEpisode[]): Promise<ImportResult> {
+  async importEpisodes(
+    episodes: UpdateEpisode[],
+    onProgress?: (progress: { processed: number; total: number; current?: string }) => void
+  ): Promise<ImportResult> {
     let imported = 0;
     let updated = 0;
     let ignored = 0;
@@ -256,6 +259,8 @@ class SeriesUpdateService {
 
     const existingIndex = await this.loadExistingIndex(episodes);
     const throttleMs = episodes.length > 20 ? 100 : 0;
+    let processed = 0;
+    onProgress?.({ processed: 0, total: episodes.length });
 
     for (const episode of episodes) {
       try {
@@ -353,6 +358,9 @@ class SeriesUpdateService {
       } catch (error) {
         console.error(`❌ Erro ao importar episódio ${episode.Titulo}:`, error);
         errors.push(`${episode.Titulo}: ${error}`);
+      } finally {
+        processed++;
+        onProgress?.({ processed, total: episodes.length, current: episode.Titulo });
       }
     }
 
