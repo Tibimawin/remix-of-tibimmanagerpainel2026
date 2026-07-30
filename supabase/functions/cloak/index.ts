@@ -78,6 +78,10 @@ Deno.serve(async (req) => {
         public_token: existing?.public_token ?? randomToken(),
       };
       if (typeof body.blocked === "boolean") payload.blocked = body.blocked;
+      if (Array.isArray(body.features)) {
+        payload.features = body.features.map((f: unknown) => String(f));
+        payload.permissions_synced_at = new Date().toISOString();
+      }
 
       const { data, error } = await supabase
         .from("cloak_users")
