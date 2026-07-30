@@ -224,7 +224,7 @@ const menuItems: MenuItem[] = [
     icon: Download,
     category: 'tools',
     description: 'Importar conteúdos de minisséries',
-    feature: 'importacao-automatica',
+    feature: 'miniseries',
     badge: { type: 'new' }
   },
   {
