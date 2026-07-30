@@ -7,7 +7,7 @@ import {
   Settings, RefreshCw, LogOut, Tag, AlertTriangle, Megaphone, Sparkles, Palette, DollarSign, Key
 } from 'lucide-react';
 
-export type AdminView = 'overview' | 'users' | 'activity' | 'date-logs' | 'metrics' | 'products' | 'notifications' | 'user-management' | 'firebase-users' | 'registration-control' | 'chat' | 'import-config' | 'plans' | 'plan-requests' | 'user-permissions' | 'series-correction' | 'suporte-prioritario' | 'security-center' | 'offers' | 'announcements' | 'whatsapp' | 'maintenance' | 'access-expired-config' | 'expiration-notifications' | 'user-action-history' | 'referrals' | 'system-updates' | 'seasonal-theme' | 'financial' | 'planos-config' | 'api-keys' | 'protected-channels';
+export type AdminView = 'overview' | 'users' | 'activity' | 'date-logs' | 'metrics' | 'products' | 'notifications' | 'user-management' | 'firebase-users' | 'registration-control' | 'chat' | 'import-config' | 'plans' | 'plan-requests' | 'user-permissions' | 'series-correction' | 'series-update-config' | 'suporte-prioritario' | 'security-center' | 'offers' | 'announcements' | 'whatsapp' | 'maintenance' | 'access-expired-config' | 'expiration-notifications' | 'user-action-history' | 'referrals' | 'system-updates' | 'seasonal-theme' | 'financial' | 'planos-config' | 'api-keys' | 'protected-channels';
 
 interface AdminSidebarProps {
   activeView: AdminView;
@@ -51,6 +51,7 @@ const menuItems = [
   { id: 'seasonal-theme', label: '🎨 Tema Sazonal', icon: Palette, category: 'settings', isNew: true },
   { id: 'import-config', label: 'Config. Importação', icon: Settings, category: 'settings' },
   { id: 'series-correction', label: 'Corrigir Séries', icon: RefreshCw, category: 'settings' },
+  { id: 'series-update-config', label: '🔄 Origem Atualização de Séries', icon: RefreshCw, category: 'settings', isNew: true },
   { id: 'chat', label: 'Suporte ao Vivo', icon: MessageCircle, category: 'support' },
 ];
 

@@ -38,6 +38,7 @@ import { AdminSeasonalTheme } from '@/components/AdminSeasonalTheme';
 import { AdminRegistrationControl } from '@/components/AdminRegistrationControl';
 import AdminFinancialDashboard from '@/components/AdminFinancialDashboard';
 import AdminPlanosConfig from '@/components/AdminPlanosConfig';
+import AdminSeriesUpdateConfig from '@/components/AdminSeriesUpdateConfig';
 import AdminApiKeys from '@/components/AdminApiKeys';
 import AdminProtectedChannels from '@/components/AdminProtectedChannels';
 import { AdminSidebar, AdminView } from '@/components/admin/AdminSidebar';
@@ -411,6 +412,8 @@ const AdminDashboard = () => {
         return <AdminFinancialDashboard />;
       case 'planos-config':
         return <AdminPlanosConfig />;
+      case 'series-update-config':
+        return <AdminSeriesUpdateConfig />;
       case 'api-keys':
         return <AdminApiKeys />;
       case 'protected-channels':
