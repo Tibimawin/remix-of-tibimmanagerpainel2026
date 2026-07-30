@@ -54,6 +54,7 @@ class CloakServiceImpl {
     email?: string;
     name?: string;
     expiresAt?: string | null;
+    features?: string[];
   }): Promise<string | null> {
     try {
       const { data, error } = await supabase.functions.invoke('cloak', {
@@ -63,6 +64,7 @@ class CloakServiceImpl {
           email: params.email ?? null,
           name: params.name ?? null,
           expires_at: params.expiresAt ?? null,
+          ...(Array.isArray(params.features) ? { features: params.features } : {}),
         },
       });
       if (error) throw error;
