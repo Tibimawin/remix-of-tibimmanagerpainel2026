@@ -35,7 +35,6 @@ const AtualizacaoSeries = () => {
   const [selectedEpisodes, setSelectedEpisodes] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [seriesFilter, setSeriesFilter] = useState('');
-  const [showOnlySelectedSeriesWarnings, setShowOnlySelectedSeriesWarnings] = useState(true);
   const [importing, setImporting] = useState(false);
   const [availableSeries, setAvailableSeries] = useState<string[]>([]);
   const [progress, setProgress] = useState<{ processed: number; total: number; current?: string; startedAt: number } | null>(null);
