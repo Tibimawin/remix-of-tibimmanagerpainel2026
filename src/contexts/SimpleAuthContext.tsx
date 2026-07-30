@@ -207,6 +207,20 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         } else {
           await FirebaseUserService.recordLogin(user.uid);
         }
+
+        // 🔒 Sincronizar validade da assinatura com o sistema de links protegidos
+        try {
+          const { CloakService } = await import('@/services/CloakService');
+          const refreshed = existingUser || (await FirebaseUserService.getUserById(user.uid));
+          await CloakService.syncUser({
+            uid: user.uid,
+            email: user.email || '',
+            name: refreshed?.name,
+            expiresAt: refreshed?.expiryDate || null,
+          });
+        } catch (cloakError) {
+          console.warn('Não foi possível sincronizar links protegidos:', cloakError);
+        }
         
         // ✅ Registrar dispositivo automaticamente no login
         try {
@@ -327,6 +341,20 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           await FirebaseUserService.createUserRecord(defaultUserData);
         } else {
           await FirebaseUserService.recordLogin(user.uid);
+        }
+
+        // 🔒 Sincronizar validade da assinatura com o sistema de links protegidos
+        try {
+          const { CloakService } = await import('@/services/CloakService');
+          const refreshed = existingUser || (await FirebaseUserService.getUserById(user.uid));
+          await CloakService.syncUser({
+            uid: user.uid,
+            email: user.email || '',
+            name: refreshed?.name,
+            expiresAt: refreshed?.expiryDate || null,
+          });
+        } catch (cloakError) {
+          console.warn('Não foi possível sincronizar links protegidos:', cloakError);
         }
         
         // ✅ Registrar dispositivo automaticamente no login com Google
