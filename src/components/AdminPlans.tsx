@@ -213,6 +213,7 @@ const AdminPlans = () => {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>
