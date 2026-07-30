@@ -121,6 +121,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [typeFilter, setTypeFilter] = useState<'all' | 'filme' | 'serie' | 'dorama' | 'anime' | 'novela'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [genreFilter, setGenreFilter] = useState<string>(() => {
+    if (hideGenreFilter) return 'all';
     try {
       return localStorage.getItem('importPreview_genreFilter') || 'all';
     } catch {
@@ -128,6 +129,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   });
   const [yearFilter, setYearFilter] = useState<string>(() => {
+    if (hideYearFilter) return 'all';
     try {
       return localStorage.getItem('importPreview_yearFilter') || 'all';
     } catch {
@@ -135,6 +137,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   });
   const [platformFilter, setPlatformFilter] = useState<string>(() => {
+    if (hidePlatformFilter) return 'all';
     try {
       return localStorage.getItem('importPreview_platformFilter') || 'all';
     } catch {
