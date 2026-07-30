@@ -264,25 +264,30 @@ class SeriesUpdateService {
 
     let found: any | null = null;
     try {
+      // ⚠️ O Baserow usa busca textual simples (?search=), não "Campo=valor"
       const res = await this.baserowService.getTableData(
         this.config.tableIds.conteudos,
         1,
-        5,
-        `Nome=${encodeURIComponent(nome)}`
+        20,
+        nome
       );
       const rows = res?.results || [];
-      found = rows.find((r: any) => this.normalize(r.Nome) === key) || rows[0] || null;
+      found =
+        rows.find((r: any) => this.normalize(r.Nome) === key) ||
+        rows.find((r: any) => this.normalize(r.Nome).includes(key) || key.includes(this.normalize(r.Nome))) ||
+        null;
     } catch (error) {
       console.warn('Erro ao buscar conteúdo associado:', error);
     }
 
+    if (!found) console.warn(`⚠️ Conteúdo não encontrado na tabela Conteúdos para: "${nome}"`);
     this.contentCache.set(key, found);
     return found;
   }
 
   // Atualizar o número de temporadas na tabela de Conteúdos quando aumentou
   private async syncSeasonCounts(
-    seriesMaxSeason: Map<string, { nome: string; maxSeason: number; row: any }>
+    seriesMaxSeason: Map<string, { nome: string; maxSeason: number; row: any; episodes: number }>
   ): Promise<SeasonUpdateInfo[]> {
     const results: SeasonUpdateInfo[] = [];
 
@@ -295,14 +300,22 @@ class SeriesUpdateService {
         const current = parseInt(String(currentRaw ?? '').replace(/\D/g, ''), 10) || 0;
 
         if (info.maxSeason > current) {
-          const isNumeric = typeof currentRaw === 'number';
+          const isNumeric = typeof currentRaw === 'number' || currentRaw == null;
           await this.baserowService.updateRow(
             this.config.tableIds.conteudos,
             String(contentId),
             { [field]: isNumeric ? info.maxSeason : String(info.maxSeason) }
           );
-          results.push({ nome: info.nome, from: current, to: info.maxSeason });
+          results.push({
+            nome: info.nome,
+            from: current,
+            to: info.maxSeason,
+            episodes: info.episodes,
+            at: new Date().toISOString(),
+          });
           console.log(`📺 Temporadas atualizadas em "${info.nome}": ${current} → ${info.maxSeason}`);
+        } else {
+          console.log(`ℹ️ "${info.nome}" já está na temporada ${current} (importado: ${info.maxSeason})`);
         }
       } catch (error) {
         console.warn(`⚠️ Não foi possível atualizar temporadas de "${info.nome}":`, error);
@@ -311,6 +324,7 @@ class SeriesUpdateService {
 
     return results;
   }
+
 
 
   // Importar (ou atualizar) episódios selecionados para a tabela do usuário
