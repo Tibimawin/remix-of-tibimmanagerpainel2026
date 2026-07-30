@@ -1424,6 +1424,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         </div>
 
         {/* Plataformas Carousel */}
+        {!hidePlatformFilter && (
         <div className="px-6 py-3 border-b border-border/50 bg-background">
           <div className="flex items-center gap-2 mb-2">
             <Tv className="h-4 w-4 text-muted-foreground" />
