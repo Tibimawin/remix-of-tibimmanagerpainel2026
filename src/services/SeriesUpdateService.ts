@@ -319,6 +319,8 @@ class SeriesUpdateService {
     let updated = 0;
     let ignored = 0;
     const errors: string[] = [];
+    const seriesMaxSeason = new Map<string, { nome: string; maxSeason: number; row: any }>();
+    this.contentCache.clear();
 
     console.log(`🚀 Iniciando importação de ${episodes.length} episódios...`);
 
