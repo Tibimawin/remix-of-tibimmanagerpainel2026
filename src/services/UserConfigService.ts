@@ -33,6 +33,18 @@ export interface GlobalImportConfig {
   updatedAt: string;
 }
 
+export interface GlobalMiniseriesConfig {
+  sourceToken: string;
+  sourceBaseUrl: string;
+  contentTableId: string;
+  episodeTableId: string;
+  episodeMatchType: 'contains' | 'exact' | 'custom';
+  episodeKeyField: string;
+  episodeSearchField: string;
+  isActive: boolean;
+  updatedAt: string;
+}
+
 export interface UserConfig {
   userId: string;
   apiToken: string;
