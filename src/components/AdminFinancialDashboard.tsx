@@ -45,6 +45,9 @@ const effectiveDate = (r: { confirmedAt?: string; createdAt?: string; startDate?
   return null;
 };
 
+const sortRecords = <T extends { confirmedAt?: string; createdAt?: string; startDate?: string }>(list: T[]): T[] =>
+  [...list].sort((a, b) => (effectiveDate(b)?.getTime() || 0) - (effectiveDate(a)?.getTime() || 0));
+
 
 interface FinancialRecord {
   id: string;
