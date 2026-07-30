@@ -254,7 +254,8 @@ class SeriesUpdateService {
 
     console.log(`🚀 Iniciando importação de ${episodes.length} episódios...`);
 
-    const existingIndex = await this.loadExistingIndex();
+    const existingIndex = await this.loadExistingIndex(episodes);
+    const throttleMs = episodes.length > 20 ? 100 : 0;
 
     for (const episode of episodes) {
       try {
@@ -331,7 +332,7 @@ class SeriesUpdateService {
           // Manter o índice atualizado
           keys.forEach(k => existingIndex.set(k, { ...existingRow, ...updatePayload }));
 
-          await new Promise(resolve => setTimeout(resolve, 100));
+          if (throttleMs) await new Promise(resolve => setTimeout(resolve, throttleMs));
           continue;
         }
 
@@ -347,7 +348,7 @@ class SeriesUpdateService {
         console.log(`✅ Episódio importado: ${episode.Titulo}`);
 
         // Pequena pausa entre importações
-        await new Promise(resolve => setTimeout(resolve, 100));
+        if (throttleMs) await new Promise(resolve => setTimeout(resolve, throttleMs));
 
       } catch (error) {
         console.error(`❌ Erro ao importar episódio ${episode.Titulo}:`, error);
