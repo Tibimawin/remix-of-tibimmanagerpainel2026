@@ -14,7 +14,126 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      cloak_access_logs: {
+        Row: {
+          bytes_served: number
+          created_at: string
+          id: string
+          ip: string | null
+          link_short_id: string | null
+          owner_uid: string | null
+          status: string
+          user_agent: string | null
+        }
+        Insert: {
+          bytes_served?: number
+          created_at?: string
+          id?: string
+          ip?: string | null
+          link_short_id?: string | null
+          owner_uid?: string | null
+          status: string
+          user_agent?: string | null
+        }
+        Update: {
+          bytes_served?: number
+          created_at?: string
+          id?: string
+          ip?: string | null
+          link_short_id?: string | null
+          owner_uid?: string | null
+          status?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      cloak_users: {
+        Row: {
+          blocked: boolean
+          created_at: string
+          email: string | null
+          expires_at: string | null
+          firebase_uid: string
+          id: string
+          last_seen_at: string | null
+          name: string | null
+          public_token: string
+          updated_at: string
+        }
+        Insert: {
+          blocked?: boolean
+          created_at?: string
+          email?: string | null
+          expires_at?: string | null
+          firebase_uid: string
+          id?: string
+          last_seen_at?: string | null
+          name?: string | null
+          public_token: string
+          updated_at?: string
+        }
+        Update: {
+          blocked?: boolean
+          created_at?: string
+          email?: string | null
+          expires_at?: string | null
+          firebase_uid?: string
+          id?: string
+          last_seen_at?: string | null
+          name?: string | null
+          public_token?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cloaked_links: {
+        Row: {
+          access_count: number
+          active: boolean
+          bytes_served: number
+          content_name: string | null
+          created_at: string
+          id: string
+          kind: string
+          last_access_at: string | null
+          original_url: string
+          owner_uid: string
+          short_id: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          access_count?: number
+          active?: boolean
+          bytes_served?: number
+          content_name?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          last_access_at?: string | null
+          original_url: string
+          owner_uid: string
+          short_id: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          access_count?: number
+          active?: boolean
+          bytes_served?: number
+          content_name?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          last_access_at?: string | null
+          original_url?: string
+          owner_uid?: string
+          short_id?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
