@@ -1375,6 +1375,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         )}
 
         {/* Anos Carousel */}
+        {!hideYearFilter && (
         <div className="px-6 py-3 border-b border-border/50 bg-background">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
