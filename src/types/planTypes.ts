@@ -56,6 +56,7 @@ export const AVAILABLE_FEATURES: FeatureAccess[] = [
   { id: 'adicionar-conteudo', name: 'Adicionar Conteúdo', description: 'Adicionar novos conteúdos manualmente' },
   { id: 'importar-canais-tv', name: 'Importar Canais TV', description: 'Importar canais de TV da tabela origem' },
   { id: 'atualizacao-series', name: 'Atualização de Series', description: 'Ferramenta para atualizar informações de series automaticamente' },
+  { id: 'miniseries', name: 'Minisséries', description: 'Importar conteúdos de minisséries da tabela origem' },
   { id: 'maxplus-import', name: 'MaxPlus Importação', description: 'Importar filmes e séries da API MaxPlus' },
   
 
