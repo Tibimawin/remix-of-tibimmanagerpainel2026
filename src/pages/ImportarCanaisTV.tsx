@@ -58,8 +58,10 @@ const resolverCapa = (capa: any): string => {
   if (typeof capa === 'object') return capa.url || '';
   return '';
 };
+const PAGE_SIZE = 60;
 
 const ImportarCanaisTV = () => {
+
   const [busca, setBusca] = useState('');
   const [categoriaAtiva, setCategoriaAtiva] = useState('todas');
   const [somenteOnline, setSomenteOnline] = useState(false);
@@ -102,6 +104,36 @@ const ImportarCanaisTV = () => {
       return true;
     });
   }, [canais, busca, categoriaAtiva, somenteOnline]);
+
+  // Scroll infinito: renderiza em lotes para não travar com milhares de canais
+  const [visiveis, setVisiveis] = useState(PAGE_SIZE);
+  const sentinelaRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setVisiveis(PAGE_SIZE);
+  }, [busca, categoriaAtiva, somenteOnline, canais]);
+
+  useEffect(() => {
+    const el = sentinelaRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisiveis((v) => Math.min(v + PAGE_SIZE, canaisFiltrados.length));
+        }
+      },
+      { rootMargin: '600px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [canaisFiltrados.length]);
+
+  const canaisVisiveis = useMemo(
+    () => canaisFiltrados.slice(0, visiveis),
+    [canaisFiltrados, visiveis]
+  );
+
+
 
   const handleImportCanal = async (canal: CanalTV) => {
     setImportando(canal.id);
@@ -231,8 +263,10 @@ const ImportarCanaisTV = () => {
           </CardContent>
         </Card>
       ) : (
+        <>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
-          {canaisFiltrados.map((canal) => {
+          {canaisVisiveis.map((canal) => {
+
             const capa = resolverCapa(canal.Capa);
             const offline = !!canal.Offline;
             return (
@@ -301,7 +335,21 @@ const ImportarCanaisTV = () => {
             );
           })}
         </div>
+
+        {visiveis < canaisFiltrados.length && (
+          <div ref={sentinelaRef} className="py-8 flex flex-col items-center gap-3">
+            <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">
+              Mostrando {canaisVisiveis.length} de {canaisFiltrados.length} canais
+            </p>
+            <Button variant="outline" size="sm" onClick={() => setVisiveis((v) => v + PAGE_SIZE)}>
+              Carregar mais
+            </Button>
+          </div>
+        )}
+        </>
       )}
+
     </div>
   );
 };
