@@ -58,8 +58,10 @@ const resolverCapa = (capa: any): string => {
   if (typeof capa === 'object') return capa.url || '';
   return '';
 };
+const PAGE_SIZE = 60;
 
 const ImportarCanaisTV = () => {
+
   const [busca, setBusca] = useState('');
   const [categoriaAtiva, setCategoriaAtiva] = useState('todas');
   const [somenteOnline, setSomenteOnline] = useState(false);
