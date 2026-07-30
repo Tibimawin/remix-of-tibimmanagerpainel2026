@@ -22,7 +22,8 @@ import {
   Loader2, 
   Shield, 
   Lock,
-  Tv
+  Tv,
+  BarChart3
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -35,6 +36,7 @@ const AtualizacaoSeries = () => {
   const [seriesFilter, setSeriesFilter] = useState('');
   const [importing, setImporting] = useState(false);
   const [availableSeries, setAvailableSeries] = useState<string[]>([]);
+  const [lastSummary, setLastSummary] = useState<{ created: number; updated: number; ignored: number; total: number } | null>(null);
 
   const seriesUpdateService = useSeriesUpdateService();
   const { config: cloudConfig } = useUserConfig();
@@ -145,11 +147,20 @@ const AtualizacaoSeries = () => {
 
       const result = await seriesUpdateService.importEpisodes(episodesToImport);
       const updatedCount = result.updated || 0;
+      const ignoredCount = result.ignored || 0;
+
+      setLastSummary({
+        created: result.imported || 0,
+        updated: updatedCount,
+        ignored: ignoredCount,
+        total: episodesToImport.length
+      });
 
       if (result.success) {
         const partes: string[] = [];
         if (result.imported > 0) partes.push(`${result.imported} novos episódios`);
-        if (updatedCount > 0) partes.push(`${updatedCount} atualizados (sem duplicar)`);
+        if (updatedCount > 0) partes.push(`${updatedCount} atualizados`);
+        if (ignoredCount > 0) partes.push(`${ignoredCount} ignorados`);
         toast.success(partes.join(' • ') || 'Importação concluída');
         setSelectedEpisodes(new Set());
         
@@ -256,6 +267,41 @@ const AtualizacaoSeries = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Resumo da Última Importação */}
+        {lastSummary && (
+          <Card className="mb-6 border-green-200 bg-green-50/50 dark:bg-green-950/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                <BarChart3 className="h-5 w-5" />
+                Resumo da Última Importação
+              </CardTitle>
+              <CardDescription>
+                Resultado da importação mais recente de episódios
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-background rounded-lg p-4 border text-center">
+                  <p className="text-2xl font-bold text-green-600">{lastSummary.created}</p>
+                  <p className="text-sm text-muted-foreground">Criados</p>
+                </div>
+                <div className="bg-background rounded-lg p-4 border text-center">
+                  <p className="text-2xl font-bold text-blue-600">{lastSummary.updated}</p>
+                  <p className="text-sm text-muted-foreground">Atualizados</p>
+                </div>
+                <div className="bg-background rounded-lg p-4 border text-center">
+                  <p className="text-2xl font-bold text-amber-600">{lastSummary.ignored}</p>
+                  <p className="text-sm text-muted-foreground">Ignorados</p>
+                </div>
+                <div className="bg-background rounded-lg p-4 border text-center">
+                  <p className="text-2xl font-bold text-slate-700 dark:text-slate-300">{lastSummary.total}</p>
+                  <p className="text-sm text-muted-foreground">Total Selecionados</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Controles de Filtro e Busca */}
         {isConfigured && (
