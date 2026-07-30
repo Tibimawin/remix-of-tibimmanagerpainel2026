@@ -65,6 +65,7 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
                     email: userInfo.email,
                     name: record?.name,
                     expiresAt: record?.expiryDate || null,
+                    blocked: record ? record.isActive === false : true,
                     features,
                 });
                 lastCloakSync = now;
@@ -100,7 +101,7 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
             window.removeEventListener('focus', onFocus);
             document.removeEventListener('visibilitychange', onVisibility);
         };
-    }, [userInfo?.id, refreshTrigger]);
+    }, [userInfo?.id, userInfo?.email, permissions?.enabledFeatures, refreshTrigger]);
 
     useEffect(() => {
         if (!userInfo?.id) {

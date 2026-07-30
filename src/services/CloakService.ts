@@ -54,6 +54,7 @@ class CloakServiceImpl {
     email?: string;
     name?: string;
     expiresAt?: string | null;
+    blocked?: boolean;
     features?: string[];
   }): Promise<string | null> {
     try {
@@ -64,6 +65,7 @@ class CloakServiceImpl {
           email: params.email ?? null,
           name: params.name ?? null,
           expires_at: params.expiresAt ?? null,
+          ...(typeof params.blocked === 'boolean' ? { blocked: params.blocked } : {}),
           ...(Array.isArray(params.features) ? { features: params.features } : {}),
         },
       });
