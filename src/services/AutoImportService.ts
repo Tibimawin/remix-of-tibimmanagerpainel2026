@@ -1142,7 +1142,7 @@ export class AutoImportService {
               Categoria: pick(content.Categoria, existingContent.Categoria),
               Sinopse: pick(content.Sinopse, existingContent.Sinopse),
               Capa: pick(content.Poster || content.Capa, existingContent.Capa),
-              Link: pick(content.Link, existingContent.Link),
+              Link: this.cloak(pick(content.Link, existingContent.Link), content.Titulo, 'content'),
               Idioma: pick(content.Idioma, existingContent.Idioma),
               Views: pick(content.Views, existingContent.Views),
               Temporadas: pick(content.Temporadas, existingContent.Temporadas),
@@ -1233,7 +1233,7 @@ export class AutoImportService {
               Sinopse: content.Sinopse,
               Poster: content.Poster,
               Capa: content.Capa,
-              Link: content.Link,
+              Link: this.cloak(content.Link, content.Titulo, 'content'),
               Idioma: content.Idioma,
               Views: content.Views,
               Temporadas: content.Temporadas,
@@ -1350,7 +1350,7 @@ export class AutoImportService {
                         Serie: pickEp(episode.Serie, existingEpisode.Serie),
                         Temporada: pickEp(episode.Temporada, existingEpisode.Temporada),
                         'Episódio': pickEp(episode.Episodio, existingEpisode['Episódio']),
-                        Link: pickEp(episode.Link, existingEpisode.Link),
+                        Link: this.cloak(pickEp(episode.Link, existingEpisode.Link), episode.Titulo, 'episode'),
                         Sinopse: pickEp(episode.Sinopse, existingEpisode.Sinopse),
                       };
 
@@ -1382,7 +1382,7 @@ export class AutoImportService {
                         Serie: episode.Serie,
                         Temporada: episode.Temporada,
                         Episódio: episode.Episodio,
-                        Link: episode.Link || '',
+                        Link: this.cloak(episode.Link || '', episode.Titulo, 'episode'),
                         Sinopse: episode.Sinopse || '',
                         Conteudo: [createdOrUpdatedContent.id]
                       };
