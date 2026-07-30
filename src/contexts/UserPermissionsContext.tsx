@@ -47,6 +47,33 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
             return;
         }
         let cancelled = false;
+        let lastCloakSync = 0;
+        let lastCloakSignature = '';
+
+        // 🔒 Mantém o sistema de links camuflados alinhado com o plano do usuário:
+        // validade da assinatura + funcionalidades habilitadas.
+        const syncCloak = async () => {
+            const features = Array.isArray(permissions?.enabledFeatures) ? permissions!.enabledFeatures : [];
+            const signature = features.slice().sort().join(',');
+            const now = Date.now();
+            if (signature === lastCloakSignature && now - lastCloakSync < 5 * 60 * 1000) return;
+            try {
+                const record = await FirebaseUserService.getUserById(userInfo.id);
+                const { CloakService } = await import('@/services/CloakService');
+                await CloakService.syncUser({
+                    uid: userInfo.id,
+                    email: userInfo.email,
+                    name: record?.name,
+                    expiresAt: record?.expiryDate || null,
+                    features,
+                });
+                lastCloakSync = now;
+                lastCloakSignature = signature;
+            } catch {
+                /* nunca quebrar o app por causa da sincronização */
+            }
+        };
+
         const check = async () => {
             try {
                 const ok = await FirebaseUserService.checkUserAccess(userInfo.id);
@@ -54,8 +81,10 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
             } catch {
                 if (!cancelled) setIsSubscriptionExpired(true);
             }
+            if (!cancelled) void syncCloak();
         };
         check();
+
         // Revalida a cada 60s para reagir rapidamente à expiração/renovação.
         const interval = setInterval(check, 60 * 1000);
         // Revalida também quando o usuário volta pra aba (focus/visibilitychange).
