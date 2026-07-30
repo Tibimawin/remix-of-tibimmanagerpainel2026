@@ -8,6 +8,7 @@ import { ImportContentInterface } from '@/components/ImportContentInterface';
 import { useAutoImportService, ImportConfig, UserConfig, ImportContent, ImportEpisode } from '@/services/AutoImportService';
 import { useUserConfig } from '@/hooks/useUserConfig';
 import { useGlobalImportConfig } from '@/hooks/useGlobalImportConfig';
+import { useGlobalMiniseriesConfig } from '@/hooks/useGlobalMiniseriesConfig';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { PermissionGate } from '@/components/PermissionGate';
