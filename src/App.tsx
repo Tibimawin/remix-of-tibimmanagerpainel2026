@@ -281,6 +281,14 @@ const App = () => {
                                 </SimpleProtectedRoute>
                               } />
 
+                              <Route path="/miniseries" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <Miniseries />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
                               <Route path="/substituicao-urls" element={
                                 <SimpleProtectedRoute>
                                   <Layout>
