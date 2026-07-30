@@ -92,6 +92,12 @@ interface ImportPreviewProps {
   configValid: boolean;
   isImporting?: boolean;
   importProgress?: number;
+  /** Oculta o carrossel de Gêneros */
+  hideGenreFilter?: boolean;
+  /** Oculta o carrossel de Anos */
+  hideYearFilter?: boolean;
+  /** Oculta o carrossel de Plataformas */
+  hidePlatformFilter?: boolean;
 }
 
 export const ImportPreview: React.FC<ImportPreviewProps> = ({
@@ -100,7 +106,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   onStartImport,
   configValid,
   isImporting = false,
-  importProgress = 0
+  importProgress = 0,
+  hideGenreFilter = false,
+  hideYearFilter = false,
+  hidePlatformFilter = false
 }) => {
   const [previews, setPreviews] = useState<ContentPreview[]>([]);
   const [loading, setLoading] = useState(false);
@@ -112,6 +121,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
   const [typeFilter, setTypeFilter] = useState<'all' | 'filme' | 'serie' | 'dorama' | 'anime' | 'novela'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [genreFilter, setGenreFilter] = useState<string>(() => {
+    if (hideGenreFilter) return 'all';
     try {
       return localStorage.getItem('importPreview_genreFilter') || 'all';
     } catch {
@@ -119,6 +129,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   });
   const [yearFilter, setYearFilter] = useState<string>(() => {
+    if (hideYearFilter) return 'all';
     try {
       return localStorage.getItem('importPreview_yearFilter') || 'all';
     } catch {
@@ -126,6 +137,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     }
   });
   const [platformFilter, setPlatformFilter] = useState<string>(() => {
+    if (hidePlatformFilter) return 'all';
     try {
       return localStorage.getItem('importPreview_platformFilter') || 'all';
     } catch {
@@ -1293,6 +1305,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         )}
 
         {/* Gêneros Carousel */}
+        {!hideGenreFilter && (
         <div className="px-6 py-3 border-b border-border/50 bg-background">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className="h-4 w-4 text-muted-foreground" />
@@ -1324,6 +1337,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
         </div>
+        )}
 
         {/* Categories Carousel */}
         {availableCategories.length > 0 && (
@@ -1363,6 +1377,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
         )}
 
         {/* Anos Carousel */}
+        {!hideYearFilter && (
         <div className="px-6 py-3 border-b border-border/50 bg-background">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -1410,8 +1425,10 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
         </div>
+        )}
 
         {/* Plataformas Carousel */}
+        {!hidePlatformFilter && (
         <div className="px-6 py-3 border-b border-border/50 bg-background">
           <div className="flex items-center gap-2 mb-2">
             <Tv className="h-4 w-4 text-muted-foreground" />
@@ -1443,6 +1460,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
         </div>
+        )}
 
         {/* Content Grid */}
         {loading ? (
