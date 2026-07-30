@@ -91,7 +91,10 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
   const navigate = useNavigate();
   const hasTriggeredAutoImportRef = React.useRef(false);
   const { config: cloudConfig, updateConfig: updateCloudConfig, loading: cloudLoading } = useUserConfig();
-  const { globalConfig, loading: globalConfigLoading } = useGlobalImportConfig();
+  const { globalConfig: defaultGlobalConfig, loading: defaultGlobalLoading } = useGlobalImportConfig();
+  const { globalConfig: miniGlobalConfig, loading: miniGlobalLoading } = useGlobalMiniseriesConfig();
+  const globalConfig = isMiniseries ? miniGlobalConfig : defaultGlobalConfig;
+  const globalConfigLoading = isMiniseries ? miniGlobalLoading : defaultGlobalLoading;
   const { config } = useConfig();
   const { mode: typeMode } = useTypeMode();
   const {
