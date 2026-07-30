@@ -419,10 +419,16 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl bg-card border border-border p-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              Importação <span className="text-primary">Automática</span>
+              {isMiniseries ? (
+                <>Conteúdos <span className="text-primary">Minisséries</span></>
+              ) : (
+                <>Importação <span className="text-primary">Automática</span></>
+              )}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Importe conteúdos de outros Baserows rapidamente.
+              {isMiniseries
+                ? 'Importe minisséries e seus episódios para o seu aplicativo.'
+                : 'Importe conteúdos de outros Baserows rapidamente.'}
             </p>
           </div>
 
