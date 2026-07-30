@@ -5,8 +5,8 @@
  * Users never see the real Baserow token.
  */
 
-const FIREBASE_PROJECT_ID = 'tibimmanagerpainelvercel';
-const FIREBASE_API_KEY = 'AIzaSyBN7cODHg978T4S2jPvrBsr5sqwZhGidtU';
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || '';
+const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || '';
 
 // Firebase Service Account (preferred) — set FIREBASE_SERVICE_ACCOUNT_JSON in Vercel
 // When present, all Firestore REST calls authenticate as the service account
