@@ -27,9 +27,15 @@ class PushNotificationService {
         return false;
       }
 
-      // Registrar Service Worker
-      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-      console.log('Service Worker registrado:', registration);
+      // Registrar Service Worker com versão explícita (evita cache antigo do navegador)
+      const registration = await navigator.serviceWorker.register(
+        `/firebase-messaging-sw.js?v=${SW_VERSION}`,
+        { updateViaCache: 'none' }
+      );
+      // Força checagem de atualização a cada inicialização
+      registration.update().catch(() => {});
+      console.log('Service Worker registrado (v' + SW_VERSION + '):', registration);
+
 
       this.messaging = getMessaging(app);
       
