@@ -30,6 +30,22 @@ const toNumber = (v: unknown): number => {
 const formatBRL = (v: unknown): string =>
   `R$ ${toNumber(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+// Status considerados como receita efetivada (tolerante a variações vindas do Asaas)
+const CONFIRMED_STATUSES = ['confirmed', 'received', 'paid', 'received_in_cash', 'confirmado', 'pago'];
+const isConfirmed = (status?: string): boolean =>
+  CONFIRMED_STATUSES.includes((status || '').toLowerCase().trim());
+
+// Data efetiva do registro: usa confirmação, senão criação/início
+const effectiveDate = (r: { confirmedAt?: string; createdAt?: string; startDate?: string }): Date | null => {
+  for (const raw of [r.confirmedAt, r.createdAt, r.startDate]) {
+    if (!raw) continue;
+    const d = new Date(raw);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return null;
+};
+
+
 interface FinancialRecord {
   id: string;
   userId: string;
