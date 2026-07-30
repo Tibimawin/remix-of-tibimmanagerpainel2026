@@ -62,6 +62,16 @@ export const usePlans = () => {
       throw error;
     }
   };
+  // Remover planos duplicados (mesmo nome)
+  const removeDuplicates = async () => {
+    try {
+      const removed = await PlansService.removeDuplicatePlans();
+      toast.success(removed > 0 ? `${removed} plano(s) duplicado(s) removido(s)` : 'Nenhum duplicado encontrado');
+    } catch (error) {
+      console.error('Erro ao remover duplicados:', error);
+      toast.error('Erro ao remover planos duplicados');
+    }
+  };
 
   // Filtrar apenas planos ativos
   const activePlans = plans.filter(plan => plan.isActive);
@@ -72,6 +82,7 @@ export const usePlans = () => {
     loading,
     createPlan,
     updatePlan,
-    deletePlan
+    deletePlan,
+    removeDuplicates
   };
 };
