@@ -854,6 +854,8 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
             </div>
           </CardContent>
         </Card>
+        </>
+        )}
       </div>
     </PermissionGate>
   );
