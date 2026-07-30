@@ -47,7 +47,13 @@ interface ImportacaoAutomaticaLocationState {
   autoImportContents?: ContentPreview[];
 }
 
-const ImportacaoAutomatica = () => {
+export interface ImportacaoAutomaticaProps {
+  /** 'padrao' = Importação Automática | 'miniseries' = Minisséries */
+  variant?: 'padrao' | 'miniseries';
+}
+
+const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps) => {
+  const isMiniseries = variant === 'miniseries';
   const [showConfig, setShowConfig] = useState(false);
   const [showImportInterface, setShowImportInterface] = useState(false);
   const [userConfig, setUserConfig] = useState<UserConfig>({
