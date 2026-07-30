@@ -13,7 +13,7 @@ import { Plan, AVAILABLE_FEATURES } from '@/types/planTypes';
 import { usePlans } from '@/hooks/usePlans';
 
 const AdminPlans = () => {
-  const { plans, loading, createPlan, updatePlan, deletePlan } = usePlans();
+  const { plans, loading, createPlan, updatePlan, deletePlan, removeDuplicates } = usePlans();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [formData, setFormData] = useState({
@@ -95,6 +95,11 @@ const AdminPlans = () => {
           <h2 className="text-2xl font-bold text-foreground">Gerenciamento de Planos</h2>
           <p className="text-muted-foreground">Gerencie os planos disponíveis e suas configurações</p>
         </div>
+        <div className="flex items-center gap-2">
+        <Button variant="outline" onClick={removeDuplicates}>
+          <Trash2 className="h-4 w-4 mr-2" />
+          Remover duplicados
+        </Button>
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => handleOpenEditDialog()}>
@@ -208,6 +213,7 @@ const AdminPlans = () => {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>

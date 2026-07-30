@@ -11,9 +11,8 @@ export const usePlans = () => {
   useEffect(() => {
     console.log('Configurando listener de planos em tempo real');
     
-    // Migrar dados do localStorage se necessário e garantir plano API
+    // Migrar dados do localStorage se necessário (não cria planos automaticamente)
     PlansService.migrateFromLocalStorage();
-    PlansService.ensureApiPlan();
 
     // Configurar listener em tempo real
     const unsubscribe = PlansService.onPlansChange((updatedPlans) => {
@@ -63,6 +62,16 @@ export const usePlans = () => {
       throw error;
     }
   };
+  // Remover planos duplicados (mesmo nome)
+  const removeDuplicates = async () => {
+    try {
+      const removed = await PlansService.removeDuplicatePlans();
+      toast.success(removed > 0 ? `${removed} plano(s) duplicado(s) removido(s)` : 'Nenhum duplicado encontrado');
+    } catch (error) {
+      console.error('Erro ao remover duplicados:', error);
+      toast.error('Erro ao remover planos duplicados');
+    }
+  };
 
   // Filtrar apenas planos ativos
   const activePlans = plans.filter(plan => plan.isActive);
@@ -73,6 +82,7 @@ export const usePlans = () => {
     loading,
     createPlan,
     updatePlan,
-    deletePlan
+    deletePlan,
+    removeDuplicates
   };
 };
