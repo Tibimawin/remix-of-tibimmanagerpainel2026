@@ -346,10 +346,26 @@ export class AutoImportService {
   private sourceService: any;
   private cacheManager: CacheManager;
 
+  /**
+   * Transformador opcional de links (camuflagem).
+   * Quando definido, todo Link gravado no Baserow passa por aqui.
+   */
+  public linkTransform?: (url: string, contentName?: string, kind?: 'content' | 'episode') => string;
+
   constructor(userBaserowService: any) {
     this.baserowService = userBaserowService;
     this.cacheManager = CacheManager.getInstance();
   }
+
+  private cloak(url: any, contentName?: string, kind: 'content' | 'episode' = 'content'): any {
+    if (!this.linkTransform || !url || typeof url !== 'string') return url;
+    try {
+      return this.linkTransform(url, contentName, kind);
+    } catch {
+      return url;
+    }
+  }
+
 
   private validateUserConfig(userConfig: UserConfig) {
     if (!userConfig) {
