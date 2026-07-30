@@ -2,12 +2,16 @@
 // Não precisa de nenhuma chave secreta na Vercel: toda a validação
 // (assinatura ativa, expiração, bloqueio, métricas) acontece no backend.
 
+export const config = {
+  api: { responseLimit: false },
+};
+
 const BACKEND_URL =
   process.env.SUPABASE_URL ||
   process.env.VITE_SUPABASE_URL ||
   'https://hgvctwsyxlsygtsyayek.supabase.co';
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'range, content-type');
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -21,23 +25,36 @@ module.exports = async function handler(req, res) {
 
   try {
     const upstream = await fetch(`${BACKEND_URL}/functions/v1/cloak-stream?${params}`, {
+      method: req.method === 'HEAD' ? 'HEAD' : 'GET',
       headers: {
         'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0',
         ...(req.headers.range ? { Range: req.headers.range } : {}),
       },
+      redirect: 'follow',
     });
 
-    upstream.headers.forEach((value, key) => {
-      if (['content-type', 'content-length', 'content-range', 'accept-ranges', 'cache-control'].includes(key)) {
-        res.setHeader(key, value);
-      }
-    });
+    for (const key of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'cache-control']) {
+      const value = upstream.headers.get(key);
+      if (value) res.setHeader(key, value);
+    }
 
     res.status(upstream.status);
-    const buffer = Buffer.from(await upstream.arrayBuffer());
-    res.send(buffer);
+
+    if (req.method === 'HEAD' || !upstream.body) return res.end();
+
+    // Streaming real (sem carregar o vídeo inteiro na memória)
+    const reader = upstream.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!res.write(Buffer.from(value))) {
+        await new Promise((resolve) => res.once('drain', resolve));
+      }
+    }
+    res.end();
   } catch (err) {
     console.error('[stream-proxy] erro:', err);
-    res.status(502).send('Erro ao acessar o conteúdo');
+    if (!res.headersSent) res.status(502).send('Erro ao acessar o conteúdo');
+    else res.end();
   }
-};
+}
