@@ -212,6 +212,7 @@ class SeriesUpdateService {
   async importEpisodes(episodes: UpdateEpisode[]): Promise<ImportResult> {
     let imported = 0;
     let updated = 0;
+    let ignored = 0;
     const errors: string[] = [];
 
     console.log(`🚀 Iniciando importação de ${episodes.length} episódios...`);
@@ -283,10 +284,12 @@ class SeriesUpdateService {
               String(existingRow.id),
               updatePayload
             );
+            updated++;
+            console.log(`♻️ Episódio atualizado (sem duplicar): ${episode.Titulo}`);
+          } else {
+            ignored++;
+            console.log(`⏭️ Episódio ignorado (sem alterações): ${episode.Titulo}`);
           }
-
-          updated++;
-          console.log(`♻️ Episódio atualizado (sem duplicar): ${episode.Titulo}`);
 
           // Manter o índice atualizado
           keys.forEach(k => existingIndex.set(k, { ...existingRow, ...updatePayload }));
@@ -315,12 +318,13 @@ class SeriesUpdateService {
       }
     }
 
-    console.log(`🎉 Importação concluída: ${imported} novos, ${updated} atualizados de ${episodes.length}`);
+    console.log(`🎉 Importação concluída: ${imported} novos, ${updated} atualizados, ${ignored} ignorados de ${episodes.length}`);
 
     return {
       success: imported + updated > 0,
       imported,
       updated,
+      ignored,
       total: episodes.length,
       errors: errors.length > 0 ? errors : undefined
     };
