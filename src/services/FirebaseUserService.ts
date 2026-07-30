@@ -262,6 +262,19 @@ export const FirebaseUserService = {
 
       console.log('Acesso estendido com sucesso:', additionalDays, 'dias');
 
+      // 🔒 Atualizar validade dos links protegidos (camuflagem)
+      try {
+        const { CloakService } = await import('@/services/CloakService');
+        await CloakService.syncUser({
+          uid,
+          email: user.email,
+          name: user.name,
+          expiresAt: newExpiry.toISOString(),
+        });
+      } catch (cloakError) {
+        console.warn('Não foi possível atualizar links protegidos:', cloakError);
+      }
+
       // Enviar notificação de renovação ao usuário
       try {
         const { UserSubscriptionNotificationService } = await import('@/services/UserSubscriptionNotificationService');
