@@ -626,49 +626,43 @@ const AdminFinancialDashboard: React.FC = () => {
             <div className="space-y-2 max-h-[500px] overflow-y-auto">
               {filteredRecords.map((record) => {
                 const getStatusIcon = (status: string) => {
-                  switch (status) {
-                    case 'confirmed':
-                      return (
-                        <div className="p-2 bg-emerald-500/10 rounded-lg">
-                          <CheckCircle className="h-4 w-4 text-emerald-500" />
-                        </div>
-                      );
-                    case 'pending':
-                      return (
-                        <div className="p-2 bg-amber-500/10 rounded-lg animate-pulse">
-                          <Clock className="h-4 w-4 text-amber-500" />
-                        </div>
-                      );
-                    default:
-                      return (
-                        <div className="p-2 bg-red-500/10 rounded-lg">
-                          <AlertCircle className="h-4 w-4 text-red-500" />
-                        </div>
-                      );
+                  if (isConfirmed(status)) {
+                    return (
+                      <div className="p-2 bg-emerald-500/10 rounded-lg">
+                        <CheckCircle className="h-4 w-4 text-emerald-500" />
+                      </div>
+                    );
                   }
+                  if ((status || '').toLowerCase() === 'pending') {
+                    return (
+                      <div className="p-2 bg-amber-500/10 rounded-lg animate-pulse">
+                        <Clock className="h-4 w-4 text-amber-500" />
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="p-2 bg-red-500/10 rounded-lg">
+                      <AlertCircle className="h-4 w-4 text-red-500" />
+                    </div>
+                  );
                 };
 
                 const getStatusBadge = (status: string) => {
-                  switch (status) {
-                    case 'confirmed':
-                      return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-xs">Confirmado</Badge>;
-                    case 'pending':
-                      return <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-xs animate-pulse">Pendente</Badge>;
-                    default:
-                      return <Badge className="bg-red-500/10 text-red-500 border-red-500/20 text-xs">{status || 'Cancelado'}</Badge>;
+                  if (isConfirmed(status)) {
+                    return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-xs">Confirmado</Badge>;
                   }
+                  if ((status || '').toLowerCase() === 'pending') {
+                    return <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-xs animate-pulse">Pendente</Badge>;
+                  }
+                  return <Badge className="bg-red-500/10 text-red-500 border-red-500/20 text-xs">{status || 'Cancelado'}</Badge>;
                 };
 
                 const getPaymentDateString = () => {
-                  const dateStr = record.status === 'confirmed' ? record.confirmedAt : record.createdAt;
-                  if (!dateStr) return 'Sem data';
-                  try {
-                    const d = new Date(dateStr);
-                    return `${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
-                  } catch {
-                    return 'Data inválida';
-                  }
+                  const d = effectiveDate(record);
+                  if (!d) return 'Sem data';
+                  return `${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
                 };
+
 
                 return (
                   <div
