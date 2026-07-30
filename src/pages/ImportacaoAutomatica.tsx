@@ -8,6 +8,7 @@ import { ImportContentInterface } from '@/components/ImportContentInterface';
 import { useAutoImportService, ImportConfig, UserConfig, ImportContent, ImportEpisode } from '@/services/AutoImportService';
 import { useUserConfig } from '@/hooks/useUserConfig';
 import { useGlobalImportConfig } from '@/hooks/useGlobalImportConfig';
+import { useGlobalMiniseriesConfig } from '@/hooks/useGlobalMiniseriesConfig';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { PermissionGate } from '@/components/PermissionGate';
@@ -47,7 +48,13 @@ interface ImportacaoAutomaticaLocationState {
   autoImportContents?: ContentPreview[];
 }
 
-const ImportacaoAutomatica = () => {
+export interface ImportacaoAutomaticaProps {
+  /** 'padrao' = Importação Automática | 'miniseries' = Minisséries */
+  variant?: 'padrao' | 'miniseries';
+}
+
+const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps) => {
+  const isMiniseries = variant === 'miniseries';
   const [showConfig, setShowConfig] = useState(false);
   const [showImportInterface, setShowImportInterface] = useState(false);
   const [userConfig, setUserConfig] = useState<UserConfig>({
@@ -85,7 +92,10 @@ const ImportacaoAutomatica = () => {
   const navigate = useNavigate();
   const hasTriggeredAutoImportRef = React.useRef(false);
   const { config: cloudConfig, updateConfig: updateCloudConfig, loading: cloudLoading } = useUserConfig();
-  const { globalConfig, loading: globalConfigLoading } = useGlobalImportConfig();
+  const { globalConfig: defaultGlobalConfig, loading: defaultGlobalLoading } = useGlobalImportConfig();
+  const { globalConfig: miniGlobalConfig, loading: miniGlobalLoading } = useGlobalMiniseriesConfig();
+  const globalConfig = isMiniseries ? miniGlobalConfig : defaultGlobalConfig;
+  const globalConfigLoading = isMiniseries ? miniGlobalLoading : defaultGlobalLoading;
   const { config } = useConfig();
   const { mode: typeMode } = useTypeMode();
   const {
@@ -409,10 +419,16 @@ const ImportacaoAutomatica = () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl bg-card border border-border p-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              Importação <span className="text-primary">Automática</span>
+              {isMiniseries ? (
+                <>Conteúdos <span className="text-primary">Minisséries</span></>
+              ) : (
+                <>Importação <span className="text-primary">Automática</span></>
+              )}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Importe conteúdos de outros Baserows rapidamente.
+              {isMiniseries
+                ? 'Importe minisséries e seus episódios para o seu aplicativo.'
+                : 'Importe conteúdos de outros Baserows rapidamente.'}
             </p>
           </div>
 

@@ -19,6 +19,7 @@ const routeFeatures: Record<string, string> = {
   '/suporte-ao-vivo': 'suporte-ao-vivo',
   '/atualizacao-series': 'atualizacao-series',
   '/importacao-automatica': 'importacao-automatica',
+  '/miniseries': 'importacao-automatica',
   '/configuracoes-auto-import': 'importacao-automatica',
   '/substituicao-urls': 'substituicao-urls',
   '/configuracoes': 'configuracoes',

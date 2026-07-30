@@ -53,6 +53,7 @@ const navigation: NavItem[] = [
   { name: 'Duplicados', href: '/duplicados', icon: Copy },
   { name: 'Duplicados Episódios', href: '/duplicados-episodios', icon: Copy },
   { name: 'Importação Automática', href: '/importacao-automatica', icon: Download },
+  { name: 'Minisséries', href: '/miniseries', icon: Download },
   { name: 'Substituição de URLs', href: '/substituicao-urls', icon: Link2 },
   { name: 'Usuários', href: '/usuarios', icon: Users },
   { name: 'Sessões', href: '/sessoes', icon: Calendar },

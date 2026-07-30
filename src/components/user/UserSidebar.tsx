@@ -218,6 +218,16 @@ const menuItems: MenuItem[] = [
     badge: { type: 'info', text: 'BETA' }
   },
   {
+    id: 'miniseries',
+    label: 'Minisséries',
+    href: '/miniseries',
+    icon: Download,
+    category: 'tools',
+    description: 'Importar conteúdos de minisséries',
+    feature: 'importacao-automatica',
+    badge: { type: 'new' }
+  },
+  {
     id: 'substituicao-urls',
     label: 'Substituição URLs',
     href: '/substituicao-urls',
