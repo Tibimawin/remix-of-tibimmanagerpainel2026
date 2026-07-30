@@ -21,6 +21,7 @@ export interface ImportResult {
   success: boolean;
   imported: number;
   updated?: number;
+  ignored?: number;
   total: number;
   errors?: string[];
 }
