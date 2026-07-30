@@ -1,6 +1,15 @@
 // Firebase Cloud Messaging Service Worker
+// SW_VERSION: bump este valor sempre que alterar este arquivo.
+// O registro no app usa ?v=SW_VERSION, forçando o navegador a baixar a nova versão.
+const SW_VERSION = '1.0.1';
+console.log('[firebase-messaging-sw.js] versão', SW_VERSION);
+
+// Ativa imediatamente a nova versão, sem ficar presa em "waiting"
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 
 importScripts('https://www.gstatic.com/firebasejs/11.0.2/firebase-app-compat.js');
+
 importScripts('https://www.gstatic.com/firebasejs/11.0.2/firebase-messaging-compat.js');
 
 // Configuração do Firebase (mesma do projeto tibimmanagerpainelvercel)
