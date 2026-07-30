@@ -21,7 +21,10 @@ export interface SeasonUpdateInfo {
   nome: string;
   from: number;
   to: number;
+  episodes: number;
+  at: string;
 }
+
 
 export interface ImportResult {
   success: boolean;
