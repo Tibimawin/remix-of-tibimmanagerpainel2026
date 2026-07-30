@@ -263,8 +263,10 @@ const ImportarCanaisTV = () => {
           </CardContent>
         </Card>
       ) : (
+        <>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
-          {canaisFiltrados.map((canal) => {
+          {canaisVisiveis.map((canal) => {
+
             const capa = resolverCapa(canal.Capa);
             const offline = !!canal.Offline;
             return (
