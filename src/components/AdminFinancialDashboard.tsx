@@ -10,7 +10,7 @@ import {
   AlertCircle, Loader2
 } from 'lucide-react';
 import { db } from '@/config/firebase';
-import { collection, query, orderBy, getDocs, doc, setDoc, getDoc, addDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, getDoc, addDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
