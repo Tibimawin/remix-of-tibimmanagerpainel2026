@@ -299,23 +299,23 @@ const AdminFinancialDashboard: React.FC = () => {
 
   // Métricas
   const metrics = useMemo(() => {
-    const confirmedRecords = filteredRecords.filter(r => r.status === 'confirmed');
+    const confirmedRecords = filteredRecords.filter(r => isConfirmed(r.status));
     const totalRevenue = confirmedRecords.reduce((sum, r) => sum + toNumber(r.planPrice), 0);
     const totalSubscribers = new Set(confirmedRecords.map(r => r.userId)).size;
-    const monthlyPlans = confirmedRecords.filter(r => r.accessDays <= 31).length;
-    const annualPlans = confirmedRecords.filter(r => r.accessDays > 31).length;
+    const monthlyPlans = confirmedRecords.filter(r => toNumber(r.accessDays) <= 31).length;
+    const annualPlans = confirmedRecords.filter(r => toNumber(r.accessDays) > 31).length;
     const avgTicket = confirmedRecords.length > 0 ? totalRevenue / confirmedRecords.length : 0;
 
     // Último mês vs mês anterior
     const now = new Date();
+    const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const thisMonth = confirmedRecords.filter(r => {
-      const d = new Date(r.confirmedAt);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      const d = effectiveDate(r);
+      return !!d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
     const lastMonth = confirmedRecords.filter(r => {
-      const d = new Date(r.confirmedAt);
-      const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
+      const d = effectiveDate(r);
+      return !!d && d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
     });
     const thisMonthRevenue = thisMonth.reduce((s, r) => s + toNumber(r.planPrice), 0);
     const lastMonthRevenue = lastMonth.reduce((s, r) => s + toNumber(r.planPrice), 0);
@@ -328,12 +328,13 @@ const AdminFinancialDashboard: React.FC = () => {
 
   // Dados para gráficos
   const chartData = useMemo(() => {
-    const confirmedRecords = filteredRecords.filter(r => r.status === 'confirmed');
-    
+    const confirmedRecords = filteredRecords.filter(r => isConfirmed(r.status));
+
     // Receita por mês
     const monthlyMap: Record<string, number> = {};
     confirmedRecords.forEach(r => {
-      const d = new Date(r.confirmedAt);
+      const d = effectiveDate(r);
+      if (!d) return;
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       monthlyMap[key] = (monthlyMap[key] || 0) + toNumber(r.planPrice);
     });
@@ -347,12 +348,14 @@ const AdminFinancialDashboard: React.FC = () => {
     // Planos distribuição
     const planMap: Record<string, number> = {};
     confirmedRecords.forEach(r => {
-      planMap[r.planName] = (planMap[r.planName] || 0) + 1;
+      const name = r.planName || 'Sem plano';
+      planMap[name] = (planMap[name] || 0) + 1;
     });
     const planDistribution = Object.entries(planMap).map(([name, value]) => ({ name, value }));
 
     return { monthlyRevenue, planDistribution };
   }, [filteredRecords]);
+
 
   if (loading) {
     return (
