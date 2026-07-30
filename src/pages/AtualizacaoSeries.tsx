@@ -165,7 +165,8 @@ const AtualizacaoSeries = () => {
         created: result.imported || 0,
         updated: updatedCount,
         ignored: ignoredCount,
-        total: episodesToImport.length
+        total: episodesToImport.length,
+        seasonsUpdated: result.seasonsUpdated
       });
 
       if (result.success) {
@@ -173,6 +174,7 @@ const AtualizacaoSeries = () => {
         if (result.imported > 0) partes.push(`${result.imported} novos episódios`);
         if (updatedCount > 0) partes.push(`${updatedCount} atualizados`);
         if (ignoredCount > 0) partes.push(`${ignoredCount} ignorados`);
+        if (result.seasonsUpdated?.length) partes.push(`${result.seasonsUpdated.length} série(s) com temporada atualizada`);
         toast.success(partes.join(' • ') || 'Importação concluída');
         setSelectedEpisodes(new Set());
         
