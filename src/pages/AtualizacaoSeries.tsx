@@ -35,6 +35,7 @@ const AtualizacaoSeries = () => {
   const [seriesFilter, setSeriesFilter] = useState('');
   const [importing, setImporting] = useState(false);
   const [availableSeries, setAvailableSeries] = useState<string[]>([]);
+  const [lastSummary, setLastSummary] = useState<{ created: number; updated: number; ignored: number; total: number } | null>(null);
 
   const seriesUpdateService = useSeriesUpdateService();
   const { config: cloudConfig } = useUserConfig();
