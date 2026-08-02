@@ -33,6 +33,8 @@ import CategoriasTV from "./pages/CategoriasTV";
 import CategoriasAnime from "./pages/CategoriasAnime";
 import Duplicados from "./pages/Duplicados";
 import DuplicadosEpisodios from "./pages/DuplicadosEpisodios";
+import DuplicadosEpisodiosOtimizado from "./pages/DuplicadosEpisodiosOtimizado";
+import FerramentasIA from "./pages/FerramentasIA";
 import Usuarios from "./pages/Usuarios";
 import Sessoes from "./pages/Sessoes";
 import Plataformas from "./pages/Plataformas";
@@ -221,6 +223,22 @@ const App = () => {
                                 <SimpleProtectedRoute>
                                   <Layout>
                                     <DuplicadosEpisodios />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/duplicados-episodios-otimizado" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <DuplicadosEpisodiosOtimizado />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/ferramentas-ia" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <FerramentasIA />
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />
