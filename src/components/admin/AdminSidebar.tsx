@@ -75,7 +75,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   adminUser,
   isRefreshing,
   onRefresh,
-  onLogout
+  onLogout,
+  mobileOpen,
+  onMobileOpenChange
 }) => {
   const groupedMenuItems = menuItems.reduce((acc, item) => {
     if (!acc[item.category]) {
