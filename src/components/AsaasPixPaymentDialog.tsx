@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Loader2, Copy, CheckCircle2, QrCode, User, Mail, CreditCard, AlertCircle, Download } from 'lucide-react';
 import jsPDF from 'jspdf';
+import { pushEventsService } from '@/services/PushEventsService';
 import { toast } from 'sonner';
 import { AsaasPaymentService } from '@/services/AsaasPaymentService';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
@@ -287,6 +288,16 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                     confirmedAt: new Date().toISOString()
                   }, { merge: true });
                   console.log('💰 Registro financeiro confirmado atualizado');
+                } catch (finErr) {
+                  console.error('Erro ao salvar registro financeiro confirmado:', finErr);
+                }
+
+                // Push real de pagamento confirmado
+                try {
+                  await pushEventsService.notifyPaymentConfirmed({
+                    paymentId: firstPayment.id,
+                    accessDays,
+                  });
                 } catch (finErr) {
                   console.error('Erro ao salvar registro financeiro confirmado:', finErr);
                 }
