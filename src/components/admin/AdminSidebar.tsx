@@ -82,8 +82,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     return acc;
   }, {} as Record<string, typeof menuItems>);
 
-  return (
-    <div className="w-80 h-screen sticky top-0 overscroll-contain modern-sidebar border-r border-purple-500/10 flex flex-col bg-card/60 backdrop-blur-md">
+  const sidebarBody = (
+    <div className="w-full h-full flex flex-col overscroll-contain">
       {/* Header */}
       <div className="p-6 border-b border-purple-500/10">
         <div className="flex items-center space-x-3 animate-slide-in-left">
