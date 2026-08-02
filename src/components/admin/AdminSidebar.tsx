@@ -8,7 +8,7 @@ import {
   Settings, RefreshCw, LogOut, Tag, AlertTriangle, Megaphone, Sparkles, Palette, DollarSign, Key
 } from 'lucide-react';
 
-export type AdminView = 'overview' | 'users' | 'activity' | 'date-logs' | 'metrics' | 'products' | 'notifications' | 'user-management' | 'firebase-users' | 'registration-control' | 'chat' | 'import-config' | 'plans' | 'plan-requests' | 'user-permissions' | 'series-correction' | 'series-update-config' | 'miniseries-config' | 'suporte-prioritario' | 'security-center' | 'offers' | 'announcements' | 'whatsapp' | 'maintenance' | 'access-expired-config' | 'expiration-notifications' | 'user-action-history' | 'referrals' | 'system-updates' | 'seasonal-theme' | 'financial' | 'planos-config' | 'api-keys' | 'protected-channels' | 'cloak-links';
+export type AdminView = 'overview' | 'users' | 'activity' | 'date-logs' | 'metrics' | 'products' | 'notifications' | 'user-management' | 'firebase-users' | 'registration-control' | 'chat' | 'import-config' | 'plans' | 'plan-requests' | 'user-permissions' | 'series-correction' | 'series-update-config' | 'miniseries-config' | 'suporte-prioritario' | 'security-center' | 'offers' | 'announcements' | 'whatsapp' | 'maintenance' | 'access-expired-config' | 'expiration-notifications' | 'user-action-history' | 'referrals' | 'system-updates' | 'seasonal-theme' | 'financial' | 'planos-config' | 'api-keys' | 'protected-channels' | 'cloak-links' | 'cloak-dashboard';
 
 interface AdminSidebarProps {
   activeView: AdminView;
@@ -30,6 +30,7 @@ const menuItems = [
   { id: 'security-center', label: '🔒 Central de Segurança', icon: Shield, category: 'security' },
   { id: 'protected-channels', label: '🛡️ Canais Protegidos', icon: Shield, category: 'security', isNew: true },
   { id: 'cloak-links', label: '🔗 Links Camuflados', icon: Shield, category: 'security', isNew: true },
+  { id: 'cloak-dashboard', label: '📊 Camuflagem & Importações', icon: BarChart, category: 'analytics', isNew: true },
   { id: 'financial', label: '💰 Controle Financeiro', icon: DollarSign, category: 'analytics', isNew: true },
   { id: 'metrics', label: 'Métricas Visuais', icon: BarChart, category: 'analytics' },
   { id: 'products', label: 'Produtos', icon: Package, category: 'management' },

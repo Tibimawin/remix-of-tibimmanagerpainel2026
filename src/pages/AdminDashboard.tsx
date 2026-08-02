@@ -43,6 +43,7 @@ import AdminMiniseriesConfig from '@/components/AdminMiniseriesConfig';
 import AdminApiKeys from '@/components/AdminApiKeys';
 import AdminProtectedChannels from '@/components/AdminProtectedChannels';
 import AdminCloakLinks from '@/components/AdminCloakLinks';
+import AdminCloakDashboard from '@/components/AdminCloakDashboard';
 import { AdminSidebar, AdminView } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { useMaintenanceMode } from '@/hooks/useMaintenanceMode';
@@ -427,6 +428,8 @@ const AdminDashboard = () => {
         return <AdminProtectedChannels />;
       case 'cloak-links':
         return <AdminCloakLinks />;
+      case 'cloak-dashboard':
+        return <AdminCloakDashboard />;
       default:
         return <div className="text-foreground">Selecione uma opção do menu</div>;
     }
