@@ -103,7 +103,8 @@ class CloakServiceImpl {
 
   /**
    * Converte uma URL original em URL camuflada (síncrono).
-   * O registro no banco é enfileirado e enviado em lote por `flush()`.
+   * O registro é enfileirado, salvo no localStorage (à prova de fechar a aba)
+   * e enviado automaticamente para o banco.
    */
   cloakUrl(ownerUid: string, token: string, input: CloakLinkInput): string {
     const url = (input.originalUrl || '').trim();
@@ -118,27 +119,81 @@ class CloakServiceImpl {
       kind: input.kind || 'episode',
       source: input.source || 'miniseries',
     });
+    this.persistQueue();
+    this.scheduleFlush();
 
     return `${getCloakBaseUrl()}/api/s/${token}/${shortId}`;
   }
 
-  /** Envia os links enfileirados para o banco (em lotes). */
-  async flush(): Promise<void> {
-    if (this.queue.size === 0) return;
-    const links = Array.from(this.queue.values());
-    this.queue.clear();
+  /** Salva a fila no navegador para não perder links se a aba fechar. */
+  private persistQueue(): void {
+    try {
+      localStorage.setItem(PENDING_KEY, JSON.stringify(Array.from(this.queue.values())));
+    } catch { /* storage cheio: segue o jogo */ }
+  }
 
-    const chunkSize = 200;
-    for (let i = 0; i < links.length; i += chunkSize) {
-      const chunk = links.slice(i, i + chunkSize);
-      try {
-        const { error } = await supabase.functions.invoke('cloak', {
-          body: { action: 'register-links', links: chunk },
-        });
-        if (error) throw error;
-      } catch (err) {
-        console.error('[CLOAK] Falha ao registrar lote de links:', err);
+  /** Recupera links pendentes de sessões anteriores. */
+  restorePending(): void {
+    try {
+      const raw = localStorage.getItem(PENDING_KEY);
+      if (!raw) return;
+      const list = JSON.parse(raw) as QueuedLink[];
+      if (Array.isArray(list)) {
+        list.forEach(l => { if (l?.short_id) this.queue.set(l.short_id, l); });
       }
+    } catch { /* ignore */ }
+    if (this.queue.size > 0) this.scheduleFlush();
+  }
+
+  private scheduleFlush(): void {
+    if (this.flushTimer) return;
+    this.flushTimer = setTimeout(() => {
+      this.flushTimer = null;
+      void this.flush();
+    }, 1200) as unknown as number;
+  }
+
+  /** Envia os links enfileirados para o banco (em lotes, com retentativa). */
+  async flush(): Promise<void> {
+    if (this.flushing) return;
+    if (this.queue.size === 0) {
+      try { localStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
+      return;
+    }
+    this.flushing = true;
+
+    const links = Array.from(this.queue.values());
+    const chunkSize = 200;
+
+    try {
+      for (let i = 0; i < links.length; i += chunkSize) {
+        const chunk = links.slice(i, i + chunkSize);
+        let saved = false;
+
+        for (let attempt = 1; attempt <= 3 && !saved; attempt++) {
+          try {
+            const { error } = await supabase.functions.invoke('cloak', {
+              body: { action: 'register-links', links: chunk },
+            });
+            if (error) throw error;
+            saved = true;
+          } catch (err) {
+            console.warn(`[CLOAK] Tentativa ${attempt} falhou ao registrar lote:`, err);
+            if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 800));
+          }
+        }
+
+        if (saved) {
+          // Só remove da fila o que realmente foi gravado no banco.
+          chunk.forEach(l => this.queue.delete(l.short_id));
+          this.persistQueue();
+        } else {
+          console.error('[CLOAK] Lote mantido na fila para nova tentativa.');
+        }
+      }
+    } finally {
+      this.flushing = false;
+      if (this.queue.size > 0) this.scheduleFlush();
     }
   }
 
@@ -148,3 +203,12 @@ class CloakServiceImpl {
 }
 
 export const CloakService = new CloakServiceImpl();
+
+// Recupera e reenvia links que ficaram pendentes de sessões anteriores.
+if (typeof window !== 'undefined') {
+  CloakService.restorePending();
+  window.addEventListener('beforeunload', () => {
+    if (CloakService.pendingCount > 0) void CloakService.flush();
+  });
+}
+
