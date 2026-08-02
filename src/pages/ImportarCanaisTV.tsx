@@ -110,6 +110,7 @@ const ImportarCanaisTV = () => {
   const {
     canais,
     loading,
+    erroCarregamento,
     buscarTodos,
     importarCanal,
     importarTodos,
