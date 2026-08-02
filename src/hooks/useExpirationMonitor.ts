@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { pushNotificationService } from '@/services/PushNotificationService';
+import { pushEventsService } from '@/services/PushEventsService';
 import { db } from '@/config/firebase';
 import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
 
@@ -67,6 +68,14 @@ export const useExpirationMonitor = () => {
           body: bodyText,
           tag: 'expiration-warning',
           data: { action: 'renew', route: '/perfil' }
+        });
+
+        // Garante o token registrado e dispara o push real (FCM), que também
+        // chega com o app fechado.
+        await pushNotificationService.syncTokenForCurrentUser();
+        await pushEventsService.notifyExpiration({
+          message: bodyText,
+          daysLeft: daysRemaining,
         });
 
         // Salvar log do push enviado

@@ -1,5 +1,6 @@
-import { getMessaging, getToken, onMessage, Messaging } from 'firebase/messaging';
-import { app } from '@/config/firebase';
+import { getMessaging, getToken, onMessage, deleteToken, Messaging } from 'firebase/messaging';
+import { app, auth } from '@/config/firebase';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 // Mantenha em sincronia com SW_VERSION em public/firebase-messaging-sw.js
@@ -17,7 +18,8 @@ interface NotificationPayload {
 
 class PushNotificationService {
   private messaging: Messaging | null = null;
-  private vapidKey = 'BKhPXj8vQ7mVZ_9x8fM3N-7c2pJ4bR6nT8yU3vW5zX0qA1bC2dE3fG4hI5jK6lM7nO8pQ9rS0tU1vW2xY3zA4B'; // Será substituída pela real
+  private vapidKey: string | null = null;
+
 
   async initialize() {
     try {
@@ -77,6 +79,31 @@ class PushNotificationService {
     }
   }
 
+  /**
+   * Obtém a chave pública VAPID (Web Push certificate).
+   * Prioriza a variável de ambiente do build (Vercel) e cai para o backend.
+   */
+  async getVapidKey(): Promise<string | null> {
+    if (this.vapidKey) return this.vapidKey;
+
+    const envKey = (import.meta as any).env?.VITE_FIREBASE_VAPID_KEY as string | undefined;
+    if (envKey && envKey.length > 40) {
+      this.vapidKey = envKey;
+      return this.vapidKey;
+    }
+
+    try {
+      const { data } = await supabase.functions.invoke('push', { body: { action: 'vapid-key' } });
+      if (data?.key) {
+        this.vapidKey = data.key as string;
+        return this.vapidKey;
+      }
+    } catch (error) {
+      console.warn('Não foi possível obter a chave VAPID do backend:', error);
+    }
+    return null;
+  }
+
   async getDeviceToken(): Promise<string | null> {
     try {
       if (!this.messaging) {
@@ -87,24 +114,82 @@ class PushNotificationService {
         throw new Error('Messaging não inicializado');
       }
 
+      const vapidKey = await this.getVapidKey();
+      if (!vapidKey) {
+        console.warn('Chave VAPID não configurada — notificações push desativadas.');
+        return null;
+      }
+
+      const registration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
       const token = await getToken(this.messaging, {
-        vapidKey: this.vapidKey
+        vapidKey,
+        ...(registration ? { serviceWorkerRegistration: registration } : {}),
       });
 
       if (token) {
-        console.log('Token FCM obtido:', token);
-        // Salvar token no localStorage e/ou Supabase
         localStorage.setItem('fcm_token', token);
+        await this.registerTokenOnServer(token);
         return token;
       } else {
         console.log('Não foi possível obter token FCM');
         return null;
       }
     } catch (error) {
+
       console.error('Erro ao obter token FCM:', error);
       return null;
     }
   }
+
+  /** Salva o token do dispositivo no backend para envios reais via FCM */
+  async registerTokenOnServer(token: string): Promise<boolean> {
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) return false;
+      const { data, error } = await supabase.functions.invoke('push', {
+        body: {
+          action: 'register-token',
+          idToken,
+          token,
+          user_agent: navigator.userAgent,
+          platform: 'web',
+        },
+      });
+      if (error || (data as any)?.error) throw error || new Error((data as any).error);
+      localStorage.setItem('fcm_token_registered', token);
+      return true;
+    } catch (err) {
+      console.warn('Falha ao registrar token push no servidor:', err);
+      return false;
+    }
+  }
+
+  /** Desativa o token atual (logout / desativar notificações) */
+  async unregister(): Promise<void> {
+    const token = localStorage.getItem('fcm_token');
+    if (!token) return;
+    try {
+      await supabase.functions.invoke('push', { body: { action: 'unregister-token', token } });
+      if (this.messaging) await deleteToken(this.messaging).catch(() => {});
+    } catch (err) {
+      console.warn('Falha ao remover token push:', err);
+    } finally {
+      localStorage.removeItem('fcm_token');
+      localStorage.removeItem('fcm_token_registered');
+    }
+  }
+
+  /** Garante que o usuário logado tenha o token registrado (chame após login) */
+  async syncTokenForCurrentUser(): Promise<void> {
+    if (!auth.currentUser) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const cached = localStorage.getItem('fcm_token');
+    const registered = localStorage.getItem('fcm_token_registered');
+    if (cached && cached === registered) return;
+    await this.getDeviceToken();
+  }
+
+
 
   async sendNotification(notification: NotificationPayload): Promise<boolean> {
     try {
