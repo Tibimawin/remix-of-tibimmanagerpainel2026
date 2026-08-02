@@ -8,7 +8,7 @@ import {
   Settings, RefreshCw, LogOut, Tag, AlertTriangle, Megaphone, Sparkles, Palette, DollarSign, Key
 } from 'lucide-react';
 
-export type AdminView = 'overview' | 'users' | 'activity' | 'date-logs' | 'metrics' | 'products' | 'notifications' | 'user-management' | 'firebase-users' | 'registration-control' | 'chat' | 'import-config' | 'plans' | 'plan-requests' | 'user-permissions' | 'series-correction' | 'series-update-config' | 'miniseries-config' | 'suporte-prioritario' | 'security-center' | 'offers' | 'announcements' | 'whatsapp' | 'maintenance' | 'access-expired-config' | 'expiration-notifications' | 'user-action-history' | 'referrals' | 'system-updates' | 'seasonal-theme' | 'financial' | 'planos-config' | 'api-keys' | 'protected-channels' | 'cloak-links' | 'cloak-dashboard';
+export type AdminView = 'overview' | 'users' | 'activity' | 'date-logs' | 'metrics' | 'products' | 'notifications' | 'user-management' | 'firebase-users' | 'registration-control' | 'chat' | 'import-config' | 'plans' | 'plan-requests' | 'user-permissions' | 'series-correction' | 'series-update-config' | 'miniseries-config' | 'suporte-prioritario' | 'security-center' | 'offers' | 'announcements' | 'whatsapp' | 'maintenance' | 'access-expired-config' | 'expiration-notifications' | 'user-action-history' | 'referrals' | 'system-updates' | 'seasonal-theme' | 'financial' | 'planos-config' | 'api-keys' | 'protected-channels' | 'cloak-links' | 'cloak-dashboard' | 'push-center';
 
 interface AdminSidebarProps {
   activeView: AdminView;
@@ -41,6 +41,7 @@ const menuItems = [
   { id: 'system-updates', label: '🎉 Atualizações do Sistema', icon: Sparkles, category: 'management', isNew: true },
 
   { id: 'notifications', label: 'Notificações', icon: Bell, category: 'management' },
+  { id: 'push-center', label: '🔔 Central de Push', icon: Bell, category: 'management', isNew: true },
   { id: 'expiration-notifications', label: '⏰ Notificações de Expiração', icon: AlertTriangle, category: 'management' },
   { id: 'user-management', label: 'Cadastrar Usuários', icon: UserPlus, category: 'management' },
   { id: 'firebase-users', label: '🔥 Gerenciar Usuários Firebase', icon: Users, category: 'management' },
