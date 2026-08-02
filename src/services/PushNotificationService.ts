@@ -1,5 +1,6 @@
-import { getMessaging, getToken, onMessage, Messaging } from 'firebase/messaging';
-import { app } from '@/config/firebase';
+import { getMessaging, getToken, onMessage, deleteToken, Messaging } from 'firebase/messaging';
+import { app, auth } from '@/config/firebase';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 // Mantenha em sincronia com SW_VERSION em public/firebase-messaging-sw.js
@@ -17,7 +18,8 @@ interface NotificationPayload {
 
 class PushNotificationService {
   private messaging: Messaging | null = null;
-  private vapidKey = 'BKhPXj8vQ7mVZ_9x8fM3N-7c2pJ4bR6nT8yU3vW5zX0qA1bC2dE3fG4hI5jK6lM7nO8pQ9rS0tU1vW2xY3zA4B'; // Será substituída pela real
+  private vapidKey: string | null = null;
+
 
   async initialize() {
     try {
