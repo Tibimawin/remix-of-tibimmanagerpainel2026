@@ -141,6 +141,56 @@ class PushNotificationService {
     }
   }
 
+  /** Salva o token do dispositivo no backend para envios reais via FCM */
+  async registerTokenOnServer(token: string): Promise<boolean> {
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) return false;
+      const { data, error } = await supabase.functions.invoke('push', {
+        body: {
+          action: 'register-token',
+          idToken,
+          token,
+          user_agent: navigator.userAgent,
+          platform: 'web',
+        },
+      });
+      if (error || (data as any)?.error) throw error || new Error((data as any).error);
+      localStorage.setItem('fcm_token_registered', token);
+      return true;
+    } catch (err) {
+      console.warn('Falha ao registrar token push no servidor:', err);
+      return false;
+    }
+  }
+
+  /** Desativa o token atual (logout / desativar notificações) */
+  async unregister(): Promise<void> {
+    const token = localStorage.getItem('fcm_token');
+    if (!token) return;
+    try {
+      await supabase.functions.invoke('push', { body: { action: 'unregister-token', token } });
+      if (this.messaging) await deleteToken(this.messaging).catch(() => {});
+    } catch (err) {
+      console.warn('Falha ao remover token push:', err);
+    } finally {
+      localStorage.removeItem('fcm_token');
+      localStorage.removeItem('fcm_token_registered');
+    }
+  }
+
+  /** Garante que o usuário logado tenha o token registrado (chame após login) */
+  async syncTokenForCurrentUser(): Promise<void> {
+    if (!auth.currentUser) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const cached = localStorage.getItem('fcm_token');
+    const registered = localStorage.getItem('fcm_token_registered');
+    if (cached && cached === registered) return;
+    await this.getDeviceToken();
+  }
+
+
+
   async sendNotification(notification: NotificationPayload): Promise<boolean> {
     try {
       // Em produção, isso seria enviado para o backend que usa o FCM Admin SDK
