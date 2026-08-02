@@ -188,6 +188,26 @@ const menuItems: MenuItem[] = [
     feature: 'duplicados-episodios'
   },
   {
+    id: 'duplicados-episodios-otimizado',
+    label: 'Duplicados Ep. (Otimizado)',
+    href: '/duplicados-episodios-otimizado',
+    icon: DatabaseZap,
+    category: 'tools',
+    description: 'Busca otimizada de episódios duplicados',
+    feature: 'duplicados-episodios-otimizado',
+    badge: { type: 'new' }
+  },
+  {
+    id: 'ferramentas-ia',
+    label: 'Ferramentas IA',
+    href: '/ferramentas-ia',
+    icon: Zap,
+    category: 'tools',
+    description: 'Ferramentas com inteligência artificial',
+    feature: 'ferramentas-ia',
+    badge: { type: 'new' }
+  },
+  {
     id: 'atualizacao-series',
     label: 'Atualização Séries',
     href: '/atualizacao-series',

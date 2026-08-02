@@ -49,6 +49,8 @@ export const AVAILABLE_FEATURES: FeatureAccess[] = [
   // Ferramentas
   { id: 'duplicados', name: 'Verificar Duplicados', description: 'Encontrar conteúdos duplicados' },
   { id: 'duplicados-episodios', name: 'Verificar Duplicados Episódios', description: 'Encontrar episódios duplicados' },
+  { id: 'duplicados-episodios-otimizado', name: 'Duplicados Episódios (Otimizado)', description: 'Busca otimizada de episódios duplicados' },
+  { id: 'ferramentas-ia', name: 'Ferramentas IA', description: 'Ferramentas de inteligência artificial' },
   { id: 'importacao-automatica', name: 'Importação Auto', description: 'Importar conteúdos manualmente da tabela origem' },
   { id: 'automacao', name: 'Automação', description: 'Importação automática agendada de conteúdos' },
   { id: 'substituicao-urls', name: 'Substituição de URLs', description: 'Substituição em massa de URLs' },
