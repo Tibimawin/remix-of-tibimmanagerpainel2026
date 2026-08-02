@@ -17,6 +17,8 @@ interface AdminSidebarProps {
   isRefreshing: boolean;
   onRefresh: () => void;
   onLogout: () => void;
+  mobileOpen?: boolean;
+  onMobileOpenChange?: (open: boolean) => void;
 }
 
 const menuItems = [
