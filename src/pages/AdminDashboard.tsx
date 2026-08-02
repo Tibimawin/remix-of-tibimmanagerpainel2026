@@ -4,7 +4,7 @@ import { FirebaseUserService, FirebaseUser } from '@/services/FirebaseUserServic
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Activity, AlertTriangle } from 'lucide-react';
+import { Activity, AlertTriangle, Menu } from 'lucide-react';
 import { toast } from 'sonner';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
 import { useRealtimeLogs } from '@/hooks/useRealtimeLogs';
