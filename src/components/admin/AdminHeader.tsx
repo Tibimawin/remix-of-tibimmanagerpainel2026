@@ -102,22 +102,22 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ activeView, users, log
   const Icon = currentView.icon;
 
   return (
-    <div className="mb-8 space-y-6">
+    <div className="mb-6 sm:mb-8 space-y-4 sm:space-y-6">
       {/* Title Section */}
-      <div className="flex items-center space-x-4 animate-fade-in">
-        <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-purple-500/10 via-purple-500/5 to-fuchsia-500/10 rounded-xl border border-purple-500/20 shadow-md">
-          <Icon className="w-6 h-6 text-purple-400" />
+      <div className="flex items-center gap-3 sm:gap-4 animate-fade-in">
+        <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0 bg-gradient-to-br from-purple-500/10 via-purple-500/5 to-fuchsia-500/10 rounded-xl border border-purple-500/20 shadow-md">
+          <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
         </div>
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground bg-gradient-to-r from-purple-400 via-fuchsia-400 to-violet-400 bg-clip-text text-transparent">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-foreground bg-gradient-to-r from-purple-400 via-fuchsia-400 to-violet-400 bg-clip-text text-transparent break-words">
             {currentView.title}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">{currentView.description}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">{currentView.description}</p>
         </div>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-fade-in-up">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 animate-fade-in-up">
         {/* Card 1: Usuários */}
         <Card className="bg-card/30 border-purple-500/10 backdrop-blur-md hover:border-purple-500/25 shadow-sm hover:shadow-[0_0_20px_rgba(168,85,247,0.1)] transition-all duration-500 hover:-translate-y-1 rounded-2xl overflow-hidden relative group">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
