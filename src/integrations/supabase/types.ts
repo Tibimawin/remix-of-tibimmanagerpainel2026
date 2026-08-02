@@ -140,6 +140,90 @@ export type Database = {
         }
         Relationships: []
       }
+      push_events: {
+        Row: {
+          body: string
+          created_at: string
+          data: Json
+          dedupe_key: string | null
+          error: string | null
+          firebase_uid: string | null
+          id: string
+          status: string
+          title: string
+          tokens_sent: number
+          tokens_total: number
+          type: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          data?: Json
+          dedupe_key?: string | null
+          error?: string | null
+          firebase_uid?: string | null
+          id?: string
+          status?: string
+          title: string
+          tokens_sent?: number
+          tokens_total?: number
+          type: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          data?: Json
+          dedupe_key?: string | null
+          error?: string | null
+          firebase_uid?: string | null
+          id?: string
+          status?: string
+          title?: string
+          tokens_sent?: number
+          tokens_total?: number
+          type?: string
+        }
+        Relationships: []
+      }
+      push_tokens: {
+        Row: {
+          active: boolean
+          created_at: string
+          email: string | null
+          firebase_uid: string
+          id: string
+          last_used_at: string | null
+          platform: string | null
+          token: string
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          email?: string | null
+          firebase_uid: string
+          id?: string
+          last_used_at?: string | null
+          platform?: string | null
+          token: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          email?: string | null
+          firebase_uid?: string
+          id?: string
+          last_used_at?: string | null
+          platform?: string | null
+          token?: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
