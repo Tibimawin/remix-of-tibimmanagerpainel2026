@@ -26,6 +26,7 @@ export const useImportarCanaisTV = () => {
   const [canais, setCanais] = useState<CanalTV[]>([]);
   const [loading, setLoading] = useState(false);
   const [importandoTodos, setImportandoTodos] = useState(false);
+  const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
 
   const baserowService = useBaserowService();
   const { config } = useConfig();
