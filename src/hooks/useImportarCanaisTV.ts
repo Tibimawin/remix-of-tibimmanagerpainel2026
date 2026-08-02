@@ -98,6 +98,7 @@ export const useImportarCanaisTV = () => {
 
   const searchCanais = async (searchTerm: string) => {
     setLoading(true);
+    setErroCarregamento(null);
     try {
 
       toast('Buscando canais...', { description: `Pesquisando por "${searchTerm}"` });
@@ -128,9 +129,9 @@ export const useImportarCanaisTV = () => {
 
     } catch (error) {
       console.error('Erro ao buscar canais:', error);
-      toast.error('Erro ao buscar canais', {
-        description: (error as Error)?.message || 'Verifique se a tabela origem está configurada corretamente'
-      });
+      const msg = (error as Error)?.message || 'Verifique se a tabela origem está configurada corretamente';
+      setErroCarregamento(msg);
+      toast.error('Erro ao buscar canais', { description: msg });
       setCanais([]);
     } finally {
       setLoading(false);
@@ -140,6 +141,7 @@ export const useImportarCanaisTV = () => {
   // Buscar TODOS os canais disponíveis (com paginação automática)
   const buscarTodos = async () => {
     setLoading(true);
+    setErroCarregamento(null);
     try {
       toast('Carregando todos os canais...', { description: 'Por favor aguarde' });
 
