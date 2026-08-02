@@ -169,4 +169,20 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       </div>
     </div>
   );
+
+  return (
+    <>
+      {/* Desktop */}
+      <aside className="hidden lg:flex w-80 flex-shrink-0 h-screen sticky top-0 overscroll-contain modern-sidebar border-r border-purple-500/10 flex-col bg-card/60 backdrop-blur-md">
+        {sidebarBody}
+      </aside>
+
+      {/* Mobile */}
+      <Sheet open={!!mobileOpen} onOpenChange={onMobileOpenChange}>
+        <SheetContent side="left" className="p-0 w-[85vw] max-w-[20rem] bg-card/95 backdrop-blur-md border-purple-500/10 lg:hidden">
+          {sidebarBody}
+        </SheetContent>
+      </Sheet>
+    </>
+  );
 };
