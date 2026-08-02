@@ -79,6 +79,31 @@ class PushNotificationService {
     }
   }
 
+  /**
+   * Obtém a chave pública VAPID (Web Push certificate).
+   * Prioriza a variável de ambiente do build (Vercel) e cai para o backend.
+   */
+  async getVapidKey(): Promise<string | null> {
+    if (this.vapidKey) return this.vapidKey;
+
+    const envKey = (import.meta as any).env?.VITE_FIREBASE_VAPID_KEY as string | undefined;
+    if (envKey && envKey.length > 40) {
+      this.vapidKey = envKey;
+      return this.vapidKey;
+    }
+
+    try {
+      const { data } = await supabase.functions.invoke('push', { body: { action: 'vapid-key' } });
+      if (data?.key) {
+        this.vapidKey = data.key as string;
+        return this.vapidKey;
+      }
+    } catch (error) {
+      console.warn('Não foi possível obter a chave VAPID do backend:', error);
+    }
+    return null;
+  }
+
   async getDeviceToken(): Promise<string | null> {
     try {
       if (!this.messaging) {
@@ -89,20 +114,28 @@ class PushNotificationService {
         throw new Error('Messaging não inicializado');
       }
 
+      const vapidKey = await this.getVapidKey();
+      if (!vapidKey) {
+        console.warn('Chave VAPID não configurada — notificações push desativadas.');
+        return null;
+      }
+
+      const registration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
       const token = await getToken(this.messaging, {
-        vapidKey: this.vapidKey
+        vapidKey,
+        ...(registration ? { serviceWorkerRegistration: registration } : {}),
       });
 
       if (token) {
-        console.log('Token FCM obtido:', token);
-        // Salvar token no localStorage e/ou Supabase
         localStorage.setItem('fcm_token', token);
+        await this.registerTokenOnServer(token);
         return token;
       } else {
         console.log('Não foi possível obter token FCM');
         return null;
       }
     } catch (error) {
+
       console.error('Erro ao obter token FCM:', error);
       return null;
     }
