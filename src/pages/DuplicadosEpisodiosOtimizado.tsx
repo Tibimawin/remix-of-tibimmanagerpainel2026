@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, Trash2, RefreshCw, Settings, Clock, CheckCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { DataErrorFallback } from '@/components/DataErrorFallback';
 
 interface DuplicateGroup {
   key: string;
@@ -206,17 +207,13 @@ const DuplicadosEpisodiosOtimizado = () => {
           </CardContent>
         </Card>
       ) : error ? (
-        <Card>
-          <CardContent className="text-center py-12">
-            <AlertTriangle className="h-8 w-8 mb-2 mx-auto text-destructive" />
-            <div className="text-destructive mb-4">Erro ao carregar duplicados</div>
-            <p className="text-sm text-muted-foreground mb-4">{error}</p>
-            <Button onClick={loadDuplicates} variant="outline">
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Tentar Novamente
-            </Button>
-          </CardContent>
-        </Card>
+        <DataErrorFallback
+          title="Erro ao carregar duplicados"
+          message="Não foi possível buscar os episódios agora. Verifique sua conexão e as configurações da tabela, depois tente novamente."
+          detail={error}
+          onRetry={loadDuplicates}
+          retrying={loading}
+        />
       ) : episodiosDuplicados.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">
