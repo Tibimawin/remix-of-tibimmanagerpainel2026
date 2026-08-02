@@ -298,9 +298,10 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                     paymentId: firstPayment.id,
                     accessDays,
                   });
-                } catch (finErr) {
-                  console.error('Erro ao salvar registro financeiro confirmado:', finErr);
+                } catch (pushErr) {
+                  console.warn('Falha ao enviar push de pagamento:', pushErr);
                 }
+
               } catch (extendError) {
                 console.error('Erro ao estender acesso:', extendError);
                 toast.success('Pagamento confirmado! Entre em contato com o suporte para ativar seu acesso.');
