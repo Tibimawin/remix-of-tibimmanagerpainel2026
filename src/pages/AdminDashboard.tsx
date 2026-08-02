@@ -314,6 +314,7 @@ const AdminDashboard = () => {
                   <p className="text-muted-foreground">Carregando logs em tempo real...</p>
                 </div>
               ) : (
+                <div className="overflow-x-auto -mx-2 px-2">
                 <Table>
                   <TableHeader>
                     <TableRow className="border-border/40">
