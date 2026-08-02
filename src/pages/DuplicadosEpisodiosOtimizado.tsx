@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, Trash2, RefreshCw, Settings, Clock, CheckCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { DataErrorFallback } from '@/components/DataErrorFallback';
 
 interface DuplicateGroup {
   key: string;
