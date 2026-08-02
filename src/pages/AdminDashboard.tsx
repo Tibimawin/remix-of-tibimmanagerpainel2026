@@ -442,21 +442,36 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-background/90 flex">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-background/90 flex w-full">
       {/* Sidebar */}
       <AdminSidebar
         activeView={activeView}
-        onViewChange={setActiveView}
+        onViewChange={(view) => { setActiveView(view); setMobileNavOpen(false); }}
         adminUser={adminUser}
         isRefreshing={isRefreshing}
         onRefresh={refreshData}
         onLogout={logout}
+        mobileOpen={mobileNavOpen}
+        onMobileOpenChange={setMobileNavOpen}
       />
 
       {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-w-0">
           <div className="h-full flex flex-col">
-            <div className="flex-1 p-8 overflow-y-auto">
+            {/* Topbar mobile */}
+            <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-purple-500/10 bg-card/80 backdrop-blur-md">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Abrir menu"
+                className="border-purple-500/20 bg-purple-500/5"
+                onClick={() => setMobileNavOpen(true)}
+              >
+                <Menu className="w-5 h-5" />
+              </Button>
+              <span className="text-sm font-semibold text-foreground truncate">Admin Panel</span>
+            </div>
+            <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
               <div className="max-w-7xl mx-auto space-y-4">
                 {/* Banner de manutenção fixo quando ativo */}
                 {isMaintenanceActive && maintenanceState && (
