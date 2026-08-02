@@ -56,6 +56,7 @@ const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeView, setActiveView] = useState<AdminView>('overview');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { logs: oldLogs, loadLogs } = useActivityLogger();
   const { logs: realtimeLogs, isLoading: logsLoading } = useRealtimeLogs();
   const { activities: recentActivities, isLoading: activitiesLoading } = useRealtimeActivities();
