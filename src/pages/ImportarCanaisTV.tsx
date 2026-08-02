@@ -9,6 +9,7 @@ import { Tv, Download, Search, Wifi, WifiOff, RefreshCw, LayoutGrid } from 'luci
 import { useImportarCanaisTV } from '@/hooks/useImportarCanaisTV';
 import { useTypeMode } from '@/contexts/TypeModeContext';
 import { cn } from '@/lib/utils';
+import { DataErrorFallback } from '@/components/DataErrorFallback';
 
 interface CanalTV {
   id: string;
