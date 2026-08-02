@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import {
   Shield, Users, Activity, Calendar, BarChart, Package, Bell,
@@ -16,6 +17,8 @@ interface AdminSidebarProps {
   isRefreshing: boolean;
   onRefresh: () => void;
   onLogout: () => void;
+  mobileOpen?: boolean;
+  onMobileOpenChange?: (open: boolean) => void;
 }
 
 const menuItems = [
@@ -72,7 +75,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   adminUser,
   isRefreshing,
   onRefresh,
-  onLogout
+  onLogout,
+  mobileOpen,
+  onMobileOpenChange
 }) => {
   const groupedMenuItems = menuItems.reduce((acc, item) => {
     if (!acc[item.category]) {
@@ -82,8 +87,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     return acc;
   }, {} as Record<string, typeof menuItems>);
 
-  return (
-    <div className="w-80 h-screen sticky top-0 overscroll-contain modern-sidebar border-r border-purple-500/10 flex flex-col bg-card/60 backdrop-blur-md">
+  const sidebarBody = (
+    <div className="w-full h-full flex flex-col overscroll-contain">
       {/* Header */}
       <div className="p-6 border-b border-purple-500/10">
         <div className="flex items-center space-x-3 animate-slide-in-left">
@@ -168,5 +173,21 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         </Button>
       </div>
     </div>
+  );
+
+  return (
+    <>
+      {/* Desktop */}
+      <aside className="hidden lg:flex w-80 flex-shrink-0 h-screen sticky top-0 overscroll-contain modern-sidebar border-r border-purple-500/10 flex-col bg-card/60 backdrop-blur-md">
+        {sidebarBody}
+      </aside>
+
+      {/* Mobile */}
+      <Sheet open={!!mobileOpen} onOpenChange={onMobileOpenChange}>
+        <SheetContent side="left" className="p-0 w-[85vw] max-w-[20rem] bg-card/95 backdrop-blur-md border-purple-500/10 lg:hidden">
+          {sidebarBody}
+        </SheetContent>
+      </Sheet>
+    </>
   );
 };
