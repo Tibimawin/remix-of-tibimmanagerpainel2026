@@ -44,9 +44,14 @@ export const getCloakBaseUrl = (): string => {
   return '';
 };
 
+const PENDING_KEY = 'cloak-pending-links';
+
 class CloakServiceImpl {
   private queue: Map<string, QueuedLink> = new Map();
   private tokenCache: { uid: string; token: string } | null = null;
+  private flushTimer: number | null = null;
+  private flushing = false;
+
 
   /** Registra/atualiza o usuário e devolve o token público dele. */
   async syncUser(params: {
