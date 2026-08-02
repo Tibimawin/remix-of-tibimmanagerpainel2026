@@ -195,6 +195,128 @@ Deno.serve(async (req) => {
       return json({ links: data || [] });
     }
 
+    if (action === "admin-dashboard") {
+      const days = Math.min(Math.max(Number(body.days) || 30, 1), 90);
+      const since = new Date(Date.now() - days * 864e5).toISOString();
+      const nowIso = new Date().toISOString();
+
+      const [linksRes, logsRes, usersRes] = await Promise.all([
+        supabase
+          .from("cloaked_links")
+          .select("short_id, source, kind, active, access_count, bytes_served, content_name, created_at, owner_uid"),
+        supabase
+          .from("cloak_access_logs")
+          .select("status, bytes_served, created_at, owner_uid, link_short_id")
+          .gte("created_at", since)
+          .limit(20000),
+        supabase.from("cloak_users").select("firebase_uid, expires_at, blocked"),
+      ]);
+
+      const links = linksRes.data || [];
+      const logs = logsRes.data || [];
+      const users = usersRes.data || [];
+
+      const activeLinks = links.filter((l: any) => l.active).length;
+      const inactiveLinks = links.length - activeLinks;
+
+      // Estatísticas de importações (cada link criado = 1 item importado/protegido)
+      const bySource: Record<string, { total: number; active: number; accesses: number; bytes: number }> = {};
+      const importsByDay: Record<string, number> = {};
+      for (const l of links) {
+        const src = String(l.source || "desconhecido");
+        const s = bySource[src] ||= { total: 0, active: 0, accesses: 0, bytes: 0 };
+        s.total += 1;
+        if (l.active) s.active += 1;
+        s.accesses += Number(l.access_count || 0);
+        s.bytes += Number(l.bytes_served || 0);
+        const day = String(l.created_at).slice(0, 10);
+        if (l.created_at >= since) importsByDay[day] = (importsByDay[day] || 0) + 1;
+      }
+
+      const byKind: Record<string, number> = {};
+      for (const l of links) byKind[String(l.kind || "desconhecido")] = (byKind[String(l.kind || "desconhecido")] || 0) + 1;
+
+      // Bloqueios
+      const byStatus: Record<string, number> = {};
+      const blockedByDay: Record<string, number> = {};
+      let bytes = 0;
+      for (const r of logs) {
+        const st = String(r.status || "desconhecido");
+        byStatus[st] = (byStatus[st] || 0) + 1;
+        bytes += Number(r.bytes_served || 0);
+        if (st !== "ok") {
+          const day = String(r.created_at).slice(0, 10);
+          blockedByDay[day] = (blockedByDay[day] || 0) + 1;
+        }
+      }
+      const okCount = byStatus["ok"] || 0;
+      const blockedTotal = logs.length - okCount;
+
+      // Usuários
+      const expiredUsers = users.filter(
+        (u: any) => !u.expires_at || u.expires_at < nowIso,
+      ).length;
+      const blockedUsers = users.filter((u: any) => u.blocked).length;
+
+      // Top conteúdos
+      const topContent = [...links]
+        .sort((a: any, b: any) => Number(b.access_count || 0) - Number(a.access_count || 0))
+        .slice(0, 10)
+        .map((l: any) => ({
+          short_id: l.short_id,
+          content_name: l.content_name,
+          source: l.source,
+          accesses: Number(l.access_count || 0),
+          bytes: Number(l.bytes_served || 0),
+          active: l.active,
+        }));
+
+      const daySeries = (map: Record<string, number>) =>
+        Object.entries(map).sort().map(([day, count]) => ({ day, count }));
+
+      return json({
+        days,
+        links: {
+          total: links.length,
+          active: activeLinks,
+          inactive: inactiveLinks,
+        },
+        access: {
+          total: logs.length,
+          ok: okCount,
+          blocked: blockedTotal,
+          expired: byStatus["expired"] || 0,
+          userBlocked: byStatus["blocked"] || 0,
+          featureDenied: byStatus["feature_denied"] || 0,
+          invalidToken: byStatus["invalid_token"] || 0,
+          notFound: byStatus["not_found"] || 0,
+          upstreamErrors: Object.entries(byStatus)
+            .filter(([k]) => k.startsWith("upstream_"))
+            .reduce((s, [, v]) => s + v, 0),
+          bytes,
+          byStatus: Object.entries(byStatus).sort((a, b) => b[1] - a[1]).map(([status, count]) => ({ status, count })),
+          blockedByDay: daySeries(blockedByDay),
+        },
+        imports: {
+          bySource: Object.entries(bySource)
+            .sort((a, b) => b[1].total - a[1].total)
+            .map(([source, v]) => ({ source, ...v })),
+          byKind: Object.entries(byKind).sort((a, b) => b[1] - a[1]).map(([kind, count]) => ({ kind, count })),
+          byDay: daySeries(importsByDay),
+          inPeriod: Object.values(importsByDay).reduce((s, v) => s + v, 0),
+        },
+        users: {
+          total: users.length,
+          expired: expiredUsers,
+          blocked: blockedUsers,
+          active: users.length - expiredUsers - blockedUsers,
+        },
+        topContent,
+      });
+    }
+
+
+
     if (action === "admin-logs") {
       const { data, error } = await supabase
         .from("cloak_access_logs")
