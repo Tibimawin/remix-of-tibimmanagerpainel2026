@@ -478,7 +478,7 @@ const AdminDashboard = () => {
                 {/* Banner de manutenção fixo quando ativo */}
                 {isMaintenanceActive && maintenanceState && (
                   <Card className="modern-card border-destructive/40 bg-destructive/10">
-                    <CardContent className="py-3 px-4 flex items-center justify-between gap-4">
+                    <CardContent className="py-3 px-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-destructive/20 flex items-center justify-center">
                           <AlertTriangle className="w-5 h-5 text-destructive" />
