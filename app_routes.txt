@@ -1,0 +1,64 @@
+Apresentacao
+PrecosPublico
+ApiDocs
+Login
+Cadastro
+AdminLogin
+                              <Route path="/admin-dashboard" element={
+                              <Route path="/admin/planos-solicitados" element={
+                              <Route path="/dashboard" element={
+                              <Route path="/conteudos" element={
+                              <Route path="/episodios" element={
+                              <Route path="/banners" element={
+                              <Route path="/categorias" element={
+                              <Route path="/categorias-tv" element={
+                              <Route path="/categorias-anime" element={
+                              <Route path="/duplicados" element={
+                              <Route path="/duplicados-episodios" element={
+                              <Route path="/duplicados-episodios-otimizado" element={
+                              <Route path="/ferramentas-ia" element={
+                              <Route path="/usuarios" element={
+                              <Route path="/sessoes" element={
+                              <Route path="/plataformas" element={
+                              <Route path="/produtos" element={
+                              <Route path="/suporte-ao-vivo" element={
+                              <Route path="/atualizacao-series" element={
+                              <Route path="/importacao-automatica" element={
+                              <Route path="/miniseries" element={
+                              <Route path="/substituicao-urls" element={
+                              <Route path="/configuracoes" element={
+                              <Route path="/plano2" element={
+                              <Route path="/perfis" element={
+                              <Route path="/meus-aplicativos" element={
+                              <Route path="/carrosseu" element={
+                              <Route path="/versao" element={
+                              <Route path="/pedido" element={
+                              <Route path="/avaliacao" element={
+                              <Route path="/categoria-filmes" element={
+                              <Route path="/categoria-series" element={
+                              <Route path="/categoria-dorama" element={
+                              <Route path="/categoria-animes" element={
+                              <Route path="/categoria-novelas" element={
+                              <Route path="/configuracoes-apis" element={
+                              <Route path="/configuracoes-seguranca" element={
+                              <Route path="/configuracoes-auto-import" element={
+                              <Route path="/recursos" element={
+                              <Route path="/importar-m3u" element={
+                              <Route path="/estatisticas" element={
+                              <Route path="/adicionar-conteudo" element={
+                              <Route path="/importar-canais-tv" element={
+                              <Route path="/importar-conteudo" element={
+                              <Route path="/precos" element={
+                              <Route path="/precos-interno" element={
+                              <Route path="/sistema-indicacao" element={
+                              <Route path="/relatorios-visualizacao" element={
+                              <Route path="/perfil" element={
+                              <Route path="/historico-acoes" element={
+                              <Route path="/gestao-dispositivos" element={
+                              <Route path="/ofertas" element={
+                              <Route path="/oferta/:id" element={
+                              <Route path="/limpeza-dados" element={
+                              <Route path="/planos" element={
+                              <Route path="/minha-api" element={
+                              <Route path="/maxplus-import" element={
+NotFound
