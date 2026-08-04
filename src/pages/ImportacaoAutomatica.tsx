@@ -454,13 +454,32 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
                 <div className="rounded-2xl bg-primary/15 p-3">
                   <Clapperboard className="h-6 w-6 text-primary" />
                 </div>
-                <div>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wider text-primary">
-                    <Sparkles className="h-3 w-3" />
-                    Catálogo exclusivo
-                  </span>
-                  <h1 className="mt-1.5 text-3xl font-bold tracking-tight">Minisséries</h1>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wider text-primary">
+                        <Sparkles className="h-3 w-3" />
+                        Catálogo exclusivo
+                      </span>
+                      <h1 className="mt-1.5 text-3xl font-bold tracking-tight">Minisséries</h1>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 rounded-xl hidden md:flex border-primary/20 hover:bg-primary/5"
+                      onClick={() => {
+                        toast.info("Sugestão de Evolução", {
+                          description: "Enriquecimento via TMDB e filtros de qualidade 4K detectados como prioridades.",
+                          duration: 4000
+                        });
+                      }}
+                    >
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      Sugestões de IA
+                    </Button>
+                  </div>
                 </div>
+
               </div>
 
               <p className="max-w-2xl text-sm text-muted-foreground">
@@ -510,14 +529,33 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
           </div>
         ) : (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl bg-card border border-border p-6">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Importação <span className="text-primary">Automática</span>
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Importe conteúdos de outros Baserows rapidamente.
-            </p>
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight">
+                  Importação <span className="text-primary">Automática</span>
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Importe conteúdos de outros Baserows rapidamente.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 rounded-xl border-primary/20 hover:bg-primary/5"
+                onClick={() => {
+                  toast.info("Sugestão de Evolução", {
+                    description: "Detecção automática de novos conteúdos e filtros de qualidade recomendados.",
+                    duration: 4000
+                  });
+                }}
+              >
+                <Sparkles className="h-4 w-4 text-primary" />
+                Melhorias de IA
+              </Button>
+            </div>
           </div>
+
 
           <div className="flex flex-wrap gap-3">
             <Button
