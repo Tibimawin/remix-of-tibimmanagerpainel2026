@@ -10,7 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, CalendarDays, Edit, Plus, Shield, ShieldOff, Users, Trash2 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { AlertCircle, Calendar, CalendarDays, Edit, Plus, Shield, ShieldOff, Users, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -429,6 +430,7 @@ export const AdminFirebaseUsers: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUids, setSelectedUids] = useState<string[]>([]);
   const [isBulkLoading, setIsBulkLoading] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ processed: 0, total: 0, failures: [] as { uid: string; error: string }[] });
   const [plans, setPlans] = useState<any[]>([]);
 
 
@@ -492,10 +494,21 @@ export const AdminFirebaseUsers: React.FC = () => {
   const handleBulkRenew = async (days: number) => {
     if (selectedUids.length === 0) return;
     setIsBulkLoading(true);
+    setBulkProgress({ processed: 0, total: selectedUids.length, failures: [] });
+    
     try {
-      await FirebaseUserService.bulkExtendAccess(selectedUids, days);
-      toast.success(`${selectedUids.length} usuários renovados com sucesso!`);
-      setSelectedUids([]);
+      const result = await FirebaseUserService.bulkExtendAccess(
+        selectedUids, 
+        days,
+        (processed, total, failures) => setBulkProgress({ processed, total, failures })
+      );
+      
+      if (result.failures.length > 0) {
+        toast.warning(`${result.success} renovados, ${result.failures.length} falharam.`);
+      } else {
+        toast.success(`${selectedUids.length} usuários renovados com sucesso!`);
+      }
+      if (result.failures.length === 0) setSelectedUids([]);
     } catch (error) {
       toast.error('Erro ao renovar usuários em massa');
     } finally {
@@ -507,10 +520,21 @@ export const AdminFirebaseUsers: React.FC = () => {
     if (selectedUids.length === 0) return;
     if (!window.confirm(`Tem certeza que deseja desativar ${selectedUids.length} usuários?`)) return;
     setIsBulkLoading(true);
+    setBulkProgress({ processed: 0, total: selectedUids.length, failures: [] });
+    
     try {
-      await FirebaseUserService.bulkUpdateUsers(selectedUids, { isActive: false });
-      toast.success(`${selectedUids.length} usuários desativados!`);
-      setSelectedUids([]);
+      const result = await FirebaseUserService.bulkUpdateUsers(
+        selectedUids, 
+        { isActive: false },
+        (processed, total, failures) => setBulkProgress({ processed, total, failures })
+      );
+      
+      if (result.failures.length > 0) {
+        toast.warning(`${result.success} desativados, ${result.failures.length} falharam.`);
+      } else {
+        toast.success(`${selectedUids.length} usuários desativados!`);
+      }
+      if (result.failures.length === 0) setSelectedUids([]);
     } catch (error) {
       toast.error('Erro ao desativar usuários');
     } finally {
@@ -521,10 +545,22 @@ export const AdminFirebaseUsers: React.FC = () => {
   const handleBulkChangePlan = async (planId: string, planName: string) => {
     if (selectedUids.length === 0) return;
     setIsBulkLoading(true);
+    setBulkProgress({ processed: 0, total: selectedUids.length, failures: [] });
+    
     try {
-      await FirebaseUserService.bulkUpdatePlan(selectedUids, planId, planName);
-      toast.success(`Plano alterado para ${selectedUids.length} usuários!`);
-      setSelectedUids([]);
+      const result = await FirebaseUserService.bulkUpdatePlan(
+        selectedUids, 
+        planId, 
+        planName,
+        (processed, total, failures) => setBulkProgress({ processed, total, failures })
+      );
+      
+      if (result.failures.length > 0) {
+        toast.warning(`${result.success} planos alterados, ${result.failures.length} falharam.`);
+      } else {
+        toast.success(`Plano alterado para ${selectedUids.length} usuários!`);
+      }
+      if (result.failures.length === 0) setSelectedUids([]);
     } catch (error) {
       toast.error('Erro ao alterar planos');
     } finally {
@@ -649,59 +685,92 @@ export const AdminFirebaseUsers: React.FC = () => {
       </div>
 
       {selectedUids.length > 0 && (
-        <Card className="bg-primary/5 border-primary/20 animate-in fade-in slide-in-from-top-2">
-          <CardContent className="p-4 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Badge variant="default" className="text-sm">
-                {selectedUids.length} selecionados
-              </Badge>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setSelectedUids([])}
-                className="text-xs"
-              >
-                Cancelar
-              </Button>
-            </div>
-            
-            <div className="flex flex-wrap gap-2">
-              <Select onValueChange={(val) => handleBulkRenew(Number(val))}>
-                <SelectTrigger className="w-[140px] h-8 text-xs">
-                  <SelectValue placeholder="Renovar..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">+1 Dia</SelectItem>
-                  <SelectItem value="7">+7 Dias</SelectItem>
-                  <SelectItem value="30">+30 Dias</SelectItem>
-                </SelectContent>
-              </Select>
+        <Card className="bg-primary/5 border-primary/20 animate-in fade-in slide-in-from-top-2 overflow-hidden">
+          <CardContent className="p-4 flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Badge variant="default" className="text-sm">
+                  {selectedUids.length} selecionados
+                </Badge>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setSelectedUids([])}
+                  className="text-xs"
+                  disabled={isBulkLoading}
+                >
+                  Cancelar
+                </Button>
+              </div>
+              
+              <div className="flex flex-wrap gap-2">
+                <Select onValueChange={(val) => handleBulkRenew(Number(val))} disabled={isBulkLoading}>
+                  <SelectTrigger className="w-[140px] h-8 text-xs">
+                    <SelectValue placeholder="Renovar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">+1 Dia</SelectItem>
+                    <SelectItem value="7">+7 Dias</SelectItem>
+                    <SelectItem value="30">+30 Dias</SelectItem>
+                  </SelectContent>
+                </Select>
 
-              <Select onValueChange={(val) => {
-                const plan = plans.find(p => p.id === val);
-                if (plan) handleBulkChangePlan(plan.id, plan.name);
-              }}>
-                <SelectTrigger className="w-[140px] h-8 text-xs">
-                  <SelectValue placeholder="Trocar Plano..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {plans.map(plan => (
-                    <SelectItem key={plan.id} value={plan.id}>{plan.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <Select onValueChange={(val) => {
+                  const plan = plans.find(p => p.id === val);
+                  if (plan) handleBulkChangePlan(plan.id, plan.name);
+                }} disabled={isBulkLoading}>
+                  <SelectTrigger className="w-[140px] h-8 text-xs">
+                    <SelectValue placeholder="Trocar Plano..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {plans.map(plan => (
+                      <SelectItem key={plan.id} value={plan.id}>{plan.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-              <Button 
-                variant="destructive" 
-                size="sm" 
-                className="h-8 text-xs"
-                onClick={handleBulkBan}
-                disabled={isBulkLoading}
-              >
-                <ShieldOff className="h-3 w-3 mr-1" />
-                Desativar Todos
-              </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  className="h-8 text-xs"
+                  onClick={handleBulkBan}
+                  disabled={isBulkLoading}
+                >
+                  <ShieldOff className="h-3 w-3 mr-1" />
+                  Desativar Todos
+                </Button>
+              </div>
             </div>
+
+            {isBulkLoading && (
+              <div className="space-y-2 py-2">
+                <div className="flex justify-between text-xs font-medium">
+                  <span>Processando...</span>
+                  <span>{bulkProgress.processed} / {bulkProgress.total}</span>
+                </div>
+                <Progress value={(bulkProgress.processed / bulkProgress.total) * 100} className="h-1.5" />
+              </div>
+            )}
+
+            {bulkProgress.failures.length > 0 && (
+              <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-md">
+                <div className="flex items-center gap-2 text-red-500 text-xs font-bold mb-2">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  Falhas Detectadas ({bulkProgress.failures.length})
+                </div>
+                <div className="max-h-24 overflow-y-auto space-y-1">
+                  {bulkProgress.failures.map((failure, idx) => {
+                    const user = users.find(u => u.uid === failure.uid);
+                    return (
+                      <div key={idx} className="text-[10px] text-red-400 flex justify-between">
+                        <span>{user?.name || failure.uid}:</span>
+                        <span className="italic">{failure.error}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
