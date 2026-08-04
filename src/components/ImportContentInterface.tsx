@@ -702,160 +702,85 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
             )}
           </AnimatePresence>
         </div>
-          {(loading || refreshing) && !importing ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
-                <span className="text-sm text-muted-foreground">
-                  {progressStep || (refreshing ? 'Atualizando...' : 'Carregando...')}
-                </span>
-              </div>
-            </div>
-          ) : contents.length > 0 ? (
-            <div className="p-4 space-y-2">
-              {contents.map((content) => (
-                <div
-                  key={content.id}
-                  className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50"
+        {/* Pagination & Global Actions */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-8 border-t border-border/50">
+          <div className="flex items-center gap-4">
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-2xl border border-border/50">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={currentPage === 1 || loading || refreshing}
+                  onClick={() => loadContents(currentPage - 1, searchTerm, typeFilter)}
+                  className="rounded-xl h-9"
                 >
-                  <Checkbox
-                    checked={selectedContents.has(content.id)}
-                    onCheckedChange={(checked) => handleSelectContent(content.id, checked as boolean)}
-                    disabled={!canAddMoreContent() && !selectedContents.has(content.id)}
-                  />
-                  
-                  {/* Logo do conteúdo */}
-                  <div className="flex-shrink-0">
-                    {content.Poster || content.Capa ? (
-                      <img 
-                        src={content.Poster || content.Capa || '/placeholder.svg'}
-                        alt={content.Titulo}
-                        className="w-12 h-12 md:w-16 md:h-16 object-cover rounded border"
-                        onError={(e) => {
-                          e.currentTarget.src = '/placeholder.svg';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-12 h-12 md:w-16 md:h-16 bg-muted flex items-center justify-center rounded border">
-                        <span className="text-xs text-muted-foreground">Sem Imagem</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-medium truncate">{content.Titulo}</h4>
-                      <Badge variant="secondary" className="text-xs">
-                        {content.Tipo}
-                      </Badge>
-                    </div>
-                    {content.Categoria && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {content.Categoria}
-                      </p>
-                    )}
-                    {content.Sinopse && (
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                        {content.Sinopse}
-                      </p>
-                    )}
-                    {content.Tipo === 'Serie' && selectedContents.has(content.id) && seriesSeasons.has(content.id) && (
-                      <div className="mt-2">
-                        <Badge variant="outline" className="text-xs">
-                          {seriesSeasons.get(content.id)?.length || 0} temporada(s) selecionada(s)
-                        </Badge>
-                      </div>
-                    )}
-                    {content.Tipo === 'Serie' && selectedContents.has(content.id) && !seriesSeasons.has(content.id) && (
-                      <div className="mt-2">
-                        <Badge variant="outline" className="text-xs text-primary">
-                          Todas as temporadas
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Botão de ação rápida para séries */}
-                  {content.Tipo === 'Serie' && !selectedContents.has(content.id) && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleImportAllSeasons(content)}
-                      disabled={!canAddMoreContent()}
-                      title="Importar todas as temporadas"
-                    >
-                      <Download className="h-4 w-4 mr-1" />
-                      Todas
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
-              <AlertCircle className="h-8 w-8 mb-2" />
-              <p>Nenhum conteúdo encontrado</p>
-            </div>
-          )}
-        </ScrollArea>
-
-        {/* Paginação */}
-        {totalPages > 1 && (
-          <div className="flex justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage === 1 || loading || refreshing}
-              onClick={() => loadContents(currentPage - 1, searchTerm, typeFilter)}
-            >
-              Anterior
-            </Button>
-            <span className="px-3 py-1 text-sm">
-              Página {currentPage} de {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage === totalPages || loading || refreshing}
-              onClick={() => loadContents(currentPage + 1, searchTerm, typeFilter)}
-            >
-              Próxima
-            </Button>
-          </div>
-        )}
-
-        {/* Botões de ação */}
-        <div className="flex justify-between items-center pt-4 border-t">
-          <div className="text-sm text-muted-foreground">
-            {selectedContents.size > 0 && (
-              <span>{selectedContents.size} conteúdo(s) selecionado(s)</span>
-            )}
-            {!canAddMoreContent() && (
-              <div className="flex items-center gap-1 text-destructive text-xs mt-1">
-                <Lock className="h-3 w-3" />
-                Limite mensal atingido
+                  Anterior
+                </Button>
+                <span className="px-4 text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                  Página {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={currentPage === totalPages || loading || refreshing}
+                  onClick={() => loadContents(currentPage + 1, searchTerm, typeFilter)}
+                  className="rounded-xl h-9"
+                >
+                  Próxima
+                </Button>
               </div>
             )}
+            
+            <div className="flex items-center gap-2 bg-primary/5 px-4 py-2 rounded-2xl border border-primary/10">
+              <Checkbox
+                checked={contents.length > 0 && selectedContents.size === contents.length}
+                onCheckedChange={handleSelectAll}
+                disabled={contents.length === 0 || !canAddMoreContent()}
+              />
+              <Label className="text-xs font-bold text-primary uppercase tracking-tighter cursor-pointer">
+                Selecionar Todos ({selectedContents.size})
+              </Label>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose} disabled={importing}>
+
+          <div className="flex items-center gap-3 w-full md:w-auto">
+             <div className="flex-1 md:flex-none text-right mr-2">
+              <p className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">
+                Limite Mensal
+              </p>
+              <p className={`text-xs font-bold ${getRemainingContent() < 10 ? 'text-destructive' : 'text-foreground'}`}>
+                {getRemainingContent() === -1 ? '∞ Ilimitado' : `${getRemainingContent()} Disponíveis`}
+              </p>
+            </div>
+
+            <Button 
+              variant="outline" 
+              onClick={onClose} 
+              disabled={importing}
+              className="rounded-2xl h-12 px-6 font-bold"
+            >
               Cancelar
             </Button>
+            
             <Button 
               onClick={handleImport} 
               disabled={selectedContents.size === 0 || importing || !canAddMoreContent()}
+              className="relative overflow-hidden group rounded-2xl h-12 px-8 font-black uppercase tracking-tighter shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]"
             >
-              {importing ? (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Importando...
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Importar ({selectedContents.size})
-                </>
-              )}
+              <div className="absolute inset-0 bg-gradient-to-r from-primary to-blue-600 group-hover:opacity-90 transition-opacity" />
+              <span className="relative flex items-center gap-2">
+                {importing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Processando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    Importar ({selectedContents.size})
+                  </>
+                )}
+              </span>
             </Button>
           </div>
         </div>
