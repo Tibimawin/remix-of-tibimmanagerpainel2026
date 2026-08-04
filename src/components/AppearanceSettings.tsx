@@ -8,7 +8,7 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
-import { Palette, Type, RotateCcw, Check, Pipette, X, Star, Plus, Trash2, Edit2, Eye, Contrast, Globe, Layout, Smartphone, Laptop } from 'lucide-react';
+import { Palette, Type, RotateCcw, Check, Pipette, X, Star, Plus, Trash2, Edit2, Eye, Contrast, Globe, Layout, Smartphone, Laptop, Play } from 'lucide-react';
 import { useCustomization, AVAILABLE_FONTS, AVAILABLE_THEMES, AVAILABLE_LANGUAGES } from '@/contexts/CustomizationContext';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
