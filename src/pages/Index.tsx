@@ -1,4 +1,4 @@
-// Execute esta instrucao no projeto: Visão Geral do Sistema\nAcompanhe as principais métricas e atividades do sistema deve funcionar bem tamb+em com graficos reais e tido a funcionar.
+// Execute esta instrucao no projeto: no painel Admin Panel, o menu lateral deve estar fixo, não quero que ele sobe quando eu estou deslizandompra baixo na tela
 import Dashboard from './Dashboard';
 
 const Index = () => {
