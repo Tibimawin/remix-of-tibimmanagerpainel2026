@@ -14,7 +14,7 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useUserActionHistory } from '@/hooks/useUserActionHistory';
 import { UserPermissionsService } from '@/services/UserPermissionsService';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
-import { Search, Download, RefreshCw, X, Filter, CheckCircle, AlertCircle, Lock, Clock, Loader2 } from 'lucide-react';
+import { Search, Download, RefreshCw, X, Filter, CheckCircle, AlertCircle, Lock, Clock, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { SeasonSelectionDialog } from './SeasonSelectionDialog';
 import { useTypeMode } from '@/contexts/TypeModeContext';
