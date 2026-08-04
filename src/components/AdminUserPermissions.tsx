@@ -13,6 +13,7 @@ import { UserPermissions, Plan, AVAILABLE_FEATURES } from '@/types/planTypes';
 import { FirebaseUser, FirebaseUserService } from '@/services/FirebaseUserService';
 import { db } from '@/config/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { PlansService } from '@/services/PlansService';
 
 const AdminUserPermissions = () => {
   const [searchTerm, setSearchTerm] = useState('');
