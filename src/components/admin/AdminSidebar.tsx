@@ -180,7 +180,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   return (
     <>
       {/* Desktop */}
-      <aside className="hidden lg:flex w-80 flex-shrink-0 h-screen sticky top-0 overscroll-contain modern-sidebar border-r border-purple-500/10 flex-col bg-card/60 backdrop-blur-md">
+      <aside className="hidden lg:flex w-80 flex-shrink-0 h-screen sticky top-0 left-0 overscroll-contain modern-sidebar border-r border-purple-500/10 flex-col bg-card/60 backdrop-blur-md z-50">
         {sidebarBody}
       </aside>
 
