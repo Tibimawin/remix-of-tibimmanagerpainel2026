@@ -526,20 +526,28 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
         <div className="flex items-center gap-3">
           <div className="bg-muted/50 backdrop-blur-sm border border-border/50 p-1.5 rounded-2xl flex items-center gap-1">
             <Button 
-              variant={mode === 'padrao' ? 'default' : 'ghost'} 
+              variant={mode === 'singular' ? 'default' : 'ghost'} 
               size="sm" 
-              onClick={() => setMode('padrao')}
+              onClick={() => setMode('singular')}
               className="rounded-xl h-9 font-bold text-xs"
             >
-              Padrão
+              Singular
             </Button>
             <Button 
-              variant={mode === 'miniseries' ? 'default' : 'ghost'} 
+              variant={mode === 'plural' ? 'default' : 'ghost'} 
               size="sm" 
-              onClick={() => setMode('miniseries')}
+              onClick={() => setMode('plural')}
               className="rounded-xl h-9 font-bold text-xs"
             >
-              Mini
+              Plural
+            </Button>
+            <Button 
+              variant={mode === 'tibim' ? 'default' : 'ghost'} 
+              size="sm" 
+              onClick={() => setMode('tibim')}
+              className="rounded-xl h-9 font-bold text-xs"
+            >
+              Tibim
             </Button>
           </div>
           <Button variant="outline" size="icon" onClick={onClose} className="rounded-xl hover:bg-destructive/10 hover:text-destructive transition-colors">
