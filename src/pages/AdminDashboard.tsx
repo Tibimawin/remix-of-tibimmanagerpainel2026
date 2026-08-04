@@ -508,7 +508,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-background/90 flex w-full">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-background/90 flex w-full overflow-hidden">
       {/* Sidebar */}
       <AdminSidebar
         activeView={activeView}
@@ -522,8 +522,8 @@ const AdminDashboard = () => {
       />
 
       {/* Main Content */}
-      <div className="flex-1 min-w-0 min-h-screen">
-          <div className="min-h-screen flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+          <div className="flex flex-col min-h-full">
             {/* Topbar mobile */}
             <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-purple-500/10 bg-card/80 backdrop-blur-md">
               <Button
@@ -537,7 +537,7 @@ const AdminDashboard = () => {
               </Button>
               <span className="text-sm font-semibold text-foreground truncate">Admin Panel</span>
             </div>
-            <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+            <div className="flex-1 p-4 sm:p-6 lg:p-8">
               <div className="max-w-7xl mx-auto space-y-4">
                 {/* Banner de manutenção fixo quando ativo */}
                 {isMaintenanceActive && maintenanceState && (
