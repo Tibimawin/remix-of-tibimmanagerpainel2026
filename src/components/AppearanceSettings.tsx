@@ -110,6 +110,17 @@ export const AppearanceSettings: React.FC = () => {
     toast.success(`"${name}" removido dos favoritos`);
   };
 
+  const currentPreviewTheme = AVAILABLE_THEMES.find(t => t.id === previewSettings.themeId) || AVAILABLE_THEMES[0];
+  const currentPreviewFont = AVAILABLE_FONTS.find(f => f.id === previewSettings.fontId) || AVAILABLE_FONTS[0];
+  const [viewport, setViewport] = useState<'mobile' | 'desktop'>('desktop');
+
+  const previewPrimary = previewSettings.customColor 
+    ? hexToHSL(previewSettings.customColor)
+    : currentPreviewTheme.primary;
+    
+  const previewBg = currentPreviewTheme.background || '222.2 84% 4.9%';
+  const previewCard = currentPreviewTheme.card || currentPreviewTheme.background || '222.2 84% 4.9%';
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-8 space-y-6">
@@ -583,6 +594,110 @@ export const AppearanceSettings: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+      </div>
+
+      {/* Live Preview Sidebar */}
+      <div className="lg:col-span-4 lg:sticky lg:top-6 h-fit space-y-4">
+        <Card className="overflow-hidden border-primary/20 shadow-2xl">
+          <CardHeader className="pb-3 border-b bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layout className="w-4 h-4 text-primary" />
+                <CardTitle className="text-sm">Preview ao Vivo</CardTitle>
+              </div>
+              <div className="flex bg-muted rounded-lg p-0.5">
+                <Button 
+                  variant={viewport === 'desktop' ? 'secondary' : 'ghost'} 
+                  size="icon" 
+                  className="h-7 w-7"
+                  onClick={() => setViewport('desktop')}
+                >
+                  <Laptop className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant={viewport === 'mobile' ? 'secondary' : 'ghost'} 
+                  size="icon" 
+                  className="h-7 w-7"
+                  onClick={() => setViewport('mobile')}
+                >
+                  <Smartphone className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0 bg-background/50">
+            <div 
+              className={cn(
+                "transition-all duration-500 mx-auto overflow-hidden border-x border-b shadow-inner",
+                viewport === 'desktop' ? "w-full aspect-video" : "w-[240px] aspect-[9/16] mt-4 mb-4 rounded-2xl border-4 border-muted"
+              )}
+              style={{ 
+                backgroundColor: `hsl(${previewBg})`,
+                fontFamily: currentPreviewFont.value,
+                fontSize: `${previewSettings.fontSize * 0.8}%`
+              }}
+            >
+              {/* Mock Interface */}
+              <div className="h-full flex flex-col">
+                {/* Header */}
+                <div className="p-3 border-b border-white/10 flex items-center gap-2 bg-black/20">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden" style={{ backgroundColor: `hsl(${previewPrimary})` }}>
+                    {currentPreviewTheme.logo ? (
+                      <img src={currentPreviewTheme.logo} className="w-full h-full object-contain p-1 brightness-0 invert" />
+                    ) : (
+                      <Play className="w-4 h-4 text-white fill-white" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <div className="h-2 w-16 bg-white/20 rounded-full" />
+                    <div className="h-1.5 w-10 bg-white/10 rounded-full" />
+                  </div>
+                </div>
+                
+                {/* Content */}
+                <div className="flex-1 p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-20 rounded-full" style={{ backgroundColor: `hsl(${previewPrimary})` }} />
+                    <div className="h-3 w-10 bg-white/10 rounded-full" />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    {[1, 2, 3, 4].map(i => (
+                      <div key={i} className="aspect-video rounded-lg border border-white/5 p-2 space-y-2" style={{ backgroundColor: `hsl(${previewCard})` }}>
+                        <div className="w-full h-2/3 bg-white/5 rounded-md" />
+                        <div className="h-1.5 w-full bg-white/10 rounded-full" />
+                        <div className="h-1.5 w-2/3 bg-white/10 rounded-full" />
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="space-y-2 pt-2">
+                    <div className="h-8 w-full rounded-lg flex items-center justify-center text-[10px] text-white font-bold" style={{ backgroundColor: `hsl(${previewPrimary})` }}>
+                      ASSISTIR AGORA
+                    </div>
+                    <div className="h-8 w-full rounded-lg border border-white/10 flex items-center justify-center text-[10px] text-white/70 font-medium">
+                      MAIS INFORMAÇÕES
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex gap-3">
+          <div className="bg-primary/20 p-2 rounded-lg h-fit text-primary">
+            <Layout className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-primary">Preview Ativo</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              As mudanças acima são aplicadas imediatamente ao seu painel enquanto você navega nesta página. 
+              Elas são salvas automaticamente no seu perfil.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
