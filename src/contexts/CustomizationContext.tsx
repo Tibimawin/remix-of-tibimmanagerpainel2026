@@ -77,6 +77,7 @@ interface CustomizationContextType {
   currentTheme: typeof AVAILABLE_THEMES[0];
   currentLanguage: typeof AVAILABLE_LANGUAGES[0];
   activeColor: string; // HSL string da cor ativa (tema ou custom)
+  hexToHSL: (hex: string) => string; // Exposto para preview
   // Favoritos
   addFavoritePalette: (name: string, color: string) => void;
   removeFavoritePalette: (id: string) => void;
@@ -299,6 +300,7 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
         currentTheme,
         currentLanguage,
         activeColor,
+        hexToHSL,
         addFavoritePalette,
         removeFavoritePalette,
         renameFavoritePalette,

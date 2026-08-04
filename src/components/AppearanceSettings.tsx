@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
-import { Palette, Type, RotateCcw, Check, Pipette, X, Star, Plus, Trash2, Edit2, Eye, Contrast, Globe } from 'lucide-react';
+import { Palette, Type, RotateCcw, Check, Pipette, X, Star, Plus, Trash2, Edit2, Eye, Contrast, Globe, Layout, Smartphone, Laptop } from 'lucide-react';
 import { useCustomization, AVAILABLE_FONTS, AVAILABLE_THEMES, AVAILABLE_LANGUAGES } from '@/contexts/CustomizationContext';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -37,11 +37,35 @@ export const AppearanceSettings: React.FC = () => {
     removeFavoritePalette,
     renameFavoritePalette,
     applyFavoritePalette,
+    hexToHSL,
   } = useCustomization();
+  
+  // Estado para preview ao vivo
+  const [previewSettings, setPreviewSettings] = useState({ ...settings });
   const [customColorInput, setCustomColorInput] = useState(settings.customColor || '#FF6B35');
   const [newPaletteName, setNewPaletteName] = useState('');
   const [editingPaletteId, setEditingPaletteId] = useState<string | null>(null);
   const [editingPaletteName, setEditingPaletteName] = useState('');
+
+  // Sincronizar preview quando as configurações reais mudam (ex: reset)
+  useEffect(() => {
+    setPreviewSettings({ ...settings });
+  }, [settings]);
+
+  const handlePreviewTheme = (themeId: string) => {
+    setPreviewSettings(prev => ({ ...prev, themeId, customColor: null }));
+    setTheme(themeId);
+  };
+
+  const handlePreviewFont = (fontId: string) => {
+    setPreviewSettings(prev => ({ ...prev, fontId }));
+    setFont(fontId);
+  };
+
+  const handlePreviewFontSize = (size: number) => {
+    setPreviewSettings(prev => ({ ...prev, fontSize: size }));
+    setFontSize(size);
+  };
 
   const handleCustomColorChange = (color: string) => {
     setCustomColorInput(color);
@@ -87,7 +111,8 @@ export const AppearanceSettings: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="lg:col-span-8 space-y-6">
       {/* Configuração de Fonte */}
       <Card>
         <CardHeader>
@@ -103,7 +128,7 @@ export const AppearanceSettings: React.FC = () => {
           {/* Seletor de Fonte */}
           <div className="space-y-2">
             <Label>Fonte do Sistema</Label>
-            <Select value={settings.fontId} onValueChange={setFont}>
+            <Select value={previewSettings.fontId} onValueChange={handlePreviewFont}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecione uma fonte" />
               </SelectTrigger>
@@ -124,11 +149,11 @@ export const AppearanceSettings: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label>Tamanho do Texto</Label>
-              <Badge variant="secondary">{settings.fontSize}%</Badge>
+              <Badge variant="secondary">{previewSettings.fontSize}%</Badge>
             </div>
             <Slider
-              value={[settings.fontSize]}
-              onValueChange={([value]) => setFontSize(value)}
+              value={[previewSettings.fontSize]}
+              onValueChange={([value]) => handlePreviewFontSize(value)}
               min={80}
               max={130}
               step={5}
@@ -170,12 +195,12 @@ export const AppearanceSettings: React.FC = () => {
           <div className="space-y-3">
             <Label>Cores Predefinidas</Label>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              {AVAILABLE_THEMES.map((theme) => {
-                const isSelected = settings.themeId === theme.id && !settings.customColor;
+               {AVAILABLE_THEMES.map((theme) => {
+                const isSelected = previewSettings.themeId === theme.id && !previewSettings.customColor;
                 return (
                   <button
                     key={theme.id}
-                    onClick={() => setTheme(theme.id)}
+                    onClick={() => handlePreviewTheme(theme.id)}
                     className={cn(
                       "relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all duration-200 hover:scale-105",
                       isSelected 
