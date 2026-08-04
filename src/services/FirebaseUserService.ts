@@ -378,54 +378,76 @@ export const FirebaseUserService = {
     }
   },
   
-  // Ações em massa para usuários
-  async bulkUpdateUsers(uids: string[], updates: Partial<FirebaseUser>): Promise<void> {
-    try {
-      console.log(`Iniciando atualização em massa para ${uids.length} usuários:`, updates);
-      
-      const promises = uids.map(uid => this.updateUser(uid, updates));
-      await Promise.all(promises);
-      
-      console.log('Atualização em massa concluída com sucesso');
-    } catch (error) {
-      console.error('Erro na atualização em massa:', error);
-      throw error;
+  // Ações em massa para usuários com feedback detalhado
+  async bulkUpdateUsers(
+    uids: string[], 
+    updates: Partial<FirebaseUser>,
+    onProgress?: (processed: number, total: number, errors: { uid: string; error: string }[]) => void
+  ): Promise<{ success: number; failures: { uid: string; error: string }[] }> {
+    const results = { success: 0, failures: [] as { uid: string; error: string }[] };
+    const total = uids.length;
+
+    for (let i = 0; i < uids.length; i++) {
+      const uid = uids[i];
+      try {
+        await this.updateUser(uid, updates);
+        results.success++;
+      } catch (error: any) {
+        results.failures.push({ uid, error: error.message || 'Erro desconhecido' });
+      }
+      onProgress?.(i + 1, total, results.failures);
     }
+
+    return results;
   },
 
-  async bulkExtendAccess(uids: string[], additionalDays: number): Promise<void> {
-    try {
-      console.log(`Iniciando renovação em massa para ${uids.length} usuários: ${additionalDays} dias`);
-      
-      const promises = uids.map(uid => this.extendUserAccess(uid, additionalDays));
-      await Promise.all(promises);
-      
-      console.log('Renovação em massa concluída com sucesso');
-    } catch (error) {
-      console.error('Erro na renovação em massa:', error);
-      throw error;
+  async bulkExtendAccess(
+    uids: string[], 
+    additionalDays: number,
+    onProgress?: (processed: number, total: number, errors: { uid: string; error: string }[]) => void
+  ): Promise<{ success: number; failures: { uid: string; error: string }[] }> {
+    const results = { success: 0, failures: [] as { uid: string; error: string }[] };
+    const total = uids.length;
+
+    for (let i = 0; i < uids.length; i++) {
+      const uid = uids[i];
+      try {
+        await this.extendUserAccess(uid, additionalDays);
+        results.success++;
+      } catch (error: any) {
+        results.failures.push({ uid, error: error.message || 'Erro desconhecido' });
+      }
+      onProgress?.(i + 1, total, results.failures);
     }
+
+    return results;
   },
 
-  async bulkUpdatePlan(uids: string[], planId: string, planName: string): Promise<void> {
-    try {
-      console.log(`Iniciando troca de plano em massa para ${uids.length} usuários para: ${planName}`);
-      
-      const promises = uids.map(async (uid) => {
+  async bulkUpdatePlan(
+    uids: string[], 
+    planId: string, 
+    planName: string,
+    onProgress?: (processed: number, total: number, errors: { uid: string; error: string }[]) => void
+  ): Promise<{ success: number; failures: { uid: string; error: string }[] }> {
+    const results = { success: 0, failures: [] as { uid: string; error: string }[] };
+    const total = uids.length;
+
+    for (let i = 0; i < uids.length; i++) {
+      const uid = uids[i];
+      try {
         const permissionsRef = doc(db, 'userPermissions', uid);
         await updateDoc(permissionsRef, {
           planId,
           planName,
           lastUpdated: new Date().toISOString()
         });
-      });
-      
-      await Promise.all(promises);
-      
-      console.log('Troca de plano em massa concluída com sucesso');
-    } catch (error) {
-      console.error('Erro na troca de plano em massa:', error);
-      throw error;
+        results.success++;
+      } catch (error: any) {
+        results.failures.push({ uid, error: error.message || 'Erro desconhecido' });
+      }
+      onProgress?.(i + 1, total, results.failures);
     }
+
+    return results;
   }
 };
