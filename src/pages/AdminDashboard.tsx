@@ -142,7 +142,8 @@ const AdminDashboard = () => {
     setIsRefreshing(true);
     try {
       await fetchUsers();
-      await loadLogs(); // Recarregar logs centralizados
+      // loadLogs() foi removido aqui pois os hooks useRealtimeLogs e useRealtimeActivities 
+      // já mantêm os dados atualizados em tempo real via Firebase Firestore.
       toast.success('Dados atualizados com sucesso!');
     } catch (error) {
       console.error('Erro no refresh:', error);
