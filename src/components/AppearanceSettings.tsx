@@ -38,6 +38,8 @@ export const AppearanceSettings: React.FC = () => {
     renameFavoritePalette,
     applyFavoritePalette,
     hexToHSL,
+    applyTemporarySettings,
+    restoreSavedSettings,
   } = useCustomization();
   
   // Estado para preview ao vivo
@@ -50,7 +52,30 @@ export const AppearanceSettings: React.FC = () => {
   // Sincronizar preview quando as configurações reais mudam (ex: reset)
   useEffect(() => {
     setPreviewSettings({ ...settings });
-  }, [settings]);
+  }, [settings.themeId, settings.fontId, settings.customColor, settings.fontSize, settings.highContrast, settings.language]);
+
+  const [isPreviewActive, setIsPreviewActive] = useState(false);
+
+  const toggleGlobalPreview = () => {
+    if (isPreviewActive) {
+      restoreSavedSettings();
+      setIsPreviewActive(false);
+      toast.info("Prévia desativada. Voltando ao tema original.");
+    } else {
+      applyTemporarySettings(previewSettings);
+      setIsPreviewActive(true);
+      toast.success("Modo Prévia Global Ativo! Explore o painel para ver as mudanças.", {
+        duration: 5000,
+        action: {
+          label: "Sair",
+          onClick: () => {
+            restoreSavedSettings();
+            setIsPreviewActive(false);
+          }
+        }
+      });
+    }
+  };
 
   const handlePreviewTheme = (themeId: string) => {
     setPreviewSettings(prev => ({ ...prev, themeId, customColor: null }));
@@ -120,6 +145,27 @@ export const AppearanceSettings: React.FC = () => {
     
   const previewBg = currentPreviewTheme.background || '222.2 84% 4.9%';
   const previewCard = currentPreviewTheme.card || currentPreviewTheme.background || '222.2 84% 4.9%';
+
+  const handleSaveFinal = () => {
+    // Ao salvar, desativamos o modo preview e aplicamos as configurações permanentemente
+    setIsPreviewActive(false);
+    // Aqui as configurações já estão em previewSettings, precisamos garantir que o context saiba que é permanente
+    // Vamos chamar o reset do savedSettings no context e depois aplicar as configurações reais
+    restoreSavedSettings(); // Limpa o estado temporário
+    
+    // Agora aplica individualmente para persistir no localStorage
+    setFont(previewSettings.fontId);
+    if (previewSettings.customColor) {
+      setCustomColor(previewSettings.customColor);
+    } else {
+      setTheme(previewSettings.themeId);
+    }
+    setFontSize(previewSettings.fontSize);
+    setHighContrast(previewSettings.highContrast);
+    setLanguage(previewSettings.language);
+    
+    toast.success("Configurações salvas com sucesso!");
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
