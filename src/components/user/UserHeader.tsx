@@ -28,6 +28,8 @@ import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 import GlobalSearch from '../GlobalSearch';
 import { ZoomControl } from '../ZoomControl';
 import { Switch } from '@/components/ui/switch';
+import { ServerStatusIndicator } from '../ServerStatusIndicator';
+
 
 // Mapeamento de títulos dinâmicos para cada rota
 const routeTitles: Record<string, { title: string; subtitle: string; icon?: React.ComponentType<any> }> = {
@@ -203,6 +205,11 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
           </div>
           
           <div className="flex flex-1 items-center justify-end space-x-3">
+            {/* Indicador de Status do Servidor */}
+            <div className="hidden lg:block mr-2">
+              <ServerStatusIndicator />
+            </div>
+
             {/* Suporte Prioritário Badge */}
             {hasPrioritySupport() && (
               <Badge 
