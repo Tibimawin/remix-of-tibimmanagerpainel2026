@@ -14,7 +14,6 @@ import { FirebaseUser, FirebaseUserService } from '@/services/FirebaseUserServic
 import { db } from '@/config/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { PlansService } from '@/services/PlansService';
-import { PlansService } from '@/services/PlansService';
 
 const AdminUserPermissions = () => {
   const [searchTerm, setSearchTerm] = useState('');
