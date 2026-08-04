@@ -190,6 +190,16 @@ const AdminDashboard = () => {
 
     switch (activeView) {
       case 'overview':
+        // Converter FirebaseUser para User para o dashboard
+        const convertedUsersOverview = users.map(user => ({
+          id: user.uid,
+          Nome: user.name,
+          Email: user.email,
+          Logins: user.totalLogins || 0,
+          Dias: user.expiryDate ? Math.floor((new Date(user.expiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0,
+          Pagamento: user.isActive ? 'Ativo' : 'Expirado'
+        }));
+
         return (
           <div className="space-y-8">
             {/* Central de Alertas em Tempo Real */}
@@ -197,6 +207,9 @@ const AdminDashboard = () => {
 
             {/* Métricas Resumidas */}
             <AdminOverviewMetrics users={users} logs={logs} />
+
+            {/* Gráficos em Tempo Real */}
+            <VisualMetricsDashboard users={convertedUsersOverview} logs={logs} />
 
             {/* Atividades Recentes - Tempo Real */}
             <Card className="modern-card bg-gradient-to-br from-card to-card/80 border-border/40">
