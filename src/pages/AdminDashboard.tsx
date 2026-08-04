@@ -522,7 +522,7 @@ const AdminDashboard = () => {
       />
 
       {/* Main Content */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 min-h-screen">
           <div className="h-full flex flex-col">
             {/* Topbar mobile */}
             <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-purple-500/10 bg-card/80 backdrop-blur-md">
