@@ -1,4 +1,4 @@
-// Execute esta instrucao no projeto: veja mano, ainda não esta fixo o menu layeral no painel admin
+// Execute esta instrucao no projeto: Adicionar uma sombra/fundo na sidebar quando eu começar a rolar, para ficar claro que ela está fixa acima do conteúdo.
 import Dashboard from './Dashboard';
 
 const Index = () => {
