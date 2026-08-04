@@ -47,6 +47,7 @@ import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useWithdrawalNotifications } from '@/hooks/useWithdrawalNotifications';
 import { useTypeMode } from '@/contexts/TypeModeContext';
+import { useCustomization } from '@/contexts/CustomizationContext';
 
 type BadgeType = 'new' | 'alert' | 'info' | 'count';
 
@@ -743,8 +744,12 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
               "flex items-center space-x-3 transition-all duration-300",
               effectiveCollapsed && !isMobile && "opacity-0 scale-90"
             )}>
-              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-primary via-red-600 to-orange-500 rounded-2xl shadow-lg">
-                <Play className="w-6 h-6 text-white fill-white" />
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-primary via-red-600 to-orange-500 rounded-2xl shadow-lg overflow-hidden">
+                {currentTheme.logo ? (
+                  <img src={currentTheme.logo} alt="Logo" className="w-full h-full object-contain p-2 brightness-0 invert" />
+                ) : (
+                  <Play className="w-6 h-6 text-white fill-white" />
+                )}
               </div>
               {(!effectiveCollapsed || isMobile) && (
                 <div>
