@@ -191,7 +191,7 @@ const AdminDashboard = () => {
                   </Badge>
                 </CardTitle>
                 <CardDescription className="text-muted-foreground">
-                  Últimas {Math.min(recentActivities.length, 15)} atividades registradas no sistema (tempo real)
+                  Últimas {Math.min(recentActivities.length, 15)} atividades registradas no sistema (tempo real - Monitoramento Global)
                 </CardDescription>
               </CardHeader>
               <CardContent>
