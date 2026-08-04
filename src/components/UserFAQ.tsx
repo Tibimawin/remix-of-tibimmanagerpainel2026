@@ -22,37 +22,32 @@ const FAQ_ITEMS = [
   {
     id: 'intro',
     question: 'Como começar a usar o painel?',
-    answer: 'Para começar, você deve configurar suas credenciais do Baserow nas Configurações. Após isso, você poderá importar conteúdos e gerenciar seus episódios.',
-    icon: HelpCircle,
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ' // Exemplo
+    answer: 'Para começar, você deve configurar suas credenciais do Baserow nas Configurações. Após isso, você poderá importar conteúdos e gerenciar seus episódios. Certifique-se de que a API Key e o ID da Tabela estão corretos no seu painel admin.',
+    icon: HelpCircle
   },
   {
     id: 'player',
     question: 'Como configurar o Player no meu aplicativo?',
-    answer: 'Na seção "Minha API", você encontrará os links de integração. Copie o link M3U ou JSON e cole nas configurações do seu player favorito (VLC, IPTV Smarters, etc).',
-    icon: PlayCircle,
-    videoUrl: null
+    answer: 'Na seção "Minha API", você encontrará os links de integração. Copie o link M3U ou JSON e cole nas configurações do seu player favorito (VLC, IPTV Smarters, etc). Se estiver usando um player mobile, recomendamos baixar o link diretamente para evitar problemas de carregamento.',
+    icon: PlayCircle
   },
   {
     id: 'import',
     question: 'Como funciona a Importação Automática?',
-    answer: 'A importação automática busca novos episódios nas fontes configuradas a cada hora. Você pode ver o resumo das importações na aba "Atualização Séries".',
-    icon: Download,
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ'
+    answer: 'A importação automática busca novos episódios nas fontes configuradas a cada hora. O sistema verifica se o episódio já existe usando o link ou o número da temporada/episódio para evitar duplicatas. Você pode acompanhar o sucesso das importações em tempo real no dashboard.',
+    icon: Download
   },
   {
     id: 'security',
     question: 'Esqueci minha senha ou quero mudar o PIN',
-    answer: 'Você pode alterar sua senha na aba "Segurança" do seu perfil. O PIN do aplicativo pode ser redefinido na aba "Dispositivos".',
-    icon: Key,
-    videoUrl: null
+    answer: 'Você pode alterar sua senha na aba "Segurança" do seu perfil. O PIN do aplicativo, usado para bloquear o acesso a conteúdos específicos, pode ser redefinido na aba "Dispositivos". Lembre-se que o PIN deve ser numérico.',
+    icon: Key
   },
   {
     id: 'devices',
     question: 'Quantos dispositivos posso conectar?',
-    answer: 'O limite padrão é de 3 dispositivos ativos simultaneamente. Você pode gerenciar e remover dispositivos antigos na aba "Dispositivos" do seu perfil.',
-    icon: Smartphone,
-    videoUrl: null
+    answer: 'O limite padrão depende do seu plano contratado (geralmente 3 dispositivos ativos simultaneamente). Se você atingir o limite, o novo dispositivo não conseguirá carregar a lista. Você pode remover conexões antigas na aba "Dispositivos" para liberar espaço.',
+    icon: Smartphone
   }
 ];
 
@@ -87,25 +82,6 @@ export const UserFAQ = () => {
                       {item.answer}
                     </p>
                     
-                    {item.videoUrl && (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider">
-                          <PlayCircle className="h-3 w-3" />
-                          Tutorial em Vídeo
-                        </div>
-                        <div className="aspect-video rounded-xl overflow-hidden bg-black border border-border/40">
-                          <iframe
-                            width="100%"
-                            height="100%"
-                            src={item.videoUrl}
-                            title={item.question}
-                            frameBorder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                          ></iframe>
-                        </div>
-                      </div>
-                    )}
 
                     <div className="flex justify-end">
                       <a 
