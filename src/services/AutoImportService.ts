@@ -1062,7 +1062,8 @@ export class AutoImportService {
       total: number;
       title: string;
       status: 'processing' | 'success' | 'error';
-    }) => void
+    }) => void,
+    enrichWithTmdb: boolean = false
   ): Promise<{ success: number, errors: string[] }> {
     let success = 0;
     const errors: string[] = [];
@@ -1091,6 +1092,33 @@ export class AutoImportService {
           if (!titulo || titulo.trim() === '' || titulo === 'Sem título') {
             errors.push(`Conteúdo com título inválido foi ignorado`);
             continue;
+          }
+
+          // 🎬 Enriquecimento via TMDB se solicitado e se faltarem dados
+          if (enrichWithTmdb && (!content.Sinopse || !content.Poster || !content.Capa)) {
+            try {
+              console.log(`🎬 Enriquecendo "${titulo}" via TMDB...`);
+              const tipoLower = (content.Tipo || '').toLowerCase();
+              const tmdbType: 'movie' | 'tv' =
+                tipoLower.includes('serie') || tipoLower.includes('series') ? 'tv' : 'movie';
+              const tmdbResult = await tmdbService.search(titulo, tmdbType);
+
+              if (tmdbResult) {
+                if (!content.Sinopse || content.Sinopse.trim() === '') {
+                  content.Sinopse = tmdbResult.sinopse;
+                }
+                if (!content.Poster || !content.Capa || content.Poster.trim() === '' || content.Capa.trim() === '') {
+                  content.Poster = tmdbResult.linkCapa;
+                  content.Capa = tmdbResult.linkCapa;
+                }
+                if (!content.Categoria || content.Categoria.trim() === '') {
+                  content.Categoria = tmdbResult.categoria;
+                }
+                console.log(`✅ "${titulo}" enriquecido com sucesso via TMDB.`);
+              }
+            } catch (tmdbErr) {
+              console.warn(`⚠️ Erro ao enriquecer "${titulo}" via TMDB:`, tmdbErr);
+            }
           }
 
           // Determinar tabela alvo baseado no tipo e modo

@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ImportContentInterface } from '@/components/ImportContentInterface';
 import { useAutoImportService, ImportConfig, UserConfig, ImportContent, ImportEpisode } from '@/services/AutoImportService';
 import { useUserConfig } from '@/hooks/useUserConfig';
@@ -34,10 +35,12 @@ import {
   Tv,
   Clapperboard,
   Sparkles,
-  ListVideo
+  ListVideo,
+  Bell
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CloakService } from '@/services/CloakService';
+import { syncNotificationService } from '@/services/SyncNotificationService';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { ImportPreview, ContentPreview } from '@/components/ImportPreview';
 import { Progress } from '@/components/ui/progress';
@@ -91,6 +94,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
     currentEpisode: string;
     episodeTitle: string;
   }>({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
+  const [enrichWithTmdb, setEnrichWithTmdb] = useState(true);
 
   const autoImportService = useAutoImportService();
   const { userInfo } = useSimpleAuth();
@@ -151,9 +155,22 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
         episodeSearchField: globalConfig.episodeSearchField,
         isActive: globalConfig.isActive,
       });
+
+      // Iniciar monitoramento de novos conteúdos
+      syncNotificationService.startMonitoring({
+        sourceToken: globalConfig.sourceToken,
+        sourceBaseUrl: globalConfig.sourceBaseUrl,
+        contentTableId: globalConfig.contentTableId,
+        episodeTableId: globalConfig.episodeTableId,
+        isActive: globalConfig.isActive,
+      });
     } else if (!globalConfigLoading) {
       setImportConfig(null);
     }
+
+    return () => {
+      syncNotificationService.stopMonitoring();
+    };
   }, [globalConfig, globalConfigLoading]);
 
   const validateUserConfig = (config: UserConfig) => {
@@ -375,7 +392,8 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
           if (info.status === 'processing') {
             setEpisodeStatus({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
           }
-        }
+        },
+        enrichWithTmdb
       );
 
       setImportProgress(100);
@@ -463,20 +481,37 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
                       </span>
                       <h1 className="mt-1.5 text-3xl font-bold tracking-tight">Minisséries</h1>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2 rounded-xl hidden md:flex border-primary/20 hover:bg-primary/5"
-                      onClick={() => {
-                        toast.info("Sugestão de Evolução", {
-                          description: "Enriquecimento via TMDB e filtros de qualidade 4K detectados como prioridades.",
-                          duration: 4000
-                        });
-                      }}
-                    >
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      Sugestões de IA
-                    </Button>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 rounded-xl hidden md:flex border-primary/20 hover:bg-primary/5"
+                        onClick={() => {
+                          toast.info("Sugestão de Evolução", {
+                            description: "Enriquecimento via TMDB e filtros de qualidade 4K detectados como prioridades.",
+                            duration: 4000
+                          });
+                        }}
+                      >
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        Sugestões de IA
+                      </Button>
+
+                      <div className="flex items-center space-x-2 bg-white/50 dark:bg-black/20 px-3 py-1.5 rounded-xl border border-primary/10 backdrop-blur-sm">
+                        <Checkbox 
+                          id="enrich-tmdb-mini" 
+                          checked={enrichWithTmdb}
+                          onCheckedChange={(checked) => setEnrichWithTmdb(!!checked)}
+                        />
+                        <label 
+                          htmlFor="enrich-tmdb-mini" 
+                          className="text-xs font-medium leading-none cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Sparkles className="h-3.5 w-3.5 text-primary" />
+                          TMDB
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
