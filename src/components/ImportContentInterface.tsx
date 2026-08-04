@@ -64,6 +64,7 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
       status: 'pending' | 'processing' | 'success' | 'error';
     }>;
   } | null>(null);
+  const [enrichWithTmdb, setEnrichWithTmdb] = useState(true);
 
   // Removido: rastreamento de histórico de importação e lista de nomes importados
 

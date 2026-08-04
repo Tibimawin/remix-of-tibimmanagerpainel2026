@@ -480,20 +480,37 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
                       </span>
                       <h1 className="mt-1.5 text-3xl font-bold tracking-tight">Minisséries</h1>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2 rounded-xl hidden md:flex border-primary/20 hover:bg-primary/5"
-                      onClick={() => {
-                        toast.info("Sugestão de Evolução", {
-                          description: "Enriquecimento via TMDB e filtros de qualidade 4K detectados como prioridades.",
-                          duration: 4000
-                        });
-                      }}
-                    >
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      Sugestões de IA
-                    </Button>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 rounded-xl hidden md:flex border-primary/20 hover:bg-primary/5"
+                        onClick={() => {
+                          toast.info("Sugestão de Evolução", {
+                            description: "Enriquecimento via TMDB e filtros de qualidade 4K detectados como prioridades.",
+                            duration: 4000
+                          });
+                        }}
+                      >
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        Sugestões de IA
+                      </Button>
+
+                      <div className="flex items-center space-x-2 bg-white/50 dark:bg-black/20 px-3 py-1.5 rounded-xl border border-primary/10 backdrop-blur-sm">
+                        <Checkbox 
+                          id="enrich-tmdb-mini" 
+                          checked={enrichWithTmdb}
+                          onCheckedChange={(checked) => setEnrichWithTmdb(!!checked)}
+                        />
+                        <label 
+                          htmlFor="enrich-tmdb-mini" 
+                          className="text-xs font-medium leading-none cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Sparkles className="h-3.5 w-3.5 text-primary" />
+                          TMDB
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
