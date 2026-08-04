@@ -376,5 +376,56 @@ export const FirebaseUserService = {
     } catch (error) {
       console.error('Erro ao registrar login:', error);
     }
+  },
+  
+  // Ações em massa para usuários
+  async bulkUpdateUsers(uids: string[], updates: Partial<FirebaseUser>): Promise<void> {
+    try {
+      console.log(`Iniciando atualização em massa para ${uids.length} usuários:`, updates);
+      
+      const promises = uids.map(uid => this.updateUser(uid, updates));
+      await Promise.all(promises);
+      
+      console.log('Atualização em massa concluída com sucesso');
+    } catch (error) {
+      console.error('Erro na atualização em massa:', error);
+      throw error;
+    }
+  },
+
+  async bulkExtendAccess(uids: string[], additionalDays: number): Promise<void> {
+    try {
+      console.log(`Iniciando renovação em massa para ${uids.length} usuários: ${additionalDays} dias`);
+      
+      const promises = uids.map(uid => this.extendUserAccess(uid, additionalDays));
+      await Promise.all(promises);
+      
+      console.log('Renovação em massa concluída com sucesso');
+    } catch (error) {
+      console.error('Erro na renovação em massa:', error);
+      throw error;
+    }
+  },
+
+  async bulkUpdatePlan(uids: string[], planId: string, planName: string): Promise<void> {
+    try {
+      console.log(`Iniciando troca de plano em massa para ${uids.length} usuários para: ${planName}`);
+      
+      const promises = uids.map(async (uid) => {
+        const permissionsRef = doc(db, 'userPermissions', uid);
+        await updateDoc(permissionsRef, {
+          planId,
+          planName,
+          lastUpdated: new Date().toISOString()
+        });
+      });
+      
+      await Promise.all(promises);
+      
+      console.log('Troca de plano em massa concluída com sucesso');
+    } catch (error) {
+      console.error('Erro na troca de plano em massa:', error);
+      throw error;
+    }
   }
 };

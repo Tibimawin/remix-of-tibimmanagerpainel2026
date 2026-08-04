@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar, CalendarDays, Edit, Plus, Shield, ShieldOff, Users, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -426,6 +427,10 @@ export const AdminFirebaseUsers: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<FirebaseUser | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedUids, setSelectedUids] = useState<string[]>([]);
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
+  const [plans, setPlans] = useState<any[]>([]);
+
 
   useEffect(() => {
     console.log('🔄 Iniciando listener em tempo real para usuários Firebase');
@@ -452,11 +457,81 @@ export const AdminFirebaseUsers: React.FC = () => {
       }
     );
 
+    // Carregar planos para troca em massa
+    const loadPlans = async () => {
+      try {
+        const { PlansService } = await import('@/services/PlansService');
+        const allPlans = await PlansService.getAllPlans();
+        setPlans(allPlans);
+      } catch (err) {
+        console.error('Erro ao carregar planos:', err);
+      }
+    };
+    loadPlans();
+
     return () => {
       console.log('🔥 Removendo listener de usuários');
       unsubscribe();
     };
   }, []);
+
+  const toggleSelectUser = (uid: string) => {
+    setSelectedUids(prev => 
+      prev.includes(uid) ? prev.filter(id => id !== uid) : [...prev, uid]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedUids.length === filteredUsers.length) {
+      setSelectedUids([]);
+    } else {
+      setSelectedUids(filteredUsers.map(u => u.uid));
+    }
+  };
+
+  const handleBulkRenew = async (days: number) => {
+    if (selectedUids.length === 0) return;
+    setIsBulkLoading(true);
+    try {
+      await FirebaseUserService.bulkExtendAccess(selectedUids, days);
+      toast.success(`${selectedUids.length} usuários renovados com sucesso!`);
+      setSelectedUids([]);
+    } catch (error) {
+      toast.error('Erro ao renovar usuários em massa');
+    } finally {
+      setIsBulkLoading(false);
+    }
+  };
+
+  const handleBulkBan = async () => {
+    if (selectedUids.length === 0) return;
+    if (!window.confirm(`Tem certeza que deseja desativar ${selectedUids.length} usuários?`)) return;
+    setIsBulkLoading(true);
+    try {
+      await FirebaseUserService.bulkUpdateUsers(selectedUids, { isActive: false });
+      toast.success(`${selectedUids.length} usuários desativados!`);
+      setSelectedUids([]);
+    } catch (error) {
+      toast.error('Erro ao desativar usuários');
+    } finally {
+      setIsBulkLoading(false);
+    }
+  };
+
+  const handleBulkChangePlan = async (planId: string, planName: string) => {
+    if (selectedUids.length === 0) return;
+    setIsBulkLoading(true);
+    try {
+      await FirebaseUserService.bulkUpdatePlan(selectedUids, planId, planName);
+      toast.success(`Plano alterado para ${selectedUids.length} usuários!`);
+      setSelectedUids([]);
+    } catch (error) {
+      toast.error('Erro ao alterar planos');
+    } finally {
+      setIsBulkLoading(false);
+    }
+  };
+
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -557,31 +632,111 @@ export const AdminFirebaseUsers: React.FC = () => {
         </Card>
       </div>
 
-      {/* Barra de pesquisa */}
-      <div className="flex justify-between items-center">
+      {/* Barra de pesquisa e Ações em Massa */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold">Gerenciamento de Usuários Firebase</h2>
           <p className="text-muted-foreground">Gerencie usuários em tempo real</p>
         </div>
-        <div className="w-80">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
           <Input
             placeholder="Buscar por nome ou email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full md:w-80"
           />
         </div>
       </div>
 
+      {selectedUids.length > 0 && (
+        <Card className="bg-primary/5 border-primary/20 animate-in fade-in slide-in-from-top-2">
+          <CardContent className="p-4 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Badge variant="default" className="text-sm">
+                {selectedUids.length} selecionados
+              </Badge>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setSelectedUids([])}
+                className="text-xs"
+              >
+                Cancelar
+              </Button>
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+              <Select onValueChange={(val) => handleBulkRenew(Number(val))}>
+                <SelectTrigger className="w-[140px] h-8 text-xs">
+                  <SelectValue placeholder="Renovar..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">+1 Dia</SelectItem>
+                  <SelectItem value="7">+7 Dias</SelectItem>
+                  <SelectItem value="30">+30 Dias</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select onValueChange={(val) => {
+                const plan = plans.find(p => p.id === val);
+                if (plan) handleBulkChangePlan(plan.id, plan.name);
+              }}>
+                <SelectTrigger className="w-[140px] h-8 text-xs">
+                  <SelectValue placeholder="Trocar Plano..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {plans.map(plan => (
+                    <SelectItem key={plan.id} value={plan.id}>{plan.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                className="h-8 text-xs"
+                onClick={handleBulkBan}
+                disabled={isBulkLoading}
+              >
+                <ShieldOff className="h-3 w-3 mr-1" />
+                Desativar Todos
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+
       {/* Lista de usuários */}
+      <div className="flex items-center gap-2 mb-2 px-2">
+        <input 
+          type="checkbox" 
+          checked={selectedUids.length === filteredUsers.length && filteredUsers.length > 0}
+          onChange={toggleSelectAll}
+          className="rounded border-gray-300 text-primary focus:ring-primary"
+        />
+        <span className="text-sm text-muted-foreground">Selecionar Todos</span>
+      </div>
+
       <div className="grid gap-4">
         {filteredUsers.map((user) => (
-          <Card key={user.uid} className="hover:shadow-md transition-shadow">
+          <Card 
+            key={user.uid} 
+            className={`hover:shadow-md transition-all duration-200 ${selectedUids.includes(user.uid) ? 'border-primary bg-primary/5' : ''}`}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
+                  <input 
+                    type="checkbox" 
+                    checked={selectedUids.includes(user.uid)}
+                    onChange={() => toggleSelectUser(user.uid)}
+                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                  />
                   <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
                     <Users className="h-6 w-6 text-primary" />
                   </div>
+
                   <div>
                     <h3 className="font-semibold">{user.name}</h3>
                     <p className="text-sm text-muted-foreground">{user.email}</p>
