@@ -1,4 +1,4 @@
-// Execute esta instrucao no projeto: Adicionar atualização automática em tempo real nos “Logs de Atividade” sem precisar recarregar a página.
+// Execute esta instrucao no projeto: Sobre o painel de usuarios oque voce acha que falta?
 import Dashboard from './Dashboard';
 
 const Index = () => {
