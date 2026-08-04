@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ImportContentInterface } from '@/components/ImportContentInterface';
 import { useAutoImportService, ImportConfig, UserConfig, ImportContent, ImportEpisode } from '@/services/AutoImportService';
 import { useUserConfig } from '@/hooks/useUserConfig';
