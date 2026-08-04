@@ -1,4 +1,4 @@
-// Execute esta instrucao no projeto: Logs de Atividade - Tempo Real, porque aparece Invalid Date inves da data real, resolve esse problema
+// Execute esta instrucao no projeto: Adicionar atualização automática em tempo real nos “Logs de Atividade” sem precisar recarregar a página.
 import Dashboard from './Dashboard';
 
 const Index = () => {
