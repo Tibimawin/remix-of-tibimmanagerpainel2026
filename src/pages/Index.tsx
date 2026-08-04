@@ -1,4 +1,4 @@
-// Execute esta instrucao no projeto: Adicionar filtros por tipo de evento e uma busca por usuário/ação na lista de Atividades Recentes do painel admin.
+// Execute esta instrucao no projeto: Visão Geral do Sistema\nAcompanhe as principais métricas e atividades do sistema deve funcionar bem tamb+em com graficos reais e tido a funcionar.
 import Dashboard from './Dashboard';
 
 const Index = () => {
