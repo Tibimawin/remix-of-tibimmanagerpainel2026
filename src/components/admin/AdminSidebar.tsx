@@ -8,6 +8,8 @@ import {
   Settings, RefreshCw, LogOut, Tag, AlertTriangle, Megaphone, Sparkles, Palette, DollarSign, Key
 } from 'lucide-react';
 
+import { useState, useEffect } from 'react';
+
 export type AdminView = 'overview' | 'users' | 'activity' | 'date-logs' | 'metrics' | 'products' | 'notifications' | 'user-management' | 'firebase-users' | 'registration-control' | 'chat' | 'import-config' | 'plans' | 'plan-requests' | 'user-permissions' | 'series-correction' | 'series-update-config' | 'miniseries-config' | 'suporte-prioritario' | 'security-center' | 'offers' | 'announcements' | 'whatsapp' | 'maintenance' | 'access-expired-config' | 'expiration-notifications' | 'user-action-history' | 'referrals' | 'system-updates' | 'seasonal-theme' | 'financial' | 'planos-config' | 'api-keys' | 'protected-channels' | 'cloak-links' | 'cloak-dashboard' | 'push-center';
 
 interface AdminSidebarProps {
@@ -81,6 +83,19 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   mobileOpen,
   onMobileOpenChange
 }) => {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const mainContent = document.getElementById('admin-main-content');
+    if (!mainContent) return;
+
+    const handleScroll = () => {
+      setScrolled(mainContent.scrollTop > 10);
+    };
+
+    mainContent.addEventListener('scroll', handleScroll);
+    return () => mainContent.removeEventListener('scroll', handleScroll);
+  }, []);
   const groupedMenuItems = menuItems.reduce((acc, item) => {
     if (!acc[item.category]) {
       acc[item.category] = [];
@@ -180,7 +195,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   return (
     <>
       {/* Desktop */}
-      <aside className="hidden lg:flex w-80 flex-shrink-0 h-screen sticky top-0 left-0 overscroll-contain modern-sidebar border-r border-purple-500/10 flex-col bg-card/60 backdrop-blur-md z-50">
+      <aside className={`hidden lg:flex w-80 flex-shrink-0 h-screen sticky top-0 left-0 overscroll-contain modern-sidebar border-r border-purple-500/10 flex-col bg-card/60 backdrop-blur-md z-50 transition-shadow duration-300 ${scrolled ? 'shadow-[10px_0_30px_-15px_rgba(168,85,247,0.3)]' : ''}`}>
         {sidebarBody}
       </aside>
 
