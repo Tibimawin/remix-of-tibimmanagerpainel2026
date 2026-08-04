@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +14,7 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useUserActionHistory } from '@/hooks/useUserActionHistory';
 import { UserPermissionsService } from '@/services/UserPermissionsService';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
-import { Search, Download, RefreshCw, X, Filter, CheckCircle, AlertCircle, Lock, Clock, Loader2 } from 'lucide-react';
+import { Search, Download, RefreshCw, X, Filter, CheckCircle, AlertCircle, Lock, Clock, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { SeasonSelectionDialog } from './SeasonSelectionDialog';
 import { useTypeMode } from '@/contexts/TypeModeContext';
@@ -511,343 +512,283 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card className="border-none bg-transparent shadow-none">
+      <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8">
         <div>
-          <CardTitle className="flex items-center gap-2">
-            <Download className="h-5 w-5" />
-            Importar Conteúdos
+          <CardTitle className="text-2xl font-black tracking-tighter flex items-center gap-2">
+            <Sparkles className="h-6 w-6 text-primary" />
+            Explorar Conteúdos
           </CardTitle>
-          <CardDescription>
-            Selecione os conteúdos que deseja importar para seu sistema
+          <CardDescription className="text-sm font-medium">
+            Selecione os melhores títulos para o seu catálogo premium.
           </CardDescription>
         </div>
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Filtros */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <Label htmlFor="search">Buscar</Label>
-            <div className="flex gap-2 mt-1">
-              <Input
-                id="search"
-                placeholder="Digite o nome do conteúdo..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              />
-              <Button onClick={handleSearch} disabled={loading || refreshing}>
-                <Search className="h-4 w-4" />
-              </Button>
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="bg-muted/50 backdrop-blur-sm border border-border/50 p-1.5 rounded-2xl flex items-center gap-1">
+            <Button 
+              variant={mode === 'singular' ? 'default' : 'ghost'} 
+              size="sm" 
+              onClick={() => setMode('singular')}
+              className="rounded-xl h-9 font-bold text-xs"
+            >
+              Singular
+            </Button>
+            <Button 
+              variant={mode === 'plural' ? 'default' : 'ghost'} 
+              size="sm" 
+              onClick={() => setMode('plural')}
+              className="rounded-xl h-9 font-bold text-xs"
+            >
+              Plural
+            </Button>
+            <Button 
+              variant={mode === 'tibim' ? 'default' : 'ghost'} 
+              size="sm" 
+              onClick={() => setMode('tibim')}
+              className="rounded-xl h-9 font-bold text-xs"
+            >
+              Tibim
+            </Button>
+          </div>
+          <Button variant="outline" size="icon" onClick={onClose} className="rounded-xl hover:bg-destructive/10 hover:text-destructive transition-colors">
+            <X className="h-4 w-4" />
+          </Button>
         </div>
-          <div className="sm:w-48">
-            <Label htmlFor="type">Tipo</Label>
+      </CardHeader>
+
+      <CardContent className="space-y-8 p-0">
+        {/* Modern Filter Bar */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-muted/30 p-4 rounded-[2rem] border border-border/50 backdrop-blur-sm">
+          <div className="md:col-span-6 relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar títulos, gêneros ou diretores..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              className="pl-11 h-12 bg-background/50 border-none rounded-2xl focus-visible:ring-primary/20 shadow-inner"
+            />
+          </div>
+          <div className="md:col-span-4">
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="mt-1">
-                <SelectValue />
+              <SelectTrigger className="h-12 bg-background/50 border-none rounded-2xl focus:ring-primary/20 shadow-inner font-semibold">
+                <SelectValue placeholder="Categorias" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="filme">Filmes</SelectItem>
-                <SelectItem value="serie">Séries</SelectItem>
-                <SelectItem value="dorama">Doramas</SelectItem>
-                <SelectItem value="anime">Animes</SelectItem>
-                <SelectItem value="novela">Novelas</SelectItem>
+              <SelectContent className="rounded-2xl border-primary/10">
+                <SelectItem value="all" className="font-semibold">✨ Todos os Gêneros</SelectItem>
+                <SelectItem value="filme" className="font-semibold">🎬 Filmes Blockbuster</SelectItem>
+                <SelectItem value="serie" className="font-semibold">📺 Séries Originais</SelectItem>
+                <SelectItem value="dorama" className="font-semibold">🍜 Doramas Populares</SelectItem>
+                <SelectItem value="anime" className="font-semibold">🍥 Animes Épicos</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          
-          <div className="sm:w-32 flex items-end">
+          <div className="md:col-span-2 flex gap-2">
+            <Button 
+              onClick={handleSearch} 
+              disabled={loading || refreshing}
+              className="flex-1 h-12 rounded-2xl font-bold gap-2"
+            >
+              <Filter className="h-4 w-4" />
+              Filtrar
+            </Button>
             <Button 
               variant="outline" 
               onClick={handleRefresh}
               disabled={loading || refreshing}
-              title="Atualizar lista de conteúdos"
+              className="h-12 w-12 rounded-2xl border-primary/20 hover:bg-primary/5"
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         </div>
 
-        {/* Informações e Limite */}
-        <div className="flex justify-between items-center">
-          <div className="text-sm text-muted-foreground">
-            {totalCount > 0 ? (
-              <>Mostrando {contents.length} de {totalCount} conteúdos</>
-            ) : (
-              'Nenhum conteúdo encontrado'
-            )}
-            {getRemainingContent() !== -1 && (
-              <div className="text-xs text-primary mt-1">
-                Limite restante: {getRemainingContent()} conteúdos
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              checked={contents.length > 0 && selectedContents.size === contents.length}
-              onCheckedChange={handleSelectAll}
-              disabled={contents.length === 0 || !canAddMoreContent()}
-            />
-            <Label className="text-sm">Selecionar todos ({selectedContents.size})</Label>
-          </div>
-        </div>
-
-        {/* Barra de progresso de carregamento */}
-        {(loading || refreshing) && (
-          <Card className="mb-4 border-primary/20 bg-primary/5">
-            <CardContent className="pt-6">
-              <div className="text-center space-y-4">
-                <div className="flex items-center justify-center gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                  <span className="font-medium">{refreshing ? 'Atualizando lista de conteúdos...' : 'Carregando conteúdos disponíveis...'}</span>
-                </div>
-                <div className="max-w-md mx-auto">
-                  <Progress value={loadProgress} className="w-full mb-2" />
-                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                    {progressStep || 'Processando...'}
+        {/* Dynamic Content Grid */}
+        <div className="min-h-[400px]">
+          <AnimatePresence mode="wait">
+            {loading || refreshing ? (
+              <motion.div 
+                key="loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 py-10"
+              >
+                {[...Array(10)].map((_, i) => (
+                  <div key={i} className="space-y-3 animate-pulse">
+                    <div className="aspect-[2/3] bg-muted rounded-[1.5rem]" />
+                    <div className="h-4 bg-muted rounded w-3/4" />
+                    <div className="h-3 bg-muted rounded w-1/2" />
                   </div>
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    Carregamento otimizado em lotes para melhor performance
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Barra de progresso de importação */}
-        {importing && (
-          <Card className="mb-4 border-green-600/20 bg-green-600/5">
-            <CardContent className="pt-6">
-              <div className="text-center space-y-4">
-                <div className="flex items-center justify-center gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin text-green-600" />
-                  <span className="font-medium text-green-600">Importando conteúdos selecionados...</span>
-                </div>
-                <div className="max-w-md mx-auto">
-                  <Progress value={importProgress} className="w-full mb-2" />
-                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                    {progressStep || 'Importando...'}
-                  </div>
-                  
-                  {/* Episode Progress Indicator */}
-                  {episodeProgress && (
-                    <div className="mt-4 pt-4 border-t border-border/40">
-                      <div className="space-y-2">
-                        <div className="text-sm font-medium text-foreground">
-                          {episodeProgress.seriesTitle}
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Episódios importados:</span>
-                          <span className="font-semibold text-green-600">
-                            {episodeProgress.current}/{episodeProgress.total}
-                          </span>
-                        </div>
-                        <Progress 
-                          value={(episodeProgress.current / episodeProgress.total) * 100} 
-                          className="h-2"
-                        />
-                        
-                        {/* Last 3 episodes status */}
-                        <ScrollArea className="h-24 w-full rounded-md border border-border/40 mt-3">
-                          <div className="p-2 space-y-1">
-                            {episodeProgress.episodes.slice(-5).reverse().map((ep, idx) => (
-                              <div 
-                                key={`${ep.season}-${ep.episode}-${idx}`}
-                                className="flex items-center gap-2 text-xs"
-                              >
-                                {ep.status === 'processing' && (
-                                  <Loader2 className="h-3 w-3 animate-spin text-blue-500 flex-shrink-0" />
-                                )}
-                                {ep.status === 'success' && (
-                                  <CheckCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
-                                )}
-                                {ep.status === 'error' && (
-                                  <AlertCircle className="h-3 w-3 text-red-500 flex-shrink-0" />
-                                )}
-                                <span className="text-muted-foreground truncate">
-                                  S{ep.season}E{ep.episode} - {ep.title}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </ScrollArea>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    Não feche esta janela durante a importação
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Lista de conteúdos */}
-        <ScrollArea className="h-96 border rounded-lg">
-          {(loading || refreshing) && !importing ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
-                <span className="text-sm text-muted-foreground">
-                  {progressStep || (refreshing ? 'Atualizando...' : 'Carregando...')}
-                </span>
-              </div>
-            </div>
-          ) : contents.length > 0 ? (
-            <div className="p-4 space-y-2">
-              {contents.map((content) => (
-                <div
-                  key={content.id}
-                  className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50"
-                >
-                  <Checkbox
-                    checked={selectedContents.has(content.id)}
-                    onCheckedChange={(checked) => handleSelectContent(content.id, checked as boolean)}
-                    disabled={!canAddMoreContent() && !selectedContents.has(content.id)}
-                  />
-                  
-                  {/* Logo do conteúdo */}
-                  <div className="flex-shrink-0">
-                    {content.Poster || content.Capa ? (
-                      <img 
-                        src={content.Poster || content.Capa || '/placeholder.svg'}
-                        alt={content.Titulo}
-                        className="w-12 h-12 md:w-16 md:h-16 object-cover rounded border"
-                        onError={(e) => {
-                          e.currentTarget.src = '/placeholder.svg';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-12 h-12 md:w-16 md:h-16 bg-muted flex items-center justify-center rounded border">
-                        <span className="text-xs text-muted-foreground">Sem Imagem</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-medium truncate">{content.Titulo}</h4>
-                      <Badge variant="secondary" className="text-xs">
+                ))}
+              </motion.div>
+            ) : contents.length > 0 ? (
+              <motion.div 
+                key="grid"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 py-6"
+              >
+                {contents.map((content, index) => (
+                  <motion.div
+                    key={content.id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.05 }}
+                    className={`group relative aspect-[2/3] rounded-[1.5rem] overflow-hidden border-2 transition-all cursor-pointer shadow-lg hover:shadow-primary/20 ${
+                      selectedContents.has(content.id) ? 'border-primary ring-4 ring-primary/20' : 'border-border/50 hover:border-primary/50'
+                    }`}
+                    onClick={() => handleSelectContent(content.id, !selectedContents.has(content.id))}
+                  >
+                    {/* Poster with Overlay */}
+                    <img 
+                      src={content.Poster || content.Capa || '/placeholder.svg'}
+                      alt={content.Titulo}
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
+                    
+                    {/* Badges */}
+                    <div className="absolute top-3 left-3 flex flex-col gap-2">
+                      <Badge className="bg-primary/90 backdrop-blur-md border-none text-[10px] font-black uppercase tracking-tighter">
                         {content.Tipo}
                       </Badge>
+                      {content.Temporadas && (
+                        <Badge variant="outline" className="bg-black/50 backdrop-blur-md border-white/20 text-white text-[9px] font-bold">
+                          {content.Temporadas} TEMP
+                        </Badge>
+                      )}
                     </div>
-                    {content.Categoria && (
-                      <p className="text-xs text-muted-foreground truncate">
+
+                    <div className="absolute top-3 right-3">
+                      <div className={`h-6 w-6 rounded-full flex items-center justify-center transition-all ${
+                        selectedContents.has(content.id) ? 'bg-primary text-primary-foreground scale-110' : 'bg-black/40 text-white/50 border border-white/20'
+                      }`}>
+                        {selectedContents.has(content.id) ? <CheckCircle className="h-4 w-4" /> : <Download className="h-3 w-3" />}
+                      </div>
+                    </div>
+
+                    {/* Content Info (Visible on Hover or for Title) */}
+                    <div className="absolute bottom-0 inset-x-0 p-4 transform translate-y-2 group-hover:translate-y-0 transition-transform">
+                      <h4 className="text-white font-black tracking-tight text-sm line-clamp-2 leading-tight">
+                        {content.Titulo}
+                      </h4>
+                      <p className="text-white/60 text-[10px] font-medium mt-1 truncate">
                         {content.Categoria}
                       </p>
-                    )}
-                    {content.Sinopse && (
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                        {content.Sinopse}
-                      </p>
-                    )}
-                    {content.Tipo === 'Serie' && selectedContents.has(content.id) && seriesSeasons.has(content.id) && (
-                      <div className="mt-2">
-                        <Badge variant="outline" className="text-xs">
-                          {seriesSeasons.get(content.id)?.length || 0} temporada(s) selecionada(s)
-                        </Badge>
-                      </div>
-                    )}
-                    {content.Tipo === 'Serie' && selectedContents.has(content.id) && !seriesSeasons.has(content.id) && (
-                      <div className="mt-2">
-                        <Badge variant="outline" className="text-xs text-primary">
-                          Todas as temporadas
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Botão de ação rápida para séries */}
-                  {content.Tipo === 'Serie' && !selectedContents.has(content.id) && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleImportAllSeasons(content)}
-                      disabled={!canAddMoreContent()}
-                      title="Importar todas as temporadas"
-                    >
-                      <Download className="h-4 w-4 mr-1" />
-                      Todas
-                    </Button>
-                  )}
+                      
+                      {content.Tipo === 'Serie' && !selectedContents.has(content.id) && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="w-full mt-3 h-8 rounded-xl text-[10px] font-black uppercase tracking-tighter bg-white text-black hover:bg-primary hover:text-white transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleImportAllSeasons(content);
+                          }}
+                        >
+                          Quick Import
+                        </Button>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </motion.div>
+            ) : (
+              <motion.div 
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-muted/20 rounded-[2rem] border-2 border-dashed border-border/50"
+              >
+                <div className="bg-muted p-6 rounded-full mb-4">
+                  <AlertCircle className="h-10 w-10 text-muted-foreground/50" />
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
-              <AlertCircle className="h-8 w-8 mb-2" />
-              <p>Nenhum conteúdo encontrado</p>
-            </div>
-          )}
-        </ScrollArea>
-
-        {/* Paginação */}
-        {totalPages > 1 && (
-          <div className="flex justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage === 1 || loading || refreshing}
-              onClick={() => loadContents(currentPage - 1, searchTerm, typeFilter)}
-            >
-              Anterior
-            </Button>
-            <span className="px-3 py-1 text-sm">
-              Página {currentPage} de {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage === totalPages || loading || refreshing}
-              onClick={() => loadContents(currentPage + 1, searchTerm, typeFilter)}
-            >
-              Próxima
-            </Button>
-          </div>
-        )}
-
-        {/* Botões de ação */}
-        <div className="flex justify-between items-center pt-4 border-t">
-          <div className="text-sm text-muted-foreground">
-            {selectedContents.size > 0 && (
-              <span>{selectedContents.size} conteúdo(s) selecionado(s)</span>
+                <h3 className="text-xl font-bold text-foreground">Nada por aqui</h3>
+                <p className="text-sm">Tente ajustar seus filtros para encontrar novos conteúdos.</p>
+              </motion.div>
             )}
-            {!canAddMoreContent() && (
-              <div className="flex items-center gap-1 text-destructive text-xs mt-1">
-                <Lock className="h-3 w-3" />
-                Limite mensal atingido
+          </AnimatePresence>
+        </div>
+        {/* Pagination & Global Actions */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-8 border-t border-border/50">
+          <div className="flex items-center gap-4">
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-2xl border border-border/50">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={currentPage === 1 || loading || refreshing}
+                  onClick={() => loadContents(currentPage - 1, searchTerm, typeFilter)}
+                  className="rounded-xl h-9"
+                >
+                  Anterior
+                </Button>
+                <span className="px-4 text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                  Página {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={currentPage === totalPages || loading || refreshing}
+                  onClick={() => loadContents(currentPage + 1, searchTerm, typeFilter)}
+                  className="rounded-xl h-9"
+                >
+                  Próxima
+                </Button>
               </div>
             )}
+            
+            <div className="flex items-center gap-2 bg-primary/5 px-4 py-2 rounded-2xl border border-primary/10">
+              <Checkbox
+                checked={contents.length > 0 && selectedContents.size === contents.length}
+                onCheckedChange={handleSelectAll}
+                disabled={contents.length === 0 || !canAddMoreContent()}
+              />
+              <Label className="text-xs font-bold text-primary uppercase tracking-tighter cursor-pointer">
+                Selecionar Todos ({selectedContents.size})
+              </Label>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose} disabled={importing}>
+
+          <div className="flex items-center gap-3 w-full md:w-auto">
+             <div className="flex-1 md:flex-none text-right mr-2">
+              <p className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">
+                Limite Mensal
+              </p>
+              <p className={`text-xs font-bold ${getRemainingContent() < 10 ? 'text-destructive' : 'text-foreground'}`}>
+                {getRemainingContent() === -1 ? '∞ Ilimitado' : `${getRemainingContent()} Disponíveis`}
+              </p>
+            </div>
+
+            <Button 
+              variant="outline" 
+              onClick={onClose} 
+              disabled={importing}
+              className="rounded-2xl h-12 px-6 font-bold"
+            >
               Cancelar
             </Button>
+            
             <Button 
               onClick={handleImport} 
               disabled={selectedContents.size === 0 || importing || !canAddMoreContent()}
+              className="relative overflow-hidden group rounded-2xl h-12 px-8 font-black uppercase tracking-tighter shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]"
             >
-              {importing ? (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Importando...
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Importar ({selectedContents.size})
-                </>
-              )}
+              <div className="absolute inset-0 bg-gradient-to-r from-primary to-blue-600 group-hover:opacity-90 transition-opacity" />
+              <span className="relative flex items-center gap-2">
+                {importing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Processando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    Importar ({selectedContents.size})
+                  </>
+                )}
+              </span>
             </Button>
           </div>
         </div>
