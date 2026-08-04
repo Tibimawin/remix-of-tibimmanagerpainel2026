@@ -74,11 +74,11 @@ class FirebaseLogService {
       this.lastLogKey = key;
       this.lastLogTime = now;
 
-      // Apenas enviar logs críticos para o Firestore (erros/falhas)
+      // Registrar todas as atividades relevantes no Firestore para monitoramento completo do Admin
       const text = `${action} ${details || ''}`.toLowerCase();
-      const isCritical = text.includes('erro') || text.includes('error') || text.includes('falha') || text.includes('fail');
+      const isBlacklisted = text.includes('search') || text.includes('view') || text.includes('scroll');
 
-      if (!isCritical) {
+      if (isBlacklisted) {
         return;
       }
 
