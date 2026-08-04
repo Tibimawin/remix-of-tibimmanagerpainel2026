@@ -34,10 +34,12 @@ import {
   Tv,
   Clapperboard,
   Sparkles,
-  ListVideo
+  ListVideo,
+  Bell
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CloakService } from '@/services/CloakService';
+import { syncNotificationService } from '@/services/SyncNotificationService';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { ImportPreview, ContentPreview } from '@/components/ImportPreview';
 import { Progress } from '@/components/ui/progress';
@@ -91,6 +93,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
     currentEpisode: string;
     episodeTitle: string;
   }>({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
+  const [enrichWithTmdb, setEnrichWithTmdb] = useState(true);
 
   const autoImportService = useAutoImportService();
   const { userInfo } = useSimpleAuth();
@@ -151,9 +154,22 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
         episodeSearchField: globalConfig.episodeSearchField,
         isActive: globalConfig.isActive,
       });
+
+      // Iniciar monitoramento de novos conteúdos
+      syncNotificationService.startMonitoring({
+        sourceToken: globalConfig.sourceToken,
+        sourceBaseUrl: globalConfig.sourceBaseUrl,
+        contentTableId: globalConfig.contentTableId,
+        episodeTableId: globalConfig.episodeTableId,
+        isActive: globalConfig.isActive,
+      });
     } else if (!globalConfigLoading) {
       setImportConfig(null);
     }
+
+    return () => {
+      syncNotificationService.stopMonitoring();
+    };
   }, [globalConfig, globalConfigLoading]);
 
   const validateUserConfig = (config: UserConfig) => {
@@ -375,7 +391,8 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
           if (info.status === 'processing') {
             setEpisodeStatus({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
           }
-        }
+        },
+        enrichWithTmdb
       );
 
       setImportProgress(100);
