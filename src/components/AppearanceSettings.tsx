@@ -184,10 +184,18 @@ export const AppearanceSettings: React.FC = () => {
                     )}
                   >
                     <div 
-                      className="w-10 h-10 rounded-full shadow-md flex items-center justify-center"
+                      className="w-10 h-10 rounded-full shadow-md flex items-center justify-center overflow-hidden bg-muted"
                       style={{ backgroundColor: `hsl(${theme.primary})` }}
                     >
-                      {isSelected && <Check className="h-5 w-5 text-white" />}
+                      {theme.logo ? (
+                        <img 
+                          src={theme.logo} 
+                          alt={theme.name} 
+                          className="w-full h-full object-contain p-1.5 brightness-0 invert" 
+                        />
+                      ) : isSelected && (
+                        <Check className="h-5 w-5 text-white" />
+                      )}
                     </div>
                     <span className="text-xs font-medium truncate w-full text-center">
                       {theme.name}
