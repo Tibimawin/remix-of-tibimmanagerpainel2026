@@ -19,10 +19,10 @@ export const AVAILABLE_FONTS = [
 // Temas de cores disponíveis
 export const AVAILABLE_THEMES = [
   { id: 'default', name: 'Tibim Manager', primary: '24 95% 53%', accent: '24 95% 53%' },
-  { id: 'netflix', name: 'Netflix Style', primary: '0 84% 44%', accent: '0 84% 44%', background: '0 0% 8%', card: '0 0% 12%' },
-  { id: 'amazon', name: 'Prime Video', primary: '199 100% 48%', accent: '199 100% 48%', background: '210 50% 10%', card: '210 50% 14%' },
-  { id: 'disney', name: 'Disney+', primary: '225 100% 50%', accent: '225 100% 50%', background: '222 47% 11%', card: '222 47% 15%' },
-  { id: 'hbo', name: 'HBO Max', primary: '271 76% 53%', accent: '271 76% 53%', background: '273 67% 6%', card: '273 67% 10%' },
+  { id: 'netflix', name: 'Netflix Style', primary: '0 84% 44%', accent: '0 84% 44%', background: '0 0% 8%', card: '0 0% 12%', logo: '/themes/netflix.svg' },
+  { id: 'amazon', name: 'Prime Video', primary: '199 100% 48%', accent: '199 100% 48%', background: '210 50% 10%', card: '210 50% 14%', logo: '/themes/amazon.svg' },
+  { id: 'disney', name: 'Disney+', primary: '225 100% 50%', accent: '225 100% 50%', background: '222 47% 11%', card: '222 47% 15%', logo: '/themes/disney.svg' },
+  { id: 'hbo', name: 'HBO Max', primary: '271 76% 53%', accent: '271 76% 53%', background: '273 67% 6%', card: '273 67% 10%', logo: '/themes/hbo.svg' },
   { id: 'blue', name: 'Ocean Blue', primary: '217 91% 60%', accent: '217 91% 60%' },
   { id: 'green', name: 'Emerald', primary: '142 76% 36%', accent: '142 76% 36%' },
   { id: 'purple', name: 'Amethyst', primary: '262 83% 58%', accent: '262 83% 58%' },
