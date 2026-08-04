@@ -83,6 +83,9 @@ interface CustomizationContextType {
   removeFavoritePalette: (id: string) => void;
   renameFavoritePalette: (id: string, newName: string) => void;
   applyFavoritePalette: (id: string) => void;
+  // Preview Temporário
+  applyTemporarySettings: (tempSettings: Partial<CustomizationSettings>) => void;
+  restoreSavedSettings: () => void;
 }
 
 const CustomizationContext = createContext<CustomizationContextType | undefined>(undefined);
@@ -152,6 +155,8 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
     }
   });
 
+  const [savedSettings, setSavedSettings] = useState<CustomizationSettings | null>(null);
+
   // Carregar fontes do Google ao montar
   useEffect(() => {
     loadGoogleFonts();
@@ -209,9 +214,11 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
       document.documentElement.style.removeProperty('--input');
     }
     
-    // Salvar no localStorage
-    localStorage.setItem(CUSTOMIZATION_KEY, JSON.stringify(settings));
-  }, [settings]);
+    // Salvar no localStorage (apenas se não estiver em modo preview temporário)
+    if (!savedSettings) {
+      localStorage.setItem(CUSTOMIZATION_KEY, JSON.stringify(settings));
+    }
+  }, [settings, savedSettings]);
 
   const setFont = useCallback((fontId: string) => {
     setSettings(prev => ({ ...prev, fontId }));
@@ -278,6 +285,18 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
     }
   }, [settings.favoritePalettes, setCustomColor]);
 
+  const applyTemporarySettings = useCallback((tempSettings: Partial<CustomizationSettings>) => {
+    setSavedSettings(prev => prev || settings);
+    setSettings(prev => ({ ...prev, ...tempSettings }));
+  }, [settings]);
+
+  const restoreSavedSettings = useCallback(() => {
+    if (savedSettings) {
+      setSettings(savedSettings);
+      setSavedSettings(null);
+    }
+  }, [savedSettings]);
+
   const currentFont = AVAILABLE_FONTS.find(f => f.id === settings.fontId) || AVAILABLE_FONTS[0];
   const currentTheme = AVAILABLE_THEMES.find(t => t.id === settings.themeId) || AVAILABLE_THEMES[0];
   const currentLanguage = AVAILABLE_LANGUAGES.find(l => l.id === settings.language) || AVAILABLE_LANGUAGES[0];
@@ -305,6 +324,8 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
         removeFavoritePalette,
         renameFavoritePalette,
         applyFavoritePalette,
+        applyTemporarySettings,
+        restoreSavedSettings,
       }}
     >
       {children}

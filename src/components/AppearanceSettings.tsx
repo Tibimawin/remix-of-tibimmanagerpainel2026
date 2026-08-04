@@ -38,6 +38,8 @@ export const AppearanceSettings: React.FC = () => {
     renameFavoritePalette,
     applyFavoritePalette,
     hexToHSL,
+    applyTemporarySettings,
+    restoreSavedSettings,
   } = useCustomization();
   
   // Estado para preview ao vivo
@@ -50,7 +52,30 @@ export const AppearanceSettings: React.FC = () => {
   // Sincronizar preview quando as configurações reais mudam (ex: reset)
   useEffect(() => {
     setPreviewSettings({ ...settings });
-  }, [settings]);
+  }, [settings.themeId, settings.fontId, settings.customColor, settings.fontSize, settings.highContrast, settings.language]);
+
+  const [isPreviewActive, setIsPreviewActive] = useState(false);
+
+  const toggleGlobalPreview = () => {
+    if (isPreviewActive) {
+      restoreSavedSettings();
+      setIsPreviewActive(false);
+      toast.info("Prévia desativada. Voltando ao tema original.");
+    } else {
+      applyTemporarySettings(previewSettings);
+      setIsPreviewActive(true);
+      toast.success("Modo Prévia Global Ativo! Explore o painel para ver as mudanças.", {
+        duration: 5000,
+        action: {
+          label: "Sair",
+          onClick: () => {
+            restoreSavedSettings();
+            setIsPreviewActive(false);
+          }
+        }
+      });
+    }
+  };
 
   const handlePreviewTheme = (themeId: string) => {
     setPreviewSettings(prev => ({ ...prev, themeId, customColor: null }));
@@ -120,6 +145,27 @@ export const AppearanceSettings: React.FC = () => {
     
   const previewBg = currentPreviewTheme.background || '222.2 84% 4.9%';
   const previewCard = currentPreviewTheme.card || currentPreviewTheme.background || '222.2 84% 4.9%';
+
+  const handleSaveFinal = () => {
+    // Ao salvar, desativamos o modo preview e aplicamos as configurações permanentemente
+    setIsPreviewActive(false);
+    // Aqui as configurações já estão em previewSettings, precisamos garantir que o context saiba que é permanente
+    // Vamos chamar o reset do savedSettings no context e depois aplicar as configurações reais
+    restoreSavedSettings(); // Limpa o estado temporário
+    
+    // Agora aplica individualmente para persistir no localStorage
+    setFont(previewSettings.fontId);
+    if (previewSettings.customColor) {
+      setCustomColor(previewSettings.customColor);
+    } else {
+      setTheme(previewSettings.themeId);
+    }
+    setFontSize(previewSettings.fontSize);
+    setHighContrast(previewSettings.highContrast);
+    setLanguage(previewSettings.language);
+    
+    toast.success("Configurações salvas com sucesso!");
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -685,16 +731,47 @@ export const AppearanceSettings: React.FC = () => {
           </CardContent>
         </Card>
         
-        <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex gap-3">
-          <div className="bg-primary/20 p-2 rounded-lg h-fit text-primary">
-            <Layout className="w-5 h-5" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-primary">Preview Ativo</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              As mudanças acima são aplicadas imediatamente ao seu painel enquanto você navega nesta página. 
-              Elas são salvas automaticamente no seu perfil.
-            </p>
+        <div className="space-y-3">
+          <Button 
+            onClick={toggleGlobalPreview} 
+            variant={isPreviewActive ? "destructive" : "default"}
+            className="w-full gap-2 h-12 text-base font-semibold shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]"
+          >
+            {isPreviewActive ? (
+              <>
+                <X className="w-5 h-5" />
+                Desativar Prévia Global
+              </>
+            ) : (
+              <>
+                <Eye className="w-5 h-5" />
+                Prévia Global do Painel
+              </>
+            )}
+          </Button>
+
+          {isPreviewActive && (
+             <Button 
+             onClick={handleSaveFinal} 
+             variant="outline"
+             className="w-full gap-2 border-primary/50 text-primary hover:bg-primary/5"
+           >
+             <Check className="w-4 h-4" />
+             Confirmar e Salvar Tema
+           </Button>
+          )}
+          
+          <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex gap-3">
+            <div className="bg-primary/20 p-2 rounded-lg h-fit text-primary">
+              <Layout className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-primary">Sobre a Prévia</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Use o botão acima para aplicar as mudanças em tempo real em todo o painel. 
+                Se não gostar, basta desativar para voltar ao tema salvo anteriormente.
+              </p>
+            </div>
           </div>
         </div>
       </div>
