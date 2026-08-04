@@ -18,16 +18,16 @@ export const AVAILABLE_FONTS = [
 
 // Temas de cores disponíveis
 export const AVAILABLE_THEMES = [
-  { id: 'default', name: 'Padrão (Laranja)', primary: '24 95% 53%', accent: '24 95% 53%' },
-  { id: 'blue', name: 'Azul', primary: '217 91% 60%', accent: '217 91% 60%' },
-  { id: 'green', name: 'Verde', primary: '142 76% 36%', accent: '142 76% 36%' },
-  { id: 'purple', name: 'Roxo', primary: '262 83% 58%', accent: '262 83% 58%' },
-  { id: 'pink', name: 'Rosa', primary: '330 81% 60%', accent: '330 81% 60%' },
-  { id: 'red', name: 'Vermelho', primary: '0 84% 60%', accent: '0 84% 60%' },
+  { id: 'default', name: 'Tibim Manager', primary: '24 95% 53%', accent: '24 95% 53%' },
+  { id: 'netflix', name: 'Netflix Style', primary: '0 84% 44%', accent: '0 84% 44%', background: '0 0% 8%', card: '0 0% 12%' },
+  { id: 'amazon', name: 'Prime Video', primary: '199 100% 48%', accent: '199 100% 48%', background: '210 50% 10%', card: '210 50% 14%' },
+  { id: 'disney', name: 'Disney+', primary: '225 100% 50%', accent: '225 100% 50%', background: '222 47% 11%', card: '222 47% 15%' },
+  { id: 'hbo', name: 'HBO Max', primary: '271 76% 53%', accent: '271 76% 53%', background: '273 67% 6%', card: '273 67% 10%' },
+  { id: 'blue', name: 'Ocean Blue', primary: '217 91% 60%', accent: '217 91% 60%' },
+  { id: 'green', name: 'Emerald', primary: '142 76% 36%', accent: '142 76% 36%' },
+  { id: 'purple', name: 'Amethyst', primary: '262 83% 58%', accent: '262 83% 58%' },
+  { id: 'pink', name: 'Candy', primary: '330 81% 60%', accent: '330 81% 60%' },
   { id: 'teal', name: 'Teal', primary: '174 84% 32%', accent: '174 84% 32%' },
-  { id: 'amber', name: 'Âmbar', primary: '38 92% 50%', accent: '38 92% 50%' },
-  { id: 'indigo', name: 'Índigo', primary: '239 84% 67%', accent: '239 84% 67%' },
-  { id: 'cyan', name: 'Ciano', primary: '186 94% 41%', accent: '186 94% 41%' },
 ];
 
 // Idiomas disponíveis
@@ -173,6 +173,15 @@ export const CustomizationProvider: React.FC<{ children: ReactNode }> = ({ child
       ? hexToHSL(settings.customColor)
       : theme.primary;
     document.documentElement.style.setProperty('--primary', primaryColor);
+
+    // Aplicar cores de fundo do tema se existirem
+    if (!settings.customColor && theme.background) {
+      document.documentElement.style.setProperty('--background', theme.background);
+      document.documentElement.style.setProperty('--card', theme.card || theme.background);
+    } else if (!settings.highContrast) {
+      document.documentElement.style.removeProperty('--background');
+      document.documentElement.style.removeProperty('--card');
+    }
     
     // Aplicar modo de alto contraste
     if (settings.highContrast) {

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { 
   Smartphone, 
   Tablet, 
@@ -12,7 +13,9 @@ import {
   Trash2,
   AlertTriangle,
   CheckCircle2,
-  Clock
+  Clock,
+  ShieldCheck,
+  LocateFixed
 } from 'lucide-react';
 import { 
   AlertDialog,
@@ -78,15 +81,25 @@ export default function UserDevices() {
   }, [userInfo?.id]);
 
   const handleRemoveDevice = async () => {
-    if (!deleteDialog.device) return;
-    
     try {
-      await DeviceManagementService.removeDevice(deleteDialog.device.id);
-      toast.success('Dispositivo removido com sucesso');
+      if (deleteDialog.device) {
+        // Remover um dispositivo específico
+        await DeviceManagementService.removeDevice(deleteDialog.device.id);
+        toast.success('Dispositivo removido com sucesso');
+      } else {
+        // Remover todos exceto o atual
+        await DeviceManagementService.revokeAllUserDevices(userInfo!.id);
+        // O método acima revoga, mas para limpar a lista visualmente melhor removemos mesmo
+        const devicesToRemove = devices.filter(d => d.id !== currentDeviceId);
+        for (const d of devicesToRemove) {
+          await DeviceManagementService.removeDevice(d.id);
+        }
+        toast.success('Todos os outros dispositivos foram desconectados');
+      }
       setDeleteDialog({ open: false, device: null });
       loadDevices();
     } catch (error) {
-      toast.error('Erro ao remover dispositivo');
+      toast.error('Erro ao processar solicitação');
     }
   };
 
@@ -113,19 +126,31 @@ export default function UserDevices() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-xl">
               <Smartphone className="h-5 w-5 text-primary" />
-              Meus Dispositivos
+              Gestão de Dispositivos e Acessos
             </CardTitle>
             <CardDescription className="mt-1">
               {activeDevices.length} dispositivo{activeDevices.length !== 1 ? 's' : ''} conectado{activeDevices.length !== 1 ? 's' : ''}
             </CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={loadDevices}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              onClick={() => setDeleteDialog({ open: true, device: null })}
+              disabled={isLoading || activeDevices.length <= 1}
+              className="flex-1 sm:flex-initial gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Desconectar Todos
+            </Button>
+            <Button variant="outline" size="sm" onClick={loadDevices} disabled={isLoading}>
+              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -221,10 +246,12 @@ export default function UserDevices() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Remover Dispositivo
+              {deleteDialog.device ? 'Remover Dispositivo' : 'Desconectar Tudo'}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover este dispositivo? Ele precisará fazer login novamente para acessar sua conta.
+              {deleteDialog.device 
+                ? 'Tem certeza que deseja remover este dispositivo? Ele precisará fazer login novamente.' 
+                : 'Isso irá desconectar TODOS os outros dispositivos vinculados à sua conta imediatamente.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           
