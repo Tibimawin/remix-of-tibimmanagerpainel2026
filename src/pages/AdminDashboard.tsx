@@ -388,7 +388,7 @@ const AdminDashboard = () => {
                   <TableBody>
                     {logs.map((log) => (
                       <TableRow key={log.id} className="border-border/40 animate-fade-in">
-                        <TableCell className="text-muted-foreground">{new Date(log.timestamp).toLocaleString('pt-BR') || '-'}</TableCell>
+                        <TableCell className="text-muted-foreground">{log.timestamp || '-'}</TableCell>
                         <TableCell className="text-foreground">{log.userEmail || '-'}</TableCell>
                         <TableCell>
                           <Badge
