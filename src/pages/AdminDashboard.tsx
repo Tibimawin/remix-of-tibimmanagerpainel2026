@@ -4,7 +4,9 @@ import { FirebaseUserService, FirebaseUser } from '@/services/FirebaseUserServic
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Activity, AlertTriangle, Menu } from 'lucide-react';
+import { Activity, AlertTriangle, Menu, Search, Filter } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
 import { useRealtimeLogs } from '@/hooks/useRealtimeLogs';
@@ -59,6 +61,8 @@ const AdminDashboard = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeView, setActiveView] = useState<AdminView>('overview');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [activitySearch, setActivitySearch] = useState('');
+  const [activityFilter, setActivityFilter] = useState('all');
   const { logs: oldLogs, loadLogs } = useActivityLogger();
   const { logs: realtimeLogs, isLoading: logsLoading } = useRealtimeLogs();
   const { activities: recentActivities, isLoading: activitiesLoading } = useRealtimeActivities();
@@ -170,6 +174,20 @@ const AdminDashboard = () => {
   const renderContent = () => {
     console.log('Renderizando view:', activeView);
 
+    const filteredActivities = recentActivities.filter(activity => {
+      const matchesSearch = 
+        activity.userEmail?.toLowerCase().includes(activitySearch.toLowerCase()) ||
+        activity.action?.toLowerCase().includes(activitySearch.toLowerCase()) ||
+        activity.details?.toLowerCase().includes(activitySearch.toLowerCase());
+      
+      const matchesFilter = activityFilter === 'all' || 
+        (activityFilter === 'error' && (activity.action?.toLowerCase().includes('erro') || activity.action?.toLowerCase().includes('fail'))) ||
+        (activityFilter === 'auth' && (activity.action?.toLowerCase().includes('login') || activity.action?.toLowerCase().includes('auth'))) ||
+        (activityFilter === 'payment' && (activity.action?.toLowerCase().includes('pagamento') || activity.action?.toLowerCase().includes('pix')));
+
+      return matchesSearch && matchesFilter;
+    });
+
     switch (activeView) {
       case 'overview':
         return (
@@ -183,16 +201,43 @@ const AdminDashboard = () => {
             {/* Atividades Recentes - Tempo Real */}
             <Card className="modern-card bg-gradient-to-br from-card to-card/80 border-border/40">
               <CardHeader>
-                <CardTitle className="text-foreground flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-primary" />
-                  Atividades Recentes
-                  <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
-                    🔴 AO VIVO
-                  </Badge>
-                </CardTitle>
-                <CardDescription className="text-muted-foreground">
-                  Últimas {Math.min(recentActivities.length, 15)} atividades registradas no sistema (tempo real - Monitoramento Global)
-                </CardDescription>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <CardTitle className="text-foreground flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-primary" />
+                      Atividades Recentes
+                      <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
+                        🔴 AO VIVO
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="text-muted-foreground">
+                      Últimas {Math.min(filteredActivities.length, 15)} atividades filtradas (Monitoramento Global)
+                    </CardDescription>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar por usuário ou ação..."
+                        className="pl-9 w-full sm:w-[250px] bg-background/50"
+                        value={activitySearch}
+                        onChange={(e) => setActivitySearch(e.target.value)}
+                      />
+                    </div>
+                    <Select value={activityFilter} onValueChange={setActivityFilter}>
+                      <SelectTrigger className="w-full sm:w-[150px] bg-background/50">
+                        <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+                        <SelectValue placeholder="Filtrar tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos Eventos</SelectItem>
+                        <SelectItem value="auth">Autenticação</SelectItem>
+                        <SelectItem value="payment">Pagamentos</SelectItem>
+                        <SelectItem value="error">Erros/Falhas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {activitiesLoading ? (
@@ -200,9 +245,9 @@ const AdminDashboard = () => {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
                     <p className="text-muted-foreground">Carregando atividades em tempo real...</p>
                   </div>
-                ) : recentActivities.length > 0 ? (
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {recentActivities.slice(0, 15).map((log) => (
+                ) : filteredActivities.length > 0 ? (
+                  <div className="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+                    {filteredActivities.slice(0, 15).map((log) => (
                       <div key={log.id} className="flex items-center justify-between p-4 modern-card bg-gradient-to-r from-card/80 to-card/60 border border-border/30 hover:shadow-soft transition-all duration-300 animate-pulse-once">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
