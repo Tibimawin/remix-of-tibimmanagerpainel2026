@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
-import { LogOut, User, Calendar, Clock, Smartphone, Hash, Mail, Monitor, Shield, Receipt } from 'lucide-react';
+import { LogOut, User, Calendar, Clock, Smartphone, Hash, Mail, Monitor, Shield, Receipt, HelpCircle } from 'lucide-react';
 import UserSecuritySettings from '@/components/UserSecuritySettings';
 import UserDevices from '@/components/UserDevices';
 import PaymentHistory from '@/components/PaymentHistory';
+import { UserFAQ } from '@/components/UserFAQ';
 
 interface UserDetails {
   id: string;
@@ -251,7 +252,7 @@ const Perfil = () => {
 
           {/* Abas do Perfil */}
           <Tabs defaultValue="profile" className="w-full">
-             <TabsList className="grid w-full grid-cols-4">
+             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="profile" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
                 <span className="hidden sm:inline">Conta</span>
@@ -268,6 +269,10 @@ const Perfil = () => {
               <TabsTrigger value="security" className="flex items-center gap-2">
                 <Shield className="h-4 w-4" />
                 <span className="hidden sm:inline">Segurança</span>
+              </TabsTrigger>
+              <TabsTrigger value="help" className="flex items-center gap-2">
+                <HelpCircle className="h-4 w-4" />
+                <span className="hidden sm:inline">Ajuda</span>
               </TabsTrigger>
             </TabsList>
 
@@ -318,6 +323,10 @@ const Perfil = () => {
 
             <TabsContent value="security" className="mt-6">
               <UserSecuritySettings />
+            </TabsContent>
+
+            <TabsContent value="help" className="mt-6">
+              <UserFAQ />
             </TabsContent>
           </Tabs>
         </div>
