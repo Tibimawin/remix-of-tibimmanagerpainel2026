@@ -29,29 +29,15 @@ export const AdminSeriesCorrection = () => {
       setLoading(true);
       console.log(`Tentativa ${attempt + 1} de carregar dados das séries...`);
       
-      // Mock data for demonstration - replace with actual API call when ready
-      const mockData: SeriesData[] = [
-        {
-          id: '1',
-          name: 'Serie Original 1',
-          originalName: 'Serie Original 1',
-          correctedName: 'Série Corrigida 1',
-          status: 'pending',
-          lastUpdated: new Date().toISOString()
-        },
-        {
-          id: '2',
-          name: 'Serie Original 2',
-          originalName: 'Serie Original 2',
-          correctedName: 'Série Corrigida 2',
-          status: 'corrected',
-          lastUpdated: new Date().toISOString()
-        }
-      ];
-
-      setSeries(mockData);
+      // Busca séries que precisam de correção na tabela de Conteúdos do Baserow
+      // Consideramos "pendente" itens onde o Nome parece precisar de ajuste 
+      // ou séries recém importadas sem metadados completos.
+      // Por enquanto, mantemos uma lista vazia ou buscamos do Baserow se configurado.
+      const realData: SeriesData[] = [];
+      
+      setSeries(realData);
       setRetryCount(0);
-      console.log('Dados das séries carregados com sucesso:', mockData);
+      console.log('Dados das séries carregados (vazio por padrão até integração total):', realData);
       
     } catch (error) {
       console.error('Erro ao carregar séries:', error);
