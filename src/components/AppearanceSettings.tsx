@@ -169,7 +169,7 @@ export const AppearanceSettings: React.FC = () => {
           {/* Cores Predefinidas */}
           <div className="space-y-3">
             <Label>Cores Predefinidas</Label>
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {AVAILABLE_THEMES.map((theme) => {
                 const isSelected = settings.themeId === theme.id && !settings.customColor;
                 return (
