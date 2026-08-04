@@ -731,16 +731,47 @@ export const AppearanceSettings: React.FC = () => {
           </CardContent>
         </Card>
         
-        <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex gap-3">
-          <div className="bg-primary/20 p-2 rounded-lg h-fit text-primary">
-            <Layout className="w-5 h-5" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-primary">Preview Ativo</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              As mudanças acima são aplicadas imediatamente ao seu painel enquanto você navega nesta página. 
-              Elas são salvas automaticamente no seu perfil.
-            </p>
+        <div className="space-y-3">
+          <Button 
+            onClick={toggleGlobalPreview} 
+            variant={isPreviewActive ? "destructive" : "default"}
+            className="w-full gap-2 h-12 text-base font-semibold shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]"
+          >
+            {isPreviewActive ? (
+              <>
+                <X className="w-5 h-5" />
+                Desativar Prévia Global
+              </>
+            ) : (
+              <>
+                <Eye className="w-5 h-5" />
+                Prévia Global do Painel
+              </>
+            )}
+          </Button>
+
+          {isPreviewActive && (
+             <Button 
+             onClick={handleSaveFinal} 
+             variant="outline"
+             className="w-full gap-2 border-primary/50 text-primary hover:bg-primary/5"
+           >
+             <Check className="w-4 h-4" />
+             Confirmar e Salvar Tema
+           </Button>
+          )}
+          
+          <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex gap-3">
+            <div className="bg-primary/20 p-2 rounded-lg h-fit text-primary">
+              <Layout className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-primary">Sobre a Prévia</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Use o botão acima para aplicar as mudanças em tempo real em todo o painel. 
+                Se não gostar, basta desativar para voltar ao tema salvo anteriormente.
+              </p>
+            </div>
           </div>
         </div>
       </div>
