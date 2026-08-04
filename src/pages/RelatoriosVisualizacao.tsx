@@ -71,7 +71,7 @@ const RelatoriosVisualizacao: React.FC = () => {
             <Play className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">854,320</div>
+            <div className="text-2xl font-bold">0</div>
             <p className="text-xs text-muted-foreground">
               <span className="text-green-600">+12.5%</span> vs mês anterior
             </p>
@@ -84,7 +84,7 @@ const RelatoriosVisualizacao: React.FC = () => {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12,540h</div>
+            <div className="text-2xl font-bold">0h</div>
             <p className="text-xs text-muted-foreground">
               <span className="text-green-600">+8.2%</span> vs mês anterior
             </p>
@@ -97,7 +97,7 @@ const RelatoriosVisualizacao: React.FC = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">24,859</div>
+            <div className="text-2xl font-bold">0</div>
             <p className="text-xs text-muted-foreground">
               <span className="text-green-600">+15.1%</span> vs mês anterior
             </p>

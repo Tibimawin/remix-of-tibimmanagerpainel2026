@@ -13,6 +13,7 @@ import { UserPermissions, Plan, AVAILABLE_FEATURES } from '@/types/planTypes';
 import { FirebaseUser, FirebaseUserService } from '@/services/FirebaseUserService';
 import { db } from '@/config/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { PlansService } from '@/services/PlansService';
 
 const AdminUserPermissions = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -23,45 +24,14 @@ const AdminUserPermissions = () => {
   const [filteredUsers, setFilteredUsers] = useState<FirebaseUser[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Carregar planos disponíveis (mock data)
+  // Carregar planos reais do Firebase
   useEffect(() => {
-    const mockPlans: Plan[] = [
-      {
-        id: '1',
-        name: 'Básico',
-        price: 'R$ 29,90/mês',
-        description: 'Plano ideal para iniciantes',
-        monthlyContentLimit: 100,
-        features: ['dashboard', 'conteudos', 'episodios', 'categorias'],
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        id: '2',
-        name: 'Profissional',
-        price: 'R$ 59,90/mês',
-        description: 'Para uso profissional avançado',
-        monthlyContentLimit: 500,
-        features: ['dashboard', 'conteudos', 'episodios', 'categorias', 'banners', 'duplicados', 'duplicados-episodios', 'importacao-automatica', 'automacao', 'importar-m3u', 'adicionar-conteudo', 'usuarios', 'sessoes', 'produtos', 'estatisticas', 'export', 'logs'],
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        id: '3',
-        name: 'Empresa',
-        price: 'R$ 129,90/mês',
-        description: 'Soluções corporativas completas',
-        monthlyContentLimit: -1, // Ilimitado
-        features: ['dashboard', 'conteudos', 'episodios', 'categorias', 'banners', 'duplicados', 'duplicados-episodios', 'importacao-automatica', 'automacao', 'substituicao-urls', 'importar-m3u', 'adicionar-conteudo', 'usuarios', 'sessoes', 'plataformas', 'produtos', 'estatisticas', 'relatorios-visualizacao', 'recursos', 'clean-data', 'maxplus-import', 'precos-interno', 'configuracoes', 'perfil', 'suporte-ao-vivo', 'priority-support', 'export', 'logs'],
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-    ];
+    const unsubscribe = PlansService.onPlansChange((plans) => {
+      setAvailablePlans(plans);
+      console.log('Planos reais carregados no AdminPermissions:', plans.length);
+    });
 
-    setAvailablePlans(mockPlans);
+    return () => unsubscribe();
   }, []);
 
   // Carregar usuários do Firebase - incluindo todos os usuários autenticados
