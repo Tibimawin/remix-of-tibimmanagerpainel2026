@@ -462,164 +462,105 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
 
   return (
     <PermissionGate feature="importacao-automatica">
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-
-        {/* Hero — Minisséries (layout dedicado) */}
-        {isMiniseries ? (
-          <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/15 via-background to-background p-8">
-            <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-primary/10 blur-3xl" />
-            <div className="relative flex flex-col gap-6">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+        
+        {/* Hero Section — Modern & Immersive */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative overflow-hidden rounded-[2rem] border border-primary/20 bg-gradient-to-br from-primary/10 via-background to-background p-8 md:p-10 shadow-2xl shadow-primary/5"
+        >
+          {/* Decorative Elements */}
+          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/20 blur-[100px] animate-pulse" />
+          <div className="absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-blue-500/10 blur-[100px]" />
+          
+          <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-8">
+            <div className="space-y-4 max-w-2xl">
               <div className="flex items-center gap-3">
-                <div className="rounded-2xl bg-primary/15 p-3">
-                  <Clapperboard className="h-6 w-6 text-primary" />
+                <div className="rounded-2xl bg-primary/15 p-3 backdrop-blur-md border border-primary/20">
+                  {isMiniseries ? <Clapperboard className="h-7 w-7 text-primary" /> : <ListVideo className="h-7 w-7 text-primary" />}
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wider text-primary">
-                        <Sparkles className="h-3 w-3" />
-                        Catálogo exclusivo
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-primary">
+                      <Sparkles className="h-3 w-3" />
+                      {isMiniseries ? 'Catálogo Curado' : 'Smart Import'}
+                    </span>
+                    {configValid && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-emerald-500">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Online
                       </span>
-                      <h1 className="mt-1.5 text-3xl font-bold tracking-tight">Minisséries</h1>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 rounded-xl hidden md:flex border-primary/20 hover:bg-primary/5"
-                        onClick={() => {
-                          toast.info("Sugestão de Evolução", {
-                            description: "Enriquecimento via TMDB e filtros de qualidade 4K detectados como prioridades.",
-                            duration: 4000
-                          });
-                        }}
-                      >
-                        <Sparkles className="h-4 w-4 text-primary" />
-                        Sugestões de IA
-                      </Button>
-
-                      <div className="flex items-center space-x-2 bg-white/50 dark:bg-black/20 px-3 py-1.5 rounded-xl border border-primary/10 backdrop-blur-sm">
-                        <Checkbox 
-                          id="enrich-tmdb-mini" 
-                          checked={enrichWithTmdb}
-                          onCheckedChange={(checked) => setEnrichWithTmdb(!!checked)}
-                        />
-                        <label 
-                          htmlFor="enrich-tmdb-mini" 
-                          className="text-xs font-medium leading-none cursor-pointer flex items-center gap-1.5"
-                        >
-                          <Sparkles className="h-3.5 w-3.5 text-primary" />
-                          TMDB
-                        </label>
-                      </div>
-                    </div>
+                    )}
                   </div>
+                  <h1 className="mt-1 text-3xl md:text-4xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
+                    {isMiniseries ? 'Minisséries' : 'Importação Automática'}
+                  </h1>
                 </div>
-
               </div>
-
-              <p className="max-w-2xl text-sm text-muted-foreground">
-                Um acervo curado de minisséries completas — histórias fechadas, poucas temporadas.
-                Escolha os títulos e leve todos os episódios direto para o seu aplicativo.
+              
+              <p className="text-base text-muted-foreground leading-relaxed">
+                {isMiniseries 
+                  ? 'Acesse um acervo selecionado de minisséries completas. Histórias épicas com temporadas fechadas prontas para o seu catálogo.'
+                  : 'Sincronize sua biblioteca com bases globais instantaneamente. Enriquecimento automático via TMDB e detecção inteligente de novos títulos.'}
               </p>
 
-              {/* Status em linha */}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${configValid ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500' : 'border-destructive/30 bg-destructive/10 text-destructive'}`}>
-                  {configValid ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Shield className="h-3.5 w-3.5" />}
-                  {configValid ? 'Destino conectado' : 'Credenciais pendentes'}
-                </div>
-                <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${importConfig ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border bg-muted text-muted-foreground'}`}>
+              <div className="flex flex-wrap items-center gap-4 pt-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border border-border/50">
                   <Database className="h-3.5 w-3.5" />
-                  {importConfig ? 'Fonte de minisséries ativa' : 'Fonte não configurada pelo admin'}
+                  {importConfig ? 'Fonte Ativa' : 'Fonte Off-line'}
                 </div>
                 {hasContentLimit() && (
-                  <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-primary bg-primary/5 px-3 py-1.5 rounded-full border border-primary/10">
                     <Zap className="h-3.5 w-3.5" />
-                    {getRemainingContent()} importações restantes
+                    {getRemainingContent()} slots disponíveis
                   </div>
                 )}
               </div>
+            </div>
 
-              <div className="flex flex-wrap gap-3">
+            <div className="flex flex-col gap-3 min-w-[200px]">
+              <Button
+                onClick={() => startImport()}
+                size="lg"
+                disabled={!configValid || !canAddMoreContent() || isImporting}
+                className="relative overflow-hidden group gap-2 rounded-2xl px-8 h-14 text-base font-bold shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-primary to-blue-600 group-hover:opacity-90 transition-opacity" />
+                <span className="relative flex items-center gap-2">
+                  {isImporting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5 transition-transform group-hover:-translate-y-1" />}
+                  {isImporting ? 'Importando...' : isMiniseries ? 'Explorar Acervo' : 'Abrir Importador'}
+                </span>
+              </Button>
+              
+              <div className="flex items-center gap-2">
                 <Button
-                  onClick={() => startImport()}
-                  size="lg"
-                  disabled={!configValid || !canAddMoreContent() || isImporting}
-                  className="group gap-2 rounded-full px-6"
-                >
-                  {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 transition-transform group-hover:-translate-y-0.5" />}
-                  {isImporting ? 'Importando...' : 'Explorar minisséries'}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="lg"
+                  variant="outline"
+                  size="default"
                   onClick={() => setShowConfig(!showConfig)}
-                  className="gap-2 rounded-full px-6"
+                  className="flex-1 gap-2 rounded-2xl h-12 border-primary/20 bg-background/50 backdrop-blur-sm hover:bg-primary/5 transition-colors"
                 >
                   <Settings className="h-4 w-4" />
-                  {showConfig ? 'Ocultar credenciais' : 'Minhas credenciais'}
+                  {showConfig ? 'Fechar' : 'Configurar'}
                 </Button>
+                
+                <div className="flex items-center gap-2 bg-background/50 backdrop-blur-sm border border-primary/20 px-3 h-12 rounded-2xl">
+                  <Checkbox 
+                    id="enrich-tmdb-hero" 
+                    checked={enrichWithTmdb}
+                    onCheckedChange={(checked) => setEnrichWithTmdb(!!checked)}
+                  />
+                  <Label 
+                    htmlFor="enrich-tmdb-hero" 
+                    className="text-xs font-bold cursor-pointer select-none"
+                  >
+                    TMDB
+                  </Label>
+                </div>
               </div>
             </div>
           </div>
-        ) : (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl bg-card border border-border p-6">
-          <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">
-                  Importação <span className="text-primary">Automática</span>
-                </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Importe conteúdos de outros Baserows rapidamente.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 rounded-xl border-primary/20 hover:bg-primary/5"
-                onClick={() => {
-                  toast.info("Sugestão de Evolução", {
-                    description: "Detecção automática de novos conteúdos e filtros de qualidade recomendados.",
-                    duration: 4000
-                  });
-                }}
-              >
-                <Sparkles className="h-4 w-4 text-primary" />
-                Melhorias de IA
-              </Button>
-            </div>
-          </div>
-
-
-          <div className="flex flex-wrap gap-3">
-            <Button
-              onClick={() => startImport()}
-              size="default"
-              disabled={!configValid || !canAddMoreContent() || isImporting}
-              className="group gap-2"
-            >
-              {isImporting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4 transition-transform group-hover:-translate-y-0.5" />
-              )}
-              {isImporting ? 'Importando...' : 'Iniciar Importação'}
-            </Button>
-
-            <Button
-              variant="outline"
-              size="default"
-              onClick={() => setShowConfig(!showConfig)}
-              className="gap-2"
-            >
-              <Settings className="h-4 w-4" />
-              {showConfig ? 'Ocultar' : 'Configurar'} Credenciais
-            </Button>
-          </div>
-        </div>
-        )}
+        </motion.div>
 
         {/* Modal/Popup de progresso da importação */}
         <Dialog open={showProgressModal} onOpenChange={(open) => {
