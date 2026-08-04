@@ -1,4 +1,4 @@
-// Execute esta instrucao no projeto: Adicionar uma sombra/fundo na sidebar quando eu começar a rolar, para ficar claro que ela está fixa acima do conteúdo.
+// Execute esta instrucao no projeto: Logs de Atividade - Tempo Real, porque aparece Invalid Date inves da data real, resolve esse problema
 import Dashboard from './Dashboard';
 
 const Index = () => {
