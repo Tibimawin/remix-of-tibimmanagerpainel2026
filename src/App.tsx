@@ -15,6 +15,7 @@ import { AdminAuthProvider } from "./contexts/AdminAuthContext";
 import { PermissionGate } from "./components/PermissionGate";
 import { useExpirationMonitor } from "@/hooks/useExpirationMonitor";
 import { useScheduleExecutor } from "@/hooks/useScheduleExecutor";
+import { useJogosDiaScheduleExecutor } from "@/hooks/useJogosDiaScheduleExecutor";
 import { useAutoImportExecutor } from "@/hooks/useAutoImportExecutor";
 import { useSubscriptionMonitor } from "@/hooks/useSubscriptionMonitor";
 import { useApiKeyAutoBlocker } from "@/hooks/useApiKeyAutoBlocker";
@@ -98,7 +99,8 @@ const queryClient = new QueryClient();
 const AppWithMonitor = () => {
   useExpirationMonitor();
   useScheduleExecutor();
-  useAutoImportExecutor(); // ← NOVO: Verificador de importação automática
+  useAutoImportExecutor();
+  useJogosDiaScheduleExecutor(); // Novo executor de jogos
   useSubscriptionMonitor();
   useApiKeyAutoBlocker();
   useVersionCheck();
