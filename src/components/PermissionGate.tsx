@@ -35,6 +35,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
   const { activePlans } = usePlans();
   const [showUpgradePayment, setShowUpgradePayment] = useState(false);
   const [showPlanPayment, setShowPlanPayment] = useState(false);
+  const [showFeatureUnlockPayment, setShowFeatureUnlockPayment] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<
     | {
         name: string;
@@ -56,17 +57,20 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
   }
 
   if (!hasFeature(feature)) {
+    const hasActivePlan = permissions?.planName && permissions?.isActive && permissions?.expiryDate;
+    const isBasicActive = hasActivePlan && (permissions.planName.toLowerCase().includes('básico') || permissions.planName.toLowerCase().includes('basico') || permissions.planName.toLowerCase().includes('mensal'));
+    
     if (fallback) {
       return <>{fallback}</>;
     }
 
     // Check if this is the API feature and user already has an active plan
     const isApiFeature = feature === 'minha-api';
-    const hasActivePlan = permissions?.planName && permissions?.enabledFeatures && permissions.enabledFeatures.length > 0;
+    const hasSubscription = permissions?.planName && permissions?.enabledFeatures && permissions.enabledFeatures.length > 0;
     
     // Calculate current plan price
     let currentPlanPrice = 0;
-    if (hasActivePlan && permissions?.planId) {
+    if (hasSubscription && permissions?.planId) {
       const currentPlan = activePlans.find(p => p.id === permissions.planId);
       if (currentPlan) {
         currentPlanPrice = parseFloat(currentPlan.price.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
@@ -74,7 +78,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
     }
     
     const upgradeDifference = Math.max(API_PLAN_PRICE - currentPlanPrice, 0);
-    const canUpgrade = isApiFeature && hasActivePlan && upgradeDifference > 0;
+    const canUpgrade = isApiFeature && hasSubscription && upgradeDifference > 0;
 
     const planIcons = [Shield, Star, Rocket];
     // Esquemas de cor distintos (evitar parecer plágio de outras plataformas)
@@ -118,7 +122,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
         parseFloat(plan.price.replace(/[^\d,]/g, '').replace(',', '.')) || 30;
       const isApiPlan = plan.features.includes('minha-api');
       const planUpgrade =
-        isApiPlan && hasActivePlan && currentPlanPrice > 0 && numericPrice > currentPlanPrice;
+        isApiPlan && hasSubscription && currentPlanPrice > 0 && numericPrice > currentPlanPrice;
 
       if (planUpgrade) {
         const difference = numericPrice - currentPlanPrice;
@@ -212,27 +216,40 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                     <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground opacity-70">Próximo Desbloqueio:</span>
                     <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/5 border border-rose-500/20">
                       <div className="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center shrink-0">
-                        <Lock className="w-4 h-4 text-rose-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-rose-400 truncate">
-                          {AVAILABLE_FEATURES.find(f => f.id === feature)?.name || feature}
-                        </p>
-                        <p className="text-[9px] text-muted-foreground leading-tight">
-                          Disponível em planos Premium
-                        </p>
-                      </div>
+                    <Lock className="w-4 h-4 text-rose-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-bold text-rose-400 truncate">
+                      {AVAILABLE_FEATURES.find(f => f.id === feature)?.name || feature}
+                    </p>
+                    <p className="text-[9px] text-muted-foreground leading-tight">
+                      {isBasicActive ? 'Desbloqueio avulso disponível' : 'Disponível em planos Premium'}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-1.5 shrink-0">
+                    <Button 
+                      size="sm" 
+                      className="h-7 px-3 text-[10px] bg-rose-500 hover:bg-rose-600 text-white font-bold"
+                      onClick={() => {
+                        const firstPremium = activePlans.find(p => p.features.includes(feature)) || activePlans[0];
+                        if (firstPremium) handleChoosePlan(firstPremium);
+                      }}
+                    >
+                      {isBasicActive ? 'Trocar Plano' : 'Desbloquear'}
+                    </Button>
+                    
+                    {isBasicActive && (
                       <Button 
                         size="sm" 
-                        className="h-7 px-3 text-[10px] bg-rose-500 hover:bg-rose-600 text-white font-bold"
-                        onClick={() => {
-                          const firstPremium = activePlans.find(p => p.features.includes(feature)) || activePlans[0];
-                          if (firstPremium) handleChoosePlan(firstPremium);
-                        }}
+                        variant="outline"
+                        className="h-7 px-3 text-[10px] border-rose-500/30 text-rose-400 hover:bg-rose-500/10 font-bold"
+                        onClick={() => setShowFeatureUnlockPayment(true)}
                       >
-                        Desbloquear
+                        Liberar Recurso (R$ 15)
                       </Button>
-                    </div>
+                    )}
+                  </div>
+                </div>
                   </div>
                 </div>
               </div>
@@ -254,7 +271,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                     parseFloat(plan.price.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
                   const isApiPlan = plan.features.includes('minha-api');
                   const showUpgradePrice =
-                    isApiPlan && hasActivePlan && currentPlanPrice > 0 && numericPrice > currentPlanPrice;
+                    isApiPlan && hasSubscription && currentPlanPrice > 0 && numericPrice > currentPlanPrice;
                   const displayPrice = showUpgradePrice ? numericPrice - currentPlanPrice : numericPrice;
                   const isCurrent = permissions?.planId === plan.id;
                   const isPopular = !isCurrent && index === activePlans.length - 1 && activePlans.length >= 3;
@@ -368,6 +385,16 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
             requiredFeature={feature}
           />
         )}
+
+        <AsaasPixPaymentDialog
+          isOpen={showFeatureUnlockPayment}
+          onOpenChange={setShowFeatureUnlockPayment}
+          planName={`Desbloqueio: ${AVAILABLE_FEATURES.find(f => f.id === feature)?.name || feature}`}
+          planPrice={15}
+          planDescription={`Acesso vitalício ao recurso ${AVAILABLE_FEATURES.find(f => f.id === feature)?.name || feature} durante a vigência do seu plano atual.`}
+          isFeatureUnlockOnly={true}
+          requiredFeature={feature}
+        />
       </>
     );
   }
