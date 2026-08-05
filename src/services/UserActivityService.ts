@@ -66,30 +66,22 @@ class UserActivityService {
   private async makeRequest(method: string, endpoint: string, data?: any) {
     try {
       const originalUrl = `${BASEROW_BASE_URL}${endpoint}`;
-      console.log('UserActivityService: URL original:', originalUrl);
-      console.log('UserActivityService: Método:', method);
-      console.log('UserActivityService: Dados enviados:', data);
+      console.log('UserActivityService: Fazendo requisição:', { method, originalUrl });
 
-      const encodedUrl = encodeURIComponent(originalUrl);
-      let proxyRequestUrl = `${PROXY_URL}?token=${ADMIN_API_KEY}&url=${encodedUrl}&method=${method}`;
+      const proxyPayload = {
+        url: originalUrl,
+        method: method,
+        token: ADMIN_API_KEY,
+        body: data ? JSON.stringify(data) : null
+      };
 
-      const requestOptions: RequestInit = {
+      const response = await fetch(PROXY_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-      };
-
-      if (data && method !== 'GET') {
-        requestOptions.body = JSON.stringify({ data });
-        console.log('UserActivityService: Body da requisição:', requestOptions.body);
-      }
-
-      console.log('UserActivityService: URL do proxy:', proxyRequestUrl);
-
-      const response = await fetch(proxyRequestUrl, requestOptions);
-
-      console.log('UserActivityService: Status da resposta:', response.status);
+        body: JSON.stringify(proxyPayload),
+      });
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -97,9 +89,7 @@ class UserActivityService {
         throw new Error(`HTTP Error: ${response.status} - ${errorText}`);
       }
 
-      const result = await response.json();
-      console.log('UserActivityService: Resposta recebida:', result);
-      return result;
+      return await response.json();
     } catch (error) {
       console.error('UserActivityService: Erro na requisição:', error);
       throw error;
