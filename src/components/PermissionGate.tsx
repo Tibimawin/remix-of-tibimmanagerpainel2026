@@ -166,17 +166,17 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
       <>
         <div className="space-y-6">
           {activePlans.length > 0 && (
-            <div>
+            <div className="w-full">
               <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
                 <div>
                   <h2 className="text-3xl md:text-4xl font-bold text-foreground">
                     {canUnlockIndividual ? 'Desbloqueio Disponível' : 'Acesso Restrito'}
                   </h2>
                   <p className="text-sm text-muted-foreground mt-2">
-                    {hasActivePlan ? (
-                      <>Você está no plano <strong>{permissions.planName}</strong>. Desbloqueie este recurso extra para turbinar seu painel.</>
+                    {hasActivePlan && !isSubscriptionExpired ? (
+                      <>Você está no plano <strong>{permissions?.planName}</strong>. Desbloqueie este recurso extra para turbinar seu painel.</>
                     ) : (
-                      <>Este recurso faz parte do módulo Premium. Escolha um plano para desbloquear.</>
+                      <>Sua assinatura está <strong>expirada</strong> ou você não possui um plano ativo. Escolha uma opção abaixo para continuar.</>
                     )}
                   </p>
                 </div>
