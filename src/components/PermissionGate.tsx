@@ -174,15 +174,26 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                     {canUnlockIndividual ? 'Desbloqueio Disponível' : 'Acesso Restrito'}
                   </h2>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Este recurso faz parte do módulo Premium. Escolha um plano para desbloquear.
+                    {hasActivePlan ? (
+                      <>Você está no plano <strong>{permissions.planName}</strong>. Desbloqueie este recurso extra para turbinar seu painel.</>
+                    ) : (
+                      <>Este recurso faz parte do módulo Premium. Escolha um plano para desbloquear.</>
+                    )}
                   </p>
                 </div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-background/60 px-3 py-1 border text-xs text-muted-foreground self-start sm:self-end">
-                  <Shield className="h-3.5 w-3.5" />
-                  Status:
-                  <span className="font-medium text-foreground">
-                    {permissions?.planName || 'Nível Básico'}
-                  </span>
+                <div className="inline-flex flex-col gap-1 items-end">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-background/60 px-3 py-1 border text-xs text-muted-foreground self-start sm:self-end">
+                    <Shield className="h-3.5 w-3.5" />
+                    Plano atual:
+                    <span className="font-medium text-foreground">
+                      {permissions?.planName || 'Nível Básico'}
+                    </span>
+                  </div>
+                  {hasActivePlan && permissions?.expiryDate && (
+                    <div className="text-[10px] text-muted-foreground bg-primary/5 px-2 py-0.5 rounded border border-primary/10">
+                      Vencimento: {new Date(permissions.expiryDate).toLocaleDateString()}
+                    </div>
+                  )}
                 </div>
               </div>
 
