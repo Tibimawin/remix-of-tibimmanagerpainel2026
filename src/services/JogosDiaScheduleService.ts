@@ -55,6 +55,7 @@ export class JogosDiaScheduleService {
     const runId = `jogos_${schedule.userId}_${Date.now()}`;
     const startTime = new Date();
     let stats = { created: 0, updated: 0, errors: 0 };
+    const progressRef = doc(db, 'jogosDiaProgress', schedule.userId);
 
     try {
       const config = await UserConfigService.getGlobalJogosDiaConfig();
@@ -67,28 +68,51 @@ export class JogosDiaScheduleService {
       const userBaserow = new BaserowService(userConfig.apiToken, userConfig.baseUrl);
       
       const data = await sourceService.getAllTableData(config.contentTableId);
-      
-      for (const jogo of data.results) {
-        const existing = await userBaserow.getTableData(userConfig.tableIds.canaisTv, 1, 1, jogo.Nome);
-        const match = existing.results.find((r: any) => r.Link === jogo.Link);
-        
-        const payload = {
-          'Nome': jogo.Nome,
-          'Link': jogo.Link,
-          'Categoria': jogo.Campeonato || 'Jogos do Dia',
-          'Logo': jogo['Logo Casa'] || '',
-          'TimeCasa': jogo['Time Casa'],
-          'TimeFora': jogo['Time Fora'],
-          'Campeonato': jogo.Campeonato
-        };
+      const items = data.results || [];
+      const total = items.length;
 
-        if (match) {
-          await userBaserow.updateRow(userConfig.tableIds.canaisTv, String(match.id), payload);
-          stats.updated++;
-        } else {
-          await userBaserow.createRow(userConfig.tableIds.canaisTv, payload);
-          stats.created++;
+      // Inicializar progresso
+      await setDoc(progressRef, {
+        status: 'running',
+        current: 0,
+        total,
+        startTime: startTime.toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      
+      for (let i = 0; i < total; i++) {
+        const jogo = items[i];
+        try {
+          const existing = await userBaserow.getTableData(userConfig.tableIds.canaisTv, 1, 1, jogo.Nome);
+          const match = existing.results.find((r: any) => r.Link === jogo.Link);
+          
+          const payload = {
+            'Nome': jogo.Nome,
+            'Link': jogo.Link,
+            'Categoria': jogo.Campeonato || 'Jogos do Dia',
+            'Logo': jogo['Logo Casa'] || '',
+            'TimeCasa': jogo['Time Casa'],
+            'TimeFora': jogo['Time Fora'],
+            'Campeonato': jogo.Campeonato
+          };
+
+          if (match) {
+            await userBaserow.updateRow(userConfig.tableIds.canaisTv, String(match.id), payload);
+            stats.updated++;
+          } else {
+            await userBaserow.createRow(userConfig.tableIds.canaisTv, payload);
+            stats.created++;
+          }
+        } catch (e) {
+          console.error('Erro ao importar jogo individual:', e);
+          stats.errors++;
         }
+
+        // Atualizar progresso a cada item ou em lotes se for muito grande
+        await updateDoc(progressRef, {
+          current: i + 1,
+          updatedAt: new Date().toISOString()
+        });
       }
       
       await addDoc(collection(db, 'jogosDiaLogs'), {
@@ -97,9 +121,14 @@ export class JogosDiaScheduleService {
         status: 'success',
         created: stats.created,
         updated: stats.updated,
-        errors: 0,
+        errors: stats.errors,
         timestamp: startTime.toISOString(),
         duration: Date.now() - startTime.getTime()
+      });
+
+      await updateDoc(progressRef, {
+        status: 'completed',
+        updatedAt: new Date().toISOString()
       });
     } catch (error: any) {
       await addDoc(collection(db, 'jogosDiaLogs'), {
@@ -109,8 +138,14 @@ export class JogosDiaScheduleService {
         message: error.message,
         created: stats.created,
         updated: stats.updated,
-        errors: 1,
+        errors: stats.errors + 1,
         timestamp: startTime.toISOString()
+      });
+
+      await updateDoc(progressRef, {
+        status: 'error',
+        message: error.message,
+        updatedAt: new Date().toISOString()
       });
     }
   }
