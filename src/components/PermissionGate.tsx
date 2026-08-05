@@ -171,7 +171,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
               <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
                 <div>
                   <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-                    Acesso Restrito
+                    {canUnlockIndividual ? 'Desbloqueio Disponível' : 'Acesso Restrito'}
                   </h2>
                   <p className="text-sm text-muted-foreground mt-2">
                     Este recurso faz parte do módulo Premium. Escolha um plano para desbloquear.
@@ -275,106 +275,108 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                 </div>
               </div>
 
-              <div
-                className={`grid gap-5 ${
-                  activePlans.length === 1
-                    ? 'grid-cols-1 max-w-sm mx-auto'
-                    : activePlans.length === 2
-                    ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl mx-auto'
-                    : activePlans.length === 3
-                    ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-                    : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
-                }`}
-              >
-                {activePlans.map((plan, index) => {
-                  const scheme = planSchemes[index % planSchemes.length];
-                  const numericPrice =
-                    parseFloat(plan.price.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-                  const isApiPlan = plan.features.includes('minha-api');
-                  const showUpgradePrice =
-                    isApiPlan && hasSubscription && currentPlanPrice > 0 && numericPrice > currentPlanPrice;
-                  const displayPrice = showUpgradePrice ? numericPrice - currentPlanPrice : numericPrice;
-                  const isCurrent = permissions?.planId === plan.id;
-                  const isPopular = !isCurrent && index === activePlans.length - 1 && activePlans.length >= 3;
+              {!canUnlockIndividual && (
+                <div
+                  className={`grid gap-5 ${
+                    activePlans.length === 1
+                      ? 'grid-cols-1 max-w-sm mx-auto'
+                      : activePlans.length === 2
+                      ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl mx-auto'
+                      : activePlans.length === 3
+                      ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                      : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+                  }`}
+                >
+                  {activePlans.map((plan, index) => {
+                    const scheme = planSchemes[index % planSchemes.length];
+                    const numericPrice =
+                      parseFloat(plan.price.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+                    const isApiPlan = plan.features.includes('minha-api');
+                    const showUpgradePrice =
+                      isApiPlan && hasSubscription && currentPlanPrice > 0 && numericPrice > currentPlanPrice;
+                    const displayPrice = showUpgradePrice ? numericPrice - currentPlanPrice : numericPrice;
+                    const isCurrent = permissions?.planId === plan.id;
+                    const isPopular = !isCurrent && index === activePlans.length - 1 && activePlans.length >= 3;
 
-                  return (
-                    <Card
-                      key={plan.id}
-                      className={`relative p-6 border-2 rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl flex flex-col ${scheme.cardBg}`}
-                    >
-                      {isPopular && (
-                        <Badge className={`absolute top-4 right-4 ${scheme.badge} text-[10px] px-2 py-0.5`}>
-                          Mais Popular
-                        </Badge>
-                      )}
-                      {isCurrent && (
-                        <Badge className="absolute top-4 right-4 bg-foreground/80 text-background text-[10px] px-2 py-0.5">
-                          Plano atual
-                        </Badge>
-                      )}
+                    return (
+                      <Card
+                        key={plan.id}
+                        className={`relative p-6 border-2 rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl flex flex-col ${scheme.cardBg}`}
+                      >
+                        {isPopular && (
+                          <Badge className={`absolute top-4 right-4 ${scheme.badge} text-[10px] px-2 py-0.5`}>
+                            Mais Popular
+                          </Badge>
+                        )}
+                        {isCurrent && (
+                          <Badge className="absolute top-4 right-4 bg-foreground/80 text-background text-[10px] px-2 py-0.5">
+                            Plano atual
+                          </Badge>
+                        )}
 
-                      <div className="flex items-center gap-2 mb-1">
-                        <Crown className={`w-5 h-5 ${scheme.priceText}`} />
-                        <h3 className="text-2xl font-bold text-foreground">{plan.name}</h3>
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-5 line-clamp-2">
-                        {plan.description || `Desbloqueia ${feature.replace(/-/g, ' ')} e outros recursos avançados`}
-                      </p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Crown className={`w-5 h-5 ${scheme.priceText}`} />
+                          <h3 className="text-2xl font-bold text-foreground">{plan.name}</h3>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-5 line-clamp-2">
+                          {plan.description || `Desbloqueia ${feature.replace(/-/g, ' ')} e outros recursos avançados`}
+                        </p>
 
-                      <div className="mb-5">
-                        {showUpgradePrice ? (
-                          <>
-                            <div className={`text-3xl font-extrabold ${scheme.priceText}`}>
-                              R$ {displayPrice.toFixed(2).replace('.', ',')}
-                            </div>
-                            <div className="text-xs text-muted-foreground line-through">{plan.price}</div>
-                            <Badge variant="secondary" className="mt-1 text-[10px]">Upgrade</Badge>
-                          </>
+                        <div className="mb-5">
+                          {showUpgradePrice ? (
+                            <>
+                              <div className={`text-3xl font-extrabold ${scheme.priceText}`}>
+                                R$ {displayPrice.toFixed(2).replace('.', ',')}
+                              </div>
+                              <div className="text-xs text-muted-foreground line-through">{plan.price}</div>
+                              <Badge variant="secondary" className="mt-1 text-[10px]">Upgrade</Badge>
+                            </>
+                          ) : (
+                            <>
+                              <div className={`text-3xl font-extrabold ${scheme.priceText}`}>
+                                {plan.price.replace(/\/.*$/, '')}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {plan.price.includes('/') ? `/${plan.price.split('/').pop()}` : '/mês'}
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        <ul className="space-y-2 mb-6 flex-1">
+                          {plan.features.slice(0, 6).map((featureId) => (
+                            <li key={featureId} className="flex items-start gap-2 text-sm">
+                              <Check className={`w-4 h-4 shrink-0 mt-0.5 ${scheme.check}`} />
+                              <span className="text-foreground/90 capitalize">
+                                {featureId.replace(/-/g, ' ')}
+                              </span>
+                            </li>
+                          ))}
+                          {plan.features.length > 6 && (
+                            <li className="text-xs text-muted-foreground pl-6">
+                              +{plan.features.length - 6} recursos incluídos
+                            </li>
+                          )}
+                        </ul>
+
+                        {isCurrent ? (
+                          <Button disabled variant="outline" className="w-full rounded-full">
+                            Plano atual
+                          </Button>
                         ) : (
-                          <>
-                            <div className={`text-3xl font-extrabold ${scheme.priceText}`}>
-                              {plan.price.replace(/\/.*$/, '')}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {plan.price.includes('/') ? `/${plan.price.split('/').pop()}` : '/mês'}
-                            </div>
-                          </>
+                          <Button
+                            onClick={() => handleChoosePlan(plan)}
+                            className={`w-full rounded-full font-semibold ${scheme.btn}`}
+                          >
+                            <CreditCard className="h-4 w-4 mr-2" />
+                            {showUpgradePrice ? 'Fazer Upgrade' : `Assinar ${plan.name}`}
+                          </Button>
                         )}
-                      </div>
-
-                      <ul className="space-y-2 mb-6 flex-1">
-                        {plan.features.slice(0, 6).map((featureId) => (
-                          <li key={featureId} className="flex items-start gap-2 text-sm">
-                            <Check className={`w-4 h-4 shrink-0 mt-0.5 ${scheme.check}`} />
-                            <span className="text-foreground/90 capitalize">
-                              {featureId.replace(/-/g, ' ')}
-                            </span>
-                          </li>
-                        ))}
-                        {plan.features.length > 6 && (
-                          <li className="text-xs text-muted-foreground pl-6">
-                            +{plan.features.length - 6} recursos incluídos
-                          </li>
-                        )}
-                      </ul>
-
-                      {isCurrent ? (
-                        <Button disabled variant="outline" className="w-full rounded-full">
-                          Plano atual
-                        </Button>
-                      ) : (
-                        <Button
-                          onClick={() => handleChoosePlan(plan)}
-                          className={`w-full rounded-full font-semibold ${scheme.btn}`}
-                        >
-                          <CreditCard className="h-4 w-4 mr-2" />
-                          {showUpgradePrice ? 'Fazer Upgrade' : `Assinar ${plan.name}`}
-                        </Button>
-                      )}
-                    </Card>
-                  );
-                })}
-              </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
