@@ -17,7 +17,7 @@ import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import UserSecuritySettings from '@/components/UserSecuritySettings';
 import { AppearanceSettings } from '@/components/AppearanceSettings';
 import { useOnboarding } from '@/hooks/useOnboarding';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 // Componente para configurações do Tutorial
 const TutorialSettings: React.FC = () => {
