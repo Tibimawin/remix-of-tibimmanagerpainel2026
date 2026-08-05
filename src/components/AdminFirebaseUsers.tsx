@@ -16,6 +16,35 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+
+const UserPlanBadge: React.FC<{ userId: string }> = ({ userId }) => {
+  const [planName, setPlanName] = useState<string>('Carregando...');
+
+  useEffect(() => {
+    const getPlan = async () => {
+      try {
+        const { getDoc } = await import('firebase/firestore');
+        const permissionsRef = doc(db, 'userPermissions', userId);
+        const permissionsDoc = await getDoc(permissionsRef);
+        if (permissionsDoc.exists()) {
+          setPlanName(permissionsDoc.data().planName || 'Básico');
+        } else {
+          setPlanName('Básico');
+        }
+      } catch (err) {
+        setPlanName('Erro');
+      }
+    };
+    getPlan();
+  }, [userId]);
+
+  return (
+    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px] py-0 h-4 ml-2">
+      {planName}
+    </Badge>
+  );
+};
+
 interface EditUserModalProps {
   user: FirebaseUser;
   isOpen: boolean;
