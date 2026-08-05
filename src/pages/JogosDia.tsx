@@ -25,7 +25,7 @@ import { useBaserowService } from '@/services/BaserowService';
 import { toast } from 'sonner';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { db } from '@/config/firebase';
-import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, onSnapshot, doc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,6 +64,12 @@ const JogosDia = () => {
   const baserowService = useBaserowService();
   const [logs, setLogs] = useState<any[]>([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [importProgress, setImportProgress] = useState<{
+    status: 'running' | 'completed' | 'error' | 'idle';
+    current: number;
+    total: number;
+    message?: string;
+  } | null>(null);
 
   const fetchJogos = async () => {
     if (!globalConfig?.isActive || !globalConfig?.contentTableId) return;
@@ -110,6 +116,18 @@ const JogosDia = () => {
 
     const unsub = onSnapshot(q, (snap) => {
       setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    return () => unsub();
+  }, [userInfo?.id]);
+
+  useEffect(() => {
+    if (!userInfo?.id) return;
+
+    const unsub = onSnapshot(doc(db, 'jogosDiaProgress', userInfo.id), (snap) => {
+      if (snap.exists()) {
+        setImportProgress(snap.data() as any);
+      }
     });
 
     return () => unsub();
@@ -295,6 +313,91 @@ const JogosDia = () => {
                     ))}
                     {logs.length === 0 && <p className="text-center py-4 text-xs text-muted-foreground">Nenhum log registrado ainda.</p>}
                   </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Real-time Import Progress */}
+        <AnimatePresence>
+          {importProgress && importProgress.status === 'running' && (
+            <motion.div
+              initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+              animate={{ height: 'auto', opacity: 1, marginBottom: 32 }}
+              exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+              className="overflow-hidden"
+            >
+              <Card className="bg-emerald-500/10 border-emerald-500/20 backdrop-blur-md">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-emerald-500/20 rounded-lg animate-pulse">
+                        <RefreshCw className="w-5 h-5 text-emerald-500 animate-spin" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-emerald-500 uppercase tracking-wider">Importação em Andamento</h3>
+                        <p className="text-xs text-emerald-500/70">Sincronizando jogos com seu painel...</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-black text-emerald-500">
+                        {importProgress.total > 0 ? Math.round((importProgress.current / importProgress.total) * 100) : 0}%
+                      </p>
+                      <p className="text-[10px] text-emerald-500/60 uppercase font-bold">
+                        {importProgress.current} de {importProgress.total} itens
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="w-full h-3 bg-emerald-500/10 rounded-full overflow-hidden border border-emerald-500/20">
+                    <motion.div 
+                      className="h-full bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${importProgress.total > 0 ? (importProgress.current / importProgress.total) * 100 : 0}%` }}
+                      transition={{ type: "spring", bounce: 0, duration: 0.5 }}
+                    />
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between text-[10px] text-emerald-500/60 uppercase font-bold">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3 h-3" />
+                      <span>Tempo restante estimado: {
+                        importProgress.current > 0 
+                          ? `${Math.ceil(((importProgress.total - importProgress.current) * 2))} segundos`
+                          : 'Calculando...'
+                      }</span>
+                    </div>
+                    <span>Não feche esta página</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {importProgress && importProgress.status === 'completed' && (
+             <motion.div
+              initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+              animate={{ height: 'auto', opacity: 1, marginBottom: 32 }}
+              exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+              className="overflow-hidden"
+            >
+              <Card className="bg-emerald-500/5 border-emerald-500/10 backdrop-blur-md">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-1.5 bg-emerald-500/20 rounded-full">
+                      <Check className="w-4 h-4 text-emerald-500" />
+                    </div>
+                    <span className="text-sm font-bold text-emerald-500">Importação concluída com sucesso!</span>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-emerald-500 hover:bg-emerald-500/10"
+                    onClick={() => setImportProgress(null)}
+                  >
+                    Fechar
+                  </Button>
                 </CardContent>
               </Card>
             </motion.div>
