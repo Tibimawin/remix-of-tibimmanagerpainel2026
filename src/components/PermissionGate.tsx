@@ -374,6 +374,20 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                           )}
                         </ul>
 
+                        {isCurrent ? (
+                          <Button disabled variant="outline" className="w-full rounded-full">
+                            Plano atual
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={() => handleChoosePlan(plan)}
+                            className={`w-full rounded-full font-semibold ${scheme.btn}`}
+                          >
+                            <CreditCard className="h-4 w-4 mr-2" />
+                            {showUpgradePrice ? 'Fazer Upgrade' : `Assinar ${plan.name}`}
+                          </Button>
+                        )}
+                      </Card>
                     );
                   })}
                 </div>
