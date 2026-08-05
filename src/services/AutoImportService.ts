@@ -1128,6 +1128,13 @@ export class AutoImportService {
 
           // Determinar tabela alvo baseado no tipo e modo
           let targetTableId = validatedUserConfig.contentTableId;
+
+          // Se for minissérie, usar tabela específica se configurada
+          if (isMiniseries && (validatedUserConfig.tableIds as any)?.miniseries) {
+            targetTableId = (validatedUserConfig.tableIds as any).miniseries;
+          }
+
+          console.log(`🎯 Tabela de destino selecionada: ${targetTableId} (isMiniseries: ${isMiniseries})`);
           const isTv = (content.Tipo || '').toUpperCase() === 'TV' ||
             (content.Tipo || '').toUpperCase().includes('TV') ||
             (content.Tipo || '').toUpperCase().includes('CANAL');

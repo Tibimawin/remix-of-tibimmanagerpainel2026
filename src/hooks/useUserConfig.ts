@@ -86,6 +86,8 @@ export const useUserConfig = () => {
             plataformas: '',
             canaisTv: '',
             jogosDia: '',
+            miniseries: '',
+            miniseriesEpisodios: '',
           },
           personalSettings: updates.personalSettings || {
             theme: 'system',
