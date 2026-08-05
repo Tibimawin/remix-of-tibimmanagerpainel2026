@@ -54,6 +54,7 @@ const JogosDia = () => {
   const baserowService = useBaserowService();
   const [logs, setLogs] = useState<any[]>([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [selectedCampeonato, setSelectedCampeonato] = useState<string>('todos');
   const [importProgress, setImportProgress] = useState<{
     status: 'running' | 'completed' | 'error' | 'idle';
     current: number;
@@ -165,12 +166,19 @@ const JogosDia = () => {
     }
   };
 
-  const filteredJogos = jogos.filter(jogo => 
-    jogo.Nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    jogo.Campeonato?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    jogo['Time Casa']?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    jogo['Time Fora']?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const campeonatos = Array.from(new Set(jogos.map(j => j.Campeonato).filter(Boolean))).sort();
+
+  const filteredJogos = jogos.filter(jogo => {
+    const matchesSearch = 
+      jogo.Nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      jogo.Campeonato?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      jogo['Time Casa']?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      jogo['Time Fora']?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesFilter = selectedCampeonato === 'todos' || jogo.Campeonato === selectedCampeonato;
+    
+    return matchesSearch && matchesFilter;
+  });
 
   if (loadingConfig) {
     return (
@@ -396,14 +404,30 @@ const JogosDia = () => {
 
         {/* Controls */}
         <div className="bg-card/50 backdrop-blur-md border border-white/5 rounded-2xl p-4 shadow-xl flex flex-col md:flex-row gap-4 items-center justify-between mb-8">
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input 
-              placeholder="Buscar por time ou campeonato..." 
-              className="pl-10 bg-white/5 border-white/10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto flex-1">
+            <div className="relative w-full md:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                placeholder="Buscar por time ou campeonato..." 
+                className="pl-10 bg-white/5 border-white/10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <div className="relative w-full md:w-60">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <select
+                className="w-full h-10 pl-10 pr-4 bg-white/5 border border-white/10 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 appearance-none text-foreground"
+                value={selectedCampeonato}
+                onChange={(e) => setSelectedCampeonato(e.target.value)}
+              >
+                <option value="todos">Todos os Campeonatos</option>
+                {campeonatos.map(camp => (
+                  <option key={camp} value={camp}>{camp}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="flex gap-2 w-full md:w-auto">
@@ -415,10 +439,6 @@ const JogosDia = () => {
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Sincronizar
-            </Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white flex-1 md:flex-none">
-              <Filter className="w-4 h-4 mr-2" />
-              Filtros
             </Button>
           </div>
         </div>
