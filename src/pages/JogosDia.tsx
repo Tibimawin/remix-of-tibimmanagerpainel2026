@@ -121,6 +121,18 @@ const JogosDia = () => {
     return () => unsub();
   }, [userInfo?.id]);
 
+  useEffect(() => {
+    if (!userInfo?.id) return;
+
+    const unsub = onSnapshot(doc(db, 'jogosDiaProgress', userInfo.id), (snap) => {
+      if (snap.exists()) {
+        setImportProgress(snap.data() as any);
+      }
+    });
+
+    return () => unsub();
+  }, [userInfo?.id]);
+
   const handleImport = async (jogo: JogoDia) => {
     if (!config?.tableIds?.canaisTv) {
       toast.error('Tabela de Canais/Jogos não configurada no seu painel');
