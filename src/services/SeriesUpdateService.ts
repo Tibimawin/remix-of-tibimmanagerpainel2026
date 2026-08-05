@@ -72,6 +72,13 @@ class SeriesUpdateService {
       body: options.body || null
     };
 
+    console.log(`🌐 [SeriesUpdateService] Requisição via PROXY:`, {
+      method,
+      url: originalUrl,
+      hasToken: !!source.token,
+      tokenPreview: source.token ? `${source.token.substring(0, 5)}...` : 'AUSENTE'
+    });
+
     return fetch(BASEROW_PROXY_CONFIG.ACTIVE_PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

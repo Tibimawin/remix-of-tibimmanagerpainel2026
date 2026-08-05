@@ -38,10 +38,19 @@ export default async function handler(req, res) {
         }
 
         if (!token) {
-            console.error('❌ [VERCEL PROXY] Erro: Token não fornecido no payload!');
+            console.error('❌ [VERCEL PROXY] Erro: Token não fornecido no payload!', {
+                url,
+                method,
+                userAgent: req.headers['user-agent'],
+                referer: req.headers['referer']
+            });
             return res.status(401).json({ 
                 error: 'Não autorizado', 
-                message: 'O token do Baserow não foi enviado pelo cliente. Verifique as configurações no painel.' 
+                message: 'O token do Baserow não foi enviado pelo cliente. Verifique as configurações no painel.',
+                debug: {
+                    receivedUrl: url,
+                    receivedMethod: method
+                }
             });
         }
 
