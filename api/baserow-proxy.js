@@ -244,19 +244,18 @@ export default async function handler(req, res) {
         return res.status(200).json(data);
 
     } catch (error) {
-        console.error('❌ [VERCEL PROXY] Erro crítico:', {
-            message: error.message,
-            stack: error.stack
-        });
+        console.error('❌ [VERCEL PROXY] Erro crítico:', error);
         
-        // Garantir CORS mesmo em erro
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Content-Type', 'application/json');
-        
-        return res.status(500).json({
-            error: 'Erro no proxy',
-            message: error.message,
-            details: process.env.NODE_ENV === 'development' ? error.stack : 'Erro interno do servidor'
-        });
+        // Tentar garantir headers de erro
+        if (!res.headersSent) {
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Content-Type', 'application/json');
+            
+            return res.status(500).json({
+                error: 'Erro no proxy',
+                message: error.message,
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            });
+        }
     }
 }
