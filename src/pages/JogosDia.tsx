@@ -13,7 +13,9 @@ import {
   Clock,
   Activity,
   History,
-  Settings
+  Settings,
+  Lock,
+  ArrowRight
 } from 'lucide-react';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useGlobalJogosDiaConfig } from '@/hooks/useGlobalJogosDiaConfig';
@@ -21,6 +23,8 @@ import { makeProxyRequest } from '@/utils/proxyRequest';
 import { useBaserowService } from '@/services/BaserowService';
 import { toast } from 'sonner';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { usePlans } from '@/hooks/usePlans';
 import { db } from '@/config/firebase';
 import { collection, query, where, orderBy, limit, onSnapshot, doc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +33,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useNavigate } from 'react-router-dom';
+import { PermissionGate } from '@/components/PermissionGate';
 
 
 interface JogoDia {
@@ -50,6 +55,7 @@ const JogosDia = () => {
   const { config } = useConfig();
   const { userInfo } = useSimpleAuth();
   const navigate = useNavigate();
+  const { hasFeature, isSubscriptionExpired } = useUserPermissions();
   const { globalConfig, loading: loadingConfig } = useGlobalJogosDiaConfig();
   const [jogos, setJogos] = useState<JogoDia[]>([]);
   const [loading, setLoading] = useState(false);
@@ -257,7 +263,8 @@ const JogosDia = () => {
   }
 
   return (
-    <div className="min-h-screen pb-20">
+    <PermissionGate feature="jogos-dia">
+      <div className="min-h-screen pb-20">
       {/* Hero Section */}
       <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600/20 via-background to-background border-b border-emerald-500/10 px-6 py-12 lg:px-12">
         <div className="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-emerald-500/10 blur-[100px] rounded-full" />
@@ -605,6 +612,7 @@ const JogosDia = () => {
         )}
       </div>
     </div>
+    </PermissionGate>
   );
 };
 
