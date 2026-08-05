@@ -30,6 +30,7 @@ export interface GlobalImportConfig {
   episodeKeyField: string;
   episodeSearchField: string;
   isActive: boolean;
+  frequency?: 'daily' | 'hourly';
   updatedAt: string;
 }
 

@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar, Save, TestTube, CheckCircle, XCircle, Loader2, Table2 } from 'lucide-react';
 import { useGlobalJogosDiaConfig } from '@/hooks/useGlobalJogosDiaConfig';
 import { testBaserowConnection } from '@/utils/proxyRequest';
