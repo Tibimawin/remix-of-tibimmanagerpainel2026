@@ -27,6 +27,8 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
   const [loading, setLoading] = useState(false);
   const [hasAutomacaoFeature, setHasAutomacaoFeature] = useState(false);
   const [loadingPermissions, setLoadingPermissions] = useState(true);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const [customDays, setCustomDays] = useState('');
   const [formData, setFormData] = useState({
     name: user.name,
@@ -37,9 +39,9 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
     isActive: user.isActive
   });
 
-  // Carregar permissões atuais ao abrir o modal
+  // Carregar permissões atuais e planos ao abrir o modal
   useEffect(() => {
-    const loadUserPermissions = async () => {
+    const loadData = async () => {
       if (!isOpen || !user.uid) return;
 
       setLoadingPermissions(true);
@@ -52,20 +54,28 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
           const permissions = permissionsDoc.data();
           const enabledFeatures = permissions.enabledFeatures || [];
           setHasAutomacaoFeature(enabledFeatures.includes('automacao'));
-          console.log('✅ Permissões carregadas:', { enabledFeatures, hasAutomacao: enabledFeatures.includes('automacao') });
+          setSelectedPlanId(permissions.planId || '');
+          console.log('✅ Permissões carregadas:', { enabledFeatures, planId: permissions.planId });
         } else {
           console.warn('⚠️ Permissões não encontradas para usuário:', user.uid);
           setHasAutomacaoFeature(false);
+          setSelectedPlanId('');
         }
+
+        // Carregar planos reais para o seletor
+        const { PlansService } = await import('@/services/PlansService');
+        const allPlans = await PlansService.getAllPlans();
+        setPlans(allPlans);
+
       } catch (error) {
-        console.error('❌ Erro ao carregar permissões:', error);
+        console.error('❌ Erro ao carregar dados do usuário:', error);
         setHasAutomacaoFeature(false);
       } finally {
         setLoadingPermissions(false);
       }
     };
 
-    loadUserPermissions();
+    loadData();
   }, [isOpen, user.uid]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,12 +113,16 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
         console.log('🚫 Removendo feature automacao');
       }
 
+      const selectedPlan = plans.find(p => p.id === selectedPlanId);
+
       await setDoc(permissionsRef, {
         userName: formData.name,
         userEmail: formData.email,
         expiryDate: updates.expiryDate,
         isActive: formData.isActive,
         enabledFeatures: updatedFeatures,
+        planId: selectedPlanId,
+        planName: selectedPlan ? selectedPlan.name : (currentPermissions.planName || 'Básico'),
         lastUpdated: new Date().toISOString()
       }, { merge: true });
 
@@ -283,15 +297,33 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="isActive"
-              checked={formData.isActive}
-              onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-              className="rounded"
-            />
-            <Label htmlFor="isActive">Usuário Ativo</Label>
+          <div className="grid grid-cols-2 gap-4 items-end">
+            <div className="space-y-2">
+              <Label htmlFor="planSelect">Plano Ativo (Configuração Manual)</Label>
+              <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione um plano" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="basic">Gratuito (Padrão)</SelectItem>
+                  {plans.map((plan) => (
+                    <SelectItem key={plan.id} value={plan.id}>
+                      {plan.name} (R$ {plan.price})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2 h-10">
+              <input
+                type="checkbox"
+                id="isActive"
+                checked={formData.isActive}
+                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                className="rounded h-4 w-4"
+              />
+              <Label htmlFor="isActive">Usuário Ativo</Label>
+            </div>
           </div>
 
           {/* Controle de Automação */}
