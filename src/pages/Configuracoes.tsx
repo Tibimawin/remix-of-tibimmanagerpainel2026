@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield, Film, Tv, Image, FolderOpen, Users, Calendar, LayoutGrid, Play, RotateCcw, HelpCircle, Palette, CreditCard, Zap, Star, Smartphone, Trophy } from 'lucide-react';
+import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield, Film, Tv, Image, FolderOpen, Users, Calendar, LayoutGrid, Play, RotateCcw, HelpCircle, Palette, CreditCard, Zap, Star, Smartphone, Trophy, Clapperboard } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
@@ -153,6 +153,7 @@ const Configuracoes = () => {
       perfil: config?.tableIds?.perfil || '',
       meusAplicativos: config?.tableIds?.meusAplicativos || '',
       jogosDia: config?.tableIds?.jogosDia || '',
+      miniseries: config?.tableIds?.miniseries || '',
     }
   });
 
@@ -188,6 +189,7 @@ const Configuracoes = () => {
           perfil: config.tableIds?.perfil || '',
           meusAplicativos: config.tableIds?.meusAplicativos || '',
           jogosDia: config.tableIds?.jogosDia || '',
+          miniseries: config.tableIds?.miniseries || '',
         }
       });
     }
@@ -511,6 +513,22 @@ const Configuracoes = () => {
                         className="focus-visible:ring-yellow-500"
                       />
                       <p className="text-xs text-muted-foreground">Tabela destino para importação de jogos esportivos</p>
+                    </div>
+
+                    {/* Minisséries */}
+                    <div className="space-y-1" id="miniseries-field">
+                      <Label htmlFor="miniseries" className="flex items-center gap-2">
+                        <Clapperboard className="h-4 w-4 text-orange-500" />
+                        Tabela de Minisséries (Tibim)
+                      </Label>
+                      <Input
+                        id="miniseries"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.miniseries || ''}
+                        onChange={(e) => handleInputChange('tableIds.miniseries', e.target.value)}
+                        className="focus-visible:ring-primary"
+                      />
+                      <p className="text-xs text-muted-foreground">Tabela destino para importação de minisséries</p>
                     </div>
 
                     {/* Planos 1 */}
@@ -906,6 +924,37 @@ const Configuracoes = () => {
                       />
                       <p className="text-xs text-muted-foreground">Planos de assinatura disponíveis</p>
                     </div>
+
+                    {/* Tabela de Jogos do Dia */}
+                    <div className="space-y-1" id="jogosDia-field">
+                      <Label htmlFor="jogosDia" className="flex items-center gap-2">
+                        <Trophy className="h-4 w-4 text-primary" />
+                        Tabela de Jogos do Dia
+                      </Label>
+                      <Input
+                        id="jogosDia"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.jogosDia}
+                        onChange={(e) => handleInputChange('tableIds.jogosDia', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Tabela para importação de eventos esportivos</p>
+                    </div>
+
+                    {/* Tabela de Minisséries */}
+                    <div className="space-y-1" id="miniseries-field">
+                      <Label htmlFor="miniseries" className="flex items-center gap-2">
+                        <Clapperboard className="h-4 w-4 text-primary" />
+                        Tabela de Minisséries
+                      </Label>
+                      <Input
+                        id="miniseries"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.miniseries || ''}
+                        onChange={(e) => handleInputChange('tableIds.miniseries', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Tabela para importação de minisséries</p>
+                    </div>
+
                   </div>
                 )}
               </CardContent>

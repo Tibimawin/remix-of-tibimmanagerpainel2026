@@ -5,7 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Tv, Download, Search, Wifi, WifiOff, RefreshCw, LayoutGrid } from 'lucide-react';
+import { Tv, Download, Search, Wifi, WifiOff, RefreshCw, LayoutGrid, AlertTriangle, Settings } from 'lucide-react';
+import { useConfig } from '@/contexts/ConfigContext';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { useImportarCanaisTV } from '@/hooks/useImportarCanaisTV';
 import { useTypeMode } from '@/contexts/TypeModeContext';
 import { cn } from '@/lib/utils';
@@ -91,6 +94,8 @@ const ImportarCanaisTV = () => {
   const [categoriaAtiva, setCategoriaAtiva] = useState(filtrosIniciais.current.categoriaAtiva);
   const [somenteOnline, setSomenteOnline] = useState(filtrosIniciais.current.somenteOnline);
   const [importando, setImportando] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { config } = useConfig();
   const [carregandoMais, setCarregandoMais] = useState(false);
   const autoCarregado = useRef(false);
   const timerCarregarMais = useRef<number | null>(null);
@@ -195,6 +200,42 @@ const ImportarCanaisTV = () => {
 
 
   const handleImportCanal = async (canal: CanalTV) => {
+    const targetTableId = config?.tableIds?.canaisTv;
+    
+    if (!targetTableId) {
+      toast.custom((t) => (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card border border-white/10 rounded-xl p-4 shadow-xl max-w-md"
+        >
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-yellow-500/10 rounded-lg">
+              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-bold text-sm mb-1">Tabela de Canais não configurada</h4>
+              <p className="text-xs text-muted-foreground mb-3">
+                Você precisa configurar o ID da tabela de canais nas configurações dos Ids das tabelas antes de importar.
+              </p>
+              <Button
+                size="sm"
+                className="w-full gap-2"
+                onClick={() => {
+                  toast.dismiss(t);
+                  navigate('/configuracoes', { state: { focusField: 'canaisTv' } });
+                }}
+              >
+                <Settings className="w-4 h-4" />
+                Configurar ID da Tabela
+              </Button>
+            </div>
+          </div>
+        </motion.div>
+      ), { duration: 8000 });
+      return;
+    }
+
     setImportando(canal.id);
     try {
       await importarCanal(canal as any);
@@ -202,6 +243,8 @@ const ImportarCanaisTV = () => {
       setImportando(null);
     }
   };
+
+
 
   const handleImportVisiveis = async () => {
     const online = canaisFiltrados.filter((c) => !c.Offline);

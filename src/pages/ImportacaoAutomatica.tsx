@@ -22,6 +22,7 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle2,
+  AlertTriangle,
   TestTube,
   Save,
   Cloud,
@@ -125,7 +126,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
         baseUrl: cloudConfig.baseUrl || '',
         contentTableId: cloudConfig.tableIds?.conteudos || '',
         episodeTableId: cloudConfig.tableIds?.episodios || '',
-        tableIds: cloudConfig.tableIds
+        tableIds: cloudConfig.tableIds as any
       };
       setUserConfig(cloudUserConfig);
       validateUserConfig(cloudUserConfig);
@@ -259,8 +260,42 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
       return;
     }
 
-    if (!configValid) {
-      toast.error('Configure suas credenciais do Baserow antes de importar.');
+    const hasRequiredTableId = isMiniseries ? !!(userConfig.tableIds as any)?.miniseries : !!userConfig.contentTableId;
+
+    if (!configValid || !hasRequiredTableId) {
+      const fieldToFocus = isMiniseries ? 'miniseries' : 'conteudos';
+      const tableName = isMiniseries ? 'Minisséries' : 'Conteúdos';
+      
+      toast.custom((t) => (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card border border-white/10 rounded-xl p-4 shadow-xl max-w-md"
+        >
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-yellow-500/10 rounded-lg">
+              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-bold text-sm mb-1">Tabela de {tableName} não configurada</h4>
+              <p className="text-xs text-muted-foreground mb-3">
+                Você precisa configurar o ID da tabela de {tableName.toLowerCase()} nas configurações antes de importar.
+              </p>
+              <Button
+                size="sm"
+                className="w-full gap-2"
+                onClick={() => {
+                  toast.dismiss(t);
+                  navigate('/configuracoes', { state: { focusField: fieldToFocus } });
+                }}
+              >
+                <Settings className="w-4 h-4" />
+                Configurar ID da Tabela
+              </Button>
+            </div>
+          </div>
+        </motion.div>
+      ), { duration: 8000 });
       setShowConfig(true);
       return;
     }
