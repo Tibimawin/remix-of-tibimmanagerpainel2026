@@ -15,7 +15,7 @@ import {
   Rocket,
   CreditCard,
 } from 'lucide-react';
-import { Plan } from '@/types/planTypes';
+import { Plan, AVAILABLE_FEATURES } from '@/types/planTypes';
 import AsaasPixPaymentDialog from './AsaasPixPaymentDialog';
 
 interface PermissionGateProps {
@@ -160,6 +160,29 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                   <span className="font-medium text-foreground">
                     {permissions?.planName || 'Nível Básico'}
                   </span>
+                </div>
+              </div>
+
+              <div className="mb-8 p-4 bg-muted/30 rounded-xl border border-dashed border-muted-foreground/20">
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-primary" />
+                  Módulos incluídos no seu plano ({permissions?.planName || 'Básico'}):
+                </h4>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {permissions?.enabledFeatures?.slice(0, 8).map(f => (
+                    <Badge key={f} variant="secondary" className="text-[10px] font-normal opacity-80">
+                      {AVAILABLE_FEATURES.find(af => af.id === f)?.name || f}
+                    </Badge>
+                  ))}
+                  {(permissions?.enabledFeatures?.length || 0) > 8 && (
+                    <span className="text-[10px] text-muted-foreground">
+                      +{(permissions?.enabledFeatures?.length || 0) - 8} outros
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-xs text-rose-400 bg-rose-500/10 p-2 rounded-lg border border-rose-500/20">
+                  <Lock className="w-3 h-3" />
+                  <span>Para liberar <strong>{AVAILABLE_FEATURES.find(f => f.id === feature)?.name || feature}</strong>, você precisa de um dos planos abaixo:</span>
                 </div>
               </div>
 
