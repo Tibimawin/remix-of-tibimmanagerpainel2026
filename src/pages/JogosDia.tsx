@@ -23,6 +23,7 @@ import { useGlobalJogosDiaConfig } from '@/hooks/useGlobalJogosDiaConfig';
 import { makeProxyRequest } from '@/utils/proxyRequest';
 import { useBaserowService } from '@/services/BaserowService';
 import { toast } from 'sonner';
+import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { db } from '@/config/firebase';
 import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
@@ -54,6 +55,7 @@ interface JogoDia {
 
 const JogosDia = () => {
   const { config } = useConfig();
+  const { userInfo } = useSimpleAuth();
   const { globalConfig, loading: loadingConfig } = useGlobalJogosDiaConfig();
   const [jogos, setJogos] = useState<JogoDia[]>([]);
   const [loading, setLoading] = useState(false);
@@ -97,11 +99,11 @@ const JogosDia = () => {
   }, [globalConfig]);
 
   useEffect(() => {
-    if (!config?.userId) return;
+    if (!userInfo?.id) return;
 
     const q = query(
       collection(db, 'jogosDiaLogs'),
-      where('userId', '==', config.userId),
+      where('userId', '==', userInfo.id),
       orderBy('timestamp', 'desc'),
       limit(10)
     );
@@ -111,7 +113,7 @@ const JogosDia = () => {
     });
 
     return () => unsub();
-  }, [config?.userId]);
+  }, [userInfo?.id]);
 
   const handleImport = async (jogo: JogoDia) => {
     if (!config?.tableIds?.canaisTv) {
