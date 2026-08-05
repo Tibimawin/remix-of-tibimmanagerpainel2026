@@ -746,7 +746,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
                 <div className="space-y-3">
                   <Label htmlFor="userContentTableId" className="flex items-center gap-2 text-sm font-medium">
                     <Table2 className="h-4 w-4 text-muted-foreground" />
-                    ID da Tabela de Conteúdos <span className="text-destructive">*</span>
+                    ID da Tabela de {isMiniseries ? 'Minisséries' : 'Conteúdos'} <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="userContentTableId"
@@ -760,7 +760,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
                 <div className="space-y-3">
                   <Label htmlFor="userEpisodeTableId" className="flex items-center gap-2 text-sm font-medium">
                     <Tv className="h-4 w-4 text-muted-foreground" />
-                    ID da Tabela de Episódios <span className="text-muted-foreground text-xs">(opcional)</span>
+                    ID da Tabela de Episódios {isMiniseries ? 'de Minisséries' : ''} <span className="text-muted-foreground text-xs">(opcional)</span>
                   </Label>
                   <Input
                     id="userEpisodeTableId"
@@ -770,6 +770,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
                     className="h-12"
                   />
                 </div>
+
               </div>
 
               <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-border/50">
