@@ -163,7 +163,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
     };
 
     return (
-      <>
+      <div className="permission-gate-container">
         <div className="space-y-6">
           {activePlans.length > 0 && (
             <div className="w-full">
