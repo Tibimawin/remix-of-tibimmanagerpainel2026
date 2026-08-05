@@ -25,8 +25,20 @@ export default async function handler(req, res) {
 
     try {
         // Extrair parâmetros do body ou query
+        let url, method, token, body;
         const isGet = req.method === 'GET';
-        const { url, method = isGet ? 'GET' : 'POST', token, body } = isGet ? req.query : req.body;
+        
+        if (isGet) {
+            url = req.query.url;
+            method = req.query.method || 'GET';
+            token = req.query.token;
+            body = req.query.body;
+        } else {
+            url = req.body.url;
+            method = req.body.method || 'POST';
+            token = req.body.token;
+            body = req.body.body;
+        }
 
         // Se for apenas uma verificação de saúde do proxy sem URL alvo
         if (!url && (req.method === 'HEAD' || (isGet && Object.keys(req.query).length === 0))) {
@@ -110,9 +122,10 @@ export default async function handler(req, res) {
         // Reduzido para 2 tentativas: o cliente já faz retries com backoff,
         // e múltiplas tentativas aqui estouram o limite de 30s do Vercel.
         const MAX_ATTEMPTS = 2;
-        // Timeout por requisição ao Baserow (12s) para garantir que sobre
-        // tempo dentro do limite de execução da função serverless.
         const FETCH_TIMEOUT_MS = 12000;
+        
+        // Log para depuração de URL e Token (apenas se não for produção ou se estiver com erro)
+        console.log(`🌐 [VERCEL PROXY] Processando request: ${method} ${url?.substring(0, 100)}`);
 
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             const controller = new AbortController();
@@ -231,19 +244,18 @@ export default async function handler(req, res) {
         return res.status(200).json(data);
 
     } catch (error) {
-        console.error('❌ [VERCEL PROXY] Erro crítico:', {
-            message: error.message,
-            stack: error.stack
-        });
+        console.error('❌ [VERCEL PROXY] Erro crítico:', error);
         
-        // Garantir CORS mesmo em erro
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Content-Type', 'application/json');
-        
-        return res.status(500).json({
-            error: 'Erro no proxy',
-            message: error.message,
-            details: process.env.NODE_ENV === 'development' ? error.stack : 'Erro interno do servidor'
-        });
+        // Tentar garantir headers de erro
+        if (!res.headersSent) {
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Content-Type', 'application/json');
+            
+            return res.status(500).json({
+                error: 'Erro no proxy',
+                message: error.message,
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            });
+        }
     }
 }
