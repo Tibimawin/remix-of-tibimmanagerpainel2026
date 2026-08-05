@@ -434,7 +434,8 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
             setEpisodeStatus({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
           }
         },
-        enrichWithTmdb
+        enrichWithTmdb,
+        isMiniseries
       );
 
       setImportProgress(100);
