@@ -469,16 +469,20 @@ const Configuracoes = () => {
                     </div>
 
                     {/* Jogos do Dia */}
-                    <div className="space-y-1">
+                    <div className="space-y-1" id="jogosDia-field">
                       <Label htmlFor="jogosDia" className="flex items-center gap-2">
                         <Trophy className="h-4 w-4 text-orange-500" />
                         Tabela de Jogos do Dia (Tibim)
+                        <span className="text-[10px] bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-full">
+                          Obrigatório
+                        </span>
                       </Label>
                       <Input
                         id="jogosDia"
                         placeholder="ID da tabela"
                         value={formData.tableIds.jogosDia}
                         onChange={(e) => handleInputChange('tableIds.jogosDia', e.target.value)}
+                        className="focus-visible:ring-yellow-500"
                       />
                       <p className="text-xs text-muted-foreground">Tabela destino para importação de jogos esportivos</p>
                     </div>
