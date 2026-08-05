@@ -163,40 +163,77 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                 </div>
               </div>
 
-              <div className="mb-8 p-4 bg-muted/30 rounded-xl border border-dashed border-muted-foreground/20">
-                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-primary" />
-                  Módulos incluídos no seu plano ({permissions?.planName || 'Básico'}):
-                </h4>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {permissions?.enabledFeatures?.slice(0, 8).map(f => (
-                    <Badge key={f} variant="secondary" className="text-[10px] font-normal opacity-80">
-                      {AVAILABLE_FEATURES.find(af => af.id === f)?.name || f}
-                    </Badge>
-                  ))}
-                  {(permissions?.enabledFeatures?.length || 0) > 8 && (
-                    <span className="text-[10px] text-muted-foreground">
-                      +{(permissions?.enabledFeatures?.length || 0) - 8} outros
-                    </span>
-                  )}
+              <div className="mb-8 p-6 bg-muted/30 rounded-2xl border border-muted-foreground/10 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+                
+                <div className="flex items-center justify-between mb-6">
+                  <h4 className="text-sm font-bold flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-primary" />
+                    Progresso da sua Conta
+                  </h4>
+                  <Badge variant="outline" className="text-[10px] font-medium border-primary/20 bg-primary/5 text-primary">
+                    {permissions?.planName || 'Básico'}
+                  </Badge>
                 </div>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-rose-400 bg-rose-500/10 p-3 rounded-lg border border-rose-500/20">
-                  <div className="flex items-center gap-2">
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>Para liberar <strong>{AVAILABLE_FEATURES.find(f => f.id === feature)?.name || feature}</strong>, selecione um plano premium:</span>
+
+                {/* Barra de Progresso de Recursos */}
+                <div className="space-y-2 mb-6">
+                  <div className="flex justify-between text-[10px] font-medium px-1">
+                    <span className="text-muted-foreground">Módulos Ativos</span>
+                    <span className="text-primary">{permissions?.enabledFeatures?.length || 0} / {AVAILABLE_FEATURES.length}</span>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="h-7 text-[10px] bg-rose-500 hover:bg-rose-600 text-white border-none shrink-0"
-                    onClick={() => {
-                      const firstPremium = activePlans.find(p => p.features.includes(feature)) || activePlans[0];
-                      if (firstPremium) handleChoosePlan(firstPremium);
-                    }}
-                  >
-                    <ArrowUpCircle className="w-3 h-3 mr-1" />
-                    Upgrade Rápido
-                  </Button>
+                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary transition-all duration-1000 ease-out"
+                      style={{ width: `${Math.min(((permissions?.enabledFeatures?.length || 0) / AVAILABLE_FEATURES.length) * 100, 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                  <div className="space-y-3">
+                    <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground opacity-70">Seu Arsenal Atual:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {permissions?.enabledFeatures?.slice(0, 6).map(f => (
+                        <div key={f} className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px]">
+                          <Check className="w-2.5 h-2.5" />
+                          {AVAILABLE_FEATURES.find(af => af.id === f)?.name || f}
+                        </div>
+                      ))}
+                      {(permissions?.enabledFeatures?.length || 0) > 6 && (
+                        <div className="px-2 py-1 rounded-md bg-muted text-muted-foreground text-[10px]">
+                          +{(permissions?.enabledFeatures?.length || 0) - 6}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground opacity-70">Próximo Desbloqueio:</span>
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/5 border border-rose-500/20">
+                      <div className="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center shrink-0">
+                        <Lock className="w-4 h-4 text-rose-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-bold text-rose-400 truncate">
+                          {AVAILABLE_FEATURES.find(f => f.id === feature)?.name || feature}
+                        </p>
+                        <p className="text-[9px] text-muted-foreground leading-tight">
+                          Disponível em planos Premium
+                        </p>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        className="h-7 px-3 text-[10px] bg-rose-500 hover:bg-rose-600 text-white font-bold"
+                        onClick={() => {
+                          const firstPremium = activePlans.find(p => p.features.includes(feature)) || activePlans[0];
+                          if (firstPremium) handleChoosePlan(firstPremium);
+                        }}
+                      >
+                        Desbloquear
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
