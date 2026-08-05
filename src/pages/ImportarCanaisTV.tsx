@@ -200,9 +200,50 @@ const ImportarCanaisTV = () => {
 
 
   const handleImportCanal = async (canal: CanalTV) => {
-    const { config: appConfig } = useConfig(); // Actually this needs to be inside the component body, let me check where to put it
-    // Wait, the hook useConfig is already used at the top? No, let me re-read.
-    // It's not. I'll add it.
+    const targetTableId = config?.tableIds?.canaisTv;
+    
+    if (!targetTableId) {
+      toast.custom((t) => (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card border border-white/10 rounded-xl p-4 shadow-xl max-w-md"
+        >
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-yellow-500/10 rounded-lg">
+              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-bold text-sm mb-1">Tabela de Canais não configurada</h4>
+              <p className="text-xs text-muted-foreground mb-3">
+                Você precisa configurar o ID da tabela de canais nas configurações dos Ids das tabelas antes de importar.
+              </p>
+              <Button
+                size="sm"
+                className="w-full gap-2"
+                onClick={() => {
+                  toast.dismiss(t);
+                  navigate('/configuracoes', { state: { focusField: 'canaisTv' } });
+                }}
+              >
+                <Settings className="w-4 h-4" />
+                Configurar ID da Tabela
+              </Button>
+            </div>
+          </div>
+        </motion.div>
+      ), { duration: 8000 });
+      return;
+    }
+
+    setImportando(canal.id);
+    try {
+      await importarCanal(canal as any);
+    } finally {
+      setImportando(null);
+    }
+  };
+
 
 
   const handleImportVisiveis = async () => {
