@@ -274,7 +274,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-card border border-white/10 rounded-xl p-4 shadow-xl max-w-md"
+          className="bg-card border border-white/10 rounded-xl p-4 shadow-xl max-w-md pointer-events-auto"
         >
           <div className="flex items-start gap-3">
             <div className="p-2 bg-yellow-500/10 rounded-lg">
@@ -283,13 +283,15 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
             <div className="flex-1">
               <h4 className="font-bold text-sm mb-1">Tabela de {tableName} não configurada</h4>
               <p className="text-xs text-muted-foreground mb-3">
-                Você precisa configurar o ID da tabela de {tableName.toLowerCase()} {isMiniseries ? 'e de episódios de minisséries ' : ''} nas configurações antes de importar.
+                {isMiniseries 
+                  ? "Para importar minisséries, você precisa configurar os IDs das tabelas de “Tabela de Minisséries” e “Tabela de Minisséries Episódios” nas configurações."
+                  : `Você precisa configurar o ID da tabela de ${tableName.toLowerCase()} nas configurações antes de importar.`}
               </p>
               <Button
                 size="sm"
                 className="w-full gap-2"
                 onClick={() => {
-                  toast.dismiss(t);
+                  toast.dismiss(t as string);
                   navigate('/configuracoes', { state: { focusField: fieldToFocus } });
                 }}
               >
