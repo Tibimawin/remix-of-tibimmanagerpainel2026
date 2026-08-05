@@ -49,12 +49,31 @@ class SeriesUpdateService {
 
   // Buscar a configuração global da tabela de origem (definida no painel admin)
   private async getSourceConfig() {
-    const global = await UserConfigService.getGlobalSeriesUpdateConfig();
-    return {
-      token: global?.sourceToken || DEFAULT_SERIES_UPDATE_CONFIG.sourceToken,
-      baseUrl: (global?.sourceBaseUrl || DEFAULT_SERIES_UPDATE_CONFIG.sourceBaseUrl).replace(/\/$/, ''),
-      tableId: global?.sourceTableId || DEFAULT_SERIES_UPDATE_CONFIG.sourceTableId,
-    };
+    try {
+      const global = await UserConfigService.getGlobalSeriesUpdateConfig();
+      const config = {
+        token: global?.sourceToken || DEFAULT_SERIES_UPDATE_CONFIG.sourceToken,
+        baseUrl: (global?.sourceBaseUrl || DEFAULT_SERIES_UPDATE_CONFIG.sourceBaseUrl).replace(/\/$/, ''),
+        tableId: global?.sourceTableId || DEFAULT_SERIES_UPDATE_CONFIG.sourceTableId,
+      };
+
+      console.log('📋 [SeriesUpdateService] Configuração de origem carregada:', {
+        hasGlobal: !!global,
+        tableId: config.tableId,
+        hasToken: !!config.token,
+        baseUrl: config.baseUrl
+      });
+
+      return config;
+    } catch (error) {
+      console.error('❌ [SeriesUpdateService] Erro ao carregar getSourceConfig:', error);
+      // Fallback para valores padrão caso o Firestore falhe
+      return {
+        token: DEFAULT_SERIES_UPDATE_CONFIG.sourceToken,
+        baseUrl: DEFAULT_SERIES_UPDATE_CONFIG.sourceBaseUrl.replace(/\/$/, ''),
+        tableId: DEFAULT_SERIES_UPDATE_CONFIG.sourceTableId,
+      };
+    }
   }
 
   // Fazer requisição para a tabela central usando credenciais do sistema
@@ -106,15 +125,28 @@ class SeriesUpdateService {
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('❌ Erro ao buscar episódios:', response.status, errorText);
+          console.error('❌ Erro ao buscar episódios da origem:', {
+            status: response.status,
+            endpoint,
+            error: errorText.substring(0, 500),
+            tableId: source.tableId
+          });
 
           if (response.status === 429) {
-            console.log('⏳ Rate limit, aguardando...');
+            console.log('⏳ Rate limit na origem, aguardando...');
             await new Promise(resolve => setTimeout(resolve, 3000));
             continue;
           }
+          
+          if (response.status === 401) {
+            throw new Error(`Token da ORIGEM (Séries) inválido ou sem permissão. Verifique Configurações > IDs das Tabelas.`);
+          }
 
-          throw new Error(`Erro ao buscar episódios: ${response.status} - ${errorText}`);
+          if (response.status === 404) {
+            throw new Error(`Tabela de ORIGEM ${source.tableId} não encontrada. Verifique se o ID está correto.`);
+          }
+
+          throw new Error(`Erro ao buscar episódios da origem: ${response.status} - ${errorText.substring(0, 100)}`);
         }
 
         const data = await response.json();
