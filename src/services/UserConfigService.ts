@@ -526,6 +526,149 @@ export const UserConfigService = {
     return onSnapshot(
       docRef,
       (docSnap) => {
+        if (docSnap.exists()) {
+          callback(docSnap.data() as GlobalSeriesUpdateConfig);
+        } else {
+          callback(null);
+        }
+      },
+      (error) => {
+        logger.error('Erro no listener da config global de atualização de séries', error);
+        callback(null);
+      }
+    );
+  },
+
+  // ============================================================
+  // Configuração Global de Minisséries (admin → todos)
+  // Firestore path: globalConfig/miniseriesSource
+  // ============================================================
+
+  async getGlobalMiniseriesConfig(): Promise<GlobalMiniseriesConfig | null> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'miniseriesSource');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as GlobalMiniseriesConfig;
+      }
+      return null;
+    } catch (error) {
+      logger.error('Erro ao buscar configuração global de minisséries', error);
+      return null;
+    }
+  },
+
+  async saveGlobalMiniseriesConfig(config: Omit<GlobalMiniseriesConfig, 'updatedAt'>): Promise<void> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'miniseriesSource');
+      await setDoc(docRef, {
+        ...config,
+        updatedAt: new Date().toISOString()
+      });
+      logger.debug('Configuração global de minisséries salva');
+    } catch (error) {
+      logger.error('Erro ao salvar configuração global de minisséries', error);
+      throw error;
+    }
+  },
+
+  onGlobalMiniseriesConfigChange(callback: (config: GlobalMiniseriesConfig | null) => void): () => void {
+    const docRef = doc(db, 'globalConfig', 'miniseriesSource');
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          callback(docSnap.data() as GlobalMiniseriesConfig);
+        } else {
+          callback(null);
+        }
+      },
+      (error) => {
+        logger.error('Erro no listener da config global de minisséries', error);
+        callback(null);
+      }
+    );
+  },
+
+  // ============================================================
+  // Configuração Global de Jogos do Dia (admin → todos)
+  // Firestore path: globalConfig/jogosDiaSource
+  // ============================================================
+
+  async getGlobalJogosDiaConfig(): Promise<GlobalImportConfig | null> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'jogosDiaSource');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as GlobalImportConfig;
+      }
+      return null;
+    } catch (error) {
+      logger.error('Erro ao buscar configuração global de Jogos do Dia', error);
+      return null;
+    }
+  },
+
+  async saveGlobalJogosDiaConfig(config: Omit<GlobalImportConfig, 'updatedAt'>): Promise<void> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'jogosDiaSource');
+      await setDoc(docRef, {
+        ...config,
+        updatedAt: new Date().toISOString()
+      });
+      logger.debug('Configuração global de Jogos do Dia salva');
+    } catch (error) {
+      logger.error('Erro ao salvar configuração global de Jogos do Dia', error);
+      throw error;
+    }
+  },
+
+  onGlobalJogosDiaConfigChange(callback: (config: GlobalImportConfig | null) => void): () => void {
+    const docRef = doc(db, 'globalConfig', 'jogosDiaSource');
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          callback(docSnap.data() as GlobalImportConfig);
+        } else {
+          callback(null);
+        }
+      },
+      (error) => {
+        logger.error('Erro no listener da config global de Jogos do Dia', error);
+        callback(null);
+      }
+    );
+  },
+
+        return docSnap.data() as GlobalSeriesUpdateConfig;
+      }
+      return null;
+    } catch (error) {
+      logger.error('Erro ao buscar configuração global de atualização de séries', error);
+      return null;
+    }
+  },
+
+  async saveGlobalSeriesUpdateConfig(config: Omit<GlobalSeriesUpdateConfig, 'updatedAt'>): Promise<void> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'seriesUpdateSource');
+      await setDoc(docRef, {
+        ...config,
+        updatedAt: new Date().toISOString()
+      });
+      logger.debug('Configuração global de atualização de séries salva');
+    } catch (error) {
+      logger.error('Erro ao salvar configuração global de atualização de séries', error);
+      throw error;
+    }
+  },
+
+  onGlobalSeriesUpdateConfigChange(callback: (config: GlobalSeriesUpdateConfig | null) => void): () => void {
+    const docRef = doc(db, 'globalConfig', 'seriesUpdateSource');
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
         callback(docSnap.exists() ? (docSnap.data() as GlobalSeriesUpdateConfig) : null);
       },
       (error) => {

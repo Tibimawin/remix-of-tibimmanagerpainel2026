@@ -101,6 +101,10 @@ export const AVAILABLE_FEATURES: FeatureAccess[] = [
   // Integração API
   { id: 'minha-api', name: 'Integração API', description: 'Gerar API Keys para integrar conteúdos em sites e apps externos' },
 
+  // Jogos do Dia
+  { id: 'jogos-dia', name: 'Jogos do Dia', description: 'Importar jogos do dia da tabela origem' },
+
+
   // Tabelas do Modo Tibim
   { id: 'carrosseu', name: 'Carrossel (Tibim)', description: 'Acesso à tabela de Carrossel rotativo' },
   { id: 'versao', name: 'Versão (Tibim)', description: 'Acesso à tabela de controle de Versões' },
