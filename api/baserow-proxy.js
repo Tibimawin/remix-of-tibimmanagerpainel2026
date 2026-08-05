@@ -122,8 +122,8 @@ export default async function handler(req, res) {
         let lastResponseText = '';
         let lastContentType = '';
         const RETRY_STATUSES = [403, 500, 502, 503, 504];
-        const MAX_ATTEMPTS = 3; // Aumentado para 3 para maior resiliência em requisições críticas
-        const FETCH_TIMEOUT_MS = 15000; // Aumentado para 15s para dar tempo ao Baserow em cargas altas
+        const MAX_ATTEMPTS = 3; 
+        const FETCH_TIMEOUT_MS = 20000; // Aumentado para 20s para dar mais fôlego ao Baserow em requisições pesadas (muitas linhas)
         
         // Log para depuração de URL e Token (apenas se não for produção ou se estiver com erro)
         console.log(`🌐 [VERCEL PROXY] Processando request: ${method} ${url?.substring(0, 100)}`);

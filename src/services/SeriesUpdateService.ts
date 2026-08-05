@@ -118,6 +118,9 @@ class SeriesUpdateService {
     while (hasMore) {
       try {
         console.log(`📖 Carregando página ${page}...`);
+        
+        // Pequena pausa entre páginas para evitar 429 na origem
+        if (page > 1) await new Promise(resolve => setTimeout(resolve, 800));
 
         const endpoint = `/api/database/rows/table/${source.tableId}/?user_field_names=true&page=${page}&size=${pageSize}`;
         const response = await this.makeSystemRequest(endpoint, {}, source);
@@ -195,8 +198,15 @@ class SeriesUpdateService {
           hasMore = false;
         }
 
-      } catch (error) {
-        console.error(`Erro ao carregar página ${page}:`, error);
+      } catch (error: any) {
+        console.error(`❌ [SeriesUpdateService] Erro fatal ao carregar página ${page}:`, error);
+        
+        // Se já tivermos alguns episódios, retornar o que foi carregado em vez de falhar tudo
+        if (allEpisodes.length > 0) {
+          console.warn(`⚠️ Retornando apenas ${allEpisodes.length} episódios devido a erro na página ${page}`);
+          return allEpisodes;
+        }
+        
         throw error;
       }
     }
