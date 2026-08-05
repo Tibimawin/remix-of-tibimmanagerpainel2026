@@ -154,6 +154,7 @@ const Configuracoes = () => {
       meusAplicativos: config?.tableIds?.meusAplicativos || '',
       jogosDia: config?.tableIds?.jogosDia || '',
       miniseries: config?.tableIds?.miniseries || '',
+      miniseriesEpisodios: config?.tableIds?.miniseriesEpisodios || '',
     }
   });
 
@@ -190,6 +191,7 @@ const Configuracoes = () => {
           meusAplicativos: config.tableIds?.meusAplicativos || '',
           jogosDia: config.tableIds?.jogosDia || '',
           miniseries: config.tableIds?.miniseries || '',
+          miniseriesEpisodios: config.tableIds?.miniseriesEpisodios || '',
         }
       });
     }
@@ -530,6 +532,23 @@ const Configuracoes = () => {
                       />
                       <p className="text-xs text-muted-foreground">Tabela destino para importação de minisséries</p>
                     </div>
+
+                    {/* Minisséries Episódios */}
+                    <div className="space-y-1" id="miniseriesEpisodios-field">
+                      <Label htmlFor="miniseriesEpisodios" className="flex items-center gap-2">
+                        <Play className="h-4 w-4 text-orange-500" />
+                        Tabela de Minisséries Episódios (Tibim)
+                      </Label>
+                      <Input
+                        id="miniseriesEpisodios"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.miniseriesEpisodios || ''}
+                        onChange={(e) => handleInputChange('tableIds.miniseriesEpisodios', e.target.value)}
+                        className="focus-visible:ring-primary"
+                      />
+                      <p className="text-xs text-muted-foreground">Tabela destino para episódios de minisséries</p>
+                    </div>
+
 
                     {/* Planos 1 */}
                     <div className="space-y-1">
@@ -954,6 +973,22 @@ const Configuracoes = () => {
                       />
                       <p className="text-xs text-muted-foreground">Tabela para importação de minisséries</p>
                     </div>
+
+                    {/* Tabela de Minisséries Episódios */}
+                    <div className="space-y-1" id="miniseriesEpisodios-field">
+                      <Label htmlFor="miniseriesEpisodios" className="flex items-center gap-2">
+                        <Play className="h-4 w-4 text-primary" />
+                        Tabela de Minisséries Episódios
+                      </Label>
+                      <Input
+                        id="miniseriesEpisodios"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.miniseriesEpisodios || ''}
+                        onChange={(e) => handleInputChange('tableIds.miniseriesEpisodios', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Tabela para episódios de minisséries</p>
+                    </div>
+
 
                   </div>
                 )}

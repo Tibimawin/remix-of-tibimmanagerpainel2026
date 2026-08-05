@@ -21,6 +21,7 @@ interface Config {
     planos: string;
     jogosDia: string;
     miniseries: string;
+    miniseriesEpisodios: string;
     // Tabelas exclusivas do Modo Tibim
     carrosseu: string;
     versao: string;
@@ -63,6 +64,7 @@ export const defaultConfig: Config = {
     planos: '',
     jogosDia: '',
     miniseries: '',
+    miniseriesEpisodios: '',
     // Tabelas exclusivas do Modo Tibim
     carrosseu: '',
     versao: '',

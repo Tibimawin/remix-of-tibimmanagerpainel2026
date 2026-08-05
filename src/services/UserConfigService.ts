@@ -60,6 +60,8 @@ export interface UserConfig {
     plataformas: string;
     canaisTv: string;
     jogosDia: string;
+    miniseries: string;
+    miniseriesEpisodios: string;
   };
   apiKeys?: {
     tmdb?: string;
@@ -222,9 +224,11 @@ export const UserConfigService = {
           usuarios: '',
           sessoes: '',
           plataformas: '',
-            canaisTv: '',
-            jogosDia: '',
-          },
+          canaisTv: '',
+          jogosDia: '',
+          miniseries: '',
+          miniseriesEpisodios: '',
+        },
         personalSettings: {
           theme: 'system',
           language: 'pt-BR',
@@ -281,6 +285,8 @@ export const UserConfigService = {
           plataformas: '',
           canaisTv: '',
           jogosDia: '',
+          miniseries: '',
+          miniseriesEpisodios: '',
         },
         personalSettings: {
           theme: 'system',
