@@ -195,13 +195,17 @@ const JogosDia = () => {
         'Link 2': jogo['Link 2'] || ''
       };
 
-      const success = await baserowService.createRow(targetTableId, data);
+      // Verificar se já existe para evitar duplicados na importação manual
+      const existing = await baserowService.getTableData(targetTableId, 1, 10, jogo.Nome);
+      const match = existing.results?.find((r: any) => r.Link === jogo.Link || r['Link'] === jogo.Link);
 
-      if (success) {
-        toast.success(`Jogo ${jogo.Nome} importado com sucesso!`);
-        setJogos(prev => prev.map(j => j.id === jogo.id ? { ...j, imported: true } : j));
+      let success;
+      if (match) {
+        success = await baserowService.updateRow(targetTableId, String(match.id), data);
+        toast.success(`Jogo ${jogo.Nome} já existia e foi atualizado!`);
       } else {
-        toast.error('Falha ao importar jogo');
+        success = await baserowService.createRow(targetTableId, data);
+        toast.success(`Jogo ${jogo.Nome} importado com sucesso!`);
       }
     } catch (error) {
       toast.error('Erro durante a importação');
