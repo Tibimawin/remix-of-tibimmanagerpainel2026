@@ -16,6 +16,7 @@ import { FirebaseUserService } from '@/services/FirebaseUserService';
 import { db } from '@/config/firebase';
 import { addDoc, collection, doc, setDoc, getDocs, query, where } from 'firebase/firestore';
 import { usePlans } from '@/hooks/usePlans';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface AsaasPixPaymentDialogProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
 }) => {
   const { userInfo } = useSimpleAuth();
   const { activePlans } = usePlans();
+  const { permissions } = useUserPermissions();
   const [step, setStep] = useState<Step>('form');
   const [cpf, setCpf] = useState('');
   const [name, setName] = useState('');
