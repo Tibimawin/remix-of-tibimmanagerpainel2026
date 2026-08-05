@@ -14,6 +14,7 @@ import { CleanupProvider } from "./contexts/CleanupContext";
 import { AdminAuthProvider } from "./contexts/AdminAuthContext";
 import { PermissionGate } from "./components/PermissionGate";
 import { useExpirationMonitor } from "@/hooks/useExpirationMonitor";
+import { useScheduleExecutor } from "@/hooks/useScheduleExecutor";
 import { useJogosDiaScheduleExecutor } from "@/hooks/useJogosDiaScheduleExecutor";
 import { useAutoImportExecutor } from "@/hooks/useAutoImportExecutor";
 import { useSubscriptionMonitor } from "@/hooks/useSubscriptionMonitor";
