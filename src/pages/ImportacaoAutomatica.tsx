@@ -126,8 +126,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
         baseUrl: cloudConfig.baseUrl || '',
         contentTableId: cloudConfig.tableIds?.conteudos || '',
         episodeTableId: cloudConfig.tableIds?.episodios || '',
-        miniseriesTableId: cloudConfig.tableIds?.miniseries || '',
-        tableIds: cloudConfig.tableIds
+        tableIds: cloudConfig.tableIds as any
       };
       setUserConfig(cloudUserConfig);
       validateUserConfig(cloudUserConfig);
@@ -261,7 +260,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
       return;
     }
 
-    const hasRequiredTableId = isMiniseries ? !!userConfig.tableIds?.miniseries : !!userConfig.contentTableId;
+    const hasRequiredTableId = isMiniseries ? !!(userConfig.tableIds as any)?.miniseries : !!userConfig.contentTableId;
 
     if (!configValid || !hasRequiredTableId) {
       const fieldToFocus = isMiniseries ? 'miniseries' : 'conteudos';
