@@ -375,9 +375,20 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                         </ul>
 
                         {isCurrent ? (
-                          <Button disabled variant="outline" className="w-full rounded-full">
-                            Plano atual
-                          </Button>
+                          <div className="flex flex-col gap-2">
+                            <Button disabled variant="outline" className="w-full rounded-full">
+                              Plano atual
+                            </Button>
+                            {isSubscriptionExpired && (
+                              <Button
+                                onClick={() => handleChoosePlan(plan)}
+                                className={`w-full rounded-full font-bold shadow-lg transition-all duration-300 animate-pulse ${scheme.btn}`}
+                              >
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Renovar Agora
+                              </Button>
+                            )}
+                          </div>
                         ) : (
                           <Button
                             onClick={() => handleChoosePlan(plan)}
