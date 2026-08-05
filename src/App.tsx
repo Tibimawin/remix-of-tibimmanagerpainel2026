@@ -296,11 +296,11 @@ const App = () => {
 
                               <Route path="/jogos-dia" element={
                                 <SimpleProtectedRoute>
-                                  <PermissionGate feature="jogos-dia">
-                                    <Layout>
+                                  <Layout>
+                                    <PermissionGate feature="jogos-dia">
                                       <JogosDia />
-                                    </Layout>
-                                  </PermissionGate>
+                                    </PermissionGate>
+                                  </Layout>
                                 </SimpleProtectedRoute>
                               } />
 
