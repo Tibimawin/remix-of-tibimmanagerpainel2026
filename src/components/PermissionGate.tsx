@@ -59,18 +59,25 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
   if (!hasFeature(feature)) {
     const hasActivePlan = permissions?.planName && permissions?.isActive && permissions?.expiryDate;
     
-    // Identifica se o plano atual é o de R$ 35 (Mensal/Básico) ou se tem o nome "Baserow"
+    // Identifica se o usuário possui um dos planos base de 30 dias (R$ 30 a R$ 35)
+    // Inclui: "Básico", "Mensal", "Painel + Baserow"
     const isBasicActive = hasActivePlan && (
       permissions.planName.toLowerCase().includes('básico') || 
       permissions.planName.toLowerCase().includes('basico') || 
       permissions.planName.toLowerCase().includes('mensal') ||
       permissions.planName.toLowerCase().includes('baserow')
     );
-    
-    // Verifica se a validade é de 30 dias (ou se o plano é reconhecido como mensal)
-    // Se o usuário já tem um plano ativo de 30 dias ou o plano "Painel + Baserow", 
-    // liberamos a opção de "Desbloqueio Avulso" por R$ 15.
-    const canUnlockIndividual = isBasicActive;
+
+    // Identifica o plano de destino que contém o recurso (Geralmente R$ 44,90 ou superior)
+    const targetPlanForFeature = activePlans.find(p => p.features.includes(feature));
+    const targetPrice = targetPlanForFeature 
+      ? parseFloat(targetPlanForFeature.price.replace(/[^\d,]/g, '').replace(',', '.')) 
+      : 0;
+
+    // Regra: "Liberar Recurso (R$ 15)" aparece se:
+    // 1. Usuário tem plano básico/baserow ativo (isBasicActive)
+    // 2. O recurso solicitado está em um plano superior (normalmente o de R$ 44,90)
+    const canUnlockIndividual = isBasicActive && targetPrice >= 44;
     
     if (fallback) {
       return <>{fallback}</>;
@@ -235,7 +242,9 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                       {AVAILABLE_FEATURES.find(f => f.id === feature)?.name || feature}
                     </p>
                     <p className="text-[9px] text-muted-foreground leading-tight">
-                      {canUnlockIndividual ? 'Desbloqueio avulso disponível' : 'Disponível em planos Premium'}
+                      {canUnlockIndividual 
+                        ? `Upgrade disponível de ${permissions?.planName || 'Básico'} para R$ 44,90` 
+                        : 'Disponível em planos Premium'}
                     </p>
                   </div>
                   <div className="flex flex-col gap-1.5 shrink-0">
@@ -247,7 +256,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                         if (firstPremium) handleChoosePlan(firstPremium);
                       }}
                     >
-                      {canUnlockIndividual ? 'Trocar Plano' : 'Desbloquear'}
+                      Trocar Plano
                     </Button>
                     
                     {canUnlockIndividual && (
