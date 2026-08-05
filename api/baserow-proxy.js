@@ -31,16 +31,17 @@ export default async function handler(req, res) {
         let url, method, token, body;
         const isGet = req.method === 'GET';
         
-        if (isGet) {
+        // Tentar extrair do body primeiro (mais seguro para tokens)
+        if (req.body && typeof req.body === 'object') {
+            url = req.body.url || req.query.url;
+            method = req.body.method || req.query.method || (isGet ? 'GET' : 'POST');
+            token = req.body.token || req.query.token;
+            body = req.body.body;
+        } else {
             url = req.query.url;
             method = req.query.method || 'GET';
             token = req.query.token;
             body = req.query.body;
-        } else {
-            url = req.body.url;
-            method = req.body.method || 'POST';
-            token = req.body.token;
-            body = req.body.body;
         }
 
         // Se for apenas uma verificação de saúde do proxy sem URL alvo

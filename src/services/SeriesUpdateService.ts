@@ -50,27 +50,32 @@ class SeriesUpdateService {
   // Buscar a configuração global da tabela de origem (definida no painel admin)
   private async getSourceConfig() {
     try {
+      // 🔄 Buscar direto do Firestore para garantir que temos o token mais recente
       const global = await UserConfigService.getGlobalSeriesUpdateConfig();
+      
       const config = {
         token: global?.sourceToken || DEFAULT_SERIES_UPDATE_CONFIG.sourceToken,
-        baseUrl: (global?.sourceBaseUrl || DEFAULT_SERIES_UPDATE_CONFIG.sourceBaseUrl).replace(/\/$/, ''),
+        baseUrl: (global?.sourceBaseUrl || DEFAULT_SERIES_UPDATE_CONFIG.sourceBaseUrl || '').replace(/\/$/, ''),
         tableId: global?.sourceTableId || DEFAULT_SERIES_UPDATE_CONFIG.sourceTableId,
       };
+
+      if (!config.token) {
+        console.error('❌ [SeriesUpdateService] Token de ORIGEM ausente na configuração global!');
+      }
 
       console.log('📋 [SeriesUpdateService] Configuração de origem carregada:', {
         hasGlobal: !!global,
         tableId: config.tableId,
-        hasToken: !!config.token,
+        tokenLength: config.token?.length || 0,
         baseUrl: config.baseUrl
       });
 
       return config;
     } catch (error) {
       console.error('❌ [SeriesUpdateService] Erro ao carregar getSourceConfig:', error);
-      // Fallback para valores padrão caso o Firestore falhe
       return {
         token: DEFAULT_SERIES_UPDATE_CONFIG.sourceToken,
-        baseUrl: DEFAULT_SERIES_UPDATE_CONFIG.sourceBaseUrl.replace(/\/$/, ''),
+        baseUrl: (DEFAULT_SERIES_UPDATE_CONFIG.sourceBaseUrl || '').replace(/\/$/, ''),
         tableId: DEFAULT_SERIES_UPDATE_CONFIG.sourceTableId,
       };
     }

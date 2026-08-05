@@ -30,10 +30,19 @@ export class BaserowService {
     logger.debug('Fazendo requisição ao Baserow', { method, needsProxy: this.needsProxy() });
 
     if (this.needsProxy()) {
+      // 🛡️ Validação robusta de token
+      const currentToken = this.apiToken?.trim();
+      if (!currentToken || currentToken.length < 5) {
+        console.error('❌ [BaserowService] Erro: Token do Baserow ausente ou inválido!', { 
+          tokenLength: currentToken?.length 
+        });
+        throw new Error('Configuração do Baserow incompleta: Seu Token está ausente. Vá em Configurações > IDs das Tabelas e salve novamente.');
+      }
+
       const proxyPayload = {
         url: originalUrl,
         method: method,
-        token: this.apiToken,
+        token: currentToken,
         body: options.body || null
       };
 
@@ -41,16 +50,8 @@ export class BaserowService {
         method,
         proxyUrl: this.proxyUrl,
         originalUrl: originalUrl,
-        tokenLength: this.apiToken?.length || 0,
+        tokenPreview: `${currentToken.substring(0, 5)}...`,
       });
-
-      // Validação básica de token antes de enviar
-      if (!this.apiToken || this.apiToken.length < 5) {
-        console.error('❌ [BaserowService] Erro: Token do Baserow ausente ou inválido!', { 
-          tokenLength: this.apiToken?.length 
-        });
-        throw new Error('Configuração do Baserow incompleta: Token ausente. Vá em Configurações > IDs das Tabelas.');
-      }
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 20000); 
