@@ -623,16 +623,39 @@ export const UserConfigService = {
     }
   },
 
+  // ============================================================
+  // Configuração Global de JOGOS DO DIA (admin → todos usuários)
+  // Firestore path: globalConfig/jogosDiaSource
+  // ============================================================
+
+  async getGlobalJogosDiaConfig(): Promise<GlobalImportConfig | null> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'jogosDiaSource');
+      const docSnap = await getDoc(docRef);
+      return docSnap.exists() ? (docSnap.data() as GlobalImportConfig) : null;
+    } catch (error) {
+      logger.error('Erro ao buscar configuração global de Jogos do Dia', error);
+      return null;
+    }
+  },
+
+  async saveGlobalJogosDiaConfig(config: Omit<GlobalImportConfig, 'updatedAt'>): Promise<void> {
+    try {
+      const docRef = doc(db, 'globalConfig', 'jogosDiaSource');
+      await setDoc(docRef, { ...config, updatedAt: new Date().toISOString() });
+      logger.debug('Configuração global de Jogos do Dia salva');
+    } catch (error) {
+      logger.error('Erro ao salvar configuração global de Jogos do Dia', error);
+      throw error;
+    }
+  },
+
   onGlobalJogosDiaConfigChange(callback: (config: GlobalImportConfig | null) => void): () => void {
     const docRef = doc(db, 'globalConfig', 'jogosDiaSource');
     return onSnapshot(
       docRef,
       (docSnap) => {
-        if (docSnap.exists()) {
-          callback(docSnap.data() as GlobalImportConfig);
-        } else {
-          callback(null);
-        }
+        callback(docSnap.exists() ? (docSnap.data() as GlobalImportConfig) : null);
       },
       (error) => {
         logger.error('Erro no listener da config global de Jogos do Dia', error);
@@ -641,101 +664,16 @@ export const UserConfigService = {
     );
   },
 
-        return docSnap.data() as GlobalSeriesUpdateConfig;
-      }
-      return null;
-    } catch (error) {
-      logger.error('Erro ao buscar configuração global de atualização de séries', error);
-      return null;
-    }
-  },
-
-  async saveGlobalSeriesUpdateConfig(config: Omit<GlobalSeriesUpdateConfig, 'updatedAt'>): Promise<void> {
-    try {
-      const docRef = doc(db, 'globalConfig', 'seriesUpdateSource');
-      await setDoc(docRef, {
-        ...config,
-        updatedAt: new Date().toISOString()
-      });
-      logger.debug('Configuração global de atualização de séries salva');
-    } catch (error) {
-      logger.error('Erro ao salvar configuração global de atualização de séries', error);
-      throw error;
-    }
-  },
-
-  onGlobalSeriesUpdateConfigChange(callback: (config: GlobalSeriesUpdateConfig | null) => void): () => void {
-    const docRef = doc(db, 'globalConfig', 'seriesUpdateSource');
-    return onSnapshot(
-      docRef,
-      (docSnap) => {
-        callback(docSnap.exists() ? (docSnap.data() as GlobalSeriesUpdateConfig) : null);
-      },
-      (error) => {
-        logger.error('Erro no listener da config global de atualização de séries', error);
-        callback(null);
-      }
-    );
-  },
-
-  // ============================================================
-  // Configuração Global de MINISÉRIES (admin → todos usuários)
-  // Firestore path: globalConfig/miniseriesSource
-  // ============================================================
-
-  async getGlobalMiniseriesConfig(): Promise<GlobalMiniseriesConfig | null> {
-    try {
-      const docRef = doc(db, 'globalConfig', 'miniseriesSource');
-      const docSnap = await getDoc(docRef);
-      return docSnap.exists() ? (docSnap.data() as GlobalMiniseriesConfig) : null;
-    } catch (error) {
-      logger.error('Erro ao buscar configuração global de minisséries', error);
-      return null;
-    }
-  },
-
-  async saveGlobalMiniseriesConfig(config: Omit<GlobalMiniseriesConfig, 'updatedAt'>): Promise<void> {
-    try {
-      const docRef = doc(db, 'globalConfig', 'miniseriesSource');
-      await setDoc(docRef, { ...config, updatedAt: new Date().toISOString() });
-      logger.debug('Configuração global de minisséries salva');
-    } catch (error) {
-      logger.error('Erro ao salvar configuração global de minisséries', error);
-      throw error;
-    }
-  },
-
-  onGlobalMiniseriesConfigChange(callback: (config: GlobalMiniseriesConfig | null) => void): () => void {
-    const docRef = doc(db, 'globalConfig', 'miniseriesSource');
-    return onSnapshot(
-      docRef,
-      (docSnap) => {
-        callback(docSnap.exists() ? (docSnap.data() as GlobalMiniseriesConfig) : null);
-      },
-      (error) => {
-        logger.error('Erro no listener da config global de minisséries', error);
-        callback(null);
-      }
-    );
-  },
-
-
-
   // ============================================================
   // Kill-switch GLOBAL da Automação (admin → todos usuários)
   // Firestore path: globalConfig/automation
-  // Quando isEnabled = false NENHUM usuário executa importação
-  // automática nem faz requisições ao Baserow de origem.
   // ============================================================
 
   async getGlobalAutomationConfig(): Promise<GlobalAutomationConfig | null> {
     try {
       const docRef = doc(db, 'globalConfig', 'automation');
       const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        return docSnap.data() as GlobalAutomationConfig;
-      }
-      return null;
+      return docSnap.exists() ? (docSnap.data() as GlobalAutomationConfig) : null;
     } catch (error) {
       logger.error('Erro ao buscar config global de automação', error);
       return null;
@@ -745,9 +683,27 @@ export const UserConfigService = {
   async saveGlobalAutomationConfig(config: { isEnabled: boolean; updatedBy?: string; reason?: string }): Promise<void> {
     try {
       const docRef = doc(db, 'globalConfig', 'automation');
-      const payload: Record<string, any> = {
-        isEnabled: config.isEnabled,
-        updatedAt: new Date().toISOString(),
+      await setDoc(docRef, { ...config, updatedAt: new Date().toISOString() });
+    } catch (error) {
+      logger.error('Erro ao salvar config global de automação', error);
+      throw error;
+    }
+  },
+
+  onGlobalAutomationConfigChange(callback: (config: GlobalAutomationConfig | null) => void): () => void {
+    const docRef = doc(db, 'globalConfig', 'automation');
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
+        callback(docSnap.exists() ? (docSnap.data() as GlobalAutomationConfig) : null);
+      },
+      (error) => {
+        logger.error('Erro no listener da config global de automação', error);
+        callback(null);
+      }
+    );
+  }
+};
       };
       if (config.updatedBy !== undefined) payload.updatedBy = config.updatedBy;
       if (config.reason !== undefined) payload.reason = config.reason;
