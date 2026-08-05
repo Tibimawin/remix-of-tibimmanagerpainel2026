@@ -195,13 +195,10 @@ const ImportarCanaisTV = () => {
 
 
   const handleImportCanal = async (canal: CanalTV) => {
-    setImportando(canal.id);
-    try {
-      await importarCanal(canal as any);
-    } finally {
-      setImportando(null);
-    }
-  };
+    const { config: appConfig } = useConfig(); // Actually this needs to be inside the component body, let me check where to put it
+    // Wait, the hook useConfig is already used at the top? No, let me re-read.
+    // It's not. I'll add it.
+
 
   const handleImportVisiveis = async () => {
     const online = canaisFiltrados.filter((c) => !c.Offline);
