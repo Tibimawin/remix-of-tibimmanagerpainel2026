@@ -12,25 +12,19 @@ export async function makeAuthRequest(baseUrl: string) {
     const endpoint = `/api/database/rows/table/758/?user_field_names=true`;
     const originalUrl = `${baseUrl}${endpoint}`;
 
-    if (baseUrl.startsWith('http://')) {
-      const encodedUrl = encodeURIComponent(originalUrl);
-      const proxyRequestUrl = `${PROXY_URL}?token=${ADMIN_TOKEN}&url=${encodedUrl}&method=GET`;
-      const response = await fetch(proxyRequestUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      return response;
-    } else {
-      return fetch(originalUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Token ${ADMIN_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-      });
-    }
+    const proxyPayload = {
+      url: originalUrl,
+      method: 'GET',
+      token: ADMIN_TOKEN
+    };
+
+    return fetch(PROXY_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(proxyPayload)
+    });
   } catch (error) {
     throw error;
   }

@@ -50,27 +50,40 @@ class SeriesUpdateService {
   // Buscar a configuração global da tabela de origem (definida no painel admin)
   private async getSourceConfig() {
     try {
+      console.log('📡 [SeriesUpdateService] Solicitando configuração global do Firestore...');
+      
+      // 🔄 Buscar direto do Firestore para garantir que temos o token mais recente
       const global = await UserConfigService.getGlobalSeriesUpdateConfig();
+      
+      if (!global) {
+        console.warn('⚠️ [SeriesUpdateService] Configuração global não encontrada no Firestore. Verifique conexão ou AdBlock.');
+      }
+
       const config = {
         token: global?.sourceToken || DEFAULT_SERIES_UPDATE_CONFIG.sourceToken,
-        baseUrl: (global?.sourceBaseUrl || DEFAULT_SERIES_UPDATE_CONFIG.sourceBaseUrl).replace(/\/$/, ''),
+        baseUrl: (global?.sourceBaseUrl || DEFAULT_SERIES_UPDATE_CONFIG.sourceBaseUrl || '').replace(/\/$/, ''),
         tableId: global?.sourceTableId || DEFAULT_SERIES_UPDATE_CONFIG.sourceTableId,
       };
+
+      if (!config.token) {
+        const errorMsg = '❌ [SeriesUpdateService] Token de ORIGEM ausente! Verifique se o seu navegador está bloqueando o Firestore (AdBlock) ou se o Admin configurou a origem.';
+        console.error(errorMsg);
+        // Não lançar erro aqui para permitir que o makeSystemRequest tente e pegue o 401 com mensagem detalhada
+      }
 
       console.log('📋 [SeriesUpdateService] Configuração de origem carregada:', {
         hasGlobal: !!global,
         tableId: config.tableId,
-        hasToken: !!config.token,
+        tokenLength: config.token?.length || 0,
         baseUrl: config.baseUrl
       });
 
       return config;
     } catch (error) {
-      console.error('❌ [SeriesUpdateService] Erro ao carregar getSourceConfig:', error);
-      // Fallback para valores padrão caso o Firestore falhe
+      console.error('❌ [SeriesUpdateService] Erro crítico ao carregar getSourceConfig:', error);
       return {
         token: DEFAULT_SERIES_UPDATE_CONFIG.sourceToken,
-        baseUrl: DEFAULT_SERIES_UPDATE_CONFIG.sourceBaseUrl.replace(/\/$/, ''),
+        baseUrl: (DEFAULT_SERIES_UPDATE_CONFIG.sourceBaseUrl || '').replace(/\/$/, ''),
         tableId: DEFAULT_SERIES_UPDATE_CONFIG.sourceTableId,
       };
     }
@@ -142,7 +155,8 @@ class SeriesUpdateService {
           }
           
           if (response.status === 401) {
-            throw new Error(`Token da ORIGEM (Séries) inválido ou sem permissão. Verifique Configurações > IDs das Tabelas.`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`Erro de Autorização (401): ${errorData.message || 'Token de ORIGEM inválido ou ausente. Verifique se o seu AdBlock não está bloqueando o sistema.'}`);
           }
 
           if (response.status === 404) {

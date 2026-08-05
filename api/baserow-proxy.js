@@ -31,16 +31,17 @@ export default async function handler(req, res) {
         let url, method, token, body;
         const isGet = req.method === 'GET';
         
-        if (isGet) {
+        // Tentar extrair do body primeiro (mais seguro para tokens)
+        if (req.body && typeof req.body === 'object') {
+            url = req.body.url || req.query.url;
+            method = req.body.method || req.query.method || (isGet ? 'GET' : 'POST');
+            token = req.body.token || req.query.token;
+            body = req.body.body;
+        } else {
             url = req.query.url;
             method = req.query.method || 'GET';
             token = req.query.token;
             body = req.query.body;
-        } else {
-            url = req.body.url;
-            method = req.body.method || 'POST';
-            token = req.body.token;
-            body = req.body.body;
         }
 
         // Se for apenas uma verificação de saúde do proxy sem URL alvo
@@ -60,11 +61,12 @@ export default async function handler(req, res) {
                 referer: req.headers['referer']
             });
             return res.status(401).json({ 
-                error: 'Não autorizado', 
-                message: 'O token do Baserow não foi enviado pelo cliente. Verifique as configurações no painel.',
+                error: 'Não autorizado (Token Ausente)', 
+                message: 'O token do Baserow não foi enviado pelo cliente. Isso pode ocorrer se as configurações globais não foram carregadas corretamente ou se o banco de dados (Firebase) está sendo bloqueado pelo seu navegador/AdBlock.',
                 debug: {
                     receivedUrl: url,
-                    receivedMethod: method
+                    receivedMethod: method,
+                    timestamp: new Date().toISOString()
                 }
             });
         }
