@@ -1718,6 +1718,22 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
                             <span className="truncate">{content.Categoria}</span>
                           )}
                         </div>
+                        
+                        {content.Link && (
+                          <div className="mb-2">
+                            <a 
+                              href={content.Link} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-primary-foreground bg-primary/80 hover:bg-primary px-2 py-0.5 rounded-full transition-colors backdrop-blur-sm"
+                            >
+                              <Eye className="h-3 w-3" />
+                              Ver Link Original
+                            </a>
+                          </div>
+                        )}
+
                         {highlight?.matchReasons?.length ? (
                           <div className="rounded-md bg-black/45 px-2 py-1 text-[10px] text-white/85 line-clamp-2">
                             {highlight.matchReasons.join(' • ')}
