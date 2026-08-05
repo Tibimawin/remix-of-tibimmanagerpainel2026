@@ -236,7 +236,9 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
           plataformas: cloudConfig?.tableIds?.plataformas || '',
           canaisTv: cloudConfig?.tableIds?.canaisTv || '',
           jogosDia: cloudConfig?.tableIds?.jogosDia || '',
-        }
+          miniseries: cloudConfig?.tableIds?.miniseries || '',
+          miniseriesEpisodios: cloudConfig?.tableIds?.miniseriesEpisodios || '',
+        } as any
       });
       localStorage.setItem('user-baserow-config', JSON.stringify(userConfig));
       toast.success('Configuração salva com sucesso!');
