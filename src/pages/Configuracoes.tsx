@@ -193,6 +193,32 @@ const Configuracoes = () => {
     }
   }, [config]);
 
+  // Focar no campo específico quando redirecionado de outra página
+  useEffect(() => {
+    const focusField = (location.state as any)?.focusField;
+    if (focusField) {
+      // Garantir que a aba API esteja ativa
+      const tabTrigger = document.querySelector('[value="api"]') as HTMLElement | null;
+      if (tabTrigger) tabTrigger.click();
+
+      setTimeout(() => {
+        const element = document.getElementById(`${focusField}-field`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const input = element.querySelector('input');
+          if (input) {
+            input.focus();
+            input.classList.add('ring-2', 'ring-yellow-500', 'ring-offset-2');
+            setTimeout(() => input.classList.remove('ring-2', 'ring-yellow-500', 'ring-offset-2'), 3000);
+          }
+        }
+      }, 300);
+
+      // Limpar o state para não repetir o foco em refresh
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.state, navigate]);
+
   const handleInputChange = (field: string, value: string) => {
     if (field.startsWith('tableIds.')) {
       const tableField = field.split('.')[1];
