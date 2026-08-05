@@ -58,7 +58,7 @@ const SubscriptionExpiredBanner: React.FC = () => {
       <div className="flex items-center gap-2">
         <Button
           size="sm"
-          onClick={() => navigate('/pedido')}
+          onClick={() => navigate('/configuracoes')}
           className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
         >
           <CreditCard className="h-4 w-4 mr-1" />
