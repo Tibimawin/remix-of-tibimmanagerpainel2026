@@ -403,7 +403,7 @@ const JogosDia = () => {
                       <div className="p-4 pt-0">
 
                         <Button 
-                          className={`flex-1 rounded-xl font-bold transition-all duration-300 ${
+                          className={`w-full rounded-xl font-bold transition-all duration-300 ${
                             jogo.imported 
                               ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' 
                               : 'bg-emerald-600 hover:bg-emerald-700 text-white'
