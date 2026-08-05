@@ -6,16 +6,12 @@ import {
   RefreshCw, 
   Filter, 
   Calendar, 
-  ChevronRight, 
   Plus, 
   Check, 
   AlertTriangle,
-  Info,
-  ExternalLink,
   Users,
   Clock,
   Activity,
-  ChevronDown,
   History
 } from 'lucide-react';
 import { useConfig } from '@/contexts/ConfigContext';
@@ -31,12 +27,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 interface JogoDia {
   id: string;
