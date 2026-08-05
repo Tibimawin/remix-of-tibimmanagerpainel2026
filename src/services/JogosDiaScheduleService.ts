@@ -62,7 +62,8 @@ export class JogosDiaScheduleService {
       if (!config?.isActive) return;
 
       const userConfig = await UserConfigService.getUserConfig(schedule.userId);
-      if (!userConfig?.apiToken || !userConfig?.tableIds?.canaisTv) return;
+      const targetTableId = userConfig.tableIds.jogosDia || userConfig.tableIds.canaisTv;
+      if (!userConfig?.apiToken || !targetTableId) return;
 
       const sourceService = new BaserowService(config.sourceToken, config.sourceBaseUrl);
       const userBaserow = new BaserowService(userConfig.apiToken, userConfig.baseUrl);
@@ -83,7 +84,7 @@ export class JogosDiaScheduleService {
       for (let i = 0; i < total; i++) {
         const jogo = items[i];
         try {
-          const existing = await userBaserow.getTableData(userConfig.tableIds.canaisTv, 1, 1, jogo.Nome);
+          const existing = await userBaserow.getTableData(targetTableId, 1, 1, jogo.Nome);
           const match = existing.results.find((r: any) => r.Link === jogo.Link);
           
           const payload = {
@@ -97,10 +98,10 @@ export class JogosDiaScheduleService {
           };
 
           if (match) {
-            await userBaserow.updateRow(userConfig.tableIds.canaisTv, String(match.id), payload);
+            await userBaserow.updateRow(targetTableId, String(match.id), payload);
             stats.updated++;
           } else {
-            await userBaserow.createRow(userConfig.tableIds.canaisTv, payload);
+            await userBaserow.createRow(targetTableId, payload);
             stats.created++;
           }
         } catch (e) {

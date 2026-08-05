@@ -59,6 +59,7 @@ export interface UserConfig {
     sessoes: string;
     plataformas: string;
     canaisTv: string;
+    jogosDia: string;
   };
   apiKeys?: {
     tmdb?: string;
@@ -221,8 +222,9 @@ export const UserConfigService = {
           usuarios: '',
           sessoes: '',
           plataformas: '',
-          canaisTv: '',
-        },
+            canaisTv: '',
+            jogosDia: '',
+          },
         personalSettings: {
           theme: 'system',
           language: 'pt-BR',
@@ -278,6 +280,7 @@ export const UserConfigService = {
           sessoes: '',
           plataformas: '',
           canaisTv: '',
+          jogosDia: '',
         },
         personalSettings: {
           theme: 'system',

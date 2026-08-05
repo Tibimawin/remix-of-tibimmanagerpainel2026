@@ -19,6 +19,7 @@ interface Config {
     plataformas: string;
     canaisTv: string;
     planos: string;
+    jogosDia: string;
     // Tabelas exclusivas do Modo Tibim
     carrosseu: string;
     versao: string;
@@ -59,6 +60,7 @@ export const defaultConfig: Config = {
     plataformas: '',
     canaisTv: '',
     planos: '',
+    jogosDia: '',
     // Tabelas exclusivas do Modo Tibim
     carrosseu: '',
     versao: '',

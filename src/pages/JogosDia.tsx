@@ -125,8 +125,10 @@ const JogosDia = () => {
   }, [userInfo?.id]);
 
   const handleImport = async (jogo: JogoDia) => {
-    if (!config?.tableIds?.canaisTv) {
-      toast.error('Tabela de Canais/Jogos não configurada no seu painel');
+    const targetTableId = config?.tableIds?.jogosDia || config?.tableIds?.canaisTv;
+    
+    if (!targetTableId) {
+      toast.error('Tabela de Jogos/Canais não configurada no seu painel');
       return;
     }
 
@@ -147,7 +149,7 @@ const JogosDia = () => {
         'Campeonato': jogo.Campeonato
       };
 
-      const success = await baserowService.createRow(config.tableIds.canaisTv, data);
+      const success = await baserowService.createRow(targetTableId, data);
 
       if (success) {
         toast.success(`Jogo ${jogo.Nome} importado com sucesso!`);
