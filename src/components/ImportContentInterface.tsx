@@ -682,6 +682,21 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
                         {content.Categoria}
                       </p>
                       
+                      {content.Link && (
+                        <div className="mt-2 flex gap-2">
+                          <a 
+                            href={content.Link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-tighter text-white bg-primary/40 hover:bg-primary px-2 py-1 rounded-lg transition-colors backdrop-blur-sm"
+                          >
+                            <Search className="h-3 w-3" />
+                            Ver Fonte
+                          </a>
+                        </div>
+                      )}
+                      
                       {content.Tipo === 'Serie' && !selectedContents.has(content.id) && (
                         <Button
                           size="sm"
