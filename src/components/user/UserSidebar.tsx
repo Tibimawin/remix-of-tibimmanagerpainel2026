@@ -249,6 +249,17 @@ const menuItems: MenuItem[] = [
     badge: { type: 'new' }
   },
   {
+    id: 'jogos-dia',
+    label: 'Jogos do Dia',
+    href: '/jogos-dia',
+    icon: Calendar,
+    category: 'tools',
+    description: 'Importar jogos do dia da origem',
+    feature: 'jogos-dia',
+    badge: { type: 'new' }
+  },
+
+  {
     id: 'substituicao-urls',
     label: 'Substituição URLs',
     href: '/substituicao-urls',
