@@ -291,7 +291,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
                 size="sm"
                 className="w-full gap-2"
                 onClick={() => {
-                  toast.dismiss(t.id);
+                  toast.dismiss(t as string);
                   navigate('/configuracoes', { state: { focusField: fieldToFocus } });
                 }}
               >
