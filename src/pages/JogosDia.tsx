@@ -12,7 +12,8 @@ import {
   Users,
   Clock,
   Activity,
-  History
+  History,
+  Settings
 } from 'lucide-react';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useGlobalJogosDiaConfig } from '@/hooks/useGlobalJogosDiaConfig';
@@ -27,6 +28,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useNavigate } from 'react-router-dom';
+
 
 interface JogoDia {
   id: string;
