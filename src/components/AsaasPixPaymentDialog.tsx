@@ -27,13 +27,15 @@ interface AsaasPixPaymentDialogProps {
   upgradeFromPlan?: string;
   existingFeatures?: string[];
   requiredFeature?: string;
+  isFeatureUnlockOnly?: boolean;
 }
 
 type Step = 'form' | 'processing' | 'pix' | 'confirmed' | 'error';
 
 const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
   isOpen, onOpenChange, planName, planPrice, planDescription,
-  isUpgrade = false, upgradeFromPlan = '', existingFeatures = [], requiredFeature
+  isUpgrade = false, upgradeFromPlan = '', existingFeatures = [], requiredFeature,
+  isFeatureUnlockOnly = false
 }) => {
   const { userInfo } = useSimpleAuth();
   const { activePlans } = usePlans();
@@ -109,7 +111,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
           userId: userInfo?.id || 'unknown',
           userEmail: email,
           userName: name,
-          planName: isUpgrade ? `${upgradeFromPlan} + API` : planName,
+          planName: isFeatureUnlockOnly ? `Unlock: ${requiredFeature}` : (isUpgrade ? `${upgradeFromPlan} + API` : planName),
           planPrice,
           accessDays,
           paymentMethod: 'PIX',
@@ -146,8 +148,12 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
             });
             if (userInfo?.id) {
               try {
-                await FirebaseUserService.extendUserAccess(userInfo.id, accessDays);
-                console.log(`✅ Acesso estendido por ${accessDays} dias para:`, userInfo.id);
+                if (!isFeatureUnlockOnly) {
+                  await FirebaseUserService.extendUserAccess(userInfo.id, accessDays);
+                  console.log(`✅ Acesso estendido por ${accessDays} dias para:`, userInfo.id);
+                } else {
+                  console.log(`ℹ️ Unlock de funcionalidade: data de expiração mantida.`);
+                }
                 
                 // 🔓 Auto-liberar permissões baseado no plano assinado
                 try {
@@ -177,7 +183,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                       enabledFeatures: mergedFeatures,
                       currentMonthUsage: 0,
                       lastUpdated: new Date().toISOString(),
-                      expiryDate: endDate.toISOString(),
+                      expiryDate: isFeatureUnlockOnly ? (permissions?.expiryDate || endDate.toISOString()) : endDate.toISOString(),
                       isActive: true
                     });
                     console.log('🔓 Upgrade realizado! Features mescladas:', mergedFeatures.length);
@@ -222,7 +228,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                       enabledFeatures: featuresWithPlanos,
                       currentMonthUsage: 0,
                       lastUpdated: new Date().toISOString(),
-                      expiryDate: endDate2.toISOString(),
+                      expiryDate: isFeatureUnlockOnly ? (permissions?.expiryDate || endDate2.toISOString()) : endDate2.toISOString(),
                       isActive: true
                     });
                     console.log('🔓 Permissões liberadas automaticamente:', matchedPlan.features.length, 'features');
@@ -267,7 +273,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                       enabledFeatures: syntheticFeatures,
                       currentMonthUsage: 0,
                       lastUpdated: new Date().toISOString(),
-                      expiryDate: endDate3.toISOString(),
+                      expiryDate: isFeatureUnlockOnly ? (permissions?.expiryDate || endDate3.toISOString()) : endDate3.toISOString(),
                       isActive: true
                     });
                     console.log('🔓 Permissão Empresa sintética concedida (fallback).');
@@ -276,9 +282,12 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                   console.error('Erro ao liberar permissões:', permErr);
                 }
                 
-                toast.success(isUpgrade 
-                  ? `Upgrade confirmado! API liberada.` 
-                  : `Pagamento confirmado! Acesso estendido por ${accessDays} dias.`
+                toast.success(isFeatureUnlockOnly
+                  ? `Recurso liberado com sucesso!`
+                  : (isUpgrade 
+                      ? `Upgrade confirmado! API liberada.` 
+                      : `Pagamento confirmado! Acesso estendido por ${accessDays} dias.`
+                    )
                 );
                 
                 // Atualizar no controle financeiro para confirmado
@@ -349,9 +358,12 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
             Pagamento PIX - {planName}
           </DialogTitle>
           <DialogDescription>
-            {isUpgrade 
-              ? `Upgrade do plano ${upgradeFromPlan} - Diferença: R$ ${planPrice.toFixed(2)}`
-              : `Assinatura mensal de R$ ${planPrice.toFixed(2)}`
+            {isFeatureUnlockOnly 
+              ? `Liberação de funcionalidade específica`
+              : (isUpgrade 
+                  ? `Upgrade do plano ${upgradeFromPlan} - Diferença: R$ ${planPrice.toFixed(2)}`
+                  : `Assinatura mensal de R$ ${planPrice.toFixed(2)}`
+                )
             }
           </DialogDescription>
         </DialogHeader>
