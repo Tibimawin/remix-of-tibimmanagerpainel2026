@@ -206,7 +206,14 @@ const Configuracoes = () => {
       if (tabTrigger) tabTrigger.click();
 
       setTimeout(() => {
-        const element = document.getElementById(`${focusField}-field`);
+        let fieldId = `${focusField}-field`;
+        
+        // Mapeamentos específicos
+        if (focusField === 'conteudos') fieldId = 'conteudos-field';
+        if (focusField === 'miniseries') fieldId = 'miniseries-field';
+        if (focusField === 'miniseriesEpisodios') fieldId = 'miniseriesEpisodios-field';
+
+        const element = document.getElementById(fieldId);
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
           const input = element.querySelector('input');
