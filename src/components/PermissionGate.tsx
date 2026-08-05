@@ -433,7 +433,6 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
           isFeatureUnlockOnly={true}
           requiredFeature={feature}
         />
-        </div>
       </div>
     );
   }
