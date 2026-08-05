@@ -16,6 +16,35 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+
+const UserPlanBadge: React.FC<{ userId: string }> = ({ userId }) => {
+  const [planName, setPlanName] = useState<string>('Carregando...');
+
+  useEffect(() => {
+    const getPlan = async () => {
+      try {
+        const { getDoc } = await import('firebase/firestore');
+        const permissionsRef = doc(db, 'userPermissions', userId);
+        const permissionsDoc = await getDoc(permissionsRef);
+        if (permissionsDoc.exists()) {
+          setPlanName(permissionsDoc.data().planName || 'Básico');
+        } else {
+          setPlanName('Básico');
+        }
+      } catch (err) {
+        setPlanName('Erro');
+      }
+    };
+    getPlan();
+  }, [userId]);
+
+  return (
+    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px] py-0 h-4 ml-2">
+      {planName}
+    </Badge>
+  );
+};
+
 interface EditUserModalProps {
   user: FirebaseUser;
   isOpen: boolean;
@@ -27,6 +56,8 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
   const [loading, setLoading] = useState(false);
   const [hasAutomacaoFeature, setHasAutomacaoFeature] = useState(false);
   const [loadingPermissions, setLoadingPermissions] = useState(true);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const [customDays, setCustomDays] = useState('');
   const [formData, setFormData] = useState({
     name: user.name,
@@ -37,9 +68,9 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
     isActive: user.isActive
   });
 
-  // Carregar permissões atuais ao abrir o modal
+  // Carregar permissões atuais e planos ao abrir o modal
   useEffect(() => {
-    const loadUserPermissions = async () => {
+    const loadData = async () => {
       if (!isOpen || !user.uid) return;
 
       setLoadingPermissions(true);
@@ -52,20 +83,28 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
           const permissions = permissionsDoc.data();
           const enabledFeatures = permissions.enabledFeatures || [];
           setHasAutomacaoFeature(enabledFeatures.includes('automacao'));
-          console.log('✅ Permissões carregadas:', { enabledFeatures, hasAutomacao: enabledFeatures.includes('automacao') });
+          setSelectedPlanId(permissions.planId || '');
+          console.log('✅ Permissões carregadas:', { enabledFeatures, planId: permissions.planId });
         } else {
           console.warn('⚠️ Permissões não encontradas para usuário:', user.uid);
           setHasAutomacaoFeature(false);
+          setSelectedPlanId('');
         }
+
+        // Carregar planos reais para o seletor
+        const { PlansService } = await import('@/services/PlansService');
+        const allPlans = await PlansService.getAllPlans();
+        setPlans(allPlans);
+
       } catch (error) {
-        console.error('❌ Erro ao carregar permissões:', error);
+        console.error('❌ Erro ao carregar dados do usuário:', error);
         setHasAutomacaoFeature(false);
       } finally {
         setLoadingPermissions(false);
       }
     };
 
-    loadUserPermissions();
+    loadData();
   }, [isOpen, user.uid]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,12 +142,16 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
         console.log('🚫 Removendo feature automacao');
       }
 
+      const selectedPlan = plans.find(p => p.id === selectedPlanId);
+
       await setDoc(permissionsRef, {
         userName: formData.name,
         userEmail: formData.email,
         expiryDate: updates.expiryDate,
         isActive: formData.isActive,
         enabledFeatures: updatedFeatures,
+        planId: selectedPlanId,
+        planName: selectedPlan ? selectedPlan.name : (currentPermissions.planName || 'Básico'),
         lastUpdated: new Date().toISOString()
       }, { merge: true });
 
@@ -283,15 +326,33 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="isActive"
-              checked={formData.isActive}
-              onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-              className="rounded"
-            />
-            <Label htmlFor="isActive">Usuário Ativo</Label>
+          <div className="grid grid-cols-2 gap-4 items-end">
+            <div className="space-y-2">
+              <Label htmlFor="planSelect">Plano Ativo (Configuração Manual)</Label>
+              <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione um plano" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="basic">Gratuito (Padrão)</SelectItem>
+                  {plans.map((plan) => (
+                    <SelectItem key={plan.id} value={plan.id}>
+                      {plan.name} (R$ {plan.price})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2 h-10">
+              <input
+                type="checkbox"
+                id="isActive"
+                checked={formData.isActive}
+                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                className="rounded h-4 w-4"
+              />
+              <Label htmlFor="isActive">Usuário Ativo</Label>
+            </div>
           </div>
 
           {/* Controle de Automação */}
@@ -788,36 +849,42 @@ export const AdminFirebaseUsers: React.FC = () => {
       </div>
 
       <div className="grid gap-4">
-        {filteredUsers.map((user) => (
-          <Card 
-            key={user.uid} 
-            className={`hover:shadow-md transition-all duration-200 ${selectedUids.includes(user.uid) ? 'border-primary bg-primary/5' : ''}`}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <input 
-                    type="checkbox" 
-                    checked={selectedUids.includes(user.uid)}
-                    onChange={() => toggleSelectUser(user.uid)}
-                    className="rounded border-gray-300 text-primary focus:ring-primary"
-                  />
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                    <Users className="h-6 w-6 text-primary" />
-                  </div>
+        {filteredUsers.map((user) => {
+          // Vamos buscar o plano deste usuário em tempo real a partir de um mapa de permissões
+          // Para evitar complexidade de N hooks, usaremos o componente UserPlanBadge
+          return (
+            <Card 
+              key={user.uid} 
+              className={`hover:shadow-md transition-all duration-200 ${selectedUids.includes(user.uid) ? 'border-primary bg-primary/5' : ''}`}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedUids.includes(user.uid)}
+                      onChange={() => toggleSelectUser(user.uid)}
+                      className="rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                      <Users className="h-6 w-6 text-primary" />
+                    </div>
 
-                  <div>
-                    <h3 className="font-semibold">{user.name}</h3>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      {getStatusBadge(user)}
-                      <Badge variant="outline">
-                        <CalendarDays className="h-3 w-3 mr-1" />
-                        {user.accessDays} dias totais
-                      </Badge>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">{user.name}</h3>
+                        <UserPlanBadge userId={user.uid} />
+                      </div>
+                      <p className="text-sm text-muted-foreground">{user.email}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {getStatusBadge(user)}
+                        <Badge variant="outline">
+                          <CalendarDays className="h-3 w-3 mr-1" />
+                          {user.accessDays} dias totais
+                        </Badge>
+                      </div>
                     </div>
                   </div>
-                </div>
 
                 <div className="text-right space-y-2">
                   <div className="text-sm text-muted-foreground">
@@ -837,7 +904,8 @@ export const AdminFirebaseUsers: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       {filteredUsers.length === 0 && (
