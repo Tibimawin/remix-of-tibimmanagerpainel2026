@@ -57,29 +57,26 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
   }
 
   if (!hasFeature(feature)) {
-    const hasActivePlan = permissions?.planName && permissions?.isActive && permissions?.expiryDate;
-    const isSubscriptionExpired = !permissions?.isActive;
+    // ⚠️ CRITICAL LOGIC: A assinatura é considerada expirada se isActive for explicitamente false OU se não houver data de expiração/plano
+    const hasActivePlan = !!(permissions?.planName && permissions?.isActive && permissions?.expiryDate);
+    const isSubscriptionExpired = permissions?.isActive === false || !permissions?.expiryDate || new Date(permissions.expiryDate) < new Date();
     
     // Identifica se o usuário possui um dos planos base de 30 dias (R$ 30 a R$ 35)
-    // Inclui: "Básico", "Mensal", "Painel + Baserow"
-    const isBasicActive = hasActivePlan && (
-      permissions.planName.toLowerCase().includes('básico') || 
-      permissions.planName.toLowerCase().includes('basico') || 
-      permissions.planName.toLowerCase().includes('mensal') ||
-      permissions.planName.toLowerCase().includes('baserow')
+    const isBasicActive = hasActivePlan && !isSubscriptionExpired && (
+      permissions?.planName?.toLowerCase().includes('básico') || 
+      permissions?.planName?.toLowerCase().includes('basico') || 
+      permissions?.planName?.toLowerCase().includes('mensal') ||
+      permissions?.planName?.toLowerCase().includes('baserow')
     );
 
-    // Identifica o plano de destino que contém o recurso (Geralmente R$ 44,90 ou superior)
+    // Identifica o plano de destino que contém o recurso
     const targetPlanForFeature = activePlans.find(p => p.features.includes(feature));
     const targetPrice = targetPlanForFeature 
       ? parseFloat(targetPlanForFeature.price.replace(/[^\d,]/g, '').replace(',', '.')) 
       : 0;
 
-    // Regra: "Liberar Recurso (R$ 15)" aparece se:
-    // 1. Usuário tem plano básico/baserow ativo (isBasicActive)
-    // 2. O recurso solicitado está em um plano superior (normalmente o de R$ 44,90)
-    // 3. A assinatura NÃO está expirada (se estiver expirada, deve assinar um plano novo completo)
-    const canUnlockIndividual = isBasicActive && targetPrice >= 44 && !isSubscriptionExpired;
+    // "Liberar Recurso (R$ 15)" só deve aparecer se o usuário estiver ATIVO em um plano básico
+    const canUnlockIndividual = isBasicActive && targetPrice >= 44;
     
     if (fallback) {
       return <>{fallback}</>;
@@ -166,20 +163,20 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
     };
 
     return (
-      <>
+      <div className="permission-gate-container">
         <div className="space-y-6">
           {activePlans.length > 0 && (
-            <div>
+            <div className="w-full">
               <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
                 <div>
                   <h2 className="text-3xl md:text-4xl font-bold text-foreground">
                     {canUnlockIndividual ? 'Desbloqueio Disponível' : 'Acesso Restrito'}
                   </h2>
                   <p className="text-sm text-muted-foreground mt-2">
-                    {hasActivePlan ? (
-                      <>Você está no plano <strong>{permissions.planName}</strong>. Desbloqueie este recurso extra para turbinar seu painel.</>
+                    {hasActivePlan && !isSubscriptionExpired ? (
+                      <>Você está no plano <strong>{permissions?.planName}</strong>. Desbloqueie este recurso extra para turbinar seu painel.</>
                     ) : (
-                      <>Este recurso faz parte do módulo Premium. Escolha um plano para desbloquear.</>
+                      <>Sua assinatura está <strong>expirada</strong> ou você não possui um plano ativo. Escolha uma opção abaixo para continuar.</>
                     )}
                   </p>
                 </div>
@@ -288,13 +285,18 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                 </div>
               </div>
 
-              {(isSubscriptionExpired || !canUnlockIndividual) && (
+              <div className="mt-10">
+                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-400" />
+                  Planos Disponíveis para Contratação
+                </h3>
+                
                 <div
                   className={`grid gap-5 ${
                     activePlans.length === 1
-                      ? 'grid-cols-1 max-w-sm mx-auto'
+                      ? 'grid-cols-1 max-w-sm'
                       : activePlans.length === 2
-                      ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl mx-auto'
+                      ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl'
                       : activePlans.length === 3
                       ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
                       : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
@@ -389,7 +391,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                     );
                   })}
                 </div>
-              )}
+              </div>
             </div>
           )}
         </div>
@@ -431,7 +433,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
           isFeatureUnlockOnly={true}
           requiredFeature={feature}
         />
-      </>
+      </div>
     );
   }
 
