@@ -23,12 +23,14 @@ interface ImportContentInterfaceProps {
   importConfig: ImportConfig;
   userConfig: UserConfig;
   onClose: () => void;
+  isMiniseries?: boolean;
 }
 
 export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
   importConfig,
   userConfig,
-  onClose
+  onClose,
+  isMiniseries = false
 }) => {
   const [contents, setContents] = useState<ImportContent[]>([]);
   const [loading, setLoading] = useState(false);
@@ -442,7 +444,10 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
               episodes: updatedEpisodes
             };
           });
-        }
+        },
+        undefined, // onContentProgress
+        enrichWithTmdb,
+        isMiniseries
       );
 
       clearInterval(progressInterval);
