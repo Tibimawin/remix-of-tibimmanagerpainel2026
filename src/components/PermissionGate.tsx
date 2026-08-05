@@ -180,9 +180,23 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-xs text-rose-400 bg-rose-500/10 p-2 rounded-lg border border-rose-500/20">
-                  <Lock className="w-3 h-3" />
-                  <span>Para liberar <strong>{AVAILABLE_FEATURES.find(f => f.id === feature)?.name || feature}</strong>, você precisa de um dos planos abaixo:</span>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-rose-400 bg-rose-500/10 p-3 rounded-lg border border-rose-500/20">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Para liberar <strong>{AVAILABLE_FEATURES.find(f => f.id === feature)?.name || feature}</strong>, selecione um plano premium:</span>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-7 text-[10px] bg-rose-500 hover:bg-rose-600 text-white border-none shrink-0"
+                    onClick={() => {
+                      const firstPremium = activePlans.find(p => p.features.includes(feature)) || activePlans[0];
+                      if (firstPremium) handleChoosePlan(firstPremium);
+                    }}
+                  >
+                    <ArrowUpCircle className="w-3 h-3 mr-1" />
+                    Upgrade Rápido
+                  </Button>
                 </div>
               </div>
 
