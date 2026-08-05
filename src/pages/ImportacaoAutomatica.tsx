@@ -262,13 +262,17 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
       return;
     }
 
-    const hasRequiredTableId = isMiniseries 
-      ? (!!userConfig.contentTableId && !!userConfig.episodeTableId)
-      : !!userConfig.contentTableId;
+    const hasRequiredContentId = !!userConfig.contentTableId;
+    const hasRequiredEpisodeId = !!userConfig.episodeTableId;
 
-    if (!configValid || !hasRequiredTableId) {
-      const fieldToFocus = isMiniseries ? 'miniseries' : 'conteudos';
-      const tableName = isMiniseries ? 'Minisséries' : 'Conteúdos';
+    if (!configValid || !hasRequiredContentId || (isMiniseries && !hasRequiredEpisodeId)) {
+      const fieldToFocus = !hasRequiredContentId 
+        ? (isMiniseries ? 'miniseries' : 'conteudos')
+        : 'miniseriesEpisodios';
+      
+      const missingEntity = !hasRequiredContentId
+        ? (isMiniseries ? 'Minisséries' : 'Conteúdos')
+        : 'Episódios de Minisséries';
       
       toast.custom((t) => (
         <motion.div
@@ -281,11 +285,11 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
               <AlertTriangle className="w-5 h-5 text-yellow-500" />
             </div>
             <div className="flex-1">
-              <h4 className="font-bold text-sm mb-1">Tabela de {tableName} não configurada</h4>
+              <h4 className="font-bold text-sm mb-1">Tabela de {missingEntity} não configurada</h4>
               <p className="text-xs text-muted-foreground mb-3">
-                {isMiniseries 
-                  ? "Para importar minisséries, você precisa configurar os IDs das tabelas de “Tabela de Minisséries” e “Tabela de Minisséries Episódios” nas configurações."
-                  : `Você precisa configurar o ID da tabela de ${tableName.toLowerCase()} nas configurações antes de importar.`}
+                {!hasRequiredContentId 
+                  ? `Você precisa configurar o ID da tabela de ${missingEntity.toLowerCase()} nas configurações antes de importar.`
+                  : `Para importar minisséries com episódios, você também precisa configurar o ID da “Tabela de Minisséries Episódios” nas configurações.`}
               </p>
               <Button
                 size="sm"
