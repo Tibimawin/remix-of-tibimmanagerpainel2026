@@ -12,13 +12,19 @@ import {
   AlertTriangle,
   Info,
   ExternalLink,
-  Users
+  Users,
+  Clock,
+  Activity,
+  ChevronDown,
+  History
 } from 'lucide-react';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useGlobalJogosDiaConfig } from '@/hooks/useGlobalJogosDiaConfig';
 import { makeProxyRequest } from '@/utils/proxyRequest';
 import { useBaserowService } from '@/services/BaserowService';
 import { toast } from 'sonner';
+import { db } from '@/config/firebase';
+import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +60,8 @@ const JogosDia = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [importingIds, setImportingIds] = useState<Set<string>>(new Set());
   const baserowService = useBaserowService();
+  const [logs, setLogs] = useState<any[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
 
   const fetchJogos = async () => {
     if (!globalConfig?.isActive || !globalConfig?.contentTableId) return;
@@ -87,6 +95,23 @@ const JogosDia = () => {
       fetchJogos();
     }
   }, [globalConfig]);
+
+  useEffect(() => {
+    if (!config?.userId) return;
+
+    const q = query(
+      collection(db, 'jogosDiaLogs'),
+      where('userId', '==', config.userId),
+      orderBy('timestamp', 'desc'),
+      limit(10)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    return () => unsub();
+  }, [config?.userId]);
 
   const handleImport = async (jogo: JogoDia) => {
     if (!config?.tableIds?.canaisTv) {
@@ -191,6 +216,89 @@ const JogosDia = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 lg:px-12 -mt-8">
+        {/* Status & Logs Summary */}
+        <div className="mb-8 grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card className="lg:col-span-2 bg-card/40 border-white/5 backdrop-blur-md overflow-hidden">
+            <CardContent className="p-0">
+              <div className="p-4 flex items-center justify-between border-b border-white/5 bg-emerald-500/5">
+                <div className="flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-emerald-500" />
+                  <span className="text-sm font-bold uppercase tracking-wider">Status da Automação</span>
+                </div>
+                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                  {globalConfig?.frequency === 'hourly' ? 'De hora em hora' : 'Diariamente'}
+                </Badge>
+              </div>
+              <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Última Importação</p>
+                  <p className="text-sm font-medium">{logs[0]?.timestamp ? new Date(logs[0].timestamp).toLocaleString('pt-BR') : 'Nunca'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Criados</p>
+                  <p className="text-sm font-bold text-emerald-500">{logs[0]?.created || 0}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Atualizados</p>
+                  <p className="text-sm font-bold text-blue-500">{logs[0]?.updated || 0}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Status Final</p>
+                  <Badge className={logs[0]?.status === 'success' ? 'bg-emerald-500' : logs[0]?.status === 'error' ? 'bg-red-500' : 'bg-gray-500'}>
+                    {logs[0]?.status === 'success' ? 'Sucesso' : logs[0]?.status === 'error' ? 'Erro' : 'Aguardando'}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Button 
+            variant="outline" 
+            className="h-full border-white/5 bg-card/40 hover:bg-white/5 flex flex-col gap-2 p-6"
+            onClick={() => setShowLogs(!showLogs)}
+          >
+            <History className="w-6 h-6 text-emerald-500" />
+            <span className="font-bold">Histórico de Logs</span>
+            <span className="text-[10px] text-muted-foreground uppercase">Ver detalhes das importações</span>
+          </Button>
+        </div>
+
+        <AnimatePresence>
+          {showLogs && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden mb-8"
+            >
+              <Card className="bg-card/40 border-white/5 backdrop-blur-md">
+                <CardContent className="p-4">
+                  <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+                    <History className="w-4 h-4 text-emerald-500" />
+                    Últimos 10 Logs
+                  </h3>
+                  <div className="space-y-2">
+                    {logs.map(log => (
+                      <div key={log.id} className="p-3 rounded-lg bg-white/5 border border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-2 h-2 rounded-full ${log.status === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                          <span className="text-xs font-mono">{new Date(log.timestamp).toLocaleString('pt-BR')}</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-[11px]">
+                          <span>Criados: <b className="text-emerald-500">{log.created}</b></span>
+                          <span>Atualizados: <b className="text-blue-500">{log.updated}</b></span>
+                          {log.message && <span className="text-red-400 italic max-w-xs truncate">{log.message}</span>}
+                        </div>
+                      </div>
+                    ))}
+                    {logs.length === 0 && <p className="text-center py-4 text-xs text-muted-foreground">Nenhum log registrado ainda.</p>}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Controls */}
         <div className="bg-card/50 backdrop-blur-md border border-white/5 rounded-2xl p-4 shadow-xl flex flex-col md:flex-row gap-4 items-center justify-between mb-8">
           <div className="relative w-full md:w-96">
