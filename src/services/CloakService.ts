@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { auth } from '@/config/firebase';
 
 /**
  * Sistema de camuflagem de links.
@@ -76,16 +77,7 @@ class CloakServiceImpl {
         },
         headers: idToken ? { Authorization: `Bearer ${idToken}` } : undefined
       });
-        body: {
-          action: 'sync-user',
-          firebase_uid: params.uid,
-          email: params.email ?? null,
-          name: params.name ?? null,
-          expires_at: params.expiresAt ?? null,
-          blocked: params.blocked === true,
-          features: Array.isArray(params.features) ? params.features : [],
-        },
-      });
+
       if (error) throw error;
       const token = (data as any)?.token as string | undefined;
       if (token) {
@@ -230,4 +222,3 @@ if (typeof window !== 'undefined') {
     if (CloakService.pendingCount > 0) void CloakService.flush();
   });
 }
-
