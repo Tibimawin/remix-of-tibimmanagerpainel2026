@@ -234,6 +234,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
           sessoes: cloudConfig?.tableIds?.sessoes || '',
           plataformas: cloudConfig?.tableIds?.plataformas || '',
           canaisTv: cloudConfig?.tableIds?.canaisTv || '',
+          jogosDia: cloudConfig?.tableIds?.jogosDia || '',
         }
       });
       localStorage.setItem('user-baserow-config', JSON.stringify(userConfig));
