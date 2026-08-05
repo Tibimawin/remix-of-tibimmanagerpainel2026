@@ -15,7 +15,7 @@ import {
   Rocket,
   CreditCard,
 } from 'lucide-react';
-import { Plan } from '@/types/planTypes';
+import { Plan, AVAILABLE_FEATURES } from '@/types/planTypes';
 import AsaasPixPaymentDialog from './AsaasPixPaymentDialog';
 
 interface PermissionGateProps {
