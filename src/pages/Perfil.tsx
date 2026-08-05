@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
-import { LogOut, User, Calendar, Clock, Smartphone, Hash, Mail, Monitor, Shield, Receipt, HelpCircle } from 'lucide-react';
+import { LogOut, User, Calendar, Clock, Smartphone, Hash, Mail, Monitor, Shield, Receipt, HelpCircle, Package } from 'lucide-react';
+import { useUserPermissions } from '@/contexts/UserPermissionsContext';
 import UserSecuritySettings from '@/components/UserSecuritySettings';
 import UserDevices from '@/components/UserDevices';
 import PaymentHistory from '@/components/PaymentHistory';
@@ -21,6 +22,7 @@ interface UserDetails {
 
 const Perfil = () => {
   const { logout, userInfo } = useSimpleAuth();
+  const { permissions } = useUserPermissions();
   const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -197,6 +199,12 @@ const Perfil = () => {
       label: 'Email',
       value: userDetails?.Email || 'Não informado',
       color: 'text-blue-400'
+    },
+    {
+      icon: Package,
+      label: 'Plano Ativo',
+      value: permissions?.planName || 'Básico',
+      color: 'text-yellow-400'
     },
     {
       icon: Calendar,
