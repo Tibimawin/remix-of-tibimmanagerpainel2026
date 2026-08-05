@@ -263,7 +263,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
     }
 
     const hasRequiredTableId = isMiniseries 
-      ? (!!(userConfig.tableIds as any)?.miniseries && !!(userConfig.tableIds as any)?.miniseriesEpisodios)
+      ? (!!userConfig.contentTableId && !!userConfig.episodeTableId)
       : !!userConfig.contentTableId;
 
     if (!configValid || !hasRequiredTableId) {
