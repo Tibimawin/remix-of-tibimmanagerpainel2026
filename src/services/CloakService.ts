@@ -70,8 +70,8 @@ class CloakServiceImpl {
           email: params.email ?? null,
           name: params.name ?? null,
           expires_at: params.expiresAt ?? null,
-          ...(typeof params.blocked === 'boolean' ? { blocked: params.blocked } : {}),
-          ...(Array.isArray(params.features) ? { features: params.features } : {}),
+          blocked: params.blocked === true,
+          features: Array.isArray(params.features) ? params.features : [],
         },
       });
       if (error) throw error;
