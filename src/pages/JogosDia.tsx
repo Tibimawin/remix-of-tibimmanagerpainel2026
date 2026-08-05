@@ -263,7 +263,7 @@ const JogosDia = () => {
   }
 
   return (
-    <PermissionGate feature="jogos-dia">
+    <>
       <div className="min-h-screen pb-20">
       {/* Hero Section */}
       <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600/20 via-background to-background border-b border-emerald-500/10 px-6 py-12 lg:px-12">
@@ -612,7 +612,7 @@ const JogosDia = () => {
         )}
       </div>
     </div>
-    </PermissionGate>
+    </>
   );
 };
 
