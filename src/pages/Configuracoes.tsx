@@ -117,7 +117,10 @@ const Configuracoes = () => {
   const { mode } = useTypeMode();
   const { config: userConfig, loading: userConfigLoading } = useUserConfig();
   const { userInfo } = useSimpleAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [saving, setSaving] = useState(false);
+
   const SAVE_TIMEOUT_MS = 15000;
   const [lastSaveStatus, setLastSaveStatus] = useState<'idle' | 'success' | 'error' | 'quota' | 'timeout'>('idle');
   const [lastSaveAt, setLastSaveAt] = useState<string | null>(null);
