@@ -23,8 +23,12 @@ import {
   Shield, 
   Lock,
   Tv,
-  BarChart3
+  BarChart3,
+  AlertTriangle,
+  Settings
 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 
@@ -36,6 +40,7 @@ const AtualizacaoSeries = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [seriesFilter, setSeriesFilter] = useState('');
   const [importing, setImporting] = useState(false);
+  const navigate = useNavigate();
   const [availableSeries, setAvailableSeries] = useState<string[]>([]);
   const [progress, setProgress] = useState<{ processed: number; total: number; current?: string; startedAt: number } | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -130,6 +135,42 @@ const AtualizacaoSeries = () => {
   const importSelectedEpisodes = async () => {
     if (selectedEpisodes.size === 0) {
       toast.error('Selecione pelo menos um episódio para importar');
+      return;
+    }
+
+    const targetTableId = config?.tableIds?.episodios;
+    
+    if (!targetTableId) {
+      toast.custom((t) => (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card border border-white/10 rounded-xl p-4 shadow-xl max-w-md"
+        >
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-yellow-500/10 rounded-lg">
+              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-bold text-sm mb-1">Tabela de Episódios não configurada</h4>
+              <p className="text-xs text-muted-foreground mb-3">
+                Você precisa configurar o ID da tabela de episódios nas configurações dos Ids das tabelas antes de importar.
+              </p>
+              <Button
+                size="sm"
+                className="w-full gap-2"
+                onClick={() => {
+                  toast.dismiss(t);
+                  navigate('/configuracoes', { state: { focusField: 'episodios' } });
+                }}
+              >
+                <Settings className="w-4 h-4" />
+                Configurar ID da Tabela
+              </Button>
+            </div>
+          </div>
+        </motion.div>
+      ), { duration: 8000 });
       return;
     }
 
