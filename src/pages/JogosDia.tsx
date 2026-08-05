@@ -64,6 +64,12 @@ const JogosDia = () => {
   const baserowService = useBaserowService();
   const [logs, setLogs] = useState<any[]>([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [importProgress, setImportProgress] = useState<{
+    status: 'running' | 'completed' | 'error' | 'idle';
+    current: number;
+    total: number;
+    message?: string;
+  } | null>(null);
 
   const fetchJogos = async () => {
     if (!globalConfig?.isActive || !globalConfig?.contentTableId) return;
