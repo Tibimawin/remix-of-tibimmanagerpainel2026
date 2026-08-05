@@ -47,6 +47,7 @@ import AdminProtectedChannels from '@/components/AdminProtectedChannels';
 import AdminCloakLinks from '@/components/AdminCloakLinks';
 import AdminCloakDashboard from '@/components/AdminCloakDashboard';
 import AdminPushCenter from '@/components/AdminPushCenter';
+import AdminJogosDiaConfig from '@/components/AdminJogosDiaConfig';
 import { AdminSidebar, AdminView } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { useMaintenanceMode } from '@/hooks/useMaintenanceMode';
@@ -484,6 +485,8 @@ const AdminDashboard = () => {
         return <AdminMiniseriesConfig />;
       case 'api-keys':
         return <AdminApiKeys />;
+      case 'jogos-dia-config':
+        return <AdminJogosDiaConfig />;
       case 'protected-channels':
         return <AdminProtectedChannels />;
       case 'cloak-links':
