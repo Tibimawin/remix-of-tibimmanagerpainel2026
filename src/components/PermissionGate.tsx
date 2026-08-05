@@ -242,7 +242,9 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                       {AVAILABLE_FEATURES.find(f => f.id === feature)?.name || feature}
                     </p>
                     <p className="text-[9px] text-muted-foreground leading-tight">
-                      {canUnlockIndividual ? 'Desbloqueio avulso disponível' : 'Disponível em planos Premium'}
+                      {canUnlockIndividual 
+                        ? `Upgrade disponível de ${permissions?.planName || 'Básico'} para R$ 44,90` 
+                        : 'Disponível em planos Premium'}
                     </p>
                   </div>
                   <div className="flex flex-col gap-1.5 shrink-0">
@@ -254,7 +256,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                         if (firstPremium) handleChoosePlan(firstPremium);
                       }}
                     >
-                      {canUnlockIndividual ? 'Trocar Plano' : 'Desbloquear'}
+                      Trocar Plano
                     </Button>
                     
                     {canUnlockIndividual && (
