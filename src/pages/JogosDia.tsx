@@ -125,10 +125,12 @@ const JogosDia = () => {
   }, [userInfo?.id]);
 
   const handleImport = async (jogo: JogoDia) => {
-    const targetTableId = config?.tableIds?.jogosDia || config?.tableIds?.canaisTv;
+    const targetTableId = config?.tableIds?.jogosDia;
     
     if (!targetTableId) {
-      toast.error('Tabela de Jogos/Canais não configurada no seu painel');
+      toast.error('Você precisa configurar o ID do jogo ao dia nas configurações dos Ids antes de importar.', {
+        duration: 5000,
+      });
       return;
     }
 
