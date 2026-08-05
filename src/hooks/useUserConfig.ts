@@ -85,6 +85,7 @@ export const useUserConfig = () => {
             sessoes: '',
             plataformas: '',
             canaisTv: '',
+            jogosDia: '',
           },
           personalSettings: updates.personalSettings || {
             theme: 'system',

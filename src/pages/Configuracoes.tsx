@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield, Film, Tv, Image, FolderOpen, Users, Calendar, LayoutGrid, Play, RotateCcw, HelpCircle, Palette, CreditCard, Zap, Star, Smartphone } from 'lucide-react';
+import { Settings, Database, Key, Cloud, User, Save, Loader2, Shield, Film, Tv, Image, FolderOpen, Users, Calendar, LayoutGrid, Play, RotateCcw, HelpCircle, Palette, CreditCard, Zap, Star, Smartphone, Trophy } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
