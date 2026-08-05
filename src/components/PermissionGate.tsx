@@ -58,7 +58,19 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
 
   if (!hasFeature(feature)) {
     const hasActivePlan = permissions?.planName && permissions?.isActive && permissions?.expiryDate;
-    const isBasicActive = hasActivePlan && (permissions.planName.toLowerCase().includes('básico') || permissions.planName.toLowerCase().includes('basico') || permissions.planName.toLowerCase().includes('mensal'));
+    
+    // Identifica se o plano atual é o de R$ 35 (Mensal/Básico) ou se tem o nome "Baserow"
+    const isBasicActive = hasActivePlan && (
+      permissions.planName.toLowerCase().includes('básico') || 
+      permissions.planName.toLowerCase().includes('basico') || 
+      permissions.planName.toLowerCase().includes('mensal') ||
+      permissions.planName.toLowerCase().includes('baserow')
+    );
+    
+    // Verifica se a validade é de 30 dias (ou se o plano é reconhecido como mensal)
+    // Se o usuário já tem um plano ativo de 30 dias ou o plano "Painel + Baserow", 
+    // liberamos a opção de "Desbloqueio Avulso" por R$ 15.
+    const canUnlockIndividual = isBasicActive;
     
     if (fallback) {
       return <>{fallback}</>;
@@ -223,7 +235,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                       {AVAILABLE_FEATURES.find(f => f.id === feature)?.name || feature}
                     </p>
                     <p className="text-[9px] text-muted-foreground leading-tight">
-                      {isBasicActive ? 'Desbloqueio avulso disponível' : 'Disponível em planos Premium'}
+                      {canUnlockIndividual ? 'Desbloqueio avulso disponível' : 'Disponível em planos Premium'}
                     </p>
                   </div>
                   <div className="flex flex-col gap-1.5 shrink-0">
@@ -235,10 +247,10 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                         if (firstPremium) handleChoosePlan(firstPremium);
                       }}
                     >
-                      {isBasicActive ? 'Trocar Plano' : 'Desbloquear'}
+                      {canUnlockIndividual ? 'Trocar Plano' : 'Desbloquear'}
                     </Button>
                     
-                    {isBasicActive && (
+                    {canUnlockIndividual && (
                       <Button 
                         size="sm" 
                         variant="outline"
