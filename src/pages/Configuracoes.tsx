@@ -785,7 +785,7 @@ const Configuracoes = () => {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Tabela de Conteúdos */}
-                    <div className="space-y-1">
+                    <div className="space-y-1" id="conteudos-field">
                       <Label htmlFor="conteudos" className="flex items-center gap-2">
                         <Film className="h-4 w-4 text-primary" />
                         Tabela de Conteúdos
