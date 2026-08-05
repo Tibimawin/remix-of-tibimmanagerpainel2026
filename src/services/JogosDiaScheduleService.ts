@@ -56,24 +56,57 @@ export class JogosDiaScheduleService {
       const data = await baserowService.getAllTableData(config.contentTableId);
       
       // Lógica de importação (upsert)...
-      stats.created = data.results.length; // Placeholder logica real
+      const userConfig = await UserConfigService.getUserConfig(schedule.userId);
+      if (!userConfig?.apiToken || !userConfig?.tableIds?.canaisTv) return;
+
+      const baserowService = new BaserowService(config.sourceToken, config.sourceBaseUrl);
+      const userBaserow = new BaserowService(userConfig.apiToken, userConfig.baseUrl);
+      
+      const data = await baserowService.getAllTableData(config.contentTableId);
+      
+      for (const jogo of data.results) {
+        // Upsert simples por Nome e Link
+        const existing = await userBaserow.getTableData(userConfig.tableIds.canaisTv, 1, 1, jogo.Nome);
+        const match = existing.results.find((r: any) => r.Link === jogo.Link);
+        
+        const payload = {
+          'Nome': jogo.Nome,
+          'Link': jogo.Link,
+          'Categoria': jogo.Campeonato || 'Jogos do Dia',
+          'Logo': jogo['Logo Casa'] || '',
+          'TimeCasa': jogo['Time Casa'],
+          'TimeFora': jogo['Time Fora'],
+          'Campeonato': jogo.Campeonato
+        };
+
+        if (match) {
+          await userBaserow.updateRow(userConfig.tableIds.canaisTv, String(match.id), payload);
+          stats.updated++;
+        } else {
+          await userBaserow.createRow(userConfig.tableIds.canaisTv, payload);
+          stats.created++;
+        }
+      }
       
       await addDoc(collection(db, 'jogosDiaLogs'), {
         userId: schedule.userId,
         runId,
         status: 'success',
-        ...stats,
+        created: stats.created,
+        updated: stats.updated,
+        errors: 0,
         timestamp: startTime.toISOString(),
         duration: Date.now() - startTime.getTime()
       });
     } catch (error: any) {
-      stats.errors = 1;
       await addDoc(collection(db, 'jogosDiaLogs'), {
         userId: schedule.userId,
         runId,
         status: 'error',
         message: error.message,
-        ...stats,
+        created: stats.created,
+        updated: stats.updated,
+        errors: 1,
         timestamp: startTime.toISOString()
       });
     }
