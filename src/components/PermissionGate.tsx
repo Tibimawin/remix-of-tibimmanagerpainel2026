@@ -57,29 +57,26 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
   }
 
   if (!hasFeature(feature)) {
-    const hasActivePlan = permissions?.planName && permissions?.isActive && permissions?.expiryDate;
-    const isSubscriptionExpired = !permissions?.isActive;
+    // ⚠️ CRITICAL LOGIC: A assinatura é considerada expirada se isActive for explicitamente false OU se não houver data de expiração/plano
+    const hasActivePlan = !!(permissions?.planName && permissions?.isActive && permissions?.expiryDate);
+    const isSubscriptionExpired = permissions?.isActive === false || !permissions?.expiryDate || new Date(permissions.expiryDate) < new Date();
     
     // Identifica se o usuário possui um dos planos base de 30 dias (R$ 30 a R$ 35)
-    // Inclui: "Básico", "Mensal", "Painel + Baserow"
-    const isBasicActive = hasActivePlan && (
-      permissions.planName.toLowerCase().includes('básico') || 
-      permissions.planName.toLowerCase().includes('basico') || 
-      permissions.planName.toLowerCase().includes('mensal') ||
-      permissions.planName.toLowerCase().includes('baserow')
+    const isBasicActive = hasActivePlan && !isSubscriptionExpired && (
+      permissions?.planName?.toLowerCase().includes('básico') || 
+      permissions?.planName?.toLowerCase().includes('basico') || 
+      permissions?.planName?.toLowerCase().includes('mensal') ||
+      permissions?.planName?.toLowerCase().includes('baserow')
     );
 
-    // Identifica o plano de destino que contém o recurso (Geralmente R$ 44,90 ou superior)
+    // Identifica o plano de destino que contém o recurso
     const targetPlanForFeature = activePlans.find(p => p.features.includes(feature));
     const targetPrice = targetPlanForFeature 
       ? parseFloat(targetPlanForFeature.price.replace(/[^\d,]/g, '').replace(',', '.')) 
       : 0;
 
-    // Regra: "Liberar Recurso (R$ 15)" aparece se:
-    // 1. Usuário tem plano básico/baserow ativo (isBasicActive)
-    // 2. O recurso solicitado está em um plano superior (normalmente o de R$ 44,90)
-    // 3. A assinatura NÃO está expirada (se estiver expirada, deve assinar um plano novo completo)
-    const canUnlockIndividual = isBasicActive && targetPrice >= 44 && !isSubscriptionExpired;
+    // "Liberar Recurso (R$ 15)" só deve aparecer se o usuário estiver ATIVO em um plano básico
+    const canUnlockIndividual = isBasicActive && targetPrice >= 44;
     
     if (fallback) {
       return <>{fallback}</>;
