@@ -428,6 +428,25 @@ const AdminFinancialDashboard: React.FC = () => {
           </CardContent>
         </Card>
 
+        <Card className="border-l-4 border-l-purple-500 bg-gradient-to-br from-card to-card/80">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Receita Este Mês</p>
+                <p className="text-2xl font-bold text-foreground mt-1">
+                  {formatBRL(metrics.thisMonthRevenue)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Mês atual ({new Date().toLocaleDateString('pt-BR', { month: 'long' })})
+                </p>
+              </div>
+              <div className="p-3 bg-purple-500/10 rounded-xl">
+                <Calendar className="h-6 w-6 text-purple-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="border-l-4 border-l-green-500 bg-gradient-to-br from-card to-card/80">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
