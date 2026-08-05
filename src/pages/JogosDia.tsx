@@ -184,7 +184,15 @@ const JogosDia = () => {
         'LogoCasa': jogo['Logo Casa'] || '',
         'LogoFora': jogo['Logo Fora'] || '',
         'Link1': jogo['Link 1'] || '',
-        'Link2': jogo['Link 2'] || ''
+        'Link2': jogo['Link 2'] || '',
+        // Mapeamento extra com espaços para compatibilidade máxima com a tabela destino
+        'Time Casa': jogo['Time Casa'],
+        'Time Fora': jogo['Time Fora'],
+        'Logo Casa': jogo['Logo Casa'],
+        'Logo Fora': jogo['Logo Fora'],
+        'Data Horario': jogo['Data Horario'],
+        'Link 1': jogo['Link 1'] || '',
+        'Link 2': jogo['Link 2'] || ''
       };
 
       const success = await baserowService.createRow(targetTableId, data);
