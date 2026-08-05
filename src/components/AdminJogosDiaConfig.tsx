@@ -17,6 +17,7 @@ const AdminJogosDiaConfig: React.FC = () => {
   const [sourceBaseUrl, setSourceBaseUrl] = useState('');
   const [contentTableId, setContentTableId] = useState('');
   const [isActive, setIsActive] = useState(false);
+  const [frequency, setFrequency] = useState<'daily' | 'hourly'>('daily');
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
@@ -27,6 +28,7 @@ const AdminJogosDiaConfig: React.FC = () => {
       setSourceBaseUrl(globalConfig.sourceBaseUrl || '');
       setContentTableId(globalConfig.contentTableId || '');
       setIsActive(!!globalConfig.isActive);
+      setFrequency((globalConfig as any).frequency || 'daily');
     }
   }, [globalConfig]);
 
@@ -48,6 +50,7 @@ const AdminJogosDiaConfig: React.FC = () => {
         episodeKeyField: '',
         episodeSearchField: '',
         isActive,
+        frequency,
       });
     } finally {
       setIsSaving(false);
@@ -136,6 +139,24 @@ const AdminJogosDiaConfig: React.FC = () => {
             </p>
           </div>
           <Switch checked={isActive} onCheckedChange={setIsActive} />
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg border border-border p-4">
+          <div>
+            <p className="text-sm font-medium">Frequência de Importação Automática</p>
+            <p className="text-xs text-muted-foreground">
+              Define o intervalo entre as atualizações automáticas dos jogos.
+            </p>
+          </div>
+          <Select value={frequency} onValueChange={(v: any) => setFrequency(v)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Frequência" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hourly">De hora em hora</SelectItem>
+              <SelectItem value="daily">Diariamente</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex flex-wrap gap-3">
