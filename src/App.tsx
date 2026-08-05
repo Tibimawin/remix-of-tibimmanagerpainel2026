@@ -296,7 +296,7 @@ const App = () => {
 
                               <Route path="/jogos-dia" element={
                                 <SimpleProtectedRoute>
-                                  <PermissionGate permission="jogos-dia">
+                                  <PermissionGate feature="jogos-dia">
                                     <Layout>
                                       <JogosDia />
                                     </Layout>
