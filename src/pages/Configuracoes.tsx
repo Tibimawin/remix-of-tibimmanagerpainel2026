@@ -149,6 +149,7 @@ const Configuracoes = () => {
       categoriaNovelas: config?.tableIds?.categoriaNovelas || '',
       perfil: config?.tableIds?.perfil || '',
       meusAplicativos: config?.tableIds?.meusAplicativos || '',
+      jogosDia: config?.tableIds?.jogosDia || '',
     }
   });
 
@@ -183,6 +184,7 @@ const Configuracoes = () => {
           categoriaNovelas: config.tableIds?.categoriaNovelas || '',
           perfil: config.tableIds?.perfil || '',
           meusAplicativos: config.tableIds?.meusAplicativos || '',
+          jogosDia: config.tableIds?.jogosDia || '',
         }
       });
     }
@@ -461,6 +463,21 @@ const Configuracoes = () => {
                         onChange={(e) => handleInputChange('tableIds.canaisTv', e.target.value)}
                       />
                       <p className="text-xs text-muted-foreground">Canais de TV ao vivo e IPTV</p>
+                    </div>
+
+                    {/* Jogos do Dia */}
+                    <div className="space-y-1">
+                      <Label htmlFor="jogosDia" className="flex items-center gap-2">
+                        <Trophy className="h-4 w-4 text-orange-500" />
+                        Tabela de Jogos do Dia (Tibim)
+                      </Label>
+                      <Input
+                        id="jogosDia"
+                        placeholder="ID da tabela"
+                        value={formData.tableIds.jogosDia}
+                        onChange={(e) => handleInputChange('tableIds.jogosDia', e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Tabela destino para importação de jogos esportivos</p>
                     </div>
 
                     {/* Planos 1 */}
