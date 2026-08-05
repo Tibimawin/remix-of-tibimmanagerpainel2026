@@ -202,7 +202,8 @@ export class BaserowService {
           });
           
           if (response.status === 401) {
-            throw new Error('Token do Baserow inválido ou expirado. Verifique as configurações em IDs das Tabelas.');
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`Erro de Autorização (401): ${errorData.message || 'Seu Token do Baserow está inválido ou ausente. Verifique se o seu navegador não está bloqueando o Firestore (AdBlock) e salve as configurações novamente.'}`);
           }
 
           if (response.status === 400 && errorText.includes('ERROR_USER_NOT_IN_GROUP')) {
