@@ -400,24 +400,7 @@ const JogosDia = () => {
                       </div>
 
                       {/* Actions */}
-                      <div className="p-4 pt-0 flex gap-2">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button 
-                                variant="outline" 
-                                size="icon" 
-                                className="rounded-xl border-white/5 hover:bg-white/10"
-                                asChild
-                              >
-                                <a href={jogo.Link} target="_blank" rel="noopener noreferrer">
-                                  <ExternalLink className="w-4 h-4" />
-                                </a>
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Ver Fonte Original</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                      <div className="p-4 pt-0">
 
                         <Button 
                           className={`flex-1 rounded-xl font-bold transition-all duration-300 ${
