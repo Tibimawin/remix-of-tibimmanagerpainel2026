@@ -820,36 +820,42 @@ export const AdminFirebaseUsers: React.FC = () => {
       </div>
 
       <div className="grid gap-4">
-        {filteredUsers.map((user) => (
-          <Card 
-            key={user.uid} 
-            className={`hover:shadow-md transition-all duration-200 ${selectedUids.includes(user.uid) ? 'border-primary bg-primary/5' : ''}`}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <input 
-                    type="checkbox" 
-                    checked={selectedUids.includes(user.uid)}
-                    onChange={() => toggleSelectUser(user.uid)}
-                    className="rounded border-gray-300 text-primary focus:ring-primary"
-                  />
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                    <Users className="h-6 w-6 text-primary" />
-                  </div>
+        {filteredUsers.map((user) => {
+          // Vamos buscar o plano deste usuário em tempo real a partir de um mapa de permissões
+          // Para evitar complexidade de N hooks, usaremos o componente UserPlanBadge
+          return (
+            <Card 
+              key={user.uid} 
+              className={`hover:shadow-md transition-all duration-200 ${selectedUids.includes(user.uid) ? 'border-primary bg-primary/5' : ''}`}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedUids.includes(user.uid)}
+                      onChange={() => toggleSelectUser(user.uid)}
+                      className="rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                      <Users className="h-6 w-6 text-primary" />
+                    </div>
 
-                  <div>
-                    <h3 className="font-semibold">{user.name}</h3>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      {getStatusBadge(user)}
-                      <Badge variant="outline">
-                        <CalendarDays className="h-3 w-3 mr-1" />
-                        {user.accessDays} dias totais
-                      </Badge>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">{user.name}</h3>
+                        <UserPlanBadge userId={user.uid} />
+                      </div>
+                      <p className="text-sm text-muted-foreground">{user.email}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {getStatusBadge(user)}
+                        <Badge variant="outline">
+                          <CalendarDays className="h-3 w-3 mr-1" />
+                          {user.accessDays} dias totais
+                        </Badge>
+                      </div>
                     </div>
                   </div>
-                </div>
 
                 <div className="text-right space-y-2">
                   <div className="text-sm text-muted-foreground">
@@ -869,7 +875,8 @@ export const AdminFirebaseUsers: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       {filteredUsers.length === 0 && (
