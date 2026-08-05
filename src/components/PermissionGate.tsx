@@ -148,17 +148,17 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
               <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
                 <div>
                   <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-                    Assine o Premium
+                    Acesso Restrito
                   </h2>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Aproveite recursos avançados para gerenciar sua plataforma
+                    Este recurso faz parte do módulo Premium. Escolha um plano para desbloquear.
                   </p>
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-background/60 px-3 py-1 border text-xs text-muted-foreground self-start sm:self-end">
                   <Shield className="h-3.5 w-3.5" />
-                  Plano atual:
+                  Status:
                   <span className="font-medium text-foreground">
-                    {permissions?.planName || 'Grátis'}
+                    {permissions?.planName || 'Nível Básico'}
                   </span>
                 </div>
               </div>
@@ -206,7 +206,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                         <h3 className="text-2xl font-bold text-foreground">{plan.name}</h3>
                       </div>
                       <p className="text-xs text-muted-foreground mb-5 line-clamp-2">
-                        {plan.description || 'Acesso premium completo'}
+                        {plan.description || `Desbloqueia ${feature.replace(/-/g, ' ')} e outros recursos avançados`}
                       </p>
 
                       <div className="mb-5">
