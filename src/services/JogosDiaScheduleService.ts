@@ -92,9 +92,23 @@ export class JogosDiaScheduleService {
             'Link': jogo.Link,
             'Categoria': jogo.Campeonato || 'Jogos do Dia',
             'Logo': jogo['Logo Casa'] || '',
+            'Capa': jogo['Logo Casa'] || '',
             'TimeCasa': jogo['Time Casa'],
             'TimeFora': jogo['Time Fora'],
-            'Campeonato': jogo.Campeonato
+            'Campeonato': jogo.Campeonato,
+            'Data': jogo['Data Horario'] || '',
+            'LogoCasa': jogo['Logo Casa'] || '',
+            'LogoFora': jogo['Logo Fora'] || '',
+            'Link1': jogo['Link 1'] || '',
+            'Link2': jogo['Link 2'] || '',
+            // Inclusão de mapeamento com nomes originais (com espaços) para garantir compatibilidade total
+            'Time Casa': jogo['Time Casa'],
+            'Time Fora': jogo['Time Fora'],
+            'Logo Casa': jogo['Logo Casa'],
+            'Logo Fora': jogo['Logo Fora'],
+            'Data Horario': jogo['Data Horario'],
+            'Link 1': jogo['Link 1'] || '',
+            'Link 2': jogo['Link 2'] || ''
           };
 
           if (match) {

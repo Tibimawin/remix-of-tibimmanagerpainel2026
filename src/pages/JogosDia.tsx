@@ -175,21 +175,37 @@ const JogosDia = () => {
         'Nome': jogo.Nome,
         'Link': jogo.Link,
         'Categoria': jogo.Campeonato || 'Jogos do Dia',
-        'Capa': jogo['Logo Casa'] || '', // Usamos o logo do time da casa como capa se necessário
+        'Capa': jogo['Logo Casa'] || '',
         'Logo': jogo['Logo Casa'] || '',
         'Data': jogo['Data Horario'] || '',
         'TimeCasa': jogo['Time Casa'],
         'TimeFora': jogo['Time Fora'],
-        'Campeonato': jogo.Campeonato
+        'Campeonato': jogo.Campeonato,
+        'LogoCasa': jogo['Logo Casa'] || '',
+        'LogoFora': jogo['Logo Fora'] || '',
+        'Link1': jogo['Link 1'] || '',
+        'Link2': jogo['Link 2'] || '',
+        // Mapeamento extra com espaços para compatibilidade máxima com a tabela destino
+        'Time Casa': jogo['Time Casa'],
+        'Time Fora': jogo['Time Fora'],
+        'Logo Casa': jogo['Logo Casa'],
+        'Logo Fora': jogo['Logo Fora'],
+        'Data Horario': jogo['Data Horario'],
+        'Link 1': jogo['Link 1'] || '',
+        'Link 2': jogo['Link 2'] || ''
       };
 
-      const success = await baserowService.createRow(targetTableId, data);
+      // Verificar se já existe para evitar duplicados na importação manual
+      const existing = await baserowService.getTableData(targetTableId, 1, 10, jogo.Nome);
+      const match = existing.results?.find((r: any) => r.Link === jogo.Link || r['Link'] === jogo.Link);
 
-      if (success) {
-        toast.success(`Jogo ${jogo.Nome} importado com sucesso!`);
-        setJogos(prev => prev.map(j => j.id === jogo.id ? { ...j, imported: true } : j));
+      let success;
+      if (match) {
+        success = await baserowService.updateRow(targetTableId, String(match.id), data);
+        toast.success(`Jogo ${jogo.Nome} já existia e foi atualizado!`);
       } else {
-        toast.error('Falha ao importar jogo');
+        success = await baserowService.createRow(targetTableId, data);
+        toast.success(`Jogo ${jogo.Nome} importado com sucesso!`);
       }
     } catch (error) {
       toast.error('Erro durante a importação');
