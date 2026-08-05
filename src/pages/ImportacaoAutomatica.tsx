@@ -260,7 +260,9 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
       return;
     }
 
-    const hasRequiredTableId = isMiniseries ? !!(userConfig.tableIds as any)?.miniseries : !!userConfig.contentTableId;
+    const hasRequiredTableId = isMiniseries 
+      ? (!!(userConfig.tableIds as any)?.miniseries && !!(userConfig.tableIds as any)?.miniseriesEpisodios)
+      : !!userConfig.contentTableId;
 
     if (!configValid || !hasRequiredTableId) {
       const fieldToFocus = isMiniseries ? 'miniseries' : 'conteudos';
@@ -279,7 +281,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
             <div className="flex-1">
               <h4 className="font-bold text-sm mb-1">Tabela de {tableName} não configurada</h4>
               <p className="text-xs text-muted-foreground mb-3">
-                Você precisa configurar o ID da tabela de {tableName.toLowerCase()} nas configurações antes de importar.
+                Você precisa configurar o ID da tabela de {tableName.toLowerCase()} {isMiniseries ? 'e de episódios de minisséries ' : ''} nas configurações antes de importar.
               </p>
               <Button
                 size="sm"
