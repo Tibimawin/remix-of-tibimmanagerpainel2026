@@ -17,7 +17,7 @@ import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import UserSecuritySettings from '@/components/UserSecuritySettings';
 import { AppearanceSettings } from '@/components/AppearanceSettings';
 import { useOnboarding } from '@/hooks/useOnboarding';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 // Componente para configurações do Tutorial
 const TutorialSettings: React.FC = () => {
@@ -117,7 +117,10 @@ const Configuracoes = () => {
   const { mode } = useTypeMode();
   const { config: userConfig, loading: userConfigLoading } = useUserConfig();
   const { userInfo } = useSimpleAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [saving, setSaving] = useState(false);
+
   const SAVE_TIMEOUT_MS = 15000;
   const [lastSaveStatus, setLastSaveStatus] = useState<'idle' | 'success' | 'error' | 'quota' | 'timeout'>('idle');
   const [lastSaveAt, setLastSaveAt] = useState<string | null>(null);
@@ -189,6 +192,32 @@ const Configuracoes = () => {
       });
     }
   }, [config]);
+
+  // Focar no campo específico quando redirecionado de outra página
+  useEffect(() => {
+    const focusField = (location.state as any)?.focusField;
+    if (focusField) {
+      // Garantir que a aba API esteja ativa
+      const tabTrigger = document.querySelector('[value="api"]') as HTMLElement | null;
+      if (tabTrigger) tabTrigger.click();
+
+      setTimeout(() => {
+        const element = document.getElementById(`${focusField}-field`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const input = element.querySelector('input');
+          if (input) {
+            input.focus();
+            input.classList.add('ring-2', 'ring-yellow-500', 'ring-offset-2');
+            setTimeout(() => input.classList.remove('ring-2', 'ring-yellow-500', 'ring-offset-2'), 3000);
+          }
+        }
+      }, 300);
+
+      // Limpar o state para não repetir o foco em refresh
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.state, navigate]);
 
   const handleInputChange = (field: string, value: string) => {
     if (field.startsWith('tableIds.')) {
@@ -466,16 +495,20 @@ const Configuracoes = () => {
                     </div>
 
                     {/* Jogos do Dia */}
-                    <div className="space-y-1">
+                    <div className="space-y-1" id="jogosDia-field">
                       <Label htmlFor="jogosDia" className="flex items-center gap-2">
                         <Trophy className="h-4 w-4 text-orange-500" />
                         Tabela de Jogos do Dia (Tibim)
+                        <span className="text-[10px] bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-full">
+                          Obrigatório
+                        </span>
                       </Label>
                       <Input
                         id="jogosDia"
                         placeholder="ID da tabela"
                         value={formData.tableIds.jogosDia}
                         onChange={(e) => handleInputChange('tableIds.jogosDia', e.target.value)}
+                        className="focus-visible:ring-yellow-500"
                       />
                       <p className="text-xs text-muted-foreground">Tabela destino para importação de jogos esportivos</p>
                     </div>

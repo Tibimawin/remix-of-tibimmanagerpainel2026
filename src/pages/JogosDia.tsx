@@ -12,7 +12,8 @@ import {
   Users,
   Clock,
   Activity,
-  History
+  History,
+  Settings
 } from 'lucide-react';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useGlobalJogosDiaConfig } from '@/hooks/useGlobalJogosDiaConfig';
@@ -27,6 +28,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useNavigate } from 'react-router-dom';
+
 
 interface JogoDia {
   id: string;
@@ -46,6 +49,7 @@ interface JogoDia {
 const JogosDia = () => {
   const { config } = useConfig();
   const { userInfo } = useSimpleAuth();
+  const navigate = useNavigate();
   const { globalConfig, loading: loadingConfig } = useGlobalJogosDiaConfig();
   const [jogos, setJogos] = useState<JogoDia[]>([]);
   const [loading, setLoading] = useState(false);
@@ -61,6 +65,7 @@ const JogosDia = () => {
     total: number;
     message?: string;
   } | null>(null);
+
 
   const fetchJogos = async () => {
     if (!globalConfig?.isActive || !globalConfig?.contentTableId) return;
@@ -128,9 +133,36 @@ const JogosDia = () => {
     const targetTableId = config?.tableIds?.jogosDia;
     
     if (!targetTableId) {
-      toast.error('Você precisa configurar o ID do jogo ao dia nas configurações dos Ids antes de importar.', {
-        duration: 5000,
-      });
+      toast.custom((t) => (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card border border-white/10 rounded-xl p-4 shadow-xl max-w-md"
+        >
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-yellow-500/10 rounded-lg">
+              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-bold text-sm mb-1">Tabela de Jogos do Dia não configurada</h4>
+              <p className="text-xs text-muted-foreground mb-3">
+                Você precisa configurar o ID do jogo ao dia nas configurações dos Ids das tabelas antes de importar.
+              </p>
+              <Button
+                size="sm"
+                className="w-full gap-2"
+                onClick={() => {
+                  toast.dismiss(t);
+                  navigate('/configuracoes', { state: { focusField: 'jogosDia' } });
+                }}
+              >
+                <Settings className="w-4 h-4" />
+                Configurar ID da Tabela
+              </Button>
+            </div>
+          </div>
+        </motion.div>
+      ), { duration: 8000 });
       return;
     }
 
