@@ -171,7 +171,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
               <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
                 <div>
                   <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-                    Acesso Restrito
+                    {canUnlockIndividual ? 'Desbloqueio Disponível' : 'Acesso Restrito'}
                   </h2>
                   <p className="text-sm text-muted-foreground mt-2">
                     Este recurso faz parte do módulo Premium. Escolha um plano para desbloquear.
