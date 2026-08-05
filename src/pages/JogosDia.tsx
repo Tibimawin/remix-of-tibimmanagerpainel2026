@@ -111,7 +111,7 @@ const JogosDia = () => {
         'Campeonato': jogo.Campeonato
       };
 
-      const success = await baserowService.createRecord(config.tableIds.canaisTv, data);
+      const success = await baserowService.createRow(config.tableIds.canaisTv, data);
 
       if (success) {
         toast.success(`Jogo ${jogo.Nome} importado com sucesso!`);
