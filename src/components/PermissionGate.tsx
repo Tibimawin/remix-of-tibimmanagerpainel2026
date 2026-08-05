@@ -14,6 +14,7 @@ import {
   Star,
   Rocket,
   CreditCard,
+  RefreshCw,
 } from 'lucide-react';
 import { Plan, AVAILABLE_FEATURES } from '@/types/planTypes';
 import AsaasPixPaymentDialog from './AsaasPixPaymentDialog';
