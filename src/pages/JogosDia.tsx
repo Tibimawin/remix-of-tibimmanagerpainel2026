@@ -49,6 +49,7 @@ interface JogoDia {
 const JogosDia = () => {
   const { config } = useConfig();
   const { userInfo } = useSimpleAuth();
+  const navigate = useNavigate();
   const { globalConfig, loading: loadingConfig } = useGlobalJogosDiaConfig();
   const [jogos, setJogos] = useState<JogoDia[]>([]);
   const [loading, setLoading] = useState(false);
@@ -64,6 +65,7 @@ const JogosDia = () => {
     total: number;
     message?: string;
   } | null>(null);
+
 
   const fetchJogos = async () => {
     if (!globalConfig?.isActive || !globalConfig?.contentTableId) return;
