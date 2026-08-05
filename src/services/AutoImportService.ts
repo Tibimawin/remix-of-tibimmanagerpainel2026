@@ -1129,16 +1129,15 @@ export class AutoImportService {
           // Determinar tabela alvo baseado no tipo e modo
           let targetTableId = validatedUserConfig.contentTableId;
 
-          // Se for minissérie, usar tabela específica se configurada
-          if (isMiniseries && (validatedUserConfig.tableIds as any)?.miniseries) {
-            targetTableId = (validatedUserConfig.tableIds as any).miniseries;
-          }
-
-          console.log(`🎯 Tabela de destino selecionada: ${targetTableId} (isMiniseries: ${isMiniseries})`);
-
-          // Se for minissérie, usar tabela específica se configurada
-          if (isMiniseries && (validatedUserConfig.tableIds as any)?.miniseries) {
-            targetTableId = (validatedUserConfig.tableIds as any).miniseries;
+          // Se for minissérie, usar obrigatoriamente a tabela específica
+          if (isMiniseries) {
+            const miniseriesTableId = (validatedUserConfig.tableIds as any)?.miniseries;
+            if (!miniseriesTableId) {
+              console.error('❌ [AutoImport] Tabela de minisséries não configurada.');
+              errors.push(`A tabela de minisséries não foi configurada. Configure o ID em Configurações > IDs das Tabelas.`);
+              continue;
+            }
+            targetTableId = miniseriesTableId;
           }
 
           console.log(`🎯 Tabela de destino selecionada: ${targetTableId} (isMiniseries: ${isMiniseries})`);
@@ -1324,8 +1323,13 @@ export class AutoImportService {
 
           // Processar episódios para Séries ou Minisséries
           let episodeTargetTableId = validatedUserConfig.episodeTableId;
-          if (isMiniseries && (validatedUserConfig.tableIds as any)?.miniseriesEpisodios) {
-            episodeTargetTableId = (validatedUserConfig.tableIds as any).miniseriesEpisodios;
+          
+          if (isMiniseries) {
+            episodeTargetTableId = (validatedUserConfig.tableIds as any)?.miniseriesEpisodios;
+            if (!episodeTargetTableId) {
+              console.warn('⚠️ [AutoImport] Tabela de episódios de minissérie não configurada.');
+              errors.push(`Aviso: Episódios de "${titulo}" não foram importados pois a tabela de episódios de minissérie não foi configurada.`);
+            }
           }
 
           if ((content.Tipo === 'Serie' || isMiniseries) && episodeTargetTableId) {
