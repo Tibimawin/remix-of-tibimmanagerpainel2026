@@ -28,12 +28,21 @@ export default async function handler(req, res) {
         const isGet = req.method === 'GET';
         const { url, method = isGet ? 'GET' : 'POST', token, body } = isGet ? req.query : req.body;
 
+        // Se for apenas uma verificação de saúde do proxy sem URL alvo
+        if (!url && (req.method === 'HEAD' || (isGet && Object.keys(req.query).length === 0))) {
+            return res.status(200).json({ ok: true, service: 'baserow-proxy' });
+        }
+
         if (!url) {
-            // Se for apenas uma verificação de saúde do proxy sem URL alvo
-            if (req.method === 'HEAD' || (isGet && Object.keys(req.query).length === 0)) {
-                return res.status(200).json({ ok: true, service: 'baserow-proxy' });
-            }
             return res.status(400).json({ error: 'URL é obrigatória' });
+        }
+
+        if (!token) {
+            console.error('❌ [VERCEL PROXY] Erro: Token não fornecido no payload!');
+            return res.status(401).json({ 
+                error: 'Não autorizado', 
+                message: 'O token do Baserow não foi enviado pelo cliente. Verifique as configurações no painel.' 
+            });
         }
 
         console.log('🌐 [VERCEL PROXY] Nova requisição:', {
