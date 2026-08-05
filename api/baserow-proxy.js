@@ -61,11 +61,12 @@ export default async function handler(req, res) {
                 referer: req.headers['referer']
             });
             return res.status(401).json({ 
-                error: 'Não autorizado', 
-                message: 'O token do Baserow não foi enviado pelo cliente. Verifique as configurações no painel.',
+                error: 'Não autorizado (Token Ausente)', 
+                message: 'O token do Baserow não foi enviado pelo cliente. Isso pode ocorrer se as configurações globais não foram carregadas corretamente ou se o banco de dados (Firebase) está sendo bloqueado pelo seu navegador/AdBlock.',
                 debug: {
                     receivedUrl: url,
-                    receivedMethod: method
+                    receivedMethod: method,
+                    timestamp: new Date().toISOString()
                 }
             });
         }
