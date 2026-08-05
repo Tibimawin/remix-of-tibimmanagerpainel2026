@@ -22,6 +22,12 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle2,
+  AlertTriangle,
+  Settings,
+  Download,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
   TestTube,
   Save,
   Cloud,
@@ -125,6 +131,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
         baseUrl: cloudConfig.baseUrl || '',
         contentTableId: cloudConfig.tableIds?.conteudos || '',
         episodeTableId: cloudConfig.tableIds?.episodios || '',
+        miniseriesTableId: cloudConfig.tableIds?.miniseries || '',
         tableIds: cloudConfig.tableIds
       };
       setUserConfig(cloudUserConfig);
