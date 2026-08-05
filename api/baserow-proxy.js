@@ -20,7 +20,10 @@ export default async function handler(req, res) {
 
     console.log('🌐 [VERCEL PROXY] Requisição recebida:', {
         method: req.method,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        queryKeys: Object.keys(req.query),
+        contentType: req.headers['content-type'],
+        userAgent: req.headers['user-agent']
     });
 
     try {
@@ -119,10 +122,8 @@ export default async function handler(req, res) {
         let lastResponseText = '';
         let lastContentType = '';
         const RETRY_STATUSES = [403, 500, 502, 503, 504];
-        // Reduzido para 2 tentativas: o cliente já faz retries com backoff,
-        // e múltiplas tentativas aqui estouram o limite de 30s do Vercel.
-        const MAX_ATTEMPTS = 2;
-        const FETCH_TIMEOUT_MS = 12000;
+        const MAX_ATTEMPTS = 3; 
+        const FETCH_TIMEOUT_MS = 20000; // Aumentado para 20s para dar mais fôlego ao Baserow em requisições pesadas (muitas linhas)
         
         // Log para depuração de URL e Token (apenas se não for produção ou se estiver com erro)
         console.log(`🌐 [VERCEL PROXY] Processando request: ${method} ${url?.substring(0, 100)}`);

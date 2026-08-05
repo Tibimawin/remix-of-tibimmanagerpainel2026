@@ -52,16 +52,30 @@ export class BaserowService {
         throw new Error('Configuração do Baserow incompleta: Token ausente. Vá em Configurações > IDs das Tabelas.');
       }
 
-      const response = await fetch(this.proxyUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(proxyPayload)
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000); 
 
-      return response;
+      try {
+        const response = await fetch(this.proxyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(proxyPayload),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+        return response;
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          console.error('❌ [BaserowService] TIMEOUT na requisição ao Proxy');
+          throw new Error('A requisição ao servidor demorou muito (Timeout). Tente novamente em instantes.');
+        }
+        throw err;
+      }
     } else {
       // HTTPS direto
       console.log('🔗 [BaserowService] Requisição DIRETA (HTTPS):', {
