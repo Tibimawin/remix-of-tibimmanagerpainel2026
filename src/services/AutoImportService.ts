@@ -1323,8 +1323,13 @@ export class AutoImportService {
 
           // Processar episódios para Séries ou Minisséries
           let episodeTargetTableId = validatedUserConfig.episodeTableId;
-          if (isMiniseries && (validatedUserConfig.tableIds as any)?.miniseriesEpisodios) {
-            episodeTargetTableId = (validatedUserConfig.tableIds as any).miniseriesEpisodios;
+          
+          if (isMiniseries) {
+            episodeTargetTableId = (validatedUserConfig.tableIds as any)?.miniseriesEpisodios;
+            if (!episodeTargetTableId) {
+              console.warn('⚠️ [AutoImport] Tabela de episódios de minissérie não configurada.');
+              errors.push(`Aviso: Episódios de "${titulo}" não foram importados pois a tabela de episódios de minissérie não foi configurada.`);
+            }
           }
 
           if ((content.Tipo === 'Serie' || isMiniseries) && episodeTargetTableId) {
