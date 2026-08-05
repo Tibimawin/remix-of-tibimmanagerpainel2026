@@ -63,7 +63,19 @@ class CloakServiceImpl {
     features?: string[];
   }): Promise<string | null> {
     try {
+      const idToken = await auth.currentUser?.getIdToken();
       const { data, error } = await supabase.functions.invoke('cloak', {
+        body: {
+          action: 'sync-user',
+          firebase_uid: params.uid,
+          email: params.email ?? null,
+          name: params.name ?? null,
+          expires_at: params.expiresAt ?? null,
+          blocked: params.blocked === true,
+          features: Array.isArray(params.features) ? params.features : [],
+        },
+        headers: idToken ? { Authorization: `Bearer ${idToken}` } : undefined
+      });
         body: {
           action: 'sync-user',
           firebase_uid: params.uid,
@@ -177,8 +189,10 @@ class CloakServiceImpl {
 
         for (let attempt = 1; attempt <= 3 && !saved; attempt++) {
           try {
+            const idToken = await auth.currentUser?.getIdToken();
             const { error } = await supabase.functions.invoke('cloak', {
               body: { action: 'register-links', links: chunk },
+              headers: idToken ? { Authorization: `Bearer ${idToken}` } : undefined
             });
             if (error) throw error;
             saved = true;

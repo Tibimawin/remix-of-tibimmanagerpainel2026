@@ -154,6 +154,9 @@ class PushNotificationService {
           user_agent: navigator.userAgent,
           platform: 'web',
         },
+        headers: {
+          Authorization: `Bearer ${idToken}`
+        }
       });
       if (error || (data as any)?.error) throw error || new Error((data as any).error);
       localStorage.setItem('fcm_token_registered', token);
