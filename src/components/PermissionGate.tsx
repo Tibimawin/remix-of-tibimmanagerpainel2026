@@ -58,6 +58,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
 
   if (!hasFeature(feature)) {
     const hasActivePlan = permissions?.planName && permissions?.isActive && permissions?.expiryDate;
+    const isSubscriptionExpired = !permissions?.isActive;
     
     // Identifica se o usuário possui um dos planos base de 30 dias (R$ 30 a R$ 35)
     // Inclui: "Básico", "Mensal", "Painel + Baserow"
@@ -77,7 +78,8 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
     // Regra: "Liberar Recurso (R$ 15)" aparece se:
     // 1. Usuário tem plano básico/baserow ativo (isBasicActive)
     // 2. O recurso solicitado está em um plano superior (normalmente o de R$ 44,90)
-    const canUnlockIndividual = isBasicActive && targetPrice >= 44;
+    // 3. A assinatura NÃO está expirada (se estiver expirada, deve assinar um plano novo completo)
+    const canUnlockIndividual = isBasicActive && targetPrice >= 44 && !isSubscriptionExpired;
     
     if (fallback) {
       return <>{fallback}</>;
@@ -286,7 +288,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                 </div>
               </div>
 
-              {!canUnlockIndividual && (
+              {(isSubscriptionExpired || !canUnlockIndividual) && (
                 <div
                   className={`grid gap-5 ${
                     activePlans.length === 1
