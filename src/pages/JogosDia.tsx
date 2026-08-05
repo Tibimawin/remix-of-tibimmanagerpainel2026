@@ -48,7 +48,7 @@ interface JogoDia {
 
 const JogosDia = () => {
   const { config } = useConfig();
-  const { config: globalConfig, isLoading: loadingConfig } = useGlobalJogosDiaConfig();
+  const { globalConfig, loading: loadingConfig } = useGlobalJogosDiaConfig();
   const [jogos, setJogos] = useState<JogoDia[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
