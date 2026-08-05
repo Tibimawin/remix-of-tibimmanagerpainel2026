@@ -236,7 +236,9 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
           plataformas: cloudConfig?.tableIds?.plataformas || '',
           canaisTv: cloudConfig?.tableIds?.canaisTv || '',
           jogosDia: cloudConfig?.tableIds?.jogosDia || '',
-        }
+          miniseries: cloudConfig?.tableIds?.miniseries || '',
+          miniseriesEpisodios: cloudConfig?.tableIds?.miniseriesEpisodios || '',
+        } as any
       });
       localStorage.setItem('user-baserow-config', JSON.stringify(userConfig));
       toast.success('Configuração salva com sucesso!');
@@ -260,7 +262,9 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
       return;
     }
 
-    const hasRequiredTableId = isMiniseries ? !!(userConfig.tableIds as any)?.miniseries : !!userConfig.contentTableId;
+    const hasRequiredTableId = isMiniseries 
+      ? (!!userConfig.contentTableId && !!userConfig.episodeTableId)
+      : !!userConfig.contentTableId;
 
     if (!configValid || !hasRequiredTableId) {
       const fieldToFocus = isMiniseries ? 'miniseries' : 'conteudos';
@@ -279,7 +283,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
             <div className="flex-1">
               <h4 className="font-bold text-sm mb-1">Tabela de {tableName} não configurada</h4>
               <p className="text-xs text-muted-foreground mb-3">
-                Você precisa configurar o ID da tabela de {tableName.toLowerCase()} nas configurações antes de importar.
+                Você precisa configurar o ID da tabela de {tableName.toLowerCase()} {isMiniseries ? 'e de episódios de minisséries ' : ''} nas configurações antes de importar.
               </p>
               <Button
                 size="sm"
@@ -430,7 +434,8 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
             setEpisodeStatus({ seriesTitle: '', current: 0, total: 0, seasons: new Set(), currentSeason: '', currentEpisode: '', episodeTitle: '' });
           }
         },
-        enrichWithTmdb
+        enrichWithTmdb,
+        isMiniseries
       );
 
       setImportProgress(100);
@@ -742,7 +747,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
                 <div className="space-y-3">
                   <Label htmlFor="userContentTableId" className="flex items-center gap-2 text-sm font-medium">
                     <Table2 className="h-4 w-4 text-muted-foreground" />
-                    ID da Tabela de Conteúdos <span className="text-destructive">*</span>
+                    ID da Tabela de {isMiniseries ? 'Minisséries' : 'Conteúdos'} <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="userContentTableId"
@@ -756,7 +761,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
                 <div className="space-y-3">
                   <Label htmlFor="userEpisodeTableId" className="flex items-center gap-2 text-sm font-medium">
                     <Tv className="h-4 w-4 text-muted-foreground" />
-                    ID da Tabela de Episódios <span className="text-muted-foreground text-xs">(opcional)</span>
+                    ID da Tabela de Episódios {isMiniseries ? 'de Minisséries' : ''} <span className="text-muted-foreground text-xs">(opcional)</span>
                   </Label>
                   <Input
                     id="userEpisodeTableId"
@@ -766,6 +771,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
                     className="h-12"
                   />
                 </div>
+
               </div>
 
               <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-border/50">

@@ -56,8 +56,12 @@ export interface UserConfig {
   baseUrl: string;
   contentTableId: string;
   episodeTableId?: string;
+  miniseriesTableId?: string;
+  miniseriesEpisodeTableId?: string;
   tableIds?: {
     canaisTv?: string;
+    miniseries?: string;
+    miniseriesEpisodios?: string;
   };
 }
 
@@ -1063,7 +1067,8 @@ export class AutoImportService {
       title: string;
       status: 'processing' | 'success' | 'error';
     }) => void,
-    enrichWithTmdb: boolean = false
+    enrichWithTmdb: boolean = false,
+    isMiniseries: boolean = false
   ): Promise<{ success: number, errors: string[] }> {
     let success = 0;
     const errors: string[] = [];
@@ -1123,6 +1128,20 @@ export class AutoImportService {
 
           // Determinar tabela alvo baseado no tipo e modo
           let targetTableId = validatedUserConfig.contentTableId;
+
+          // Se for minissérie, usar tabela específica se configurada
+          if (isMiniseries && (validatedUserConfig.tableIds as any)?.miniseries) {
+            targetTableId = (validatedUserConfig.tableIds as any).miniseries;
+          }
+
+          console.log(`🎯 Tabela de destino selecionada: ${targetTableId} (isMiniseries: ${isMiniseries})`);
+
+          // Se for minissérie, usar tabela específica se configurada
+          if (isMiniseries && (validatedUserConfig.tableIds as any)?.miniseries) {
+            targetTableId = (validatedUserConfig.tableIds as any).miniseries;
+          }
+
+          console.log(`🎯 Tabela de destino selecionada: ${targetTableId} (isMiniseries: ${isMiniseries})`);
           const isTv = (content.Tipo || '').toUpperCase() === 'TV' ||
             (content.Tipo || '').toUpperCase().includes('TV') ||
             (content.Tipo || '').toUpperCase().includes('CANAL');
@@ -1303,9 +1322,15 @@ export class AutoImportService {
             }
           }
 
-          if (content.Tipo === 'Serie' && validatedUserConfig.episodeTableId) {
-            console.log('🎬 Série detectada, iniciando processamento de episódios...');
-            console.log('📂 ID da tabela de episódios configurada:', validatedUserConfig.episodeTableId);
+          // Processar episódios para Séries ou Minisséries
+          let episodeTargetTableId = validatedUserConfig.episodeTableId;
+          if (isMiniseries && (validatedUserConfig.tableIds as any)?.miniseriesEpisodios) {
+            episodeTargetTableId = (validatedUserConfig.tableIds as any).miniseriesEpisodios;
+          }
+
+          if ((content.Tipo === 'Serie' || isMiniseries) && episodeTargetTableId) {
+            console.log(`🎬 ${isMiniseries ? 'Minissérie' : 'Série'} detectada, iniciando processamento de episódios...`);
+            console.log('📂 ID da tabela de episódios configurada:', episodeTargetTableId);
 
             try {
               console.log('🔍 Verificando episódios já carregados...');
@@ -1363,7 +1388,7 @@ export class AutoImportService {
                       episode.Temporada,
                       episode.Episodio,
                       userBaserowService,
-                      validatedUserConfig.episodeTableId
+                      episodeTargetTableId
                     );
 
                     if (existingEpisode) {
@@ -1390,7 +1415,7 @@ export class AutoImportService {
                       }
 
                       await userBaserowService.updateRow(
-                        validatedUserConfig.episodeTableId,
+                        episodeTargetTableId,
                         existingEpisode.id,
                         episodeUpdate
                       );
@@ -1421,7 +1446,7 @@ export class AutoImportService {
                         .map(([key]) => key)
                       );
 
-                      const createdEpisode = await userBaserowService.createRow(validatedUserConfig.episodeTableId, episodeData);
+                      const createdEpisode = await userBaserowService.createRow(episodeTargetTableId, episodeData);
                       console.log('✅ Episódio criado:', createdEpisode);
 
                       // 🔧 FIX: Mesmo fix para episódios - buscar se resposta vier com null
