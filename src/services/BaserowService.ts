@@ -37,31 +37,26 @@ export class BaserowService {
         body: options.body || null
       };
 
-      // Usar fetch direto para Vercel Serverless.
-      // Importante: não fazer fallback automático em status 404, porque esse 404
-      // pode ser a resposta real do Baserow (tabela/registro inexistente), não a
-      // ausência da rota /api/baserow-proxy. O fallback para Edge Function estava
-      // gerando erro de CORS quando o proxy apenas repassava um 404 válido.
       console.log(`🌐 [BaserowService] Requisição via VERCEL PROXY:`, {
         method,
         proxyUrl: this.proxyUrl,
         originalUrl: originalUrl,
-        tokenPreview: this.apiToken.substring(0, 15) + '...',
-        tokenLength: this.apiToken.length,
+        tokenLength: this.apiToken?.length || 0,
       });
 
-      console.log('📦 [BaserowService] Payload para Vercel:', {
-        url: proxyPayload.url,
-        method: proxyPayload.method,
-        hasToken: !!proxyPayload.token,
-        tokenPreview: proxyPayload.token?.substring(0, 15) + '...',
-        hasBody: !!proxyPayload.body
-      });
+      // Validação básica de token antes de enviar
+      if (!this.apiToken || this.apiToken.length < 5) {
+        console.error('❌ [BaserowService] Erro: Token do Baserow ausente ou inválido!', { 
+          tokenLength: this.apiToken?.length 
+        });
+        throw new Error('Configuração do Baserow incompleta: Token ausente. Vá em Configurações > IDs das Tabelas.');
+      }
 
       const response = await fetch(this.proxyUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify(proxyPayload)
       });
@@ -191,8 +186,12 @@ export class BaserowService {
             endpoint
           });
           
+          if (response.status === 401) {
+            throw new Error('Token do Baserow inválido ou expirado. Verifique as configurações em IDs das Tabelas.');
+          }
+
           if (response.status === 400 && errorText.includes('ERROR_USER_NOT_IN_GROUP')) {
-            logger.warn('Sem permissão para acessar tabela');
+            logger.warn('Sem permissão para acessar tabela no Baserow. Verifique se o token tem acesso ao grupo/workspace.');
             return { results: [], count: 0 };
           }
           
