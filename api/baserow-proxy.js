@@ -25,9 +25,14 @@ export default async function handler(req, res) {
 
     try {
         // Extrair parâmetros do body ou query
-        const { url, method = 'GET', token, body } = req.method === 'GET' ? req.query : req.body;
+        const isGet = req.method === 'GET';
+        const { url, method = isGet ? 'GET' : 'POST', token, body } = isGet ? req.query : req.body;
 
         if (!url) {
+            // Se for apenas uma verificação de saúde do proxy sem URL alvo
+            if (req.method === 'HEAD' || (isGet && Object.keys(req.query).length === 0)) {
+                return res.status(200).json({ ok: true, service: 'baserow-proxy' });
+            }
             return res.status(400).json({ error: 'URL é obrigatória' });
         }
 

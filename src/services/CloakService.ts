@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { auth } from '@/config/firebase';
 
 /**
  * Sistema de camuflagem de links.
@@ -63,6 +64,7 @@ class CloakServiceImpl {
     features?: string[];
   }): Promise<string | null> {
     try {
+      const idToken = await auth.currentUser?.getIdToken();
       const { data, error } = await supabase.functions.invoke('cloak', {
         body: {
           action: 'sync-user',
@@ -70,10 +72,12 @@ class CloakServiceImpl {
           email: params.email ?? null,
           name: params.name ?? null,
           expires_at: params.expiresAt ?? null,
-          ...(typeof params.blocked === 'boolean' ? { blocked: params.blocked } : {}),
-          ...(Array.isArray(params.features) ? { features: params.features } : {}),
+          blocked: params.blocked === true,
+          features: Array.isArray(params.features) ? params.features : [],
         },
+        headers: idToken ? { Authorization: `Bearer ${idToken}` } : undefined
       });
+
       if (error) throw error;
       const token = (data as any)?.token as string | undefined;
       if (token) {
@@ -177,8 +181,10 @@ class CloakServiceImpl {
 
         for (let attempt = 1; attempt <= 3 && !saved; attempt++) {
           try {
+            const idToken = await auth.currentUser?.getIdToken();
             const { error } = await supabase.functions.invoke('cloak', {
               body: { action: 'register-links', links: chunk },
+              headers: idToken ? { Authorization: `Bearer ${idToken}` } : undefined
             });
             if (error) throw error;
             saved = true;
@@ -216,4 +222,3 @@ if (typeof window !== 'undefined') {
     if (CloakService.pendingCount > 0) void CloakService.flush();
   });
 }
-
