@@ -44,6 +44,7 @@ import ImportarM3U from "./pages/ImportarM3U";
 import ImportacaoAutomatica from "./pages/ImportacaoAutomatica";
 import Miniseries from "./pages/Miniseries";
 import AtualizacaoSeries from "./pages/AtualizacaoSeries";
+import JogosDia from "./pages/JogosDia";
 import Perfil from "./pages/Perfil";
 import HistoricoAcoes from "./pages/HistoricoAcoes";
 import Login from "./pages/Login";
@@ -287,6 +288,14 @@ const App = () => {
                                 <SimpleProtectedRoute>
                                   <Layout>
                                     <AtualizacaoSeries />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/jogos-dia" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <JogosDia />
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />
