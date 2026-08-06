@@ -63,7 +63,7 @@ export const BASEROW_PROXY_CONFIG = {
 ```typescript
 proxy: {
   '/api': {
-    target: 'https://tibimmanagerpain2025.vercel.app',
+    target: 'https://tibimmanagerpainel2026.vercel.app',
     changeOrigin: true,
     secure: true
   }
