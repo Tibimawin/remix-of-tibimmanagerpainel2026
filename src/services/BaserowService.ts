@@ -33,10 +33,11 @@ export class BaserowService {
       // 🛡️ Validação robusta de token
       const currentToken = this.apiToken?.trim();
       if (!currentToken || currentToken.length < 5) {
-        console.error('❌ [BaserowService] Erro: Token do Baserow ausente ou inválido!', { 
+        const errorMsg = 'Configuração do Baserow incompleta: Seu Token está ausente. Vá em Configurações > IDs das Tabelas e salve novamente.';
+        console.error('❌ [BaserowService] Erro:', errorMsg, { 
           tokenLength: currentToken?.length 
         });
-        throw new Error('Configuração do Baserow incompleta: Seu Token está ausente. Vá em Configurações > IDs das Tabelas e salve novamente.');
+        throw new Error(errorMsg);
       }
 
       const proxyPayload = {
