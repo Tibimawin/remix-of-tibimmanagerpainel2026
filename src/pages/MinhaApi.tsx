@@ -123,7 +123,7 @@ const MinhaApi = () => {
       const isVercel = host.endsWith('vercel.app');
       const apiBase = isLocal || isVercel
         ? ''
-        : (import.meta.env.VITE_VERCEL_PROXY_BASE || 'https://tibimmanagerpain2025.vercel.app');
+        : (import.meta.env.VITE_VERCEL_PROXY_BASE || 'https://tibimmanagerpainel2026.vercel.app');
       const url = `${apiBase}/api/public-api?api_key=${activeKey.key}&endpoint=${testEndpoint}&size=2`;
       const resp = await fetch(url);
       const data = await resp.json();
