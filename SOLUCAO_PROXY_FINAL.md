@@ -26,7 +26,7 @@ O sistema tinha **dois proxies** que causavam confusão e erros:
 │         ↓                                               │
 │   Vite Proxy                                            │
 │         ↓                                               │
-│   ➜ https://tibimmanagerpain2025.vercel.app/api/*      │
+│   ➜ https://tibimmanagerpainel2026.vercel.app/api/*      │
 │         ↓                                               │
 │   Vercel Serverless Function (PRODUÇÃO)                 │
 │         ↓                                               │
@@ -67,7 +67,7 @@ export const BASEROW_PROXY_CONFIG = {
 // Proxy configurado para redirecionar para PRODUÇÃO
 proxy: {
   '/api': {
-    target: 'https://tibimmanagerpain2025.vercel.app',
+    target: 'https://tibimmanagerpainel2026.vercel.app',
     changeOrigin: true,
     secure: true
   }
@@ -108,7 +108,7 @@ vercel --prod
 
 ### Em Desenvolvimento:
 1. Frontend faz request para `/api/baserow-proxy`
-2. Vite proxy intercepta e redireciona para `https://tibimmanagerpain2025.vercel.app/api/baserow-proxy`
+2. Vite proxy intercepta e redireciona para `https://tibimmanagerpainel2026.vercel.app/api/baserow-proxy`
 3. Serverless function do Vercel (em produção) processa
 4. Dados retornam para o frontend local
 
