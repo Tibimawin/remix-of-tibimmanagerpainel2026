@@ -65,10 +65,10 @@ class SeriesUpdateService {
         tableId: global?.sourceTableId || DEFAULT_SERIES_UPDATE_CONFIG.sourceTableId,
       };
 
-      if (!config.token) {
-        const errorMsg = '❌ [SeriesUpdateService] Token de ORIGEM ausente! Verifique se o seu navegador está bloqueando o Firestore (AdBlock) ou se o Admin configurou a origem.';
-        console.error(errorMsg);
-        // Não lançar erro aqui para permitir que o makeSystemRequest tente e pegue o 401 com mensagem detalhada
+      if (!config.token || config.token.length < 5) {
+        const errorMsg = 'Token de ORIGEM ausente ou inválido! Verifique as configurações de IDs das Tabelas.';
+        console.error('❌ [SeriesUpdateService]', errorMsg);
+        throw new Error(errorMsg);
       }
 
       console.log('📋 [SeriesUpdateService] Configuração de origem carregada:', {
