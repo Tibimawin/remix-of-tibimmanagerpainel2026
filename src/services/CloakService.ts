@@ -218,7 +218,12 @@ export const CloakService = new CloakServiceImpl();
 // Recupera e reenvia links que ficaram pendentes de sessões anteriores.
 if (typeof window !== 'undefined') {
   CloakService.restorePending();
-  window.addEventListener('beforeunload', () => {
-    if (CloakService.pendingCount > 0) void CloakService.flush();
-  });
+  
+  // Usar uma flag para garantir apenas um listener global
+  if (!(window as any)._cloakBeforeUnloadRegistered) {
+    window.addEventListener('beforeunload', () => {
+      if (CloakService.pendingCount > 0) void CloakService.flush();
+    });
+    (window as any)._cloakBeforeUnloadRegistered = true;
+  }
 }
