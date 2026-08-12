@@ -7,11 +7,12 @@
 
 export default async function handler(req, res) {
     // Habilitar CORS - CRÍTICO para domínios externos
+    // Definir headers básicos para CORS
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, access_token');
+    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, access_token, token');
     res.setHeader('Access-Control-Max-Age', '86400');
-    res.setHeader('Content-Type', 'application/json');
 
     // Responder a preflight requests com 200 OK sem corpo
     if (req.method === 'OPTIONS') {
