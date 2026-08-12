@@ -58,12 +58,16 @@ export class BaserowService {
       const timeoutId = setTimeout(() => controller.abort(), 20000); 
 
       try {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'access_token': currentToken, // Envia nos headers também por segurança CORS
+          'token': currentToken        // Backup redundante
+        };
+
         const response = await fetch(this.proxyUrl, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
+          headers,
           body: JSON.stringify(proxyPayload),
           signal: controller.signal
         });
