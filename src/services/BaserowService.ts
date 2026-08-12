@@ -33,9 +33,10 @@ export class BaserowService {
       // 🛡️ Validação robusta de token
       const currentToken = this.apiToken?.trim();
       if (!currentToken || currentToken.length < 5) {
-        const errorMsg = 'Configuração do Baserow incompleta: Seu Token está ausente. Vá em Configurações > IDs das Tabelas e salve novamente.';
+        const errorMsg = 'Configuração do Baserow incompleta: Seu Token está ausente ou inválido. Salve as configurações novamente para sincronizar.';
         console.error('❌ [BaserowService] Erro:', errorMsg, { 
-          tokenLength: currentToken?.length 
+          tokenLength: currentToken?.length,
+          baseUrl: this.baseUrl
         });
         throw new Error(errorMsg);
       }
