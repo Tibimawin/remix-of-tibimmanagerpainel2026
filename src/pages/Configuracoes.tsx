@@ -348,12 +348,19 @@ const Configuracoes = () => {
       toast.success('✅ Conexão estabelecida com sucesso!');
     } catch (error: any) {
       console.error('Erro ao testar conexão:', error);
-      if (error.message?.includes('401') || error.message?.includes('403')) {
-        toast.error('❌ Token de API inválido');
-      } else if (error.message?.includes('404')) {
-        toast.error('❌ ID da tabela não encontrado');
+      
+      const errorMessage = error.message || '';
+      
+      if (errorMessage.includes('401') || errorMessage.includes('Autorização')) {
+        toast.error('❌ Token de API inválido ou ausente. Verifique se salvou as configurações corretamente.');
+      } else if (errorMessage.includes('404')) {
+        toast.error('❌ ID da tabela não encontrado no Baserow');
+      } else if (errorMessage.includes('Timeout') || errorMessage.includes('demorou')) {
+        toast.error('❌ Tempo limite esgotado. Verifique se o servidor Baserow está online.');
+      } else if (errorMessage.includes('Token está ausente')) {
+        toast.error(`❌ ${errorMessage}`);
       } else {
-        toast.error('❌ Erro ao conectar ao Baserow');
+        toast.error(`❌ Erro ao conectar: ${errorMessage || 'Falha desconhecida'}`);
       }
     } finally {
       setSaving(false);
