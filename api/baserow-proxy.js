@@ -6,14 +6,14 @@
  */
 
 export default async function handler(req, res) {
-    // Habilitar CORS - CRÍTICO
+    // Habilitar CORS - CRÍTICO para domínios externos
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
     res.setHeader('Access-Control-Max-Age', '86400');
     res.setHeader('Content-Type', 'application/json');
 
-    // Responder a preflight requests com 200 OK
+    // Responder a preflight requests com 200 OK sem corpo
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
