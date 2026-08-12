@@ -1,4 +1,4 @@
-// Execute esta instrucao no projeto: corrija rota do proxy
+// Página de entrada redirecionando para o Dashboard
 import Dashboard from './Dashboard';
 
 const Index = () => {

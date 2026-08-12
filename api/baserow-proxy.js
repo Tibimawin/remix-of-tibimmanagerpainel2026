@@ -9,13 +9,13 @@ export default async function handler(req, res) {
     // Habilitar CORS - CRÍTICO
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+    res.setHeader('Access-Control-Max-Age', '86400');
     res.setHeader('Content-Type', 'application/json');
 
     // Responder a preflight requests com 200 OK
     if (req.method === 'OPTIONS') {
-        console.log('✅ [VERCEL PROXY] OPTIONS request - retornando 200');
-        return res.status(200).json({ ok: true });
+        return res.status(200).end();
     }
 
     console.log('🌐 [VERCEL PROXY] Requisição recebida:', {
