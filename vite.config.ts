@@ -30,7 +30,7 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       "/api": {
-        target: "https://tibimmanagerpainel2026.vercel.app",
+        target: "https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app",
         changeOrigin: true,
         secure: true,
         rewrite: (path) => path,
@@ -39,7 +39,7 @@ export default defineConfig(({ mode }) => ({
             console.log("⚠️ [PROXY ERROR]:", err.message);
           });
           proxy.on("proxyReq", (proxyReq, req, res) => {
-            const target = (options && (options as any).target) || "https://tibimmanagerpainel2026.vercel.app";
+            const target = (options && (options as any).target) || "https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app";
             const url = req.url || "";
             console.log("🔄 [PROXY] Redirecionando:", url, "→", target + url);
           });
