@@ -34,6 +34,7 @@ export const GrupoDuplicado: React.FC<Props> = ({
   selecionados,
   onToggleRegistro,
   onSelecionarGrupo,
+  onDesmarcarGrupo,
   manterId,
   onExcluir,
   desabilitado,
@@ -84,14 +85,26 @@ export const GrupoDuplicado: React.FC<Props> = ({
             </div>
           </div>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onSelecionarGrupo(grupo)}
-            disabled={desabilitado}
-          >
-            Marcar extras
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {selecionadosNoGrupo > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onDesmarcarGrupo(grupo)}
+                disabled={desabilitado}
+              >
+                Desmarcar
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onSelecionarGrupo(grupo)}
+              disabled={desabilitado}
+            >
+              Marcar extras
+            </Button>
+          </div>
         </div>
       </CardHeader>
 

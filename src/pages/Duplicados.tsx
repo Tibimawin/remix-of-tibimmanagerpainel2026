@@ -457,6 +457,7 @@ const Duplicados = () => {
               selecionados={selectedRows}
               onToggleRegistro={toggleRegistro}
               onSelecionarGrupo={marcarExtrasDoGrupo}
+              onDesmarcarGrupo={desmarcarGrupo}
               manterId={manterPorGrupo[grupo.key]}
               onExcluir={excluirUm}
               desabilitado={processingDelete}
