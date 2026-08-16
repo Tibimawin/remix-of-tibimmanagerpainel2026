@@ -29,8 +29,15 @@ import {
   X,
   Layers,
   Database,
+  ChevronDown,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { getValueByPossibleKeys } from '@/utils/baserowHelpers';
 
 const POR_PAGINA = 20;
@@ -149,6 +156,16 @@ const Duplicados = () => {
       grupo.records.forEach((r: any) => {
         const id = String(r.id);
         if (id !== manterId) next[id] = true;
+      });
+      return next;
+    });
+  };
+
+  const desmarcarGrupo = (grupo: any) => {
+    setSelectedRows(prev => {
+      const next = { ...prev };
+      grupo.records.forEach((r: any) => {
+        delete next[String(r.id)];
       });
       return next;
     });
@@ -341,14 +358,28 @@ const Duplicados = () => {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" onClick={() => marcarTodosExtras('views')} disabled={loading || processingDelete || !gruposFiltrados.length}>
-              Marcar extras (manter mais vistas)
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => marcarTodosExtras('antigo')} disabled={loading || processingDelete || !gruposFiltrados.length}>
-              Marcar extras (manter mais antiga)
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={loading || processingDelete || !gruposFiltrados.length}
+                >
+                  Marcar todos extras <ChevronDown className="ml-1 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => marcarTodosExtras('views')}>
+                  Manter a cópia com mais views
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => marcarTodosExtras('antigo')}>
+                  Manter a cópia mais antiga
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button size="sm" variant="ghost" onClick={() => setSelectedRows({})} disabled={!selectedIds.length}>
-              <X className="mr-1 h-4 w-4" /> Limpar seleção
+              <X className="mr-1 h-4 w-4" /> Desmarcar todos
             </Button>
             <Button
               size="sm"
@@ -426,6 +457,7 @@ const Duplicados = () => {
               selecionados={selectedRows}
               onToggleRegistro={toggleRegistro}
               onSelecionarGrupo={marcarExtrasDoGrupo}
+              onDesmarcarGrupo={desmarcarGrupo}
               manterId={manterPorGrupo[grupo.key]}
               onExcluir={excluirUm}
               desabilitado={processingDelete}

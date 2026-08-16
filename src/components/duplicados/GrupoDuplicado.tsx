@@ -14,6 +14,7 @@ interface Props {
   selecionados: Record<string, boolean>;
   onToggleRegistro: (record: any, grupo: any) => void;
   onSelecionarGrupo: (grupo: any) => void;
+  onDesmarcarGrupo: (grupo: any) => void;
   manterId: string;
   onExcluir: (record: any, grupo: any) => void;
   desabilitado?: boolean;
@@ -33,6 +34,7 @@ export const GrupoDuplicado: React.FC<Props> = ({
   selecionados,
   onToggleRegistro,
   onSelecionarGrupo,
+  onDesmarcarGrupo,
   manterId,
   onExcluir,
   desabilitado,
@@ -83,14 +85,26 @@ export const GrupoDuplicado: React.FC<Props> = ({
             </div>
           </div>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onSelecionarGrupo(grupo)}
-            disabled={desabilitado}
-          >
-            Marcar extras
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {selecionadosNoGrupo > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onDesmarcarGrupo(grupo)}
+                disabled={desabilitado}
+              >
+                Desmarcar
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onSelecionarGrupo(grupo)}
+              disabled={desabilitado}
+            >
+              Marcar extras
+            </Button>
+          </div>
         </div>
       </CardHeader>
 
