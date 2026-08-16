@@ -161,6 +161,16 @@ const Duplicados = () => {
     });
   };
 
+  const desmarcarGrupo = (grupo: any) => {
+    setSelectedRows(prev => {
+      const next = { ...prev };
+      grupo.records.forEach((r: any) => {
+        delete next[String(r.id)];
+      });
+      return next;
+    });
+  };
+
   const marcarTodosExtras = (criterio: 'views' | 'antigo') => {
     const next: Record<string, boolean> = {};
     gruposFiltrados.forEach(g => {
