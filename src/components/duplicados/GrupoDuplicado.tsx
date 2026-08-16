@@ -14,6 +14,7 @@ interface Props {
   selecionados: Record<string, boolean>;
   onToggleRegistro: (record: any, grupo: any) => void;
   onSelecionarGrupo: (grupo: any) => void;
+  onDesmarcarGrupo: (grupo: any) => void;
   manterId: string;
   onExcluir: (record: any, grupo: any) => void;
   desabilitado?: boolean;
