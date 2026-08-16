@@ -1,163 +1,207 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { useBaserowService } from '@/services/BaserowService';
+import { getValueByPossibleKeys } from '@/utils/baserowHelpers';
 
-interface DuplicateGroup {
+export interface DuplicateGroup {
   key: string;
   records: any[];
   fields: string[];
 }
 
-// Hook específico para duplicados com processamento ultra-otimizado
-export const useOptimizedDuplicates = (tableId: string, fields: string[], initialLimit: number = 5000) => {
-  const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
+export type MatchMode = 'nome' | 'nome-tipo' | 'nome-link' | 'link';
+
+export const MATCH_MODE_FIELDS: Record<MatchMode, string[]> = {
+  nome: ['Nome'],
+  'nome-tipo': ['Nome', 'Tipo'],
+  'nome-link': ['Nome', 'Link'],
+  link: ['Link'],
+};
+
+export const MATCH_MODE_LABELS: Record<MatchMode, string> = {
+  nome: 'Mesmo nome',
+  'nome-tipo': 'Mesmo nome + tipo',
+  'nome-link': 'Mesmo nome + link',
+  link: 'Mesmo link',
+};
+
+/** Normaliza um valor para comparação: minúsculo, sem acentos, sem pontuação extra */
+export const normalizeValue = (value: any): string => {
+  if (value === undefined || value === null) return '';
+  const raw = typeof value === 'object' ? (value.value ?? value.name ?? JSON.stringify(value)) : value;
+  return String(raw)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9:/._-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+const buildKey = (record: any, fields: string[]): string | null => {
+  const parts = fields.map(field => normalizeValue(getValueByPossibleKeys(record, field)));
+  // A chave principal (primeiro campo) precisa existir; os demais entram como "vazio"
+  if (!parts[0]) return null;
+  return parts.map(p => p || '∅').join('|');
+};
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+interface Options {
+  initialLimit?: number;
+  batchSize?: number;
+}
+
+export const useOptimizedDuplicates = (
+  tableId: string,
+  fieldsOrMode: string[] | MatchMode = 'nome-link',
+  options: Options = {}
+) => {
+  const { initialLimit = 20000, batchSize = 200 } = options;
+
+  const [rawRecords, setRawRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [currentLimit, setCurrentLimit] = useState(initialLimit);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [recordsScanned, setRecordsScanned] = useState(0);
+  const [currentLimit, setCurrentLimit] = useState(initialLimit);
   const [hasMoreData, setHasMoreData] = useState(false);
+
+  const [matchMode, setMatchMode] = useState<MatchMode>(
+    Array.isArray(fieldsOrMode) ? 'nome-link' : fieldsOrMode
+  );
+
   const baserowService = useBaserowService();
-  const workerRef = useRef<Worker | null>(null);
+  const cancelRef = useRef(false);
 
-  const findDuplicates = useCallback(async (expandLimit: boolean = false) => {
-    setLoading(true);
-    setProgress(0);
-    setError(null);
-    setDuplicates([]);
+  const fields = useMemo(() => MATCH_MODE_FIELDS[matchMode], [matchMode]);
 
-    try {
-      let allData: any[] = [];
-      let page = 1;
-      let hasMore = true;
-      let totalProcessed = 0;
-      let actualTotalCount = 0;
-
-      // Determinar limite atual
-      const limit = expandLimit ? currentLimit + initialLimit : currentLimit;
-
-      // Carregar dados em lotes maiores e paralelos com limite
-      const batchSize = 200;
-      const maxParallelRequests = 3;
-      
-      while (hasMore && totalProcessed < limit) {
-        const promises = [];
-        
-        // Fazer até 3 requisições paralelas
-        for (let i = 0; i < maxParallelRequests && hasMore && totalProcessed + (batchSize * (i + 1)) <= limit; i++) {
-          promises.push(
-            baserowService.getTableData(tableId, page + i, batchSize)
-              .then(batch => ({ batch, pageNum: page + i }))
-          );
+  const fetchPage = useCallback(
+    async (page: number): Promise<{ results: any[]; count: number } | null> => {
+      let lastError: any = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const data = await baserowService.getTableData(tableId, page, batchSize);
+          return { results: data?.results || [], count: data?.count || 0 };
+        } catch (err) {
+          lastError = err;
+          await sleep(300 * attempt);
         }
-        
-        const results = await Promise.allSettled(promises);
-        let batchesProcessed = 0;
-        
-        for (const result of results) {
-          if (result.status === 'fulfilled') {
-            const { batch, pageNum } = result.value;
-            
-            if (batch.results && batch.results.length > 0) {
-              // Limitar registros adicionados para não exceder o limite
-              const remainingSlots = limit - totalProcessed;
-              const recordsToAdd = batch.results.slice(0, remainingSlots);
-              
-              allData = allData.concat(recordsToAdd);
-              totalProcessed += recordsToAdd.length;
-              batchesProcessed++;
-              
-              // Guardar contagem total real
-              if (actualTotalCount === 0) {
-                actualTotalCount = batch.count || 0;
-              }
-              
-              // Atualizar progresso baseado no limite atual
-              setProgress(Math.min((totalProcessed / limit) * 50, 50));
-              
-              if (!batch.next || totalProcessed >= limit) {
-                hasMore = false;
-              }
-            } else {
-              hasMore = false;
-            }
-          }
-        }
-        
-        page += batchesProcessed || 1;
-        
-        if (batchesProcessed === 0 || totalProcessed >= limit) {
-          hasMore = false;
-        }
+      }
+      console.error(`Falha ao carregar página ${page} após 3 tentativas`, lastError);
+      return null;
+    },
+    [baserowService, batchSize]
+  );
 
-        // Pausa menor para não sobrecarregar
-        await new Promise(resolve => setTimeout(resolve, 5));
+  const scan = useCallback(
+    async (limit: number) => {
+      if (!tableId) {
+        setError('Tabela não configurada');
+        return;
       }
 
-      // Atualizar informações sobre dados restantes
-      setTotalRecords(actualTotalCount);
-      setHasMoreData(totalProcessed < actualTotalCount);
-      if (expandLimit) {
+      cancelRef.current = false;
+      setLoading(true);
+      setError(null);
+      setProgress(0);
+      setRawRecords([]);
+      setRecordsScanned(0);
+
+      try {
+        const all: any[] = [];
+        let page = 1;
+        let total = 0;
+        let failedPages = 0;
+
+        while (all.length < limit && !cancelRef.current) {
+          const result = await fetchPage(page);
+
+          if (!result) {
+            failedPages++;
+            if (failedPages >= 3) throw new Error('Falha repetida ao carregar dados do servidor.');
+            page++;
+            continue;
+          }
+
+          if (page === 1) {
+            total = result.count;
+            setTotalRecords(total);
+          }
+
+          if (result.results.length === 0) break;
+
+          all.push(...result.results);
+          setRecordsScanned(all.length);
+
+          const target = total > 0 ? Math.min(total, limit) : limit;
+          setProgress(Math.min(99, Math.round((all.length / target) * 100)));
+
+          if (result.results.length < batchSize) break;
+          page++;
+          await sleep(20);
+        }
+
+        const trimmed = all.slice(0, limit);
+        setRawRecords(trimmed);
+        setRecordsScanned(trimmed.length);
+        setHasMoreData(total > trimmed.length);
         setCurrentLimit(limit);
+        setProgress(100);
+      } catch (err: any) {
+        console.error('Erro ao buscar duplicados:', err);
+        setError(err?.message || 'Erro ao processar duplicados');
+      } finally {
+        setLoading(false);
       }
+    },
+    [tableId, fetchPage, batchSize]
+  );
 
-      // Processar duplicados usando Map para performance máxima
-      const groups = new Map<string, any[]>();
-      const chunkSize = 2000;
-      
-      for (let i = 0; i < allData.length; i += chunkSize) {
-        const chunk = allData.slice(i, i + chunkSize);
-        
-        // Processar chunk usando algoritmo otimizado
-        chunk.forEach(record => {
-          const key = fields
-            .map(field => {
-              const value = record[field];
-              return value ? value.toString().toLowerCase().trim() : '';
-            })
-            .filter(v => v.length > 0)
-            .join('|');
-          
-          if (key && key !== '') {
-            if (!groups.has(key)) {
-              groups.set(key, []);
-            }
-            groups.get(key)!.push(record);
-          }
-        });
+  const findDuplicates = useCallback(
+    (expandLimit: boolean = false) => scan(expandLimit ? currentLimit + initialLimit : currentLimit),
+    [scan, currentLimit, initialLimit]
+  );
 
-        // Atualizar progresso de processamento
-        setProgress(50 + ((i + chunkSize) / allData.length) * 50);
-        
-        // Yield controle para manter UI responsiva
-        if (i % (chunkSize * 2) === 0) {
-          await new Promise(resolve => setTimeout(resolve, 1));
-        }
-      }
+  const expandSearch = useCallback(() => scan(currentLimit + initialLimit), [scan, currentLimit, initialLimit]);
 
-      // Filtrar apenas grupos com duplicados e ordenar por tamanho
-      const duplicateGroups = Array.from(groups.entries())
-        .filter(([_, records]) => records.length > 1)
-        .map(([key, records]) => ({ 
-          key, 
-          records: records.sort((a, b) => (a.id || 0) - (b.id || 0)), 
-          fields 
-        }))
-        .sort((a, b) => b.records.length - a.records.length); // Maiores grupos primeiro
+  const scanAll = useCallback(() => scan(Number.MAX_SAFE_INTEGER), [scan]);
 
-      setDuplicates(duplicateGroups);
-      setProgress(100);
-      
-    } catch (error: any) {
-      console.error('Erro ao buscar duplicados:', error);
-      setError(error.message || 'Erro ao processar duplicados');
-    } finally {
-      setLoading(false);
+  const cancelScan = useCallback(() => {
+    cancelRef.current = true;
+  }, []);
+
+  /** Remove registros já excluídos sem refazer a varredura completa */
+  const removeRecordsLocally = useCallback((ids: Array<string | number>) => {
+    const set = new Set(ids.map(String));
+    setRawRecords(prev => prev.filter(r => !set.has(String(r.id))));
+  }, []);
+
+  const duplicates: DuplicateGroup[] = useMemo(() => {
+    const groups = new Map<string, any[]>();
+
+    for (const record of rawRecords) {
+      const key = buildKey(record, fields);
+      if (!key) continue;
+      const bucket = groups.get(key);
+      if (bucket) bucket.push(record);
+      else groups.set(key, [record]);
     }
-  }, [tableId, fields, baserowService, currentLimit, initialLimit]);
 
-  const expandSearch = useCallback(() => {
-    findDuplicates(true);
-  }, [findDuplicates]);
+    return Array.from(groups.entries())
+      .filter(([, records]) => records.length > 1)
+      .map(([key, records]) => ({
+        key,
+        records: [...records].sort((a, b) => Number(a.id || 0) - Number(b.id || 0)),
+        fields,
+      }))
+      .sort((a, b) => b.records.length - a.records.length);
+  }, [rawRecords, fields]);
+
+  const totalExcedentes = useMemo(
+    () => duplicates.reduce((acc, g) => acc + g.records.length - 1, 0),
+    [duplicates]
+  );
 
   return {
     duplicates,
@@ -166,8 +210,15 @@ export const useOptimizedDuplicates = (tableId: string, fields: string[], initia
     error,
     findDuplicates,
     expandSearch,
+    scanAll,
+    cancelScan,
+    removeRecordsLocally,
     currentLimit,
     totalRecords,
-    hasMoreData
+    recordsScanned,
+    hasMoreData,
+    totalExcedentes,
+    matchMode,
+    setMatchMode,
   };
 };
