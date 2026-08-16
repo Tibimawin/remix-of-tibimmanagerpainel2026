@@ -358,14 +358,28 @@ const Duplicados = () => {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" onClick={() => marcarTodosExtras('views')} disabled={loading || processingDelete || !gruposFiltrados.length}>
-              Marcar extras (manter mais vistas)
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => marcarTodosExtras('antigo')} disabled={loading || processingDelete || !gruposFiltrados.length}>
-              Marcar extras (manter mais antiga)
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={loading || processingDelete || !gruposFiltrados.length}
+                >
+                  Marcar todos extras <ChevronDown className="ml-1 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => marcarTodosExtras('views')}>
+                  Manter a cópia com mais views
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => marcarTodosExtras('antigo')}>
+                  Manter a cópia mais antiga
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button size="sm" variant="ghost" onClick={() => setSelectedRows({})} disabled={!selectedIds.length}>
-              <X className="mr-1 h-4 w-4" /> Limpar seleção
+              <X className="mr-1 h-4 w-4" /> Desmarcar todos
             </Button>
             <Button
               size="sm"
