@@ -1,65 +1,41 @@
-## Objetivo
+# Duplicatas: Conteúdos — correção de bugs e nova interface
 
-Quando um usuário importar conteúdos/episódios de **Minisséries**, o link gravado no Baserow não será o link original, e sim um link camuflado do seu domínio, que só funciona enquanto a assinatura dele estiver ativa. Se vencer, o link para; se renovar, volta a funcionar (sem reimportar).
+## O que analisei
 
-## Como vai funcionar
+A página `Duplicados.tsx` usa o hook `useOptimizedDuplicates`. Encontrei problemas reais nos dois arquivos.
 
-```text
-Player  ->  https://<seu-dominio>/api/s/<userToken>/<linkId>
-                     |
-                     v
-            Proxy na Vercel
-             1. valida userToken -> usuario ativo?
-             2. assinatura vencida? -> 403
-             3. busca link original pelo linkId (Postgres)
-             4. faz stream do conteudo original
-             5. registra o acesso (bytes, IP, user agent)
-```
+## Bugs encontrados
 
-O link original nunca aparece para o usuário final: o proxy faz o streaming (com suporte a Range para vídeo e reescrita de playlists .m3u8).
+1. **Varredura incompleta (silenciosa).** O hook lê no máximo 5.000 registros. Se a tabela tiver mais, duplicatas ficam de fora e a tela diz "nenhum duplicado encontrado". O hook já expõe `expandSearch`, `totalRecords` e `hasMoreData`, mas a página **não usa nada disso** — o usuário nem sabe que a busca foi limitada.
+2. **Paginação com salto de páginas.** O loop dispara 3 requisições em paralelo e avança `page += batchesProcessed`. Se uma requisição falhar (`allSettled` rejeitado), a página dela é pulada para sempre — registros somem da análise. A condição `totalProcessed + batchSize*(i+1) <= limit` também impede buscar o último lote parcial.
+3. **Chave de agrupamento frágil.** A chave é `Nome|Link` com os campos vazios removidos. Um item sem Link vira chave só com o nome e **não agrupa** com o mesmo título que tem Link → duplicata não detectada. Também não normaliza acentos/pontuação nem lê colunas com variação de caixa (o projeto já tem `getValueByPossibleKeys` para isso, mas o hook acessa `record[field]` direto).
+4. **Progresso quebrado.** Divisão por zero quando não há registros (`NaN%`) e valores acima de 100%.
+5. **Risco de apagar todas as cópias.** Nada impede marcar e excluir os N registros de um grupo, ficando com zero.
+6. **Exclusão lenta e sem feedback.** Apaga um a um em loop mesmo existindo `deleteRowsBatch` no serviço; sem barra de progresso e sem cancelar. Depois disso refaz a varredura inteira em vez de remover os itens já apagados da lista.
+7. **Seleção não é limpa** ao reexecutar a varredura, então IDs já removidos continuam marcados.
+8. **Campos exibidos errados.** O card mostra `record.Data`, coluna que não existe no conteúdo (é "Data de Lançamento"), sempre aparecendo `-`.
+9. **Travamento de render.** Todos os grupos são renderizados de uma vez; com centenas de grupos a página congela. Sem busca, sem filtro, sem paginação.
 
-## Banco (Lovable Cloud / Postgres — sem custo de quota Firebase)
+## O que vou fazer
 
-- `cloaked_links` — id curto, url original, nome do conteúdo, dono (usuário), origem (miniseries), status, contadores.
-- `cloak_users` — espelho leve do usuário: id do Firebase, e-mail, token público, `expires_at` (data da assinatura), ativo/bloqueado.
-- `cloak_access_logs` — cada acesso: link, usuário, data, IP, user agent, status (ok/expirado/bloqueado), bytes servidos.
-- Índices para consulta rápida e agregações por dia/usuário.
+### Correções (hook)
+- Reescrever a paginação: sequencial-com-lotes confiável, sem pular página em caso de falha, com retry; buscar até o fim real da tabela (limite configurável, com opção "carregar tudo").
+- Nova chave de agrupamento: leitura de coluna tolerante a caixa/acentos via `getValueByPossibleKeys`, normalização (minúsculas, sem acentos, espaços colapsados) e **modo de comparação selecionável**: só Nome, Nome+Tipo, Nome+Link ou Link.
+- Corrigir cálculo de progresso (0–100, sem NaN) e expor contagem real de registros lidos.
+- Remoção local dos registros apagados (sem re-scan completo).
 
-Como a autenticação hoje é Firebase (não Supabase Auth), o acesso a essas tabelas será feito só pelo servidor (proxy Vercel + funções admin) com chave de serviço; RLS fica fechado para o cliente.
+### Correções (página)
+- Exclusão em lote via `deleteRowsBatch`, em blocos, com barra de progresso e botão cancelar.
+- Proteção "manter sempre 1": não permitir excluir todas as cópias de um grupo (aviso claro).
+- Ações rápidas: "Selecionar todas as cópias exceto a mais antiga", "exceto a de mais Views", limpar seleção, e seleção por grupo.
+- Limpar seleção ao reexecutar a varredura.
 
-## Sincronização da assinatura
-
-- Sempre que o usuário faz login e quando o admin altera o plano/validade, gravamos/atualizamos o registro dele em `cloak_users` com o `expiryDate` atual.
-- O proxy consulta apenas o Postgres — zero leitura no Firebase por request.
-- Renovou no painel → `expires_at` atualiza → todos os links dele voltam a funcionar automaticamente (mesma URL).
-
-## Importação de Minisséries
-
-- No fluxo de importação da variante `miniseries`, antes de gravar no Baserow, cada `Link` é registrado em `cloaked_links` (em lote) e substituído pela URL camuflada.
-- Reimportar o mesmo link do mesmo usuário reaproveita o mesmo id (sem duplicar).
-- Importação Automática padrão e Atualização de Séries continuam iguais.
-
-## Painel Admin — nova seção "Links Protegidos"
-
-Aba própria no Admin Dashboard com:
-- **Visão geral**: total de links, links ativos, acessos hoje/7 dias, tráfego (bytes), usuários com camuflagem ativa.
-- **Usuários**: lista com status da assinatura, data de expiração, nº de links, acessos, último acesso; ações de bloquear/desbloquear e rotacionar token (invalida os links antigos daquele usuário).
-- **Links**: busca por nome/URL, dono, criado em, acessos, status; ver URL original, desativar link.
-- **Tráfego**: gráfico de acessos por dia e tabela dos últimos acessos (data, usuário, link, IP, status).
+### Interface nova
+- Barra de topo com resumo: grupos duplicados, registros excedentes, registros analisados, aviso quando a varredura foi limitada + botão "Analisar mais".
+- Controles: campo de busca por nome, seletor de critério de comparação, ordenação (mais cópias / A-Z), e paginação/virtualização dos grupos (ex.: 20 por página) para não travar.
+- Grupos em cards recolhíveis, com miniatura da capa quando existir, badges de Tipo/Categoria/Views e destaque visual da cópia recomendada para manter.
+- Estados de carregando/vazio/erro consistentes com o design system (tokens semânticos, sem cores fixas).
 
 ## Detalhes técnicos
 
-- `api/stream-proxy.js` na Vercel (`/api/s/:userToken/:linkId` via rewrite no `vercel.json`), com suporte a `Range`, `HEAD` e reescrita de manifestos HLS para que os segmentos também passem pelo proxy.
-- `api/cloak-admin.js` para as consultas agregadas do painel (protegido por chave de admin).
-- Acesso ao Postgres a partir da Vercel usando a URL de conexão/service key — precisará de uma variável de ambiente nova na Vercel (te passo o nome e o valor no final).
-- Nenhuma leitura/escrita adicional no Firestore nesse fluxo.
-
-## Ordem de execução
-
-1. Migração das 3 tabelas + índices.
-2. Serviço `CloakService` (registrar links, sincronizar usuário, consultas do admin).
-3. Proxy `api/stream-proxy.js` + rewrite no `vercel.json`.
-4. Integração na importação de Minisséries.
-5. Sincronização de assinatura no login e nas alterações do admin.
-6. Nova aba "Links Protegidos" no painel admin.
-7. Instruções de deploy e variáveis na Vercel.
+Arquivos afetados: `src/hooks/useOptimizedDuplicates.ts` (reescrita da varredura e do agrupamento), `src/pages/Duplicados.tsx` (nova UI e fluxo de exclusão), possivelmente um componente novo `src/components/duplicados/GrupoDuplicado.tsx`. Sem mudanças de banco de dados; continua consumindo o Baserow pelo `BaserowService` existente.
