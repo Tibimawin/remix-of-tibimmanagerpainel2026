@@ -29,8 +29,15 @@ import {
   X,
   Layers,
   Database,
+  ChevronDown,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { getValueByPossibleKeys } from '@/utils/baserowHelpers';
 
 const POR_PAGINA = 20;
