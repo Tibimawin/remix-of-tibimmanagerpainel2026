@@ -229,10 +229,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_cloaked_link_validated: {
-        Args: { p_short_id: string; p_token: string }
-        Returns: Json
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never

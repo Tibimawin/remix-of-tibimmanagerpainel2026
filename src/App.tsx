@@ -90,7 +90,6 @@ import GestaoDispositivos from "./pages/GestaoDispositivos";
 import Planos from "./pages/Planos";
 import MinhaApi from "./pages/MinhaApi";
 import ApiDocs from "./pages/ApiDocs";
-import DebugStreaming from "./pages/DebugStreaming";
 import { UpdateNotificationModal } from "./components/UpdateNotificationModal";
 import { M3UImportProvider } from "./contexts/M3UImportContext";
 
@@ -333,14 +332,6 @@ const App = () => {
                                 <SimpleProtectedRoute allowExpired>
                                   <Layout>
                                     <Configuracoes />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/debug-streaming" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <DebugStreaming />
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />
