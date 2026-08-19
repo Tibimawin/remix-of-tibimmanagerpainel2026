@@ -36,6 +36,13 @@ Deno.serve(async (req) => {
     // A URL final da Cloudflare
     const CLOUDFLARE_WORKER_URL = "https://withered-disk-c78d.tibimfotografo.workers.dev";
     
+    // Lista de agentes conhecidos que devem ser aceitos para evitar bloqueio 1003
+    const isVLC = req.headers.get("user-agent")?.includes("VLC");
+    const safeUserAgent = isVLC 
+      ? req.headers.get("user-agent") 
+      : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36";
+
+    
     // Construímos a URL do Worker COM a URL original do vídeo
     const workerUrl = new URL(CLOUDFLARE_WORKER_URL);
     workerUrl.searchParams.set("u", link.original_url);
