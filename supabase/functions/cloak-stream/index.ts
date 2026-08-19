@@ -23,26 +23,30 @@ Deno.serve(async (req) => {
     // O Worker da Cloudflare configurado
     const CLOUDFLARE_WORKER_URL = "https://withered-disk-c78d.tibimfotografo.workers.dev";
     
-    // Se temos os parâmetros via query, montamos a URL para o Worker
-    // O Worker espera /api/s/:token/:id ou via query params conforme configurado anteriormente
+    // O Worker espera /api/s/:token/:id
     let targetUrl = `${CLOUDFLARE_WORKER_URL}/api/s/${token}/${id}${url.search}`;
     
     if (!token || !id) {
-      // Fallback para path se os params não vierem na query (improvável mas seguro)
       const pathname = url.pathname.replace("/functions/v1/cloak-stream", "");
       targetUrl = `${CLOUDFLARE_WORKER_URL}${pathname}${url.search}`;
     }
     
     console.log(`[CLOAK-BRIDGE] Fetching from Cloudflare: ${targetUrl}`);
     
-    // Encaminha a requisição com os headers originais para a Cloudflare
-    // Usamos URLSearchParams para garantir que os parâmetros cheguem limpos
+    // Filtramos headers sensíveis que podem causar erro no fetch do Deno
+    const safeHeaders = new Headers();
+    const forbiddenHeaders = ['host', 'content-length', 'connection', 'upgrade'];
+    
+    for (const [key, value] of req.headers.entries()) {
+      if (!forbiddenHeaders.includes(key.toLowerCase())) {
+        safeHeaders.set(key, value);
+      }
+    }
+
+    // Encaminha a requisição
     const upstream = await fetch(targetUrl, {
       method: req.method,
-      headers: {
-        ...Object.fromEntries(req.headers.entries()),
-        "host": new URL(CLOUDFLARE_WORKER_URL).host,
-      },
+      headers: safeHeaders,
       redirect: "follow",
     });
 
