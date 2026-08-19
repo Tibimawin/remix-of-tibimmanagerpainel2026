@@ -38,6 +38,9 @@ export default async function handler(req, res) {
     if (upstream.status >= 300 && upstream.status < 400) {
       const location = upstream.headers.get('location');
       if (location) {
+        // MUITO IMPORTANTE PARA VLC: O header Location precisa ser absoluto
+        // E o CORS deve estar aberto
+        res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Location', location);
         return res.status(upstream.status).end();
       }
