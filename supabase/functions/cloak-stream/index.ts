@@ -25,29 +25,31 @@ Deno.serve(async (req) => {
       return new Response("Parâmetros inválidos", { status: 400, headers: corsHeaders });
     }
 
-    // Validação ultra-rápida no banco
-    const { data: link, error } = await supabase
-      .rpc('get_cloaked_link_validated', { p_token: token, p_short_id: id });
+    // Validação ultra-rápida no banco via RPC
+    const { data: link, error } = await supabase.rpc('get_cloaked_link_validated', { 
+      p_token: token, 
+      p_short_id: id 
+    });
 
-    if (error || !link || !link.original_url) {
-      console.error("[CLOAK-STREAM] Validação falhou:", error || "Link não encontrado");
-      return new Response("Acesso negado ou link inválido", { status: 403, headers: corsHeaders });
+    if (error) {
+      console.error("[CLOAK-STREAM] Erro no RPC:", error);
+      return new Response(`Erro de validação: ${error.message}`, { status: 500, headers: corsHeaders });
+    }
+
+    if (!link || link.error || !link.original_url) {
+      console.error("[CLOAK-STREAM] Acesso negado:", link?.error || "Link não encontrado");
+      return new Response(link?.error || "Acesso negado ou link inválido", { status: 403, headers: corsHeaders });
     }
 
     const CLOUDFLARE_WORKER_URL = "https://withered-disk-c78d.tibimfotografo.workers.dev";
     const targetUrl = `${CLOUDFLARE_WORKER_URL}?u=${encodeURIComponent(link.original_url)}`;
 
-    console.log(`[CLOAK-STREAM] Redirecionando/Tunelando para: ${targetUrl}`);
+    console.log(`[CLOAK-STREAM] Tunelando para Cloudflare: ${targetUrl}`);
 
-    // Em vez de tunnel no Deno (que pode dar timeout), vamos tentar o redirect CORS-friendly
-    // ou se o usuário realmente quiser túnel, faremos o tunnel na Cloudflare.
-    // Para o VLC, o túnel na Cloudflare é o melhor.
-    
     const headers = new Headers();
     if (req.headers.has("range")) headers.set("range", req.headers.get("range")!);
     headers.set("user-agent", req.headers.get("user-agent") || "Mozilla/5.0 (VLC/3.0.0; LibVLC/3.0.0)");
 
-    // Fazemos o fetch para a Cloudflare. A Cloudflare DEVE responder rápido.
     const upstream = await fetch(targetUrl, {
       method: "GET",
       headers: headers,
@@ -56,6 +58,17 @@ Deno.serve(async (req) => {
     const resHeaders = new Headers(upstream.headers);
     resHeaders.set("Access-Control-Allow-Origin", "*");
     
+    // Registrar log de acesso de forma assíncrona
+    if (link.owner_uid) {
+      void supabase.from("cloak_access_logs").insert({
+        link_short_id: id,
+        owner_uid: link.owner_uid,
+        status: "ok",
+        ip: req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for"),
+        bytes_served: Number(upstream.headers.get("content-length") || 0)
+      });
+    }
+
     return new Response(upstream.body, {
       status: upstream.status,
       headers: resHeaders
