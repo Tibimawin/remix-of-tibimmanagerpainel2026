@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     if (req.headers.has("range")) upstreamHeaders.set("range", req.headers.get("range")!);
     
     // O SEGREDO: Simular um player real para evitar bloqueios da Cloudflare ou do servidor de origem
-    upstreamHeaders.set("user-agent", req.headers.get("user-agent") || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+    upstreamHeaders.set("user-agent", safeUserAgent || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
     upstreamHeaders.set("accept", "*/*");
     upstreamHeaders.set("connection", "keep-alive");
 
