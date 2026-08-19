@@ -30,8 +30,18 @@ export default async function handler(req, res) {
         'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0',
         ...(req.headers.range ? { Range: req.headers.range } : {}),
       },
-      redirect: 'follow',
+      redirect: 'manual',
     });
+
+    // Se o backend retornou um redirecionamento (para o Cloudflare Worker),
+    // nós repassamos esse redirecionamento para o cliente (ex: VLC).
+    if (upstream.status >= 300 && upstream.status < 400) {
+      const location = upstream.headers.get('location');
+      if (location) {
+        res.setHeader('Location', location);
+        return res.status(upstream.status).end();
+      }
+    }
 
     for (const key of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'cache-control']) {
       const value = upstream.headers.get(key);
