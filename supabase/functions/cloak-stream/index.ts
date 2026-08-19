@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,12 +21,15 @@ Deno.serve(async (req) => {
     
     if (!token || !id) return new Response("Parâmetros inválidos", { status: 400, headers: corsHeaders });
 
-    const { data: link, error } = await supabase.rpc('get_cloaked_link_validated', { 
+    console.log(`[CLOAK-STREAM] Validando Token: ${token}, ID: ${id}`);
+
+    const { data: link, error: rpcError } = await supabase.rpc('get_cloaked_link_validated', { 
       p_token: token, 
       p_short_id: id 
     });
 
-    if (error || !link || link.error || !link.original_url) {
+    if (rpcError || !link || link.error || !link.original_url) {
+      console.error(`[CLOAK-STREAM] Falha na validação:`, rpcError || link?.error);
       return new Response(link?.error || "Acesso negado", { status: 403, headers: corsHeaders });
     }
 
@@ -37,23 +40,32 @@ Deno.serve(async (req) => {
     const workerUrl = new URL(CLOUDFLARE_WORKER_URL);
     workerUrl.searchParams.set("u", link.original_url);
 
-    console.log(`[CLOAK-STREAM] Link validado. Redirecionando para: ${workerUrl.toString()}`);
+    console.log(`[CLOAK-STREAM] Redirecionando Túnel para Worker: ${workerUrl.toString()}`);
 
-    // Retornamos 200 e o corpo do vídeo via túnel DIRETO para garantir que não haja 403 de redirecionamento no player
-    // Se o player não segue 302 bem, o túnel é mais seguro.
-    const headers = new Headers();
-    if (req.headers.has("range")) headers.set("range", req.headers.get("range")!);
-    headers.set("user-agent", req.headers.get("user-agent") || "Mozilla/5.0 (VLC/3.0.0; LibVLC/3.0.0)");
+    // Preparamos os cabeçalhos para o Worker
+    const upstreamHeaders = new Headers();
+    if (req.headers.has("range")) upstreamHeaders.set("range", req.headers.get("range")!);
+    
+    // O SEGREDO: Simular um player real para evitar bloqueios da Cloudflare ou do servidor de origem
+    upstreamHeaders.set("user-agent", req.headers.get("user-agent") || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+    upstreamHeaders.set("accept", "*/*");
+    upstreamHeaders.set("connection", "keep-alive");
 
     const upstream = await fetch(workerUrl.toString(), {
       method: "GET",
-      headers: headers
+      headers: upstreamHeaders
     });
+
+    console.log(`[CLOAK-STREAM] Resposta do Worker: Status ${upstream.status}`);
 
     const resHeaders = new Headers(upstream.headers);
     resHeaders.set("Access-Control-Allow-Origin", "*");
+    resHeaders.set("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges");
+    
+    // Garante que o player saiba que aceitamos ranges para streaming
     if (!resHeaders.has("accept-ranges")) resHeaders.set("accept-ranges", "bytes");
 
+    // Retorna o stream diretamente
     return new Response(upstream.body, {
       status: upstream.status,
       headers: resHeaders
