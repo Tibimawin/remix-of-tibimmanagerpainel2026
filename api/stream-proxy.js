@@ -30,7 +30,9 @@ export default async function handler(req, res) {
 
   try {
     const bridgeUrl = `${BACKEND_URL}/functions/v1/cloak-stream?${params}`;
-    const upstream = await fetch(bridgeUrl, {
+    console.log(`[stream-proxy] Iniciando tunnel via bridge: ${bridgeUrl}`);
+    
+    let upstream = await fetch(bridgeUrl, {
       method: req.method === 'HEAD' ? 'HEAD' : 'GET',
       headers: {
         'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (VLC/3.0.0; LibVLC/3.0.0)',
@@ -41,13 +43,12 @@ export default async function handler(req, res) {
       redirect: 'follow',
     });
 
-    // Se a bridge falhou (ex: 400), vamos tentar falar direto com a Cloudflare
-    // Isso é um fallback caso a Edge Function esteja com problemas de roteamento
-    if (!upstream.ok && upstream.status >= 400 && upstream.status < 500) {
+    // Se a bridge falhou (4xx ou 5xx), vamos tentar falar direto com a Cloudflare
+    if (!upstream.ok) {
       const CLOUDFLARE_WORKER_URL = "https://withered-disk-c78d.tibimfotografo.workers.dev";
       const directUrl = `${CLOUDFLARE_WORKER_URL}/api/s/${token}/${id}?${params}`;
       
-      console.log(`[stream-proxy] Falha na bridge (${upstream.status}), tentando direto: ${directUrl}`);
+      console.warn(`[stream-proxy] Falha na bridge (${upstream.status}), tentando fallback direto: ${directUrl}`);
       
       const directResponse = await fetch(directUrl, {
         method: req.method === 'HEAD' ? 'HEAD' : 'GET',
@@ -58,27 +59,27 @@ export default async function handler(req, res) {
         redirect: 'follow',
       });
       
-      if (directResponse.ok) {
-        return handleUpstreamResponse(directResponse, res, debug, directUrl);
+      if (directResponse.ok || directResponse.status < 400) {
+        upstream = directResponse;
       }
     }
 
-    return handleUpstreamResponse(upstream, res, debug, bridgeUrl);
+    return handleUpstreamResponse(upstream, res, debug, upstream.url);
   } catch (err) {
-    console.error('[stream-proxy] erro de conexão:', err);
-    if (!res.headersSent) res.status(502).send('Conexão perdida com o servidor de origem');
+    console.error('[stream-proxy] erro crítico de conexão:', err);
+    if (!res.headersSent) res.status(502).send('Erro de comunicação com os servidores de streaming');
     else res.end();
   }
 }
 
-async function handleUpstreamResponse(upstream, res, debug, sourceUrl) {
+async function handleUpstreamResponse(upstream, res, debug, finalUrl) {
   if (debug === 'true') {
     return res.status(200).json({
       proxy: 'Vercel tunnel-proxy',
       status: upstream.status,
       headers: Object.fromEntries(upstream.headers.entries()),
       url: upstream.url,
-      source: sourceUrl
+      finalUrl: finalUrl
     });
   }
 
@@ -124,7 +125,7 @@ async function handleUpstreamResponse(upstream, res, debug, sourceUrl) {
     }
     res.end();
   } catch (err) {
-    console.error('[stream-proxy] erro durante o stream:', err);
+    console.error('[stream-proxy] erro durante o stream de dados:', err);
     res.destroy();
   }
 }
