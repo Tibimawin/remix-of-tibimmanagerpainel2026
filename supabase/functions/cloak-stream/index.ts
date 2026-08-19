@@ -30,26 +30,33 @@ Deno.serve(async (req) => {
       return new Response(link?.error || "Acesso negado", { status: 403, headers: corsHeaders });
     }
 
-    // A URL final da Cloudflare que o usuário configurou
+    // A URL final da Cloudflare
     const CLOUDFLARE_WORKER_URL = "https://withered-disk-c78d.tibimfotografo.workers.dev";
     
-    // Construímos a URL do Worker. 
-    // Passamos o link original 'u' e também um 'token_auth' opcional para o Worker validar se quiser
+    // Construímos a URL do Worker COM a URL original do vídeo
     const workerUrl = new URL(CLOUDFLARE_WORKER_URL);
     workerUrl.searchParams.set("u", link.original_url);
-    workerUrl.searchParams.set("id", id);
 
-    console.log(`[CLOAK-STREAM] Link validado. Redirecionando para Cloudflare: ${workerUrl.toString()}`);
+    console.log(`[CLOAK-STREAM] Link validado. Redirecionando para: ${workerUrl.toString()}`);
 
-    // Retornamos um 302 para que o streaming ocorra diretamente entre o Player e a Cloudflare,
-    // economizando largura de banda da Vercel e do Backend.
-    return new Response(null, {
-      status: 302,
-      headers: {
-        ...corsHeaders,
-        "Location": workerUrl.toString(),
-        "Cache-Control": "no-store, no-cache, must-revalidate"
-      }
+    // Retornamos 200 e o corpo do vídeo via túnel DIRETO para garantir que não haja 403 de redirecionamento no player
+    // Se o player não segue 302 bem, o túnel é mais seguro.
+    const headers = new Headers();
+    if (req.headers.has("range")) headers.set("range", req.headers.get("range")!);
+    headers.set("user-agent", req.headers.get("user-agent") || "Mozilla/5.0 (VLC/3.0.0; LibVLC/3.0.0)");
+
+    const upstream = await fetch(workerUrl.toString(), {
+      method: "GET",
+      headers: headers
+    });
+
+    const resHeaders = new Headers(upstream.headers);
+    resHeaders.set("Access-Control-Allow-Origin", "*");
+    if (!resHeaders.has("accept-ranges")) resHeaders.set("accept-ranges", "bytes");
+
+    return new Response(upstream.body, {
+      status: upstream.status,
+      headers: resHeaders
     });
 
   } catch (err) {
