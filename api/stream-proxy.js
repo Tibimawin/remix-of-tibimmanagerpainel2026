@@ -33,7 +33,10 @@ export default async function handler(req, res) {
 
     let upstream = await fetch(bridgeUrl, {
       method: 'GET',
-      headers: bridgeHeaders,
+      headers: {
+        ...bridgeHeaders,
+        'user-agent': req.headers['user-agent'] || 'Mozilla/5.0 (VLC/3.0.0; LibVLC/3.0.0)'
+      },
       redirect: 'follow',
     });
 
