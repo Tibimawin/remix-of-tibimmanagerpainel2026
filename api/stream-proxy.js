@@ -30,21 +30,11 @@ export default async function handler(req, res) {
         'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0',
         ...(req.headers.range ? { Range: req.headers.range } : {}),
       },
-      redirect: 'manual',
+      redirect: 'follow',
     });
 
-    // Se o backend retornou um redirecionamento (para o Cloudflare Worker),
-    // nós repassamos esse redirecionamento para o cliente (ex: VLC).
-    if (upstream.status >= 300 && upstream.status < 400) {
-      const location = upstream.headers.get('location');
-      if (location) {
-        // MUITO IMPORTANTE PARA VLC: O header Location precisa ser absoluto
-        // E o CORS deve estar aberto
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Location', location);
-        return res.status(upstream.status).end();
-      }
-    }
+    // Removido o tratamento de redirecionamento manual para deixar a Vercel seguir o Worker
+    // e entregar o stream diretamente. Isso resolve problemas em players que não seguem redirects.
 
     for (const key of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'cache-control']) {
       const value = upstream.headers.get(key);
