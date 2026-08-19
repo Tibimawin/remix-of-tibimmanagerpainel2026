@@ -3,7 +3,7 @@ import Dashboard from './Dashboard';
 const Index = () => {
   return (
     <>
-      <div className="sr-only">COMO VOU FAZER UM WORK VAZIO</div>
+      <div className="sr-only">VEJA</div>
       <Dashboard />
     </>
   );
