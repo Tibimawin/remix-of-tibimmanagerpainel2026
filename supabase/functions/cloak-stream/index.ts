@@ -49,14 +49,8 @@ Deno.serve(async (req) => {
     
     console.log(`[CLOAK-STREAM] Redirecting to Cloudflare: ${targetUrl}`);
     
-    // Adicionamos cabeçalhos CORS explicitamente no redirecionamento
-    return new Response(null, {
-      status: 307,
-      headers: {
-        ...corsHeaders,
-        "Location": targetUrl,
-      }
-    });
+    // Redirecionamento 302 temporário é mais compatível com proxies
+    return Response.redirect(targetUrl, 302);
   } catch (err) {
     return new Response(`Erro de redirecionamento: ${String(err)}`, { status: 500, headers: corsHeaders });
   }
