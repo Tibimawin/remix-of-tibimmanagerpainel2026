@@ -125,7 +125,7 @@ const DebugStreaming = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-semibold">Cabeçalhos HTTP (Headers)...</CardTitle>
+              <CardTitle className="text-base font-semibold">Cabeçalhos HTTP (Headers) - Diagnóstico...</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="bg-muted rounded-lg border border-border/50 overflow-hidden">

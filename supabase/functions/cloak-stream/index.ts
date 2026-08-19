@@ -36,6 +36,13 @@ Deno.serve(async (req) => {
     // A URL final da Cloudflare
     const CLOUDFLARE_WORKER_URL = "https://withered-disk-c78d.tibimfotografo.workers.dev";
     
+    // Lista de agentes conhecidos que devem ser aceitos para evitar bloqueio 1003
+    const isVLC = req.headers.get("user-agent")?.includes("VLC");
+    const safeUserAgent = isVLC 
+      ? req.headers.get("user-agent") 
+      : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36";
+
+    
     // Construímos a URL do Worker COM a URL original do vídeo
     const workerUrl = new URL(CLOUDFLARE_WORKER_URL);
     workerUrl.searchParams.set("u", link.original_url);
@@ -47,13 +54,15 @@ Deno.serve(async (req) => {
     if (req.headers.has("range")) upstreamHeaders.set("range", req.headers.get("range")!);
     
     // O SEGREDO: Simular um player real para evitar bloqueios da Cloudflare ou do servidor de origem
-    upstreamHeaders.set("user-agent", req.headers.get("user-agent") || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+    upstreamHeaders.set("user-agent", safeUserAgent || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
     upstreamHeaders.set("accept", "*/*");
     upstreamHeaders.set("connection", "keep-alive");
 
     const upstream = await fetch(workerUrl.toString(), {
       method: "GET",
-      headers: upstreamHeaders
+      headers: upstreamHeaders,
+      // @ts-ignore: Deno dynamic fetch options
+      redirect: 'follow'
     });
 
     console.log(`[CLOAK-STREAM] Resposta do Worker: Status ${upstream.status}`);
