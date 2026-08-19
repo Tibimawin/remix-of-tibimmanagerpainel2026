@@ -12,7 +12,6 @@ const supabase = createClient(
 );
 
 Deno.serve(async (req) => {
-  // CORS Preflight
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
@@ -20,11 +19,8 @@ Deno.serve(async (req) => {
     const token = url.searchParams.get("token");
     const id = url.searchParams.get("id");
     
-    if (!token || !id) {
-      return new Response("Parâmetros inválidos", { status: 400, headers: corsHeaders });
-    }
+    if (!token || !id) return new Response("Parâmetros inválidos", { status: 400, headers: corsHeaders });
 
-    // Validação ultra-rápida no banco
     const { data: link, error } = await supabase.rpc('get_cloaked_link_validated', { 
       p_token: token, 
       p_short_id: id 
@@ -34,21 +30,25 @@ Deno.serve(async (req) => {
       return new Response(link?.error || "Acesso negado", { status: 403, headers: corsHeaders });
     }
 
-    // Redirecionamento para a Cloudflare (Modo Tunelamento no Worker)
-    // Usamos o Worker como o responsável final pelo streaming para economizar recursos do backend
+    // A URL final da Cloudflare que o usuário configurou
     const CLOUDFLARE_WORKER_URL = "https://withered-disk-c78d.tibimfotografo.workers.dev";
-    const targetUrl = `${CLOUDFLARE_WORKER_URL}?u=${encodeURIComponent(link.original_url)}`;
+    
+    // Construímos a URL do Worker. 
+    // Passamos o link original 'u' e também um 'token_auth' opcional para o Worker validar se quiser
+    const workerUrl = new URL(CLOUDFLARE_WORKER_URL);
+    workerUrl.searchParams.set("u", link.original_url);
+    workerUrl.searchParams.set("id", id);
 
-    console.log(`[CLOAK-STREAM] Delegando streaming para Cloudflare Worker: ${targetUrl}`);
+    console.log(`[CLOAK-STREAM] Link validado. Redirecionando para Cloudflare: ${workerUrl.toString()}`);
 
-    // Em vez de tunelar o tráfego pesado pelo Deno (que tem limites), 
-    // nós redirecionamos o proxy da Vercel para o Worker da Cloudflare.
-    // O proxy da Vercel seguirá o redirecionamento e fará o túnel final.
+    // Retornamos um 302 para que o streaming ocorra diretamente entre o Player e a Cloudflare,
+    // economizando largura de banda da Vercel e do Backend.
     return new Response(null, {
       status: 302,
       headers: {
         ...corsHeaders,
-        "Location": targetUrl
+        "Location": workerUrl.toString(),
+        "Cache-Control": "no-store, no-cache, must-revalidate"
       }
     });
 
