@@ -12,6 +12,7 @@ const supabase = createClient(
 );
 
 Deno.serve(async (req) => {
+  // CORS Preflight
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
@@ -23,6 +24,7 @@ Deno.serve(async (req) => {
       return new Response("Parâmetros inválidos", { status: 400, headers: corsHeaders });
     }
 
+    // Validação ultra-rápida no banco
     const { data: link, error } = await supabase.rpc('get_cloaked_link_validated', { 
       p_token: token, 
       p_short_id: id 
@@ -32,53 +34,26 @@ Deno.serve(async (req) => {
       return new Response(link?.error || "Acesso negado", { status: 403, headers: corsHeaders });
     }
 
-    // TENTATIVA DE TÚNEL DIRETO (Sem Cloudflare Worker intermediário para testar)
-    console.log(`[CLOAK-STREAM] Tentando túnel direto para: ${link.original_url}`);
+    // Redirecionamento para a Cloudflare (Modo Tunelamento no Worker)
+    // Usamos o Worker como o responsável final pelo streaming para economizar recursos do backend
+    const CLOUDFLARE_WORKER_URL = "https://withered-disk-c78d.tibimfotografo.workers.dev";
+    const targetUrl = `${CLOUDFLARE_WORKER_URL}?u=${encodeURIComponent(link.original_url)}`;
 
-    const headers = new Headers();
-    if (req.headers.has("range")) headers.set("range", req.headers.get("range")!);
-    headers.set("user-agent", req.headers.get("user-agent") || "Mozilla/5.0 (VLC/3.0.0; LibVLC/3.0.0)");
+    console.log(`[CLOAK-STREAM] Delegando streaming para Cloudflare Worker: ${targetUrl}`);
 
-    // Adicionamos um timeout curto para não travar a função
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-    try {
-      const upstream = await fetch(link.original_url, {
-        method: "GET",
-        headers: headers,
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      const resHeaders = new Headers(upstream.headers);
-      resHeaders.set("Access-Control-Allow-Origin", "*");
-      if (!resHeaders.has("accept-ranges")) resHeaders.set("accept-ranges", "bytes");
-
-      return new Response(upstream.body, {
-        status: upstream.status,
-        headers: resHeaders
-      });
-    } catch (fetchErr) {
-      console.error("[CLOAK-STREAM] Falha no túnel direto, tentando via Cloudflare Worker...");
-      
-      const CLOUDFLARE_WORKER_URL = "https://withered-disk-c78d.tibimfotografo.workers.dev";
-      const targetUrl = `${CLOUDFLARE_WORKER_URL}?u=${encodeURIComponent(link.original_url)}`;
-      
-      const cfResponse = await fetch(targetUrl, {
-        method: "GET",
-        headers: headers,
-      });
-      
-      const resHeaders = new Headers(cfResponse.headers);
-      resHeaders.set("Access-Control-Allow-Origin", "*");
-      return new Response(cfResponse.body, {
-        status: cfResponse.status,
-        headers: resHeaders
-      });
-    }
+    // Em vez de tunelar o tráfego pesado pelo Deno (que tem limites), 
+    // nós redirecionamos o proxy da Vercel para o Worker da Cloudflare.
+    // O proxy da Vercel seguirá o redirecionamento e fará o túnel final.
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...corsHeaders,
+        "Location": targetUrl
+      }
+    });
 
   } catch (err) {
+    console.error("[CLOAK-STREAM] Erro fatal:", err);
     return new Response(`Erro interno: ${String(err)}`, { status: 500, headers: corsHeaders });
   }
 });
