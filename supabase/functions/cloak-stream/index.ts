@@ -27,9 +27,13 @@ Deno.serve(async (req) => {
     console.log(`[CLOAK-BRIDGE] Fetching from Cloudflare: ${targetUrl}`);
     
     // Encaminha a requisição com os headers originais para a Cloudflare
+    // Usamos URLSearchParams para garantir que os parâmetros cheguem limpos
     const upstream = await fetch(targetUrl, {
       method: req.method,
-      headers: req.headers,
+      headers: {
+        ...Object.fromEntries(req.headers.entries()),
+        "host": new URL(CLOUDFLARE_WORKER_URL).host,
+      },
       redirect: "follow",
     });
 
