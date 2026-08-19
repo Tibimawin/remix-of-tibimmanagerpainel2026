@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
-// Proxy de streaming dos links camuflados.
-// Migrado para Cloudflare Workers para redução de custos e latência.
+// Bridge entre Vercel e Cloudflare Workers.
+// Este serviço garante que o tráfego passe pela Cloudflare sem interrupções.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,25 +19,28 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const pathname = url.pathname.replace("/functions/v1/cloak-stream", "");
     
-    // O Worker da Cloudflare configurado pelo usuário
+    // O Worker da Cloudflare configurado
     const CLOUDFLARE_WORKER_URL = "https://withered-disk-c78d.tibimfotografo.workers.dev";
     
-    // Constrói a URL final do Cloudflare
     const targetUrl = `${CLOUDFLARE_WORKER_URL}${pathname}${url.search}`;
     
-    console.log(`[CLOAK-STREAM] Proxying to Cloudflare: ${targetUrl}`);
+    console.log(`[CLOAK-BRIDGE] Fetching from Cloudflare: ${targetUrl}`);
     
-    // Buscamos o recurso da Cloudflare com os headers originais (Range, etc)
+    // Encaminha a requisição com os headers originais para a Cloudflare
     const upstream = await fetch(targetUrl, {
       method: req.method,
       headers: req.headers,
       redirect: "follow",
     });
 
-    // Repassamos a resposta da Cloudflare de volta para a Vercel
+    // Criamos uma nova resposta mantendo o stream aberto
     const responseHeaders = new Headers(upstream.headers);
-    // Adicionamos CORS para garantir acesso
     responseHeaders.set("Access-Control-Allow-Origin", "*");
+    
+    // O VLC precisa ter certeza que o servidor aceita ranges
+    if (!responseHeaders.has("accept-ranges")) {
+      responseHeaders.set("accept-ranges", "bytes");
+    }
 
     return new Response(upstream.body, {
       status: upstream.status,
@@ -45,7 +48,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (err) {
-    console.error("[CLOAK-STREAM] Error:", err);
-    return new Response(`Erro de proxy: ${String(err)}`, { status: 500, headers: corsHeaders });
+    console.error("[CLOAK-BRIDGE] Error:", err);
+    return new Response(`Erro de conexão bridge: ${String(err)}`, { status: 500, headers: corsHeaders });
   }
 });

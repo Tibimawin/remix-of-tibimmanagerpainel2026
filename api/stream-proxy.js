@@ -1,9 +1,11 @@
 // Encaminha /api/s/<token>/<shortId> para o proxy protegido do backend.
-// Não precisa de nenhuma chave secreta na Vercel: toda a validação
-// (assinatura ativa, expiração, bloqueio, métricas) acontece no backend.
+// Este arquivo atua como um túnel direto para garantir compatibilidade com VLC/Players externos.
 
 export const config = {
-  api: { responseLimit: false },
+  api: { 
+    responseLimit: false,
+    externalResolver: true,
+  },
 };
 
 const BACKEND_URL =
@@ -12,9 +14,10 @@ const BACKEND_URL =
   'https://hgvctwsyxlsygtsyayek.supabase.co';
 
 export default async function handler(req, res) {
+  // Configuração global de CORS para players
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'range, content-type, user-agent, accept, connection');
   res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type, User-Agent, Accept, Connection');
   
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -29,35 +32,36 @@ export default async function handler(req, res) {
     const upstream = await fetch(`${BACKEND_URL}/functions/v1/cloak-stream?${params}`, {
       method: req.method === 'HEAD' ? 'HEAD' : 'GET',
       headers: {
-        'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0',
+        'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (VLC/3.0.0; LibVLC/3.0.0)',
         ...(req.headers.range ? { Range: req.headers.range } : {}),
-        'Accept': req.headers['accept'] || '*/*',
+        'Accept': '*/*',
         'Connection': 'keep-alive',
       },
-      redirect: debug === 'true' ? 'manual' : 'follow',
+      redirect: 'follow',
     });
 
     if (debug === 'true') {
-      const debugInfo = {
-        proxy: 'Vercel stream-proxy',
+      return res.status(200).json({
+        proxy: 'Vercel tunnel-proxy',
         status: upstream.status,
         headers: Object.fromEntries(upstream.headers.entries()),
         url: upstream.url,
-      };
-      return res.status(200).json(debugInfo);
+      });
     }
 
-    // Repassa status e cabeçalhos vitais para streaming (importante para VLC)
+    // Repassa o status exato (200, 206 Partial Content, etc)
     res.status(upstream.status);
     
+    // Lista de headers essenciais para streaming de vídeo
     const headersToPass = [
       'content-type',
       'content-length',
       'content-range',
       'accept-ranges',
       'cache-control',
-      'server',
-      'date'
+      'content-disposition',
+      'last-modified',
+      'etag'
     ];
 
     headersToPass.forEach(h => {
@@ -65,26 +69,40 @@ export default async function handler(req, res) {
       if (val) res.setHeader(h, val);
     });
 
-    // Garante que o CORS esteja aberto para players externos
-    res.setHeader('Access-Control-Allow-Origin', '*');
-
-    if (req.method === 'HEAD' || !upstream.body) return res.end();
-
-    // Streaming real por chunks (ideal para vídeos pesados)
-    const reader = upstream.body.getReader();
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      
-      // Escreve o chunk e aguarda se o buffer de saída estiver cheio
-      if (!res.write(Buffer.from(value))) {
-        await new Promise((resolve) => res.once('drain', resolve));
-      }
+    // Força o header de Range para o VLC se o upstream não enviou mas suporta
+    if (!res.getHeader('accept-ranges')) {
+      res.setHeader('accept-ranges', 'bytes');
     }
-    res.end();
+
+    if (req.method === 'HEAD' || !upstream.body) {
+      return res.end();
+    }
+
+    // Pipeline de streaming direto (Node.js Stream)
+    // Usamos o ReadableStream da API Fetch e transformamos em chunks para o res.write
+    const reader = upstream.body.getReader();
+    
+    const stream = async () => {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          if (!res.write(Buffer.from(value))) {
+            await new Promise((resolve) => res.once('drain', resolve));
+          }
+        }
+        res.end();
+      } catch (err) {
+        console.error('[stream-proxy] erro durante o stream:', err);
+        res.destroy();
+      }
+    };
+
+    return stream();
   } catch (err) {
-    console.error('[stream-proxy] erro crítico:', err);
-    if (!res.headersSent) res.status(502).send('Erro de gateway ao acessar o stream');
+    console.error('[stream-proxy] erro de conexão:', err);
+    if (!res.headersSent) res.status(502).send('Conexão perdida com o servidor de origem');
     else res.end();
   }
 }
