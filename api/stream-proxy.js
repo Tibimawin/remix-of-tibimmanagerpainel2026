@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'range, content-type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const { token, id, u, sig } = req.query || {};
+  const { token, id, u, sig, debug } = req.query || {};
   if (!token || !id) return res.status(400).send('Requisição inválida');
 
   const params = new URLSearchParams({ token: String(token), id: String(id) });
@@ -30,8 +30,18 @@ export default async function handler(req, res) {
         'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0',
         ...(req.headers.range ? { Range: req.headers.range } : {}),
       },
-      redirect: 'follow',
+      redirect: debug === 'true' ? 'manual' : 'follow',
     });
+
+    if (debug === 'true') {
+      const debugInfo = {
+        proxy: 'Vercel stream-proxy',
+        status: upstream.status,
+        headers: Object.fromEntries(upstream.headers.entries()),
+        url: upstream.url,
+      };
+      return res.status(200).json(debugInfo);
+    }
 
     // Removido o tratamento de redirecionamento manual para deixar a Vercel seguir o Worker
     // e entregar o stream diretamente. Isso resolve problemas em players que não seguem redirects.

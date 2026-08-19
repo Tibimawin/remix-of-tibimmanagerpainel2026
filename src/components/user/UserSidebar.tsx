@@ -38,7 +38,8 @@ import {
   AlertCircle,
   Info,
   Smartphone,
-  Star
+  Star,
+  Bug
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -178,6 +179,16 @@ const menuItems: MenuItem[] = [
     category: 'tools',
     description: 'Conteúdos duplicados',
     feature: 'duplicados'
+  },
+  {
+    id: 'debug-streaming',
+    label: 'Debug Streaming',
+    href: '/debug-streaming',
+    icon: Bug,
+    category: 'tools',
+    description: 'Analisar falhas de links',
+    feature: 'configuracoes',
+    badge: { type: 'new' }
   },
   {
     id: 'duplicados-episodios',
