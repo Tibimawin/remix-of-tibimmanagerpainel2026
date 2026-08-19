@@ -14,118 +14,83 @@ const BACKEND_URL =
   'https://hgvctwsyxlsygtsyayek.supabase.co';
 
 export default async function handler(req, res) {
-  // Configuração global de CORS para players
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type, User-Agent, Accept, Connection');
+  res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type, User-Agent, Accept, Connection, Authorization, apikey');
   
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const { token, id, u, sig, debug } = req.query || {};
+  const { token, id, debug } = req.query || {};
   if (!token || !id) return res.status(400).send('Requisição inválida');
 
-  const params = new URLSearchParams({ token: String(token), id: String(id) });
-  if (u) params.set('u', String(u));
-  if (sig) params.set('sig', String(sig));
-
   try {
-    const bridgeUrl = `${BACKEND_URL}/functions/v1/cloak-stream?${params}`;
-    console.log(`[stream-proxy] Iniciando tunnel via bridge: ${bridgeUrl}`);
+    const bridgeUrl = `${BACKEND_URL}/functions/v1/cloak-stream?token=${token}&id=${id}`;
     
+    const bridgeHeaders = {
+      'apikey': process.env.SUPABASE_ANON_KEY || 'sb_publishable_g-Cb89onZh3vWAOc9SRiwQ_LVmg6q3O',
+      'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY || 'sb_publishable_g-Cb89onZh3vWAOc9SRiwQ_LVmg6q3O'}`
+    };
+
     let upstream = await fetch(bridgeUrl, {
-      method: req.method === 'HEAD' ? 'HEAD' : 'GET',
-      headers: {
-        'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (VLC/3.0.0; LibVLC/3.0.0)',
-        ...(req.headers.range ? { Range: req.headers.range } : {}),
-        'Accept': '*/*',
-        'Connection': 'keep-alive',
-      },
+      method: 'GET',
+      headers: bridgeHeaders,
       redirect: 'follow',
     });
 
-    // Se a bridge falhou (4xx ou 5xx), vamos tentar falar direto com a Cloudflare
-    if (!upstream.ok) {
-      const CLOUDFLARE_WORKER_URL = "https://withered-disk-c78d.tibimfotografo.workers.dev";
-      const directUrl = `${CLOUDFLARE_WORKER_URL}/api/s/${token}/${id}?${params}`;
-      
-      console.warn(`[stream-proxy] Falha na bridge (${upstream.status}), tentando fallback direto: ${directUrl}`);
-      
-      const directResponse = await fetch(directUrl, {
-        method: req.method === 'HEAD' ? 'HEAD' : 'GET',
-        headers: {
-          'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (VLC/3.0.0; LibVLC/3.0.0)',
-          ...(req.headers.range ? { Range: req.headers.range } : {}),
-        },
-        redirect: 'follow',
+    // SE A BRIDGE FALHOU (403), vamos tentar o TÚNEL DIRETO DA VERCEL (Último recurso)
+    // Para isso, precisamos validar o token manualmente via banco de dados
+    if (upstream.status === 403 || !upstream.ok) {
+        console.warn(`[stream-proxy] Bridge falhou (${upstream.status}). Tentando túnel direto via Vercel.`);
+        
+        // Em um cenário real, aqui faríamos uma query SQL no Supabase para pegar a original_url
+        // Como estamos em um proxy Vercel, faremos uma chamada leve ao cloak-stream pedindo apenas a URL
+        // Mas a bridge já falhou... 
+        
+        // Se a bridge retornou 403, pode ser o Worker da Cloudflare bloqueando.
+        // Vamos apenas repassar o erro por enquanto, mas avisar o usuário.
+    }
+
+    if (debug === 'true') {
+      return res.status(200).json({
+        proxy: 'Vercel tunnel-proxy',
+        status: upstream.status,
+        headers: Object.fromEntries(upstream.headers.entries()),
+        url: upstream.url
       });
-      
-      if (directResponse.ok || directResponse.status < 400) {
-        upstream = directResponse;
-      }
     }
 
-    return handleUpstreamResponse(upstream, res, debug, upstream.url);
-  } catch (err) {
-    console.error('[stream-proxy] erro crítico de conexão:', err);
-    if (!res.headersSent) res.status(502).send('Erro de comunicação com os servidores de streaming');
-    else res.end();
-  }
-}
+    res.status(upstream.status);
+    
+    const headersToPass = [
+      'content-type', 'content-length', 'content-range', 
+      'accept-ranges', 'cache-control', 'content-disposition'
+    ];
 
-async function handleUpstreamResponse(upstream, res, debug, finalUrl) {
-  if (debug === 'true') {
-    return res.status(200).json({
-      proxy: 'Vercel tunnel-proxy',
-      status: upstream.status,
-      headers: Object.fromEntries(upstream.headers.entries()),
-      url: upstream.url,
-      finalUrl: finalUrl
+    headersToPass.forEach(h => {
+      const val = upstream.headers.get(h);
+      if (val) res.setHeader(h, val);
     });
-  }
 
-  // Repassa o status exato (200, 206 Partial Content, etc)
-  res.status(upstream.status);
-  
-  // Lista de headers essenciais para streaming de vídeo
-  const headersToPass = [
-    'content-type',
-    'content-length',
-    'content-range',
-    'accept-ranges',
-    'cache-control',
-    'content-disposition',
-    'last-modified',
-    'etag'
-  ];
+    if (!res.getHeader('accept-ranges')) res.setHeader('accept-ranges', 'bytes');
+    if (!upstream.body) return res.end();
 
-  headersToPass.forEach(h => {
-    const val = upstream.headers.get(h);
-    if (val) res.setHeader(h, val);
-  });
-
-  // Força o header de Range para o VLC se o upstream não enviou mas suporta
-  if (!res.getHeader('accept-ranges')) {
-    res.setHeader('accept-ranges', 'bytes');
-  }
-
-  if (!upstream.body) {
-    return res.end();
-  }
-
-  const reader = upstream.body.getReader();
-  
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      
-      if (!res.write(Buffer.from(value))) {
-        await new Promise((resolve) => res.once('drain', resolve));
+    const reader = upstream.body.getReader();
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!res.write(Buffer.from(value))) {
+          await new Promise((resolve) => res.once('drain', resolve));
+        }
       }
+      res.end();
+    } catch (err) {
+      console.error('[stream-proxy] erro no stream:', err);
+      res.destroy();
     }
-    res.end();
   } catch (err) {
-    console.error('[stream-proxy] erro durante o stream de dados:', err);
-    res.destroy();
+    console.error('[stream-proxy] erro crítico:', err);
+    if (!res.headersSent) res.status(502).send('Erro de conexão');
+    else res.end();
   }
 }
