@@ -39,23 +39,20 @@ export default async function handler(req, res) {
         'apikey': process.env.SUPABASE_ANON_KEY || 'sb_publishable_g-Cb89onZh3vWAOc9SRiwQ_LVmg6q3O',
         'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY || 'sb_publishable_g-Cb89onZh3vWAOc9SRiwQ_LVmg6q3O'}`
       },
-      redirect: 'manual', // Importante: não seguir o 302 automaticamente aqui se quisermos repassar ao player
+      redirect: 'manual', // Importante: não seguir o 302 automaticamente aqui
     });
 
+    console.log(`[stream-proxy] Bridge respondeu com status: ${bridgeResponse.status}`);
+
     // Se a bridge retornou um redirecionamento (302), repassamos ao player para economizar banda
-    if (bridgeResponse.status === 302 || bridgeResponse.status === 301) {
+    if (bridgeResponse.status >= 300 && bridgeResponse.status < 400) {
       const location = bridgeResponse.headers.get('location');
       if (location) {
         console.log(`[stream-proxy] Redirecionando player para Cloudflare: ${location}`);
         res.setHeader('Location', location);
-        return res.status(302).end();
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        return res.status(bridgeResponse.status).end();
       }
-    }
-
-    // Se a bridge retornou erro, tentamos o túnel direto pela Vercel como fallback (custo de banda)
-    if (!bridgeResponse.ok) {
-       console.warn(`[stream-proxy] Bridge falhou (${bridgeResponse.status}). Iniciando túnel de emergência via Vercel.`);
-       // ... lógica de túnel direto se necessário ...
     }
 
     return handleUpstreamResponse(bridgeResponse, res, debug, bridgeResponse.url);
