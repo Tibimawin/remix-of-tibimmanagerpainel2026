@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'range, content-type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const { token, id, u, sig } = req.query || {};
+  const { token, id, u, sig, debug } = req.query || {};
   if (!token || !id) return res.status(400).send('Requisição inválida');
 
   const params = new URLSearchParams({ token: String(token), id: String(id) });
