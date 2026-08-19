@@ -1,8 +1,12 @@
-// Página de entrada redirecionando para o Dashboard
 import Dashboard from './Dashboard';
 
 const Index = () => {
-  return <Dashboard />;
+  return (
+    <>
+      <div className="sr-only">Olá</div>
+      <Dashboard />
+    </>
+  );
 };
 
 export default Index;
