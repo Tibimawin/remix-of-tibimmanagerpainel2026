@@ -60,7 +60,9 @@ Deno.serve(async (req) => {
 
     const upstream = await fetch(workerUrl.toString(), {
       method: "GET",
-      headers: upstreamHeaders
+      headers: upstreamHeaders,
+      // @ts-ignore: Deno dynamic fetch options
+      redirect: 'follow'
     });
 
     console.log(`[CLOAK-STREAM] Resposta do Worker: Status ${upstream.status}`);
