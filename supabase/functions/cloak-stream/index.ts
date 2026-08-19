@@ -17,12 +17,21 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const pathname = url.pathname.replace("/functions/v1/cloak-stream", "");
+    const token = url.searchParams.get("token");
+    const id = url.searchParams.get("id");
     
     // O Worker da Cloudflare configurado
     const CLOUDFLARE_WORKER_URL = "https://withered-disk-c78d.tibimfotografo.workers.dev";
     
-    const targetUrl = `${CLOUDFLARE_WORKER_URL}${pathname}${url.search}`;
+    // Se temos os parâmetros via query, montamos a URL para o Worker
+    // O Worker espera /api/s/:token/:id ou via query params conforme configurado anteriormente
+    let targetUrl = `${CLOUDFLARE_WORKER_URL}/api/s/${token}/${id}${url.search}`;
+    
+    if (!token || !id) {
+      // Fallback para path se os params não vierem na query (improvável mas seguro)
+      const pathname = url.pathname.replace("/functions/v1/cloak-stream", "");
+      targetUrl = `${CLOUDFLARE_WORKER_URL}${pathname}${url.search}`;
+    }
     
     console.log(`[CLOAK-BRIDGE] Fetching from Cloudflare: ${targetUrl}`);
     
