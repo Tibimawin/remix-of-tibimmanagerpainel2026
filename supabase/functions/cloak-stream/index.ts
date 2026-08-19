@@ -19,74 +19,66 @@ Deno.serve(async (req) => {
     const token = url.searchParams.get("token");
     const id = url.searchParams.get("id");
     
-    console.log(`[CLOAK-STREAM] Chamada iniciada. token: ${token}, id: ${id}`);
-    
     if (!token || !id) {
       return new Response("Parâmetros inválidos", { status: 400, headers: corsHeaders });
     }
 
-    // Validação ultra-rápida no banco via RPC
     const { data: link, error } = await supabase.rpc('get_cloaked_link_validated', { 
       p_token: token, 
       p_short_id: id 
     });
 
-    if (error) {
-      console.error("[CLOAK-STREAM] Erro no RPC:", error);
-      return new Response(`Erro de validação: ${error.message}`, { status: 500, headers: corsHeaders });
+    if (error || !link || link.error || !link.original_url) {
+      return new Response(link?.error || "Acesso negado", { status: 403, headers: corsHeaders });
     }
 
-    if (!link || link.error || !link.original_url) {
-      console.error("[CLOAK-STREAM] Acesso negado:", link?.error || "Link não encontrado");
-      return new Response(link?.error || "Acesso negado ou link inválido", { status: 403, headers: corsHeaders });
-    }
-
-    const CLOUDFLARE_WORKER_URL = "https://withered-disk-c78d.tibimfotografo.workers.dev";
-    const targetUrl = `${CLOUDFLARE_WORKER_URL}?u=${encodeURIComponent(link.original_url)}`;
-
-    console.log(`[CLOAK-STREAM] Tunelando para Cloudflare: ${targetUrl}`);
+    // TENTATIVA DE TÚNEL DIRETO (Sem Cloudflare Worker intermediário para testar)
+    console.log(`[CLOAK-STREAM] Tentando túnel direto para: ${link.original_url}`);
 
     const headers = new Headers();
     if (req.headers.has("range")) headers.set("range", req.headers.get("range")!);
-    
-    // Imitar o player para evitar bloqueios do servidor de origem
-    const userAgent = req.headers.get("user-agent") || "Mozilla/5.0 (VLC/3.0.0; LibVLC/3.0.0)";
-    headers.set("user-agent", userAgent);
+    headers.set("user-agent", req.headers.get("user-agent") || "Mozilla/5.0 (VLC/3.0.0; LibVLC/3.0.0)");
 
-    const upstream = await fetch(targetUrl, {
-      method: "GET",
-      headers: headers,
-    });
+    // Adicionamos um timeout curto para não travar a função
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    // Clonamos os headers da resposta e adicionamos CORS
-    const resHeaders = new Headers(upstream.headers);
-    resHeaders.set("Access-Control-Allow-Origin", "*");
-    
-    // Essencial para o VLC: garantir que accept-ranges esteja presente
-    if (!resHeaders.has("accept-ranges")) {
-      resHeaders.set("accept-ranges", "bytes");
-    }
+    try {
+      const upstream = await fetch(link.original_url, {
+        method: "GET",
+        headers: headers,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
-    // Registrar log de acesso de forma assíncrona (sem travar a resposta)
-    if (link.owner_uid) {
-      void supabase.from("cloak_access_logs").insert({
-        link_short_id: id,
-        owner_uid: link.owner_uid,
-        status: "ok",
-        ip: req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for"),
-        bytes_served: Number(upstream.headers.get("content-length") || 0)
-      }).then(({ error }) => {
-        if (error) console.error("[CLOAK-STREAM] Erro ao gravar log:", error);
+      const resHeaders = new Headers(upstream.headers);
+      resHeaders.set("Access-Control-Allow-Origin", "*");
+      if (!resHeaders.has("accept-ranges")) resHeaders.set("accept-ranges", "bytes");
+
+      return new Response(upstream.body, {
+        status: upstream.status,
+        headers: resHeaders
+      });
+    } catch (fetchErr) {
+      console.error("[CLOAK-STREAM] Falha no túnel direto, tentando via Cloudflare Worker...");
+      
+      const CLOUDFLARE_WORKER_URL = "https://withered-disk-c78d.tibimfotografo.workers.dev";
+      const targetUrl = `${CLOUDFLARE_WORKER_URL}?u=${encodeURIComponent(link.original_url)}`;
+      
+      const cfResponse = await fetch(targetUrl, {
+        method: "GET",
+        headers: headers,
+      });
+      
+      const resHeaders = new Headers(cfResponse.headers);
+      resHeaders.set("Access-Control-Allow-Origin", "*");
+      return new Response(cfResponse.body, {
+        status: cfResponse.status,
+        headers: resHeaders
       });
     }
 
-    return new Response(upstream.body, {
-      status: upstream.status,
-      headers: resHeaders
-    });
-
   } catch (err) {
-    console.error("[CLOAK-STREAM] Erro fatal:", err);
     return new Response(`Erro interno: ${String(err)}`, { status: 500, headers: corsHeaders });
   }
 });
