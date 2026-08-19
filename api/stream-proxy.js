@@ -39,6 +39,8 @@ export default async function handler(req, res) {
         ...(req.headers.range ? { Range: req.headers.range } : {}),
         'Accept': '*/*',
         'Connection': 'keep-alive',
+        'apikey': process.env.SUPABASE_ANON_KEY || 'sb_publishable_g-Cb89onZh3vWAOc9SRiwQ_LVmg6q3O',
+        'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY || 'sb_publishable_g-Cb89onZh3vWAOc9SRiwQ_LVmg6q3O'}`
       },
       redirect: 'follow',
     });
