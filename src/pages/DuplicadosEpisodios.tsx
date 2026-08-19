@@ -1,403 +1,494 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useBaserowService } from '@/services/BaserowService';
 import { useConfig } from '@/contexts/ConfigContext';
-import { useOptimizedDuplicates } from '@/hooks/useOptimizedDuplicates';
+import {
+  useOptimizedDuplicates,
+  MATCH_MODE_LABELS,
+  MatchMode,
+  normalizeValue,
+} from '@/hooks/useOptimizedDuplicates';
+import { GrupoDuplicadoEpisodio } from '@/components/duplicados/GrupoDuplicadoEpisodio';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { AlertTriangle, Trash2, RefreshCw, Settings, Clock } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  AlertTriangle,
+  Trash2,
+  RefreshCw,
+  Settings,
+  CheckCircle,
+  Search,
+  X,
+  Layers,
+  Database,
+  ChevronDown,
+} from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { getValueByPossibleKeys } from '@/utils/baserowHelpers';
 
-interface DuplicateGroup {
-  key: string;
-  records: any[];
-  fields: string[];
-}
+const POR_PAGINA = 20;
+const LOTE_EXCLUSAO = 50;
+
+const num = (v: any) => {
+  const n = parseInt(String(v ?? '0').replace(/\D/g, ''), 10);
+  return isNaN(n) ? 0 : n;
+};
+
+/** Cópia recomendada para manter: mais views, empate = id mais antigo */
+const escolherManter = (records: any[]): string => {
+  const melhor = [...records].sort((a, b) => {
+    const vA = num(getValueByPossibleKeys(a, 'Views'));
+    const vB = num(getValueByPossibleKeys(b, 'Views'));
+    const diff = vB - vA;
+    if (diff !== 0) return diff;
+    return Number(a.id || 0) - Number(b.id || 0);
+  })[0];
+  return String(melhor?.id);
+};
 
 const DuplicadosEpisodios = () => {
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
+  const [processingDelete, setProcessingDelete] = useState(false);
+  const [deleteProgress, setDeleteProgress] = useState({ feitos: 0, total: 0 });
+  const [busca, setBusca] = useState('');
+  const [ordem, setOrdem] = useState<'copias' | 'nome'>('copias');
+  const [pagina, setPagina] = useState(1);
+  const [abertos, setAbertos] = useState<Record<string, boolean>>({});
+  const cancelDeleteRef = useRef(false);
+
   const baserowService = useBaserowService();
   const { config, isConfigured } = useConfig();
-  
+
   const {
-    duplicates: episodiosDuplicados,
+    duplicates,
     loading,
     progress,
     error,
     findDuplicates,
-    expandSearch,
-    currentLimit,
+    scanAll,
+    cancelScan,
+    removeRecordsLocally,
     totalRecords,
-    hasMoreData
-  } = useOptimizedDuplicates(config.tableIds?.episodios || '', ['Nome', 'Link']);
+    recordsScanned,
+    hasMoreData,
+    totalExcedentes,
+    matchMode,
+    setMatchMode,
+  } = useOptimizedDuplicates(config.tableIds?.episodios || '', 'serie-t-e-link');
 
-  // Carregar episódios duplicados
-  const loadDuplicates = async () => {
-    if (!isConfigured) {
-      toast.error("Configuração incompleta. Verifique as configurações do sistema.");
+  const manterPorGrupo = useMemo(() => {
+    const map: Record<string, string> = {};
+    duplicates.forEach(g => (map[g.key] = escolherManter(g.records)));
+    return map;
+  }, [duplicates]);
+
+  const gruposFiltrados = useMemo(() => {
+    const termo = normalizeValue(busca);
+    let lista = duplicates;
+    if (termo) {
+      lista = lista.filter(g =>
+        g.records.some(r => {
+          const nome = normalizeValue(getValueByPossibleKeys(r, 'Nome'));
+          const serie = normalizeValue(getValueByPossibleKeys(r, 'Serie') || getValueByPossibleKeys(r, 'Série'));
+          return nome.includes(termo) || serie.includes(termo);
+        })
+      );
+    }
+    if (ordem === 'nome') {
+      lista = [...lista].sort((a, b) => {
+        const nA = normalizeValue(getValueByPossibleKeys(a.records[0], 'Serie') || getValueByPossibleKeys(a.records[0], 'Série'));
+        const nB = normalizeValue(getValueByPossibleKeys(b.records[0], 'Serie') || getValueByPossibleKeys(b.records[0], 'Série'));
+        return nA.localeCompare(nB);
+      });
+    }
+    return lista;
+  }, [duplicates, busca, ordem]);
+
+  const totalPaginas = Math.max(1, Math.ceil(gruposFiltrados.length / POR_PAGINA));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const gruposVisiveis = gruposFiltrados.slice(
+    (paginaAtual - 1) * POR_PAGINA,
+    paginaAtual * POR_PAGINA
+  );
+
+  useEffect(() => setPagina(1), [busca, ordem, matchMode]);
+
+  const iniciarVarredura = (completa = false) => {
+    if (!isConfigured || !config.tableIds?.episodios) {
+      toast.error('Configure a conexão com o banco antes de verificar duplicatas.');
       return;
     }
-
-    if (!config.tableIds.episodios) {
-      toast.error("ID da tabela de episódios não configurado.");
-      return;
-    }
-
-    await findDuplicates();
-  };
-
-  // Deletar episódio individual
-  const handleDelete = async (recordId: string) => {
-    if (!window.confirm('Tem certeza que deseja deletar este episódio?')) return;
-    
-    try {
-      await baserowService.deleteRow(config.tableIds.episodios, recordId);
-      toast.success("Episódio deletado com sucesso.");
-      loadDuplicates();
-    } catch (error) {
-      console.error('Error deleting episode:', error);
-      toast.error("Não foi possível deletar o episódio.");
-    }
-  };
-
-  // Selecionar/desselecionar episódio
-  const handleSelectRow = (recordId: string) => {
-    setSelectedRows(prev => ({
-      ...prev,
-      [recordId]: !prev[recordId]
-    }));
-  };
-
-  // Deletar selecionados
-  const handleDeleteSelected = async () => {
-    const toDelete = Object.entries(selectedRows)
-      .filter(([_, checked]) => checked)
-      .map(([id]) => id);
-      
-    if (toDelete.length === 0) return;
-    
-    if (!window.confirm(`Excluir ${toDelete.length} episódio(s) selecionados?`)) return;
-    
-    let deletedCount = 0;
-    let errorCount = 0;
-    
-    for (const recordId of toDelete) {
-      try {
-        await baserowService.deleteRow(config.tableIds.episodios, recordId);
-        deletedCount++;
-      } catch (error: any) {
-        console.error(`Error deleting episode ${recordId}:`, error);
-        errorCount++;
-        
-        // Se o erro for que o registro não existe, apenas continue
-        if (error.message && error.message.includes('ERROR_ROW_DOES_NOT_EXIST')) {
-          console.log(`Episode ${recordId} already deleted, skipping...`);
-        }
-      }
-    }
-    
-    if (deletedCount > 0) {
-      toast.success(`${deletedCount} episódio(s) deletado(s).`);
-    }
-    
-    if (errorCount > 0) {
-      toast.error(`${errorCount} episódio(s) não puderam ser deletados (podem já ter sido removidos).`);
-    }
-    
     setSelectedRows({});
-    loadDuplicates();
+    completa ? scanAll() : findDuplicates();
   };
 
   useEffect(() => {
-    if (isConfigured && config.tableIds?.episodios) {
-      findDuplicates();
-    }
+    if (isConfigured && config.tableIds?.episodios) findDuplicates();
   }, [isConfigured, config.tableIds?.episodios]);
 
-  // Verificar se a configuração está completa
+  // ---- seleção ----
+  const toggleRegistro = (record: any, grupo: any) => {
+    const id = String(record.id);
+    setSelectedRows(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      const marcados = grupo.records.filter((r: any) => next[String(r.id)]).length;
+      if (marcados >= grupo.records.length) {
+        toast.warning('É preciso manter pelo menos uma cópia de cada grupo.');
+        return prev;
+      }
+      return next;
+    });
+  };
+
+  const marcarExtrasDoGrupo = (grupo: any) => {
+    const manterId = manterPorGrupo[grupo.key];
+    setSelectedRows(prev => {
+      const next = { ...prev };
+      grupo.records.forEach((r: any) => {
+        const id = String(r.id);
+        if (id !== manterId) next[id] = true;
+      });
+      return next;
+    });
+  };
+
+  const desmarcarGrupo = (grupo: any) => {
+    setSelectedRows(prev => {
+      const next = { ...prev };
+      grupo.records.forEach((r: any) => {
+        delete next[String(r.id)];
+      });
+      return next;
+    });
+  };
+
+  const marcarTodosExtras = (criterio: 'views' | 'antigo') => {
+    const next: Record<string, boolean> = {};
+    gruposFiltrados.forEach(g => {
+      const manterId =
+        criterio === 'views'
+          ? manterPorGrupo[g.key]
+          : String([...g.records].sort((a, b) => Number(a.id) - Number(b.id))[0]?.id);
+      g.records.forEach(r => {
+        const id = String(r.id);
+        if (id !== manterId) next[id] = true;
+      });
+    });
+    setSelectedRows(next);
+    const total = Object.keys(next).length;
+    toast.success(`${total} cópia(s) marcada(s) para exclusão.`);
+  };
+
+  const selectedIds = useMemo(
+    () => Object.entries(selectedRows).filter(([, v]) => v).map(([id]) => id),
+    [selectedRows]
+  );
+
+  // ---- exclusão ----
+  const excluirIds = async (ids: string[]) => {
+    if (!ids.length) return;
+    cancelDeleteRef.current = false;
+    setProcessingDelete(true);
+    setDeleteProgress({ feitos: 0, total: ids.length });
+
+    const removidos: string[] = [];
+    let erros = 0;
+
+    for (let i = 0; i < ids.length; i += LOTE_EXCLUSAO) {
+      if (cancelDeleteRef.current) break;
+      const lote = ids.slice(i, i + LOTE_EXCLUSAO);
+      try {
+        await baserowService.deleteRowsBatch(config.tableIds.episodios, lote);
+        removidos.push(...lote);
+      } catch (err) {
+        console.error('Erro ao excluir lote:', err);
+        erros += lote.length;
+      }
+      setDeleteProgress({ feitos: Math.min(i + lote.length, ids.length), total: ids.length });
+    }
+
+    if (removidos.length) {
+      removeRecordsLocally(removidos);
+      toast.success(`${removidos.length} registro(s) excluído(s).`);
+    }
+    if (erros) toast.error(`${erros} registro(s) não puderam ser excluídos.`);
+    if (cancelDeleteRef.current) toast.info('Exclusão cancelada.');
+
+    setSelectedRows({});
+    setProcessingDelete(false);
+    setDeleteProgress({ feitos: 0, total: 0 });
+  };
+
+  const excluirSelecionados = async () => {
+    if (!selectedIds.length) return;
+    if (!window.confirm(`Excluir ${selectedIds.length} registro(s) selecionados?`)) return;
+    await excluirIds(selectedIds);
+  };
+
+  const excluirUm = async (record: any, grupo: any) => {
+    if (grupo.records.length <= 1) {
+      toast.warning('Este grupo já tem apenas uma cópia.');
+      return;
+    }
+    if (!window.confirm('Excluir este registro?')) return;
+    await excluirIds([String(record.id)]);
+  };
+
   if (!isConfigured) {
     return (
-      <div className="w-full bg-background min-h-screen py-8 animate-fade-in-up px-4 sm:px-6 lg:px-8">
+      <div className="w-full bg-background min-h-screen py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl mx-auto">
-          <div className="bg-card border border-border rounded-xl p-8 text-center">
-            <Settings className="h-12 w-12 mb-4 mx-auto text-yellow-600" />
-            <h2 className="text-2xl font-bold mb-2">Configuração Necessária</h2>
-            <p className="text-muted-foreground mb-6">
-              Para usar a verificação de episódios duplicados, é necessário configurar a conexão com o Baserow.
-            </p>
-            <p className="text-sm text-muted-foreground mb-6">
-              Certifique-se de que os seguintes itens estão configurados:
-              <br />• URL do Baserow
-              <br />• Token de API
-              <br />• ID da tabela de episódios
-            </p>
-            <Button onClick={() => window.location.href = '/configuracoes'}>
-              <Settings className="mr-2 h-4 w-4" />
-              Ir para Configurações
-            </Button>
-          </div>
+          <Card>
+            <CardHeader className="text-center">
+              <Settings className="h-12 w-12 mb-4 mx-auto text-muted-foreground" />
+              <CardTitle>Configuração Necessária</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center">
+              <p className="text-muted-foreground mb-6">
+                Para verificar duplicatas é necessário configurar a conexão com o banco de dados.
+              </p>
+              <Button onClick={() => (window.location.href = '/configuracoes')}>
+                <Settings className="mr-2 h-4 w-4" /> Ir para Configurações
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
   }
 
-  const selectedCount = Object.values(selectedRows).filter(Boolean).length;
-
   return (
-    <div className="w-full bg-background min-h-screen py-8 animate-fade-in-up px-4 sm:px-6 lg:px-8">
-      <div className="mb-8">
-        <div className="flex items-center gap-4 mb-4">
-          <h1 className="text-3xl font-bold whitespace-nowrap">Verificar Duplicatas: Episódios</h1>
-        </div>
-        <p className="text-muted-foreground mb-6">
-          Gerencie episódios duplicados no sistema
+    <div className="w-full bg-background min-h-screen py-8 px-4 sm:px-6 lg:px-8 animate-fade-in-up">
+      {/* Cabeçalho */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Duplicatas: Episódios</h1>
+        <p className="text-muted-foreground mt-1">
+          Encontre e remova episódios repetidos mantendo sempre uma cópia por temporada.
         </p>
-        
-        {/* Informações sobre limites e dados */}
-        {totalRecords > 0 && (
-          <div className="bg-card border border-border rounded-lg p-4 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-6 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Analisando:</span>
-                  <span className="font-semibold text-primary">
-                    {currentLimit.toLocaleString()} de {totalRecords.toLocaleString()} episódios
-                  </span>
-                </div>
-                {episodiosDuplicados.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">Duplicados encontrados:</span>
-                    <span className="font-semibold text-destructive">
-                      {episodiosDuplicados.reduce((acc, group) => acc + group.records.length, 0)} episódios
-                    </span>
-                  </div>
-                )}
-              </div>
-              
-              {hasMoreData && (
-                <Button 
-                  onClick={expandSearch} 
-                  disabled={loading}
-                  variant="outline"
-                  size="sm"
-                  className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                >
-                  Analisar mais {(5000).toLocaleString()} episódios
-                </Button>
-              )}
-            </div>
-            
-            {hasMoreData && (
-              <p className="text-xs text-muted-foreground mt-2">
-                💡 Para melhor performance, a análise está limitada a {currentLimit.toLocaleString()} episódios. 
-                Após limpar os duplicados atuais, você pode expandir a análise para mais registros.
-              </p>
-            )}
-          </div>
-        )}
-        <div className="flex flex-col md:flex-row justify-between gap-2 items-start md:items-center mb-6">
-          <div>
-            <Button 
-              onClick={loadDuplicates} 
-              disabled={loading} 
-              className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700"
-            >
-              <RefreshCw className="mr-2 h-5 w-5" /> 
-              Verificar Novamente
-            </Button>
-          </div>
-          <Button 
-            onClick={handleDeleteSelected} 
-            className="bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-            variant="destructive"
-            disabled={selectedCount === 0}
-          >
-            <Trash2 className="h-5 w-5" />
-            Excluir Selecionados ({selectedCount})
-          </Button>
-        </div>
       </div>
 
-      {loading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-600 mx-auto mb-4"></div>
-          <div className="max-w-md mx-auto">
-            <p className="mb-4">Analisando episódios duplicados...</p>
-            <Progress value={progress} className="w-full mb-2" />
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              {progress.toFixed(0)}% concluído
-            </div>
-          </div>
-        </div>
-      ) : error ? (
-        <div className="bg-card border border-destructive rounded-xl p-8 text-center">
-          <AlertTriangle className="h-8 w-8 mb-2 mx-auto text-destructive" />
-          <div className="text-destructive mb-4">Erro ao carregar duplicados</div>
-          <p className="text-sm text-muted-foreground mb-4">{error}</p>
-          <Button onClick={loadDuplicates} variant="outline">
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Tentar Novamente
-          </Button>
-        </div>
-      ) : episodiosDuplicados.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-8 text-center text-muted-foreground">
-          <AlertTriangle className="h-8 w-8 mb-2 mx-auto text-yellow-600" />
-          <div className="mb-2">
-            {totalRecords > 0 ? (
-              hasMoreData ? (
-                <>
-                  Nenhum episódio duplicado encontrado nos primeiros {currentLimit.toLocaleString()} episódios.
-                  <br />
-                  <span className="text-sm">
-                    Há mais {(totalRecords - currentLimit).toLocaleString()} episódios para analisar.
-                  </span>
-                </>
-              ) : (
-                `Nenhum episódio duplicado encontrado em ${totalRecords.toLocaleString()} episódios analisados.`
-              )
-            ) : (
-              "Nenhum episódio duplicado encontrado."
-            )}
-          </div>
-          {hasMoreData && (
-            <Button 
-              onClick={expandSearch} 
-              disabled={loading}
-              className="mt-4"
-              variant="outline"
-            >
-              Analisar mais episódios
+      {/* Resumo */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        {[
+          { label: 'Grupos duplicados', valor: duplicates.length, icon: Layers },
+          { label: 'Cópias excedentes', valor: totalExcedentes, icon: AlertTriangle },
+          { label: 'Registros analisados', valor: recordsScanned, icon: Database },
+          { label: 'Total na tabela', valor: totalRecords, icon: Database },
+        ].map(item => (
+          <Card key={item.label}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </div>
+              <p className="text-2xl font-bold">{item.valor.toLocaleString('pt-BR')}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {hasMoreData && !loading && (
+        <Card className="mb-6 border-destructive/40">
+          <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <p className="text-sm">
+              A varredura analisou {recordsScanned.toLocaleString('pt-BR')} de{' '}
+              {totalRecords.toLocaleString('pt-BR')} registros.
+            </p>
+            <Button variant="outline" onClick={() => iniciarVarredura(true)}>
+              Analisar tudo
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Controles */}
+      <Card className="mb-6">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex flex-col lg:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={busca}
+                onChange={e => setBusca(e.target.value)}
+                placeholder="Buscar por série ou episódio..."
+                className="pl-9"
+              />
+            </div>
+
+            <Select value={matchMode} onValueChange={v => setMatchMode(v as MatchMode)}>
+              <SelectTrigger className="w-full lg:w-72">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(MATCH_MODE_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={ordem} onValueChange={v => setOrdem(v as 'copias' | 'nome')}>
+              <SelectTrigger className="w-full lg:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="copias">Mais cópias primeiro</SelectItem>
+                <SelectItem value="nome">Ordem da Série</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button
+              onClick={() => (loading ? cancelScan() : iniciarVarredura())}
+              disabled={processingDelete}
+              variant={loading ? 'outline' : 'default'}
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Cancelar varredura' : 'Verificar novamente'}
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={loading || processingDelete || !gruposFiltrados.length}
+                >
+                  Marcar todos extras <ChevronDown className="ml-1 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => marcarTodosExtras('views')}>
+                  Manter a cópia com mais views
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => marcarTodosExtras('antigo')}>
+                  Manter a cópia mais antiga
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button size="sm" variant="ghost" onClick={() => setSelectedRows({})} disabled={!selectedIds.length}>
+              <X className="mr-1 h-4 w-4" /> Desmarcar todos
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={excluirSelecionados}
+              disabled={!selectedIds.length || processingDelete}
+              className="ml-auto"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Excluir selecionados ({selectedIds.length})
+            </Button>
+          </div>
+
+          {processingDelete && (
+            <div className="space-y-2">
+              <Progress value={(deleteProgress.feitos / Math.max(1, deleteProgress.total)) * 100} />
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  Excluindo {deleteProgress.feitos} de {deleteProgress.total}...
+                </span>
+                <Button size="sm" variant="outline" onClick={() => (cancelDeleteRef.current = true)}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
           )}
-        </div>
+        </CardContent>
+      </Card>
+
+      {/* Conteúdo */}
+      {loading ? (
+        <Card>
+          <CardContent className="text-center py-12 max-w-md mx-auto">
+            <p className="mb-4 text-primary font-medium">Analisando episódios...</p>
+            <Progress value={progress} className="mb-2" />
+            <p className="text-sm text-muted-foreground">
+              {progress}% • {recordsScanned.toLocaleString('pt-BR')} registros processados
+            </p>
+          </CardContent>
+        </Card>
+      ) : error ? (
+        <Card>
+          <CardContent className="text-center py-12">
+            <AlertTriangle className="h-8 w-8 mb-2 mx-auto text-destructive" />
+            <p className="text-destructive mb-2">Erro ao carregar duplicados</p>
+            <p className="text-sm text-muted-foreground mb-4">{error}</p>
+            <Button onClick={() => iniciarVarredura()} variant="outline">
+              <RefreshCw className="mr-2 h-4 w-4" /> Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      ) : gruposFiltrados.length === 0 ? (
+        <Card>
+          <CardContent className="text-center py-12">
+            <CheckCircle className="h-8 w-8 mb-2 mx-auto text-primary" />
+            <p className="text-lg font-medium mb-1">
+              {busca ? 'Nenhum grupo corresponde à busca' : 'Nenhum episódio duplicado encontrado!'}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {busca ? 'Tente outro termo.' : 'Todos os episódios analisados são únicos.'}
+            </p>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="space-y-6">
-          {episodiosDuplicados.map((group) => {
-            const firstRecord = group.records[0];
-            
-            // Debug: ver todos os campos disponíveis
-            console.log('Campos disponíveis no record:', Object.keys(firstRecord || {}));
-            console.log('Record completo:', firstRecord);
-            
-            // Tentar diferentes possibilidades de nomes dos campos
-            const serieInfo = firstRecord?.Serie || firstRecord?.serie || firstRecord?.Série || firstRecord?.['Série'] || 'Série não identificada';
-            const temporadaInfo = firstRecord?.Temporada || firstRecord?.temporada || firstRecord?.Season || firstRecord?.season || 'N/A';
-            const episodioInfo = firstRecord?.Episodio || firstRecord?.episodio || firstRecord?.Episode || firstRecord?.episode || firstRecord?.Episódio || firstRecord?.['Episódio'] || 'N/A';
-            
-            return (
-              <div key={group.key} className="bg-card border border-border rounded-xl shadow-lg">
-                <div className="px-6 pt-6 pb-4 border-b border-border">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="font-bold text-xl text-primary mb-2">
-                        {serieInfo}
-                      </h3>
-                      <div className="flex items-center gap-4 text-sm">
-                        <span className="bg-primary/10 text-primary px-2 py-1 rounded-md font-medium">
-                          Temporada {temporadaInfo}
-                        </span>
-                        <span className="bg-secondary/80 text-secondary-foreground px-2 py-1 rounded-md font-medium">
-                          Episódio {episodioInfo}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="bg-destructive/20 text-destructive text-sm px-3 py-1 rounded-full font-medium">
-                      {group.records.length} Duplicatas
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    <strong>Nome do Episódio:</strong> {firstRecord?.Nome || firstRecord?.nome || firstRecord?.Name || firstRecord?.name || firstRecord?.Titulo || firstRecord?.titulo || firstRecord?.Title || firstRecord?.title || 'Sem nome'}
-                  </p>
-                </div>
-                
-                <div className="divide-y divide-border">
-                  {group.records.map((record, index) => (
-                    <div key={record.id} className="px-6 py-4 hover:bg-muted/30 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <input 
-                            type="checkbox" 
-                            className="w-4 h-4 text-primary focus:ring-primary border-border rounded" 
-                            checked={!!selectedRows[record.id]}
-                            onChange={() => handleSelectRow(record.id)}
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <span className="bg-muted text-muted-foreground text-xs px-2 py-1 rounded font-mono">
-                                Cópia #{index + 1}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                ID: {record.id}
-                              </span>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                              <div>
-                                <span className="font-medium text-muted-foreground">Série:</span>
-                                <p className="font-medium">{record.Serie || record.serie || record.Série || record?.['Série'] || 'N/A'}</p>
-                              </div>
-                              <div>
-                                <span className="font-medium text-muted-foreground">Temporada:</span>
-                                <p className="font-medium">{record.Temporada || record.temporada || record.Season || record.season || 'N/A'}</p>
-                              </div>
-                              <div>
-                                <span className="font-medium text-muted-foreground">Episódio:</span>
-                                <p className="font-medium">{record.Episodio || record.episodio || record.Episode || record.episode || record.Episódio || record?.['Episódio'] || 'N/A'}</p>
-                              </div>
-                              <div>
-                                <span className="font-medium text-muted-foreground">Nome:</span>
-                                <p className="font-medium truncate" title={record.Nome || record.nome || record.Name || record.name || record.Titulo || record.titulo || record.Title || record.title}>
-                                  {record.Nome || record.nome || record.Name || record.name || record.Titulo || record.titulo || record.Title || record.title || 'N/A'}
-                                </p>
-                              </div>
-                            </div>
-                            
-                            {record.Link && (
-                              <div className="mt-2 text-xs">
-                                <span className="font-medium text-muted-foreground">Link:</span>
-                                <p className="text-blue-600 truncate max-w-md" title={record.Link}>
-                                  {record.Link}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <Button 
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(record.id)}
-                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          title={`Excluir episódio ${record.Nome || 'sem nome'}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-          
-          {/* Botão para expandir pesquisa quando há mais dados */}
-          {hasMoreData && (
-            <div className="bg-card border border-border rounded-xl p-6 text-center">
-              <div className="mb-4">
-                <p className="text-muted-foreground mb-2">
-                  Há mais {(totalRecords - currentLimit).toLocaleString()} episódios não analisados.
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Após limpar os duplicados atuais, você pode expandir a análise para encontrar mais duplicados.
-                </p>
-              </div>
-              <Button 
-                onClick={expandSearch} 
-                disabled={loading}
+        <div className="space-y-4">
+          {gruposVisiveis.map((grupo, i) => (
+            <GrupoDuplicadoEpisodio
+              key={grupo.key}
+              grupo={grupo}
+              indice={(paginaAtual - 1) * POR_PAGINA + i}
+              aberto={abertos[grupo.key] ?? false}
+              onToggleAberto={() =>
+                setAbertos(prev => ({ ...prev, [grupo.key]: !prev[grupo.key] }))
+              }
+              selecionados={selectedRows}
+              onToggleRegistro={toggleRegistro}
+              onSelecionarGrupo={marcarExtrasDoGrupo}
+              onDesmarcarGrupo={desmarcarGrupo}
+              manterId={manterPorGrupo[grupo.key]}
+              onExcluir={excluirUm}
+              desabilitado={processingDelete}
+            />
+          ))}
+
+          {totalPaginas > 1 && (
+            <div className="flex items-center justify-center gap-3 pt-4">
+              <Button
                 variant="outline"
-                className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                size="sm"
+                onClick={() => setPagina(p => Math.max(1, p - 1))}
+                disabled={paginaAtual === 1}
               >
-                Analisar mais {(5000).toLocaleString()} episódios
+                Anterior
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Página {paginaAtual} de {totalPaginas}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
+                disabled={paginaAtual === totalPaginas}
+              >
+                Próxima
               </Button>
             </div>
           )}
