@@ -13,7 +13,9 @@ const BACKEND_URL =
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'range, content-type');
+  res.setHeader('Access-Control-Allow-Headers', 'range, content-type, user-agent, accept, connection');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const { token, id, u, sig, debug } = req.query || {};
@@ -29,6 +31,8 @@ export default async function handler(req, res) {
       headers: {
         'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0',
         ...(req.headers.range ? { Range: req.headers.range } : {}),
+        'Accept': req.headers['accept'] || '*/*',
+        'Connection': 'keep-alive',
       },
       redirect: debug === 'true' ? 'manual' : 'follow',
     });
@@ -43,31 +47,44 @@ export default async function handler(req, res) {
       return res.status(200).json(debugInfo);
     }
 
-    // Removido o tratamento de redirecionamento manual para deixar a Vercel seguir o Worker
-    // e entregar o stream diretamente. Isso resolve problemas em players que não seguem redirects.
-
-    for (const key of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'cache-control']) {
-      const value = upstream.headers.get(key);
-      if (value) res.setHeader(key, value);
-    }
-
+    // Repassa status e cabeçalhos vitais para streaming (importante para VLC)
     res.status(upstream.status);
+    
+    const headersToPass = [
+      'content-type',
+      'content-length',
+      'content-range',
+      'accept-ranges',
+      'cache-control',
+      'server',
+      'date'
+    ];
+
+    headersToPass.forEach(h => {
+      const val = upstream.headers.get(h);
+      if (val) res.setHeader(h, val);
+    });
+
+    // Garante que o CORS esteja aberto para players externos
+    res.setHeader('Access-Control-Allow-Origin', '*');
 
     if (req.method === 'HEAD' || !upstream.body) return res.end();
 
-    // Streaming real (sem carregar o vídeo inteiro na memória)
+    // Streaming real por chunks (ideal para vídeos pesados)
     const reader = upstream.body.getReader();
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
+      
+      // Escreve o chunk e aguarda se o buffer de saída estiver cheio
       if (!res.write(Buffer.from(value))) {
         await new Promise((resolve) => res.once('drain', resolve));
       }
     }
     res.end();
   } catch (err) {
-    console.error('[stream-proxy] erro:', err);
-    if (!res.headersSent) res.status(502).send('Erro ao acessar o conteúdo');
+    console.error('[stream-proxy] erro crítico:', err);
+    if (!res.headersSent) res.status(502).send('Erro de gateway ao acessar o stream');
     else res.end();
   }
 }
