@@ -8,13 +8,15 @@ export interface DuplicateGroup {
   fields: string[];
 }
 
-export type MatchMode = 'nome' | 'nome-tipo' | 'nome-link' | 'link';
+export type MatchMode = 'nome' | 'nome-tipo' | 'nome-link' | 'link' | 'serie-t-e' | 'serie-t-e-link';
 
 export const MATCH_MODE_FIELDS: Record<MatchMode, string[]> = {
   nome: ['Nome'],
   'nome-tipo': ['Nome', 'Tipo'],
   'nome-link': ['Nome', 'Link'],
   link: ['Link'],
+  'serie-t-e': ['Serie', 'Temporada', 'Episodio'],
+  'serie-t-e-link': ['Serie', 'Temporada', 'Episodio', 'Link'],
 };
 
 export const MATCH_MODE_LABELS: Record<MatchMode, string> = {
@@ -22,6 +24,8 @@ export const MATCH_MODE_LABELS: Record<MatchMode, string> = {
   'nome-tipo': 'Mesmo nome + tipo',
   'nome-link': 'Mesmo nome + link',
   link: 'Mesmo link',
+  'serie-t-e': 'Série + Temporada + Episódio',
+  'serie-t-e-link': 'Série + Temporada + Episódio + Link',
 };
 
 /** Normaliza um valor para comparação: minúsculo, sem acentos, sem pontuação extra */
