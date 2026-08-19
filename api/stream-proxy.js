@@ -32,37 +32,36 @@ export default async function handler(req, res) {
     const bridgeUrl = `${BACKEND_URL}/functions/v1/cloak-stream?${params}`;
     console.log(`[stream-proxy] Iniciando tunnel via bridge: ${bridgeUrl}`);
     
+    // Headers de autenticação do Supabase incluídos
+    const bridgeHeaders = {
+      'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (VLC/3.0.0; LibVLC/3.0.0)',
+      ...(req.headers.range ? { Range: req.headers.range } : {}),
+      'Accept': '*/*',
+      'Connection': 'keep-alive',
+      'apikey': process.env.SUPABASE_ANON_KEY || 'sb_publishable_g-Cb89onZh3vWAOc9SRiwQ_LVmg6q3O',
+      'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY || 'sb_publishable_g-Cb89onZh3vWAOc9SRiwQ_LVmg6q3O'}`
+    };
+
     let upstream = await fetch(bridgeUrl, {
       method: req.method === 'HEAD' ? 'HEAD' : 'GET',
-      headers: {
-        'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (VLC/3.0.0; LibVLC/3.0.0)',
-        ...(req.headers.range ? { Range: req.headers.range } : {}),
-        'Accept': '*/*',
-        'Connection': 'keep-alive',
-        'apikey': process.env.SUPABASE_ANON_KEY || 'sb_publishable_g-Cb89onZh3vWAOc9SRiwQ_LVmg6q3O',
-        'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY || 'sb_publishable_g-Cb89onZh3vWAOc9SRiwQ_LVmg6q3O'}`
-      },
+      headers: bridgeHeaders,
       redirect: 'follow',
     });
 
-    // Se a bridge falhou (4xx ou 5xx), vamos tentar falar direto com a Cloudflare
+    // Se a bridge falhou ou retornou 403 (pode ser problema de rota no gateway), tentamos bypass
     if (!upstream.ok) {
-      const CLOUDFLARE_WORKER_URL = "https://withered-disk-c78d.tibimfotografo.workers.dev";
-      const directUrl = `${CLOUDFLARE_WORKER_URL}/api/s/${token}/${id}?${params}`;
+      console.warn(`[stream-proxy] Falha na bridge (${upstream.status}).`);
       
-      console.warn(`[stream-proxy] Falha na bridge (${upstream.status}), tentando fallback direto: ${directUrl}`);
-      
-      const directResponse = await fetch(directUrl, {
-        method: req.method === 'HEAD' ? 'HEAD' : 'GET',
-        headers: {
-          'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (VLC/3.0.0; LibVLC/3.0.0)',
-          ...(req.headers.range ? { Range: req.headers.range } : {}),
-        },
-        redirect: 'follow',
-      });
-      
-      if (directResponse.ok || directResponse.status < 400) {
-        upstream = directResponse;
+      // Se for 403, pode ser o Gateway barrando o cabeçalho Authorization se estiver mal configurado
+      // Tentamos uma última vez sem Authorization se for um problema de CORS/Gateway
+      if (upstream.status === 403) {
+        console.log(`[stream-proxy] Tentando novamente sem headers de auth para descartar erro de Gateway...`);
+        const retry = await fetch(bridgeUrl, {
+          method: req.method === 'HEAD' ? 'HEAD' : 'GET',
+          headers: { 'User-Agent': bridgeHeaders['User-Agent'] },
+          redirect: 'follow',
+        });
+        if (retry.ok) upstream = retry;
       }
     }
 

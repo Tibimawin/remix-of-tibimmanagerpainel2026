@@ -48,17 +48,26 @@ Deno.serve(async (req) => {
 
     const headers = new Headers();
     if (req.headers.has("range")) headers.set("range", req.headers.get("range")!);
-    headers.set("user-agent", req.headers.get("user-agent") || "Mozilla/5.0 (VLC/3.0.0; LibVLC/3.0.0)");
+    
+    // Imitar o player para evitar bloqueios do servidor de origem
+    const userAgent = req.headers.get("user-agent") || "Mozilla/5.0 (VLC/3.0.0; LibVLC/3.0.0)";
+    headers.set("user-agent", userAgent);
 
     const upstream = await fetch(targetUrl, {
       method: "GET",
       headers: headers,
     });
 
+    // Clonamos os headers da resposta e adicionamos CORS
     const resHeaders = new Headers(upstream.headers);
     resHeaders.set("Access-Control-Allow-Origin", "*");
     
-    // Registrar log de acesso de forma assíncrona
+    // Essencial para o VLC: garantir que accept-ranges esteja presente
+    if (!resHeaders.has("accept-ranges")) {
+      resHeaders.set("accept-ranges", "bytes");
+    }
+
+    // Registrar log de acesso de forma assíncrona (sem travar a resposta)
     if (link.owner_uid) {
       void supabase.from("cloak_access_logs").insert({
         link_short_id: id,
@@ -66,6 +75,8 @@ Deno.serve(async (req) => {
         status: "ok",
         ip: req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for"),
         bytes_served: Number(upstream.headers.get("content-length") || 0)
+      }).then(({ error }) => {
+        if (error) console.error("[CLOAK-STREAM] Erro ao gravar log:", error);
       });
     }
 
