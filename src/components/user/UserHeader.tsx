@@ -21,7 +21,8 @@ import {
   Moon,
   Zap,
   UserCircle,
-  Users
+  Users,
+  ShoppingCart
 } from 'lucide-react';
 import UserNotifications from '../UserNotifications';
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
@@ -149,7 +150,35 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
   const location = useLocation();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
   const unreadCount = useUnreadNotifications();
+  
+  // Atualizar contagem do carrinho em tempo real
+  useEffect(() => {
+    const updateCount = () => {
+      try {
+        const saved = localStorage.getItem('loja-carrinho');
+        if (saved) {
+          const cart = JSON.parse(saved);
+          setCartCount(cart.reduce((s: number, i: any) => s + i.quantity, 0));
+        } else {
+          setCartCount(0);
+        }
+      } catch (e) {
+        setCartCount(0);
+      }
+    };
+    
+    updateCount();
+    window.addEventListener('storage', updateCount);
+    // Poll local storage for changes since 'storage' event only fires on other tabs
+    const interval = setInterval(updateCount, 1000);
+    
+    return () => {
+      window.removeEventListener('storage', updateCount);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Obter informações da rota atual
   const currentRoute = routeTitles[location.pathname] || { 
@@ -325,6 +354,30 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
                 </div>
               </Button>
               
+              {/* Carrinho */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => navigate('/carrinho')}
+                    className="h-10 w-10 rounded-xl transition-all duration-200 hover:bg-accent/50 hover:scale-105 relative"
+                  >
+                    <ShoppingCart className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+                    {cartCount > 0 && (
+                      <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 bg-primary text-primary-foreground text-[10px] border-2 border-background flex items-center justify-center font-bold">
+                        {cartCount > 9 ? '9+' : cartCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {cartCount > 0
+                    ? `${cartCount} item${cartCount === 1 ? '' : 'ns'} no carrinho`
+                    : 'Carrinho vazio'}
+                </TooltipContent>
+              </Tooltip>
+
               {/* Notificações */}
               <Tooltip>
                 <TooltipTrigger asChild>
