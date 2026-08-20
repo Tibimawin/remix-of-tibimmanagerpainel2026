@@ -13,6 +13,7 @@ import {
   Zap,
   BarChart3,
   Package,
+  ShoppingCart,
   Download,
   Link2,
   LogOut,
