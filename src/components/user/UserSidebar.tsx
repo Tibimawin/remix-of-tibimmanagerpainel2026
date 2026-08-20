@@ -115,6 +115,15 @@ const menuItems: MenuItem[] = [
     badge: { type: 'count', value: 3 } // Exemplo: 3 notificações
   },
   {
+    id: 'loja',
+    label: 'Loja',
+    href: '/produtos',
+    icon: ShoppingCart,
+    category: 'main',
+    description: 'Loja oficial do sistema',
+    feature: 'produtos'
+  },
+  {
     id: 'conteudos',
     label: 'Conteúdos',
     href: '/conteudos',
