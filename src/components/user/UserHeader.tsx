@@ -134,6 +134,11 @@ const routeTitles: Record<string, { title: string; subtitle: string; icon?: Reac
     subtitle: 'Itens selecionados na loja',
     icon: Menu
   },
+  '/checkout': { 
+    title: 'Checkout', 
+    subtitle: 'Finalizar pedido',
+    icon: Menu
+  },
 };
 
 interface UserHeaderProps {

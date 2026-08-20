@@ -178,7 +178,10 @@ const Carrinho = () => {
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-3">
-              <Button className="w-full h-12 text-lg font-semibold gap-2 shadow-md shadow-primary/20">
+              <Button 
+                onClick={() => navigate('/checkout')}
+                className="w-full h-12 text-lg font-semibold gap-2 shadow-md shadow-primary/20"
+              >
                 <CreditCard className="w-5 h-5" />
                 Finalizar Compra
               </Button>
