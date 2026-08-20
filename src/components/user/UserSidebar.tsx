@@ -13,6 +13,7 @@ import {
   Zap,
   BarChart3,
   Package,
+  ShoppingCart,
   Download,
   Link2,
   LogOut,
@@ -113,6 +114,15 @@ const menuItems: MenuItem[] = [
     description: 'Visão geral do sistema',
     feature: 'dashboard',
     badge: { type: 'count', value: 3 } // Exemplo: 3 notificações
+  },
+  {
+    id: 'loja',
+    label: 'Loja',
+    href: '/produtos',
+    icon: ShoppingCart,
+    category: 'main',
+    description: 'Loja oficial do sistema',
+    feature: 'produtos'
   },
   {
     id: 'conteudos',
@@ -306,12 +316,12 @@ const menuItems: MenuItem[] = [
     feature: 'plataformas'
   },
   {
-    id: 'produtos',
-    label: 'Produtos',
+    id: 'loja',
+    label: 'Loja',
     href: '/produtos',
-    icon: Package,
-    category: 'management',
-    description: 'Produtos disponíveis',
+    icon: ShoppingCart,
+    category: 'main',
+    description: 'Loja oficial do sistema',
     feature: 'produtos'
   },
   {
@@ -661,6 +671,8 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
   const filteredMenuItems = menuItems.filter(item => {
     if (mode === 'tibim') {
       if (tibimExcludedItems.includes(item.id)) {
+        // Exceção: Loja deve aparecer no Tibim
+        if (item.id === 'loja') return true;
         return false;
       }
     } else {
