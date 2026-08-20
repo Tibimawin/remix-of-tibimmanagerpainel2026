@@ -84,8 +84,8 @@ const routeTitles: Record<string, { title: string; subtitle: string; icon?: Reac
     icon: Menu
   },
   '/produtos': { 
-    title: 'Produtos', 
-    subtitle: 'Catálogo de produtos',
+    title: 'Loja', 
+    subtitle: 'Loja Oficial',
     icon: Menu
   },
   '/estatisticas': { 
