@@ -46,6 +46,7 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Loja', href: '/produtos', icon: ShoppingCart },
   { name: 'Conteúdos', href: '/conteudos', icon: LayoutGrid },
   { name: 'Episódios', href: '/episodios', icon: List },
   
@@ -59,7 +60,6 @@ const navigation: NavItem[] = [
   { name: 'Usuários', href: '/usuarios', icon: Users },
   { name: 'Sessões', href: '/sessoes', icon: Calendar },
   { name: 'Plataformas', href: '/plataformas', icon: LayoutGrid },
-  { name: 'Loja', href: '/produtos', icon: ShoppingCart },
   { name: 'Estatísticas', href: '/estatisticas', icon: BarChart3 },
   { name: 'Relatórios de Visualização', href: '/relatorios-visualizacao', icon: TrendingUp },
   
