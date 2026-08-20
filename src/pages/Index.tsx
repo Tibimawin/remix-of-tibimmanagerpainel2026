@@ -3,9 +3,7 @@ import Dashboard from './Dashboard';
 const Index = () => {
   return (
     <>
-      <div className="sr-only">Quero criar uma pagina Chamada LOJA Dentro do Painel
-
-Criar uma página dedicada do carrinho na Loja para o usuário visualizar itens e totais.  Implementar controles no carrinho para o usuário alterar quantidades e remover itens.</div>
+      <div className="sr-only">Salvar o carrinho automaticamente no navegador para que ele não se perca ao recarregar a página. Mostrar um resumo do carrinho no menu para o usuário ver a quantidade de itens em tempo real.</div>
       <Dashboard />
     </>
   );
