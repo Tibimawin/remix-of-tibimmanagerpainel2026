@@ -46,6 +46,7 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Loja', href: '/produtos', icon: ShoppingCart },
   { name: 'Conteúdos', href: '/conteudos', icon: LayoutGrid },
   { name: 'Episódios', href: '/episodios', icon: List },
   
