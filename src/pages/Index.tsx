@@ -3,7 +3,7 @@ import Dashboard from './Dashboard';
 const Index = () => {
   return (
     <>
-      <div className="sr-only">Tem duas opções pk, quero apenas uma. alem disso nessa pagina de momento deve ficar em branco sem nada, vamos colocar lá novas coisas, vai ser uma pagina dedicada a produtos de aplicativos e tudo mais,</div>
+      <div className="sr-only">Vamos colocar Carinho nessa pagina também. pra o usuario poder escolher produtos e adicionar no carrinho,</div>
       <Dashboard />
     </>
   );
