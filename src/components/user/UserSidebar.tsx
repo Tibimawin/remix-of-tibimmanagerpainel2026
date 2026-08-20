@@ -671,6 +671,8 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
   const filteredMenuItems = menuItems.filter(item => {
     if (mode === 'tibim') {
       if (tibimExcludedItems.includes(item.id)) {
+        // Exceção: Loja deve aparecer no Tibim
+        if (item.id === 'loja') return true;
         return false;
       }
     } else {
