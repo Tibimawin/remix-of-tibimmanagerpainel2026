@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Trash2, ArrowLeft, CreditCard, ShoppingBag, Plus, Minus } from 'lucide-react';
+import { ShoppingCart, Trash2, ArrowLeft, CreditCard, ShoppingBag, Plus, Minus, Tag, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
 
 interface Product {
   id: string;
@@ -19,6 +20,9 @@ interface Product {
 const Carrinho = () => {
   const navigate = useNavigate();
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
+  const [couponCode, setCouponCode] = useState('');
+  const [discount, setDiscount] = useState(0);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; value: number; type: 'fixed' | 'percent' } | null>(null);
 
   // Carregar do localStorage na inicialização
   useEffect(() => {
@@ -52,8 +56,51 @@ const Carrinho = () => {
     toast.error('Item removido do carrinho');
   };
 
+  const handleApplyCoupon = () => {
+    if (!couponCode.trim()) {
+      toast.error('Digite um código de cupom');
+      return;
+    }
+
+    // Simular validação de cupom
+    const code = couponCode.toUpperCase();
+    if (code === 'TIBIM10') {
+      const coupon = { code: 'TIBIM10', value: 10, type: 'percent' as const };
+      setAppliedCoupon(coupon);
+      setDiscount(subtotal * 0.1);
+      toast.success('Cupom TIBIM10 aplicado (10% de desconto)');
+      setCouponCode('');
+    } else if (code === 'DESCONTO5') {
+      const coupon = { code: 'DESCONTO5', value: 5, type: 'fixed' as const };
+      setAppliedCoupon(coupon);
+      setDiscount(5);
+      toast.success('Cupom DESCONTO5 aplicado (R$ 5,00 de desconto)');
+      setCouponCode('');
+    } else {
+      toast.error('Cupom inválido ou expirado');
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setDiscount(0);
+    toast.info('Cupom removido');
+  };
+
   const subtotal = cart.reduce((sum, item) => sum + (item.product.preco * item.quantity), 0);
-  const total = subtotal; // Pode adicionar taxas futuramente
+  
+  // Recalcular desconto se o subtotal mudar
+  useEffect(() => {
+    if (appliedCoupon) {
+      if (appliedCoupon.type === 'percent') {
+        setDiscount(subtotal * (appliedCoupon.value / 100));
+      } else {
+        setDiscount(Math.min(appliedCoupon.value, subtotal));
+      }
+    }
+  }, [subtotal, appliedCoupon]);
+
+  const total = Math.max(0, subtotal - discount);
 
   if (cart.length === 0) {
     return (
@@ -167,9 +214,47 @@ const Carrinho = () => {
                 <span className="text-muted-foreground">Subtotal</span>
                 <span>R$ {subtotal.toFixed(2)}</span>
               </div>
+              
+              {appliedCoupon ? (
+                <div className="flex justify-between text-sm items-center bg-emerald-500/10 p-2 rounded-lg text-emerald-600 font-medium animate-in fade-in slide-in-from-right-2 duration-300">
+                  <div className="flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5" />
+                    <span>Cupom: {appliedCoupon.code}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span>- R$ {discount.toFixed(2)}</span>
+                    <button onClick={removeCoupon} className="text-emerald-800 hover:text-emerald-950">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Cupom de desconto" 
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value)}
+                      className="h-9 text-sm"
+                      onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleApplyCoupon}
+                      className="h-9"
+                    >
+                      Aplicar
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Descontos</span>
-                <span className="text-emerald-500">- R$ 0,00</span>
+                <span className={discount > 0 ? "text-emerald-500" : "text-muted-foreground"}>
+                  - R$ {discount.toFixed(2)}
+                </span>
               </div>
               <Separator />
               <div className="flex justify-between items-center pt-2">
