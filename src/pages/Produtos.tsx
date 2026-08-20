@@ -138,8 +138,8 @@ const Produtos = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center">
-            <Package className="w-8 h-8 mr-3" />
-            Produtos Disponíveis
+            <ShoppingCart className="w-8 h-8 mr-3" />
+            Loja Oficial
           </h1>
           <p className="text-muted-foreground mt-2">
             Explore nossos produtos e serviços disponíveis

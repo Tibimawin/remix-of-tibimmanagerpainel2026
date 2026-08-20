@@ -58,7 +58,7 @@ const navigation: NavItem[] = [
   { name: 'Usuários', href: '/usuarios', icon: Users },
   { name: 'Sessões', href: '/sessoes', icon: Calendar },
   { name: 'Plataformas', href: '/plataformas', icon: LayoutGrid },
-  { name: 'Produtos', href: '/produtos', icon: Package },
+  { name: 'Loja', href: '/produtos', icon: ShoppingCart },
   { name: 'Estatísticas', href: '/estatisticas', icon: BarChart3 },
   { name: 'Relatórios de Visualização', href: '/relatorios-visualizacao', icon: TrendingUp },
   
