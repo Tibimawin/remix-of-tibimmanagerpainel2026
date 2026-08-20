@@ -316,12 +316,12 @@ const menuItems: MenuItem[] = [
     feature: 'plataformas'
   },
   {
-    id: 'produtos',
-    label: 'Produtos',
+    id: 'loja',
+    label: 'Loja',
     href: '/produtos',
-    icon: Package,
-    category: 'management',
-    description: 'Produtos disponíveis',
+    icon: ShoppingCart,
+    category: 'main',
+    description: 'Loja oficial do sistema',
     feature: 'produtos'
   },
   {
