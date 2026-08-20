@@ -126,7 +126,7 @@ const Produtos = () => {
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando produtos...</p>
+          <p className="text-muted-foreground">Carregando itens da loja...</p>
         </div>
       </div>
     );
@@ -138,8 +138,8 @@ const Produtos = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center">
-            <Package className="w-8 h-8 mr-3" />
-            Produtos Disponíveis
+            <ShoppingCart className="w-8 h-8 mr-3" />
+            Loja Oficial
           </h1>
           <p className="text-muted-foreground mt-2">
             Explore nossos produtos e serviços disponíveis
@@ -158,10 +158,10 @@ const Produtos = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Buscar produtos</label>
+              <label className="text-sm font-medium">Buscar na loja</label>
               <Input
                 type="text"
-                placeholder="Digite o nome do produto..."
+                placeholder="O que você procura?..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -248,17 +248,17 @@ const Produtos = () => {
       ) : (
         <Card>
           <CardContent className="text-center py-12">
-            <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <ShoppingCart className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">
               {products.length === 0 
-                ? 'Nenhum produto disponível' 
-                : 'Nenhum produto encontrado'
+                ? 'Nenhum item disponível na loja' 
+                : 'Nenhum item encontrado'
               }
             </h3>
             <p className="text-muted-foreground">
               {products.length === 0
-                ? 'Os produtos serão exibidos aqui quando estiverem disponíveis.'
-                : 'Tente ajustar os filtros de busca para encontrar outros produtos.'
+                ? 'Os itens da loja serão exibidos aqui quando estiverem disponíveis.'
+                : 'Tente ajustar os filtros de busca para encontrar o que procura.'
               }
             </p>
             {searchTerm || selectedCategory !== 'todas' ? (
