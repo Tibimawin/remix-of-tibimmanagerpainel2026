@@ -19,6 +19,7 @@ import {
   LogOut,
   Play,
   CreditCard,
+  ShoppingCart,
   
   TrendingUp,
   Activity,
