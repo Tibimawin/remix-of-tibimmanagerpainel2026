@@ -60,6 +60,7 @@ import Produtos from "./pages/Produtos";
 import SuporteAoVivo from "./pages/SuporteAoVivo";
 import Precos from "./pages/Precos";
 import PrecosInterno from "./pages/PrecosInterno";
+import Carrinho from "./pages/Carrinho";
 import SubstituicaoURLs from "./pages/SubstituicaoURLs";
 import Plano2 from "./pages/Plano2";
 import Carrosseu from "./pages/Carrosseu";
@@ -274,6 +275,14 @@ const App = () => {
                                 <SimpleProtectedRoute>
                                   <Layout>
                                     <Produtos />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/carrinho" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <Carrinho />
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />
