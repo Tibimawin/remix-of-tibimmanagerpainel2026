@@ -128,6 +128,11 @@ const routeTitles: Record<string, { title: string; subtitle: string; icon?: Reac
     subtitle: 'Configurações pessoais',
     icon: Menu
   },
+  '/carrinho': { 
+    title: 'Carrinho', 
+    subtitle: 'Itens selecionados na loja',
+    icon: Menu
+  },
 };
 
 interface UserHeaderProps {

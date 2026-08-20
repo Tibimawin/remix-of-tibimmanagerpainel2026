@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShoppingCart, ShoppingBag, Plus, Trash2, ArrowRight, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter } from '@/components/ui/sheet';
+import { useNavigate } from 'react-router-dom';
 
 interface Product {
   id: string;
@@ -21,7 +22,23 @@ const DEMO_PRODUCTS: Product[] = [
 ];
 
 const Produtos = () => {
+  const navigate = useNavigate();
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
+
+  // Carregar do localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('loja-carrinho');
+    if (saved) {
+      try {
+        setCart(JSON.parse(saved));
+      } catch (e) {}
+    }
+  }, []);
+
+  // Salvar no localStorage
+  useEffect(() => {
+    localStorage.setItem('loja-carrinho', JSON.stringify(cart));
+  }, [cart]);
 
   const addToCart = (product: Product) => {
     setCart(prev => {
@@ -108,8 +125,8 @@ const Produtos = () => {
                   <span>Total</span>
                   <span>R$ {total.toFixed(2)}</span>
                 </div>
-                <Button className="w-full gap-2">
-                  Finalizar Compra
+                <Button className="w-full gap-2" onClick={() => navigate('/carrinho')}>
+                  Ver Carrinho Completo
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               </SheetFooter>
