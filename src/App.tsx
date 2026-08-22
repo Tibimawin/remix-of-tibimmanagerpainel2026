@@ -92,6 +92,7 @@ import GestaoDispositivos from "./pages/GestaoDispositivos";
 import Planos from "./pages/Planos";
 import MinhaApi from "./pages/MinhaApi";
 import ApiDocs from "./pages/ApiDocs";
+import GeradorPost from "./pages/GeradorPost";
 import { UpdateNotificationModal } from "./components/UpdateNotificationModal";
 import { M3UImportProvider } from "./contexts/M3UImportContext";
 
@@ -276,6 +277,14 @@ const App = () => {
                                 <SimpleProtectedRoute>
                                   <Layout>
                                     <Produtos />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/gerador-post" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <GeradorPost />
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />

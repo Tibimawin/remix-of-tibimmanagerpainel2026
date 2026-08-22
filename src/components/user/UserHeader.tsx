@@ -89,6 +89,11 @@ const routeTitles: Record<string, { title: string; subtitle: string; icon?: Reac
     subtitle: 'Loja Oficial',
     icon: Menu
   },
+  '/gerador-post': { 
+    title: 'Gerador de Posts', 
+    subtitle: 'Criar artes promocionais para redes sociais',
+    icon: Sparkles
+  },
   '/estatisticas': { 
     title: 'Estatísticas', 
     subtitle: 'Estatísticas e métricas gerais',

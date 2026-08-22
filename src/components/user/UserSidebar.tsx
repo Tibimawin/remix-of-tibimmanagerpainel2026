@@ -125,6 +125,16 @@ const menuItems: MenuItem[] = [
     feature: 'produtos'
   },
   {
+    id: 'gerador-post',
+    label: 'Gerador de Posts',
+    href: '/gerador-post',
+    icon: Sparkles,
+    category: 'main',
+    description: 'Criar artes para redes sociais',
+    feature: 'gerador-post',
+    badge: { type: 'new' }
+  },
+  {
     id: 'conteudos',
     label: 'Conteúdos',
     href: '/conteudos',
