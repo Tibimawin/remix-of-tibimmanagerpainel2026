@@ -42,6 +42,10 @@ const GeradorPost = () => {
 
   // States for customization
   const [logo, setLogo] = useState<string | null>(localStorage.getItem('gerador-post-logo'));
+  const [logoSize, setLogoSize] = useState(100);
+  const [logoPosition, setLogoPosition] = useState<'left' | 'center' | 'right'>('right');
+  const [posterWidth, setPosterWidth] = useState(55);
+  const [posterHeight, setPosterHeight] = useState(14);
   const [accentColor, setAccentColor] = useState('#e50914'); // Netflix Red
   const [statusLabel, setStatusLabel] = useState('LANÇAMENTOS');
   const [featuredLabel, setFeaturedLabel] = useState('FILME EM DESTAQUE');
@@ -221,18 +225,22 @@ const GeradorPost = () => {
           </Card>
 
           <Tabs defaultValue="visual" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-muted/20">
-              <TabsTrigger value="visual" className="data-[state=active]:bg-primary/20">
-                <Palette className="w-4 h-4 mr-2" />
+            <TabsList className="grid w-full grid-cols-4 bg-muted/20">
+              <TabsTrigger value="visual" className="data-[state=active]:bg-primary/20 px-0 text-xs">
+                <Palette className="w-3.5 h-3.5 mr-1" />
                 Visual
               </TabsTrigger>
-              <TabsTrigger value="labels" className="data-[state=active]:bg-primary/20">
-                <Type className="w-4 h-4 mr-2" />
+              <TabsTrigger value="labels" className="data-[state=active]:bg-primary/20 px-0 text-xs">
+                <Type className="w-3.5 h-3.5 mr-1" />
                 Textos
               </TabsTrigger>
-              <TabsTrigger value="logo" className="data-[state=active]:bg-primary/20">
-                <ImageIcon className="w-4 h-4 mr-2" />
+              <TabsTrigger value="logo" className="data-[state=active]:bg-primary/20 px-0 text-xs">
+                <ImageIcon className="w-3.5 h-3.5 mr-1" />
                 Logo
+              </TabsTrigger>
+              <TabsTrigger value="layout" className="data-[state=active]:bg-primary/20 px-0 text-xs">
+                <Layout className="w-3.5 h-3.5 mr-1" />
+                Layout
               </TabsTrigger>
             </TabsList>
 
@@ -368,6 +376,75 @@ const GeradorPost = () => {
                     )}
                   </div>
                 </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Tamanho da Logo ({logoSize}%)</Label>
+                    <Slider
+                      value={[logoSize]}
+                      onValueChange={([val]) => setLogoSize(val)}
+                      max={200}
+                      min={20}
+                      step={5}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Posição da Logo</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button 
+                        variant={logoPosition === 'left' ? 'default' : 'outline'} 
+                        size="sm" 
+                        onClick={() => setLogoPosition('left')}
+                        className="text-xs"
+                      >
+                        Esquerda
+                      </Button>
+                      <Button 
+                        variant={logoPosition === 'center' ? 'default' : 'outline'} 
+                        size="sm" 
+                        onClick={() => setLogoPosition('center')}
+                        className="text-xs"
+                      >
+                        Centro
+                      </Button>
+                      <Button 
+                        variant={logoPosition === 'right' ? 'default' : 'outline'} 
+                        size="sm" 
+                        onClick={() => setLogoPosition('right')}
+                        className="text-xs"
+                      >
+                        Direita
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="layout" className="space-y-4 pt-4">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label>Largura da Capa ({posterWidth}%)</Label>
+                  <Slider
+                    value={[posterWidth]}
+                    onValueChange={([val]) => setPosterWidth(val)}
+                    max={100}
+                    min={20}
+                    step={1}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Proporção da Altura (Aspect Ratio 9/{posterHeight})</Label>
+                  <Slider
+                    value={[posterHeight]}
+                    onValueChange={([val]) => setPosterHeight(val)}
+                    max={20}
+                    min={8}
+                    step={0.5}
+                  />
+                </div>
               </div>
             </TabsContent>
           </Tabs>
@@ -427,20 +504,53 @@ const GeradorPost = () => {
                   <div className="relative z-10 w-full h-full flex flex-col p-10 font-sans text-white">
                     
                     {/* Top Header */}
-                    <div className="flex justify-between items-start mb-8">
-                      <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-md border border-white/10 text-[10px] tracking-widest font-black uppercase">
-                        {featuredLabel}
-                      </div>
+                    <div className={cn(
+                      "flex items-start mb-8",
+                      logoPosition === 'left' ? "justify-start" : 
+                      logoPosition === 'center' ? "justify-center" : "justify-between"
+                    )}>
+                      {logoPosition !== 'right' && logoPosition !== 'center' && (
+                        <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-md border border-white/10 text-[10px] tracking-widest font-black uppercase mr-auto">
+                          {featuredLabel}
+                        </div>
+                      )}
+                      
+                      {logoPosition === 'right' && (
+                        <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-md border border-white/10 text-[10px] tracking-widest font-black uppercase">
+                          {featuredLabel}
+                        </div>
+                      )}
+
                       {logo && (
-                        <div className="max-w-[120px] max-h-[60px] flex justify-end">
-                          <img src={logo} alt="Brand Logo" className="object-contain" />
+                        <div 
+                          className={cn(
+                            "flex",
+                            logoPosition === 'left' ? "ml-auto" : 
+                            logoPosition === 'center' ? "mx-auto" : "ml-4"
+                          )}
+                          style={{ width: `${logoSize * 1.2}px`, maxHeight: '60px' }}
+                        >
+                          <img src={logo} alt="Brand Logo" className="object-contain w-full h-full" />
+                        </div>
+                      )}
+
+                      {logoPosition === 'center' && (
+                        <div className="absolute top-10 left-10 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-md border border-white/10 text-[10px] tracking-widest font-black uppercase">
+                          {featuredLabel}
                         </div>
                       )}
                     </div>
 
                     {/* Main Visual Section (Phone frame style) */}
                     <div className="flex-1 flex justify-center items-center py-4">
-                      <div className="relative w-[55%] max-w-[280px] aspect-[9/14] bg-slate-900 rounded-[35px] border-[8px] border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden">
+                      <div 
+                        className="relative bg-slate-900 rounded-[35px] border-[8px] border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden"
+                        style={{ 
+                          width: `${posterWidth}%`, 
+                          maxWidth: '450px',
+                          aspectRatio: `9/${posterHeight}`
+                        }}
+                      >
                         <img
                           src={selectedContent.poster_path ? `https://image.tmdb.org/t/p/w780${selectedContent.poster_path}` : '/placeholder-poster.jpg'}
                           alt="Main Poster"
