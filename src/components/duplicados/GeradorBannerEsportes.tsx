@@ -51,6 +51,8 @@ const GeradorBannerEsportes = () => {
   
   const [accentColor, setAccentColor] = useState('#8B0000'); // Dark red from reference
   const [logoSize, setLogoSize] = useState(120);
+  const [logoX, setLogoX] = useState(0);
+  const [logoY, setLogoY] = useState(0);
   const [overlayOpacity, setOverlayOpacity] = useState(0.85);
 
   const previewRef = useRef<HTMLDivElement>(null);
@@ -167,6 +169,17 @@ const GeradorBannerEsportes = () => {
                 <Label>Tamanho da Logo ({logoSize}%)</Label>
                 <Slider value={[logoSize]} onValueChange={([val]) => setLogoSize(val)} max={200} min={50} step={5} />
               </div>
+
+              <div className="space-y-4 pt-2">
+                <div className="space-y-2">
+                  <Label>Ajuste Horizontal ({logoX}%)</Label>
+                  <Slider value={[logoX]} onValueChange={([val]) => setLogoX(val)} max={100} min={-100} step={1} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Ajuste Vertical ({logoY}%)</Label>
+                  <Slider value={[logoY]} onValueChange={([val]) => setLogoY(val)} max={100} min={-100} step={1} />
+                </div>
+              </div>
             </TabsContent>
 
             <TabsContent value="jogos" className="space-y-4 pt-4">
@@ -250,14 +263,14 @@ const GeradorBannerEsportes = () => {
               <div className="relative z-10 w-full flex flex-col items-center gap-8">
                 {/* Header */}
                 <div className="w-full flex justify-between items-center px-8">
-                  <div style={{ width: `${logoSize}px` }}>
+                  <div style={{ width: `${logoSize}px`, transform: `translate(${logoX}%, ${logoY}%)` }}>
                     {logo && <img src={logo} alt="Brand" className="w-full object-contain" />}
                   </div>
                   <div className="text-center">
                     <h3 className="text-4xl font-black uppercase tracking-tight leading-none italic" style={{ color: 'white' }}>TABELA DE JOGOS</h3>
                     <p className="text-2xl font-bold uppercase mt-2 italic" style={{ color: '#ffd700' }}>{date}</p>
                   </div>
-                  <div style={{ width: `${logoSize}px` }}>
+                  <div style={{ width: `${logoSize}px`, transform: `translate(${-logoX}%, ${logoY}%)` }}>
                     {logo && <img src={logo} alt="Brand" className="w-full object-contain" />}
                   </div>
                 </div>

@@ -45,6 +45,8 @@ const GeradorPost = () => {
   const [logo, setLogo] = useState<string | null>(localStorage.getItem('gerador-post-logo'));
   const [logoSize, setLogoSize] = useState(100);
   const [logoPosition, setLogoPosition] = useState<'left' | 'center' | 'right'>('right');
+  const [logoX, setLogoX] = useState(0);
+  const [logoY, setLogoY] = useState(0);
   const [posterWidth, setPosterWidth] = useState(55);
   const [posterHeight, setPosterHeight] = useState(14);
   const [accentColor, setAccentColor] = useState('#e50914'); // Netflix Red
@@ -419,6 +421,29 @@ const GeradorPost = () => {
                       </Button>
                     </div>
                   </div>
+
+                  <div className="space-y-4 pt-2">
+                    <div className="space-y-2">
+                      <Label>Ajuste Horizontal ({logoX}%)</Label>
+                      <Slider
+                        value={[logoX]}
+                        onValueChange={([val]) => setLogoX(val)}
+                        max={50}
+                        min={-50}
+                        step={1}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Ajuste Vertical ({logoY}%)</Label>
+                      <Slider
+                        value={[logoY]}
+                        onValueChange={([val]) => setLogoY(val)}
+                        max={50}
+                        min={-50}
+                        step={1}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </TabsContent>
@@ -529,7 +554,11 @@ const GeradorPost = () => {
                             logoPosition === 'left' ? "ml-auto" : 
                             logoPosition === 'center' ? "mx-auto" : "ml-4"
                           )}
-                          style={{ width: `${logoSize * 1.2}px`, maxHeight: '60px' }}
+                          style={{ 
+                            width: `${logoSize * 1.2}px`, 
+                            maxHeight: '60px',
+                            transform: `translate(${logoX}%, ${logoY}%)`
+                          }}
                         >
                           <img src={logo} alt="Brand Logo" className="object-contain w-full h-full" />
                         </div>

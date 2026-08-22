@@ -30,7 +30,8 @@ import {
   Key,
   ChevronDown,
   ChevronRight,
-  Shield
+  Shield,
+  Layout as LayoutIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -48,6 +49,7 @@ const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Loja', href: '/produtos', icon: ShoppingCart },
   { name: 'Gerador de Posts', href: '/gerador-post', icon: Sparkles },
+  { name: 'Gerador de Banners', href: '/gerador-post', icon: LayoutIcon },
   { name: 'Conteúdos', href: '/conteudos', icon: LayoutGrid },
   { name: 'Episódios', href: '/episodios', icon: List },
   

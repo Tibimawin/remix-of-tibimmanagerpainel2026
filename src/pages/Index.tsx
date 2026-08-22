@@ -3,7 +3,7 @@ import Dashboard from './Dashboard';
 const Index = () => {
   return (
     <>
-      <div className="sr-only">Agora quero uma nova funcionalidade que gera esse tipo de banner também com as equipas e as logos as ligas as horas e tudo mais nesse formato, totalenmte personalizavel com a logo do usuario. essa funcionalidade deve ficar por baixo  dessa geração de posts</div>
+      <div className="sr-only">Implemente controles para ajustar o alinhamento e margem da logo dentro do gerador, incluindo posição horizontal e vertical em porcentagem. não vejo o GeradorBannerEsportes no menu lateral</div>
       <Dashboard />
     </>
   );

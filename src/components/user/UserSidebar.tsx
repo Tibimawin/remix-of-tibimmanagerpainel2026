@@ -40,7 +40,8 @@ import {
   AlertCircle,
   Info,
   Smartphone,
-  Star
+  Star,
+  Layout as LayoutIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -132,6 +133,16 @@ const menuItems: MenuItem[] = [
     icon: Sparkles,
     category: 'main',
     description: 'Criar artes para redes sociais',
+    feature: 'gerador-post',
+    badge: { type: 'new' }
+  },
+  {
+    id: 'gerador-banner',
+    label: 'Gerador de Banners',
+    href: '/gerador-post',
+    icon: LayoutIcon,
+    category: 'main',
+    description: 'Criar tabelas de jogos',
     feature: 'gerador-post',
     badge: { type: 'new' }
   },
