@@ -54,6 +54,9 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
   const [posterHeight, setPosterHeight] = useState(14);
   const [accentColor, setAccentColor] = useState('#e50914'); // Netflix Red
   const [statusLabel, setStatusLabel] = useState('LANÇAMENTOS');
+  const [statusX, setStatusX] = useState(0);
+  const [statusY, setStatusY] = useState(0);
+  const [statusAlign, setStatusAlign] = useState<'left' | 'center' | 'right'>('center');
   const [featuredLabel, setFeaturedLabel] = useState('FILME EM DESTAQUE');
   const [showSynopsis, setShowSynopsis] = useState(true);
   const [synopsisLength, setSynopsisLength] = useState(250);
