@@ -418,8 +418,8 @@ const GeradorPost = () => {
                     </div>
 
                     {/* Main Visual Section (Phone frame style) */}
-                    <div className="flex-1 flex justify-center items-center py-6">
-                      <div className="relative w-2/3 max-w-[320px] aspect-[9/16] bg-slate-900 rounded-[40px] border-[8px] border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden">
+                    <div className="flex-1 flex justify-center items-center py-4">
+                      <div className="relative w-[55%] max-w-[280px] aspect-[9/14] bg-slate-900 rounded-[35px] border-[8px] border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden">
                         <img
                           src={selectedContent.poster_path ? `https://image.tmdb.org/t/p/w780${selectedContent.poster_path}` : '/placeholder-poster.jpg'}
                           alt="Main Poster"
