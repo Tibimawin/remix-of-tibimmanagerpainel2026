@@ -612,6 +612,9 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                         posterWidth={posterWidth}
                         posterHeight={posterHeight}
                         statusLabel={statusLabel}
+                        statusX={statusX}
+                        statusY={statusY}
+                        statusAlign={statusAlign}
                         showSynopsis={showSynopsis}
                         synopsisLength={synopsisLength}
                       />
@@ -630,6 +633,9 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                         posterWidth={posterWidth}
                         posterHeight={posterHeight}
                         statusLabel={statusLabel}
+                        statusX={statusX}
+                        statusY={statusY}
+                        statusAlign={statusAlign}
                         showSynopsis={showSynopsis}
                         synopsisLength={synopsisLength}
                       />
