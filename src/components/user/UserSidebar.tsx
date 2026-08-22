@@ -14,6 +14,7 @@ import {
   BarChart3,
   Package,
   ShoppingCart,
+  Sparkles,
   Download,
   Link2,
   LogOut,
@@ -123,6 +124,16 @@ const menuItems: MenuItem[] = [
     category: 'main',
     description: 'Loja oficial do sistema',
     feature: 'produtos'
+  },
+  {
+    id: 'gerador-post',
+    label: 'Gerador de Posts',
+    href: '/gerador-post',
+    icon: Sparkles,
+    category: 'main',
+    description: 'Criar artes para redes sociais',
+    feature: 'gerador-post',
+    badge: { type: 'new' }
   },
   {
     id: 'conteudos',

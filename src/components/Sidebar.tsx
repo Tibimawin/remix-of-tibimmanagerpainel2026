@@ -20,7 +20,7 @@ import {
   Play,
   CreditCard,
   ShoppingCart,
-  
+  Sparkles,
   TrendingUp,
   Activity,
   Trash2,
@@ -47,6 +47,7 @@ interface NavItem {
 const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Loja', href: '/produtos', icon: ShoppingCart },
+  { name: 'Gerador de Posts', href: '/gerador-post', icon: Sparkles },
   { name: 'Conteúdos', href: '/conteudos', icon: LayoutGrid },
   { name: 'Episódios', href: '/episodios', icon: List },
   

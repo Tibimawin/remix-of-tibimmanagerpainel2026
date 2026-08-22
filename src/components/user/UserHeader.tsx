@@ -22,7 +22,8 @@ import {
   Zap,
   UserCircle,
   Users,
-  ShoppingCart
+  ShoppingCart,
+  Sparkles
 } from 'lucide-react';
 import UserNotifications from '../UserNotifications';
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
@@ -88,6 +89,11 @@ const routeTitles: Record<string, { title: string; subtitle: string; icon?: Reac
     title: 'Loja', 
     subtitle: 'Loja Oficial',
     icon: Menu
+  },
+  '/gerador-post': { 
+    title: 'Gerador de Posts', 
+    subtitle: 'Criar artes promocionais para redes sociais',
+    icon: Sparkles
   },
   '/estatisticas': { 
     title: 'Estatísticas', 
