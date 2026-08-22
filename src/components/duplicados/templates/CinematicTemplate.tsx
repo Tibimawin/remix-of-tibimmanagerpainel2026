@@ -157,7 +157,15 @@ const CinematicTemplate = ({
               alt={selectedContent.title || selectedContent.name}
               className="w-full h-full object-cover"
             />
-            <div className="absolute top-4 right-4">
+            <div
+              className={cn(
+                "absolute top-3 left-3 right-3 flex",
+                statusAlign === 'left' && "justify-start",
+                statusAlign === 'center' && "justify-center",
+                statusAlign === 'right' && "justify-end"
+              )}
+              style={{ transform: `translate(${statusX}%, ${statusY}%)` }}
+            >
               <Badge className="bg-white text-black font-black text-[10px] px-2 py-0.5 rounded-sm shadow-xl">
                 {statusLabel}
               </Badge>
