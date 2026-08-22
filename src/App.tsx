@@ -284,7 +284,15 @@ const App = () => {
                               <Route path="/gerador-post" element={
                                 <SimpleProtectedRoute>
                                   <Layout>
-                                    <GeradorPost />
+                                    <GeradorPost type="post" />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/gerador-banner" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <GeradorPost type="banner" />
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />
