@@ -3,7 +3,7 @@ import Dashboard from './Dashboard';
 const Index = () => {
   return (
     <>
-      <div className="sr-only">agora ficou muito bom mano,  quero que tenha uma funcionalidade também que faz mudar deFILME EM DESTAQUE PRA SERIE EM DESTAQUE TAMBÉM</div>
+      <div className="sr-only">E TAMBÉM QUERO QUE TENHA UMA FUNCIONALIDADE DE AJUSTAR O TAMANHO DA LOGO, LOCAL DA LOGO, E TAMBÉM O TAMANHO DA CAPA DO FILME</div>
       <Dashboard />
     </>
   );
