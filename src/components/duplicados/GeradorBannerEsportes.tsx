@@ -291,7 +291,7 @@ const GeradorBannerEsportes = () => {
                           <div className="w-20 h-20 flex items-center justify-center p-1 border-2 border-gray-100 rounded-full bg-white shadow-sm overflow-hidden">
                             {match.logoHome ? <img src={match.logoHome} className="w-full h-full object-contain" /> : <div className="w-12 h-12 bg-gray-200 rounded-full" />}
                           </div>
-                          <span className="text-2xl font-black tracking-tighter text-right leading-tight max-w-[150px]">{match.teamHome}</span>
+                          <span className="text-2xl font-black tracking-tighter text-right leading-tight max-w-[150px] text-black">{match.teamHome}</span>
                         </div>
 
                         {/* VS Divider */}
@@ -301,7 +301,7 @@ const GeradorBannerEsportes = () => {
 
                         {/* Team Away */}
                         <div className="flex items-center gap-6 flex-1 justify-start">
-                          <span className="text-2xl font-black tracking-tighter text-left leading-tight max-w-[150px]">{match.teamAway}</span>
+                          <span className="text-2xl font-black tracking-tighter text-left leading-tight max-w-[150px] text-black">{match.teamAway}</span>
                           <div className="w-20 h-20 flex items-center justify-center p-1 border-2 border-gray-100 rounded-full bg-white shadow-sm overflow-hidden">
                             {match.logoAway ? <img src={match.logoAway} className="w-full h-full object-contain" /> : <div className="w-12 h-12 bg-gray-200 rounded-full" />}
                           </div>
@@ -330,7 +330,7 @@ const GeradorBannerEsportes = () => {
                       {['BUNDESLIGA', 'PREMIER LEAGUE', 'LALIGA', 'CHAMPIONS LEAGUE', 'LIGUE 1', 'LIBERTADORES', 'COPA DO BRASIL', 'BRASILEIRÃO'].map(league => (
                         <div key={league} className="bg-white/10 backdrop-blur-sm border border-white/10 rounded px-3 py-1.5 flex flex-col items-center opacity-70 hover:opacity-100 transition-opacity">
                            <div className="w-8 h-8 mb-1 bg-white/20 rounded-full" />
-                           <span className="text-[8px] font-black tracking-tighter">{league}</span>
+                           <span className="text-[8px] font-black tracking-tighter text-white">{league}</span>
                         </div>
                       ))}
                    </div>
