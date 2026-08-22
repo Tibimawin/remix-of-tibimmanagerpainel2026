@@ -40,7 +40,8 @@ import {
   AlertCircle,
   Info,
   Smartphone,
-  Star
+  Star,
+  Layout as LayoutIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';

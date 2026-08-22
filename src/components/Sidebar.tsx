@@ -30,7 +30,8 @@ import {
   Key,
   ChevronDown,
   ChevronRight,
-  Shield
+  Shield,
+  Layout as LayoutIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
