@@ -22,7 +22,8 @@ import {
   Zap,
   UserCircle,
   Users,
-  ShoppingCart
+  ShoppingCart,
+  Sparkles
 } from 'lucide-react';
 import UserNotifications from '../UserNotifications';
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';

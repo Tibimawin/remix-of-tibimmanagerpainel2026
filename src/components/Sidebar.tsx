@@ -20,7 +20,7 @@ import {
   Play,
   CreditCard,
   ShoppingCart,
-  
+  Sparkles,
   TrendingUp,
   Activity,
   Trash2,
