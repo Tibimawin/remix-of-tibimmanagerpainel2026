@@ -149,7 +149,7 @@ const GeradorPost = () => {
   };
 
   const truncateSynopsis = (text: string, length: number) => {
-    if (!text) return '';
+    if (!text) return 'Sinopse não disponível para este conteúdo.';
     if (text.length <= length) return text;
     return text.substring(0, length) + '...';
   };
@@ -162,9 +162,22 @@ const GeradorPost = () => {
         <div className="w-full lg:w-1/3 space-y-6">
           <Card className="netflix-card border-primary/20 bg-black/40 backdrop-blur-md">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Search className="w-5 h-5 text-primary" />
-                Buscar Conteúdo
+              <CardTitle className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Search className="w-5 h-5 text-primary" />
+                  Buscar Conteúdo
+                </div>
+                {selectedContent && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setSelectedContent(null)}
+                    className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    Limpar
+                  </Button>
+                )}
               </CardTitle>
               <CardDescription>Pesquise o filme ou série no TMDB</CardDescription>
             </CardHeader>
