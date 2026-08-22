@@ -143,7 +143,15 @@ const SmartphoneTemplate = ({
               />
               
               {/* Poster Overlay Label */}
-              <div className="absolute top-6 left-0 right-0 flex justify-center z-30">
+              <div
+                className={cn(
+                  "absolute top-3 left-3 right-3 flex z-30",
+                  statusAlign === 'left' && "justify-start",
+                  statusAlign === 'center' && "justify-center",
+                  statusAlign === 'right' && "justify-end"
+                )}
+                style={{ transform: `translate(${statusX}%, ${statusY}%)` }}
+              >
                 <Badge 
                   className="text-[9px] px-3 py-0.5 font-black rounded-full bg-white text-black shadow-lg"
                 >
