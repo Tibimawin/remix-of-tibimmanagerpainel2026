@@ -18,6 +18,9 @@ interface TemplateProps {
   posterWidth: number;
   posterHeight: number;
   statusLabel: string;
+  statusX?: number;
+  statusY?: number;
+  statusAlign?: 'left' | 'center' | 'right';
   showSynopsis: boolean;
   synopsisLength: number;
 }
