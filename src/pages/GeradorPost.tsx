@@ -451,14 +451,26 @@ const GeradorPost = () => {
 
                       <div className="pt-6 border-t border-white/10 flex flex-col items-center gap-4">
                         <div className="flex items-center gap-2">
-                          <div className="w-1 h-4 bg-primary rounded-full" style={{ backgroundColor: accentColor }}></div>
+                          <span className="text-white/40 font-bold">|</span>
                           <span className="text-[11px] font-black tracking-[0.3em] uppercase">Disponível em</span>
                         </div>
-                        <div className="flex gap-6 opacity-80">
-                          <Smartphone size={24} strokeWidth={1.5} />
-                          <Laptop size={24} strokeWidth={1.5} />
-                          <Tv size={24} strokeWidth={1.5} />
-                          <Monitor size={24} strokeWidth={1.5} />
+                        <div className="flex gap-4 items-center">
+                          <div className="flex items-center justify-center border border-white/30 rounded-md w-10 h-8">
+                            <Smartphone size={18} strokeWidth={1.5} />
+                          </div>
+                          <div className="flex items-center justify-center border border-white/30 rounded-md w-10 h-8">
+                            <Laptop size={18} strokeWidth={1.5} />
+                          </div>
+                          <div className="flex items-center justify-center border border-white/30 rounded-md w-10 h-8">
+                            <div className="relative">
+                              <Monitor size={18} strokeWidth={1.5} />
+                              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[6px] font-bold">SMART</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-center border border-white/30 rounded-md w-10 h-8 relative">
+                            <Tv size={18} strokeWidth={1.5} />
+                            <span className="absolute -right-1 bottom-0 text-[8px] font-bold">TV</span>
+                          </div>
                         </div>
                       </div>
                     </div>

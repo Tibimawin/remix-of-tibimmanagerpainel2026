@@ -3,7 +3,7 @@ import Dashboard from './Dashboard';
 const Index = () => {
   return (
     <>
-      <div className="sr-only">Mano, quero criar um sistema que gera esse tipo de imagem usando a API do TMDB, minha ideia é que seja personalizavel com a logo do usuario assim como na imagem, ele pega a imagem e a sinopse do TMDB E GERA ESSA IMAGEM,  VOCE VAI CONSEHUIR MANO IMPLEMENTAR ESSE SISTEMA NO PAINEL, CRIA UMA NOVA PAGINA NO MENU LATERAL DEPOIS DA LOJA</div>
+      <div className="sr-only">gostei, mais agora a sinope quero que já aparece quando o usuario seleciona o conteúdos ou seja a imagem, já deve vir com a sinope e deve aparecer aquela parte Disponivel em aparece os icones de TV, PC, CELULA. COMO NESSA IMAGEM QUE TE AMNDEI AGOARA</div>
       <Dashboard />
     </>
   );
