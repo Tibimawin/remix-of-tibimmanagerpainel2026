@@ -14,6 +14,7 @@ import {
   BarChart3,
   Package,
   ShoppingCart,
+  Sparkles,
   Download,
   Link2,
   LogOut,
