@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { tmdbService } from '@/services/TmdbService';
 import { TMDBSearchResult, TMDBDetails } from '@/types/importacao';
+import GeradorBannerEsportes from '@/components/duplicados/GeradorBannerEsportes';
 import { toPng } from 'html-to-image';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -637,6 +638,7 @@ const GeradorPost = () => {
           </div>
         </div>
       </div>
+      <GeradorBannerEsportes />
     </div>
   );
 };
