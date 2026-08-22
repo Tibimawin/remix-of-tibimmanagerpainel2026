@@ -638,6 +638,7 @@ const GeradorPost = () => {
           </div>
         </div>
       </div>
+      <GeradorBannerEsportes />
     </div>
   );
 };
