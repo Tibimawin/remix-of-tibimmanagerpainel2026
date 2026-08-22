@@ -301,6 +301,27 @@ const GeradorPost = () => {
                   />
                 </div>
                 <div className="flex items-center justify-between">
+                  <Label>Tipo de Destaque</Label>
+                  <div className="flex gap-1">
+                    <Button 
+                      variant={featuredLabel.includes('FILME') ? 'default' : 'outline'} 
+                      size="sm" 
+                      onClick={() => setFeaturedLabel('FILME EM DESTAQUE')}
+                      className="h-7 text-[10px] px-2"
+                    >
+                      Filme
+                    </Button>
+                    <Button 
+                      variant={featuredLabel.includes('SÉRIE') ? 'default' : 'outline'} 
+                      size="sm" 
+                      onClick={() => setFeaturedLabel('SÉRIE EM DESTAQUE')}
+                      className="h-7 text-[10px] px-2"
+                    >
+                      Série
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
                   <Label htmlFor="show-synopsis">Mostrar Sinopse</Label>
                   <Switch
                     id="show-synopsis"
