@@ -139,7 +139,7 @@ const menuItems: MenuItem[] = [
   {
     id: 'gerador-banner',
     label: 'Gerador de Banners',
-    href: '/gerador-post',
+    href: '/gerador-banner',
     icon: LayoutIcon,
     category: 'main',
     description: 'Criar tabelas de jogos',

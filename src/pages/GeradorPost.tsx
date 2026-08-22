@@ -34,7 +34,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import debounce from 'lodash/debounce';
 
-const GeradorPost = () => {
+const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
   // States for search
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<TMDBSearchResult[]>([]);
@@ -163,497 +163,327 @@ const GeradorPost = () => {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl animate-fade-in">
-      <div className="flex flex-col lg:flex-row gap-8">
-        
-        {/* Left Column: Controls */}
-        <div className="w-full lg:w-1/3 space-y-6">
-          <Card className="netflix-card border-primary/20 bg-black/40 backdrop-blur-md">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Search className="w-5 h-5 text-primary" />
-                  Buscar Conteúdo
-                </div>
-                {selectedContent && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => setSelectedContent(null)}
-                    className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 mr-1" />
-                    Limpar
-                  </Button>
-                )}
-              </CardTitle>
-              <CardDescription>Pesquise o filme ou série no TMDB</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="relative">
-                <Input
-                  placeholder="Ex: A Odisseia, Avatar..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-muted/50 border-border/40"
-                />
-                {isSearching && (
-                  <Loader2 className="absolute right-3 top-3 w-4 h-4 animate-spin text-primary" />
-                )}
-              </div>
-
-              {searchResults.length > 0 && (
-                <ScrollArea className="h-64 rounded-md border border-border/40 p-2 bg-muted/20">
-                  {searchResults.map((result) => (
-                    <button
-                      key={result.id}
-                      onClick={() => handleSelectContent(result)}
-                      className="flex items-center gap-3 w-full p-2 hover:bg-primary/10 rounded-lg transition-colors text-left"
-                    >
-                      <img
-                        src={result.poster_path ? `https://image.tmdb.org/t/p/w92${result.poster_path}` : '/placeholder-poster.jpg'}
-                        alt={result.title || result.name}
-                        className="w-12 h-18 object-cover rounded shadow-sm"
-                      />
-                      <div className="flex-1 overflow-hidden">
-                        <p className="font-medium truncate">{result.title || result.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {result.media_type === 'movie' ? 'Filme' : 'Série'} • {new Date(result.release_date || result.first_air_date || '').getFullYear() || 'N/A'}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                </ScrollArea>
-              )}
-            </CardContent>
-          </Card>
-
-          <Tabs defaultValue="visual" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 bg-muted/20">
-              <TabsTrigger value="visual" className="data-[state=active]:bg-primary/20 px-0 text-xs">
-                <Palette className="w-3.5 h-3.5 mr-1" />
-                Visual
-              </TabsTrigger>
-              <TabsTrigger value="labels" className="data-[state=active]:bg-primary/20 px-0 text-xs">
-                <Type className="w-3.5 h-3.5 mr-1" />
-                Textos
-              </TabsTrigger>
-              <TabsTrigger value="logo" className="data-[state=active]:bg-primary/20 px-0 text-xs">
-                <ImageIcon className="w-3.5 h-3.5 mr-1" />
-                Logo
-              </TabsTrigger>
-              <TabsTrigger value="layout" className="data-[state=active]:bg-primary/20 px-0 text-xs">
-                <Layout className="w-3.5 h-3.5 mr-1" />
-                Layout
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="visual" className="space-y-4 pt-4">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Cor de Destaque</Label>
-                  <div className="flex gap-2">
-                    <Input 
-                      type="color" 
-                      value={accentColor} 
-                      onChange={(e) => setAccentColor(e.target.value)}
-                      className="w-12 h-10 p-1 bg-transparent border-border/40"
-                    />
-                    <Input 
-                      type="text" 
-                      value={accentColor} 
-                      onChange={(e) => setAccentColor(e.target.value)}
-                      className="flex-1 bg-muted/50"
-                    />
+      {type === 'post' ? (
+        <div className="flex flex-col lg:flex-row gap-8">
+          
+          {/* Left Column: Controls */}
+          <div className="w-full lg:w-1/3 space-y-6">
+            <Card className="netflix-card border-primary/20 bg-black/40 backdrop-blur-md">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Search className="w-5 h-5 text-primary" />
+                    Buscar Conteúdo
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label>Blur do Fundo ({backgroundBlur}px)</Label>
-                  </div>
-                  <Slider
-                    value={[backgroundBlur]}
-                    onValueChange={([val]) => setBackgroundBlur(val)}
-                    max={20}
-                    step={1}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label>Opacidade do Overlay ({overlayOpacity})</Label>
-                  </div>
-                  <Slider
-                    value={[overlayOpacity]}
-                    onValueChange={([val]) => setOverlayOpacity(val)}
-                    max={1}
-                    step={0.1}
-                  />
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="labels" className="space-y-4 pt-4">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Rótulo Superior (Poster)</Label>
-                  <Input 
-                    value={statusLabel} 
-                    onChange={(e) => setStatusLabel(e.target.value)}
-                    className="bg-muted/50"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Rótulo Superior (Geral)</Label>
-                  <Input 
-                    value={featuredLabel} 
-                    onChange={(e) => setFeaturedLabel(e.target.value)}
-                    className="bg-muted/50"
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label>Tipo de Destaque</Label>
-                  <div className="flex gap-1">
+                  {selectedContent && (
                     <Button 
-                      variant={featuredLabel.includes('FILME') ? 'default' : 'outline'} 
+                      variant="ghost" 
                       size="sm" 
-                      onClick={() => setFeaturedLabel('FILME EM DESTAQUE')}
-                      className="h-7 text-[10px] px-2"
+                      onClick={() => setSelectedContent(null)}
+                      className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive transition-colors"
                     >
-                      Filme
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      Limpar
                     </Button>
-                    <Button 
-                      variant={featuredLabel.includes('SÉRIE') ? 'default' : 'outline'} 
-                      size="sm" 
-                      onClick={() => setFeaturedLabel('SÉRIE EM DESTAQUE')}
-                      className="h-7 text-[10px] px-2"
-                    >
-                      Série
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="show-synopsis">Mostrar Sinopse</Label>
-                  <Switch
-                    id="show-synopsis"
-                    checked={showSynopsis}
-                    onCheckedChange={setShowSynopsis}
+                  )}
+                </CardTitle>
+                <CardDescription>Pesquise o filme ou série no TMDB</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="relative">
+                  <Input
+                    placeholder="Ex: A Odisseia, Avatar..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="bg-muted/50 border-border/40"
                   />
-                </div>
-                {showSynopsis && (
-                  <div className="space-y-2">
-                    <Label>Tamanho da Sinopse ({synopsisLength} caracteres)</Label>
-                    <Slider
-                      value={[synopsisLength]}
-                      onValueChange={([val]) => setSynopsisLength(val)}
-                      max={500}
-                      min={50}
-                      step={10}
-                    />
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="logo" className="space-y-4 pt-4">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Logo da Marca</Label>
-                  <div className="flex flex-col gap-4">
-                    {logo ? (
-                      <div className="relative group rounded-lg overflow-hidden border border-border/40 bg-muted/20 p-4 flex items-center justify-center">
-                        <img src={logo} alt="Custom Logo" className="max-h-24 object-contain" />
-                        <button
-                          onClick={clearLogo}
-                          className="absolute top-2 right-2 p-1.5 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border/40 rounded-lg hover:bg-muted/30 transition-colors cursor-pointer">
-                        <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                        <span className="text-sm text-muted-foreground">Upload da Logo (PNG/SVG)</span>
-                        <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
-                      </label>
-                    )}
-                  </div>
+                  {isSearching && (
+                    <Loader2 className="absolute right-3 top-3 w-4 h-4 animate-spin text-primary" />
+                  )}
                 </div>
 
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Tamanho da Logo ({logoSize}%)</Label>
-                    <Slider
-                      value={[logoSize]}
-                      onValueChange={([val]) => setLogoSize(val)}
-                      max={200}
-                      min={20}
-                      step={5}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Posição da Logo</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <Button 
-                        variant={logoPosition === 'left' ? 'default' : 'outline'} 
-                        size="sm" 
-                        onClick={() => setLogoPosition('left')}
-                        className="text-xs"
-                      >
-                        Esquerda
-                      </Button>
-                      <Button 
-                        variant={logoPosition === 'center' ? 'default' : 'outline'} 
-                        size="sm" 
-                        onClick={() => setLogoPosition('center')}
-                        className="text-xs"
-                      >
-                        Centro
-                      </Button>
-                      <Button 
-                        variant={logoPosition === 'right' ? 'default' : 'outline'} 
-                        size="sm" 
-                        onClick={() => setLogoPosition('right')}
-                        className="text-xs"
-                      >
-                        Direita
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4 pt-2">
-                    <div className="space-y-2">
-                      <Label>Ajuste Horizontal ({logoX}%)</Label>
-                      <Slider
-                        value={[logoX]}
-                        onValueChange={([val]) => setLogoX(val)}
-                        max={50}
-                        min={-50}
-                        step={1}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Ajuste Vertical ({logoY}%)</Label>
-                      <Slider
-                        value={[logoY]}
-                        onValueChange={([val]) => setLogoY(val)}
-                        max={50}
-                        min={-50}
-                        step={1}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="layout" className="space-y-4 pt-4">
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label>Largura da Capa ({posterWidth}%)</Label>
-                  <Slider
-                    value={[posterWidth]}
-                    onValueChange={([val]) => setPosterWidth(val)}
-                    max={100}
-                    min={20}
-                    step={1}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Proporção da Altura (Aspect Ratio 9/{posterHeight})</Label>
-                  <Slider
-                    value={[posterHeight]}
-                    onValueChange={([val]) => setPosterHeight(val)}
-                    max={20}
-                    min={8}
-                    step={0.5}
-                  />
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-
-          <Button 
-            onClick={downloadImage} 
-            disabled={!selectedContent}
-            className="w-full h-12 bg-gradient-to-r from-primary to-orange-600 hover:from-primary/90 hover:to-orange-700 font-bold"
-          >
-            <Download className="w-5 h-5 mr-2" />
-            Baixar Post (PNG)
-          </Button>
-        </div>
-
-        {/* Right Column: Preview */}
-        <div className="flex-1 flex justify-center items-start">
-          <div className="sticky top-24 w-full flex flex-col items-center">
-            
-            {/* Header info for preview mode */}
-            {!selectedContent && (
-              <div className="mb-8 text-center animate-pulse">
-                <Sparkles className="w-12 h-12 text-primary mx-auto mb-4" />
-                <h3 className="text-xl font-bold">Gerador de Posts</h3>
-                <p className="text-muted-foreground">Selecione um conteúdo para começar</p>
-              </div>
-            )}
-
-            {/* The actual image container to export */}
-            <div 
-              ref={previewRef}
-              className={cn(
-                "relative w-full max-w-[800px] aspect-[4/5] bg-black overflow-hidden shadow-2xl rounded-sm",
-                !selectedContent && "opacity-20 grayscale pointer-events-none"
-              )}
-            >
-              {selectedContent && (
-                <>
-                  {/* Background Layer (Blurred) */}
-                  <div className="absolute inset-0 z-0">
-                    <img
-                      src={selectedContent.backdrop_path ? `https://image.tmdb.org/t/p/w1280${selectedContent.backdrop_path}` : `https://image.tmdb.org/t/p/w1280${selectedContent.poster_path}`}
-                      alt="Background"
-                      className="w-full h-full object-cover"
-                      style={{ filter: `blur(${backgroundBlur}px) scale(1.1)` }}
-                    />
-                    <div 
-                      className="absolute inset-0"
-                      style={{ 
-                        backgroundColor: 'black', 
-                        opacity: overlayOpacity,
-                        backgroundImage: 'radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.8) 100%)'
-                      }} 
-                    />
-                  </div>
-
-                  {/* Content Layer */}
-                  <div className="relative z-10 w-full h-full flex flex-col p-10 font-sans text-white">
-                    
-                    {/* Top Header */}
-                    <div className={cn(
-                      "flex items-start mb-8",
-                      logoPosition === 'left' ? "justify-start" : 
-                      logoPosition === 'center' ? "justify-center" : "justify-between"
-                    )}>
-                      {logoPosition !== 'right' && logoPosition !== 'center' && (
-                        <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-md border border-white/10 text-[10px] tracking-widest font-black uppercase mr-auto">
-                          {featuredLabel}
-                        </div>
-                      )}
-                      
-                      {logoPosition === 'right' && (
-                        <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-md border border-white/10 text-[10px] tracking-widest font-black uppercase">
-                          {featuredLabel}
-                        </div>
-                      )}
-
-                      {logo && (
-                        <div 
-                          className={cn(
-                            "flex",
-                            logoPosition === 'left' ? "ml-auto" : 
-                            logoPosition === 'center' ? "mx-auto" : "ml-4"
-                          )}
-                          style={{ 
-                            width: `${logoSize * 1.2}px`, 
-                            maxHeight: '60px',
-                            transform: `translate(${logoX}%, ${logoY}%)`
-                          }}
-                        >
-                          <img src={logo} alt="Brand Logo" className="object-contain w-full h-full" />
-                        </div>
-                      )}
-
-                      {logoPosition === 'center' && (
-                        <div className="absolute top-10 left-10 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-md border border-white/10 text-[10px] tracking-widest font-black uppercase">
-                          {featuredLabel}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Main Visual Section (Phone frame style) */}
-                    <div className="flex-1 flex justify-center items-center py-4">
-                      <div 
-                        className="relative bg-slate-900 rounded-[35px] border-[8px] border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden"
-                        style={{ 
-                          width: `${posterWidth}%`, 
-                          maxWidth: '450px',
-                          aspectRatio: `9/${posterHeight}`
-                        }}
+                {searchResults.length > 0 && (
+                  <ScrollArea className="h-64 rounded-md border border-border/40 p-2 bg-muted/20">
+                    {searchResults.map((result) => (
+                      <button
+                        key={result.id}
+                        onClick={() => handleSelectContent(result)}
+                        className="flex items-center gap-3 w-full p-2 hover:bg-primary/10 rounded-lg transition-colors text-left"
                       >
                         <img
-                          src={selectedContent.poster_path ? `https://image.tmdb.org/t/p/w780${selectedContent.poster_path}` : '/placeholder-poster.jpg'}
-                          alt="Main Poster"
-                          className="w-full h-full object-cover"
+                          src={result.poster_path ? `https://image.tmdb.org/t/p/w92${result.poster_path}` : '/placeholder-poster.jpg'}
+                          alt={result.title || result.name}
+                          className="w-12 h-18 object-cover rounded shadow-sm"
                         />
-                        {/* Status Label on Poster */}
-                        <div className="absolute top-6 left-6 z-20">
-                           <div className="bg-black/60 backdrop-blur-md px-3 py-1 rounded-sm border border-white/20 text-[9px] font-bold tracking-wider">
-                              {statusLabel}
-                           </div>
+                        <div className="flex-1 overflow-hidden">
+                          <p className="font-medium truncate">{result.title || result.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {result.media_type === 'movie' ? 'Filme' : 'Série'} • {new Date(result.release_date || result.first_air_date || '').getFullYear() || 'N/A'}
+                          </p>
                         </div>
-                        {/* Title on Poster overlay */}
-                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black via-black/40 to-transparent flex flex-col justify-end p-6">
-                           <h2 className="text-xl font-black uppercase tracking-[0.2em] leading-tight text-center drop-shadow-lg">
-                              {selectedContent.title || selectedContent.name}
-                           </h2>
+                      </button>
+                    ))}
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+
+            <Tabs defaultValue="visual" className="w-full">
+              <TabsList className="grid w-full grid-cols-4 bg-muted/20">
+                <TabsTrigger value="visual" className="data-[state=active]:bg-primary/20 px-0 text-xs">
+                  <Palette className="w-3.5 h-3.5 mr-1" />
+                  Visual
+                </TabsTrigger>
+                <TabsTrigger value="labels" className="data-[state=active]:bg-primary/20 px-0 text-xs">
+                  <Type className="w-3.5 h-3.5 mr-1" />
+                  Textos
+                </TabsTrigger>
+                <TabsTrigger value="logo" className="data-[state=active]:bg-primary/20 px-0 text-xs">
+                  <ImageIcon className="w-3.5 h-3.5 mr-1" />
+                  Logo
+                </TabsTrigger>
+                <TabsTrigger value="layout" className="data-[state=active]:bg-primary/20 px-0 text-xs">
+                  <Layout className="w-3.5 h-3.5 mr-1" />
+                  Layout
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="visual" className="space-y-4 pt-4">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Cor de Destaque</Label>
+                    <div className="flex gap-2">
+                      <Input 
+                        type="color" 
+                        value={accentColor} 
+                        onChange={(e) => setAccentColor(e.target.value)}
+                        className="w-12 h-10 p-1 bg-transparent border-border/40"
+                      />
+                      <Input 
+                        type="text" 
+                        value={accentColor} 
+                        onChange={(e) => setAccentColor(e.target.value)}
+                        className="flex-1 bg-muted/50"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label>Blur do Fundo ({backgroundBlur}px)</Label>
+                    </div>
+                    <Slider
+                      value={[backgroundBlur]}
+                      onValueChange={([val]) => setBackgroundBlur(val)}
+                      max={20}
+                      step={1}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label>Opacidade do Overlay ({overlayOpacity})</Label>
+                    </div>
+                    <Slider
+                      value={[overlayOpacity]}
+                      onValueChange={([val]) => setOverlayOpacity(val)}
+                      max={1}
+                      step={0.1}
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="labels" className="space-y-4 pt-4">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Rótulo Superior (Poster)</Label>
+                    <Input 
+                      value={statusLabel} 
+                      onChange={(e) => setStatusLabel(e.target.value)}
+                      className="bg-muted/50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Rótulo Superior (Geral)</Label>
+                    <Input 
+                      value={featuredLabel} 
+                      onChange={(e) => setFeaturedLabel(e.target.value)}
+                      className="bg-muted/50"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label>Tipo de Destaque</Label>
+                    <div className="flex gap-1">
+                      <Button 
+                        variant={featuredLabel.includes('FILME') ? 'default' : 'outline'} 
+                        size="sm" 
+                        onClick={() => setFeaturedLabel('FILME EM DESTAQUE')}
+                        className="h-7 text-[10px] px-2"
+                      >
+                        Filme
+                      </Button>
+                      <Button 
+                        variant={featuredLabel.includes('SÉRIE') ? 'default' : 'outline'} 
+                        size="sm" 
+                        onClick={() => setFeaturedLabel('SÉRIE EM DESTAQUE')}
+                        className="h-7 text-[10px] px-2"
+                      >
+                        Série
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="show-synopsis">Mostrar Sinopse</Label>
+                    <Switch
+                      id="show-synopsis"
+                      checked={showSynopsis}
+                      onCheckedChange={setShowSynopsis}
+                    />
+                  </div>
+                  {showSynopsis && (
+                    <div className="space-y-2">
+                      <Label>Tamanho da Sinopse ({synopsisLength} caracteres)</Label>
+                      <Slider
+                        value={[synopsisLength]}
+                        onValueChange={([val]) => setSynopsisLength(val)}
+                        max={500}
+                        min={50}
+                        step={10}
+                      />
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="logo" className="space-y-4 pt-4">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Logo da Marca</Label>
+                    <div className="flex flex-col gap-4">
+                      {logo ? (
+                        <div className="relative group rounded-lg overflow-hidden border border-border/40 bg-muted/20 p-4 flex items-center justify-center">
+                          <img src={logo} alt="Custom Logo" className="max-h-24 object-contain" />
+                          <button
+                            onClick={clearLogo}
+                            className="absolute top-2 right-2 p-1.5 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border/40 rounded-lg hover:bg-muted/30 transition-colors cursor-pointer">
+                          <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                          <span className="text-sm text-muted-foreground">Upload da Logo (PNG/SVG)</span>
+                          <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Tamanho da Logo ({logoSize}%)</Label>
+                      <Slider
+                        value={[logoSize]}
+                        onValueChange={([val]) => setLogoSize(val)}
+                        max={200}
+                        min={20}
+                        step={5}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Posição da Logo</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <Button 
+                          variant={logoPosition === 'left' ? 'default' : 'outline'} 
+                          size="sm" 
+                          onClick={() => setLogoPosition('left')}
+                          className="text-xs"
+                        >
+                          Esquerda
+                        </Button>
+                        <Button 
+                          variant={logoPosition === 'center' ? 'default' : 'outline'} 
+                          size="sm" 
+                          onClick={() => setLogoPosition('center')}
+                          className="text-xs"
+                        >
+                          Centro
+                        </Button>
+                        <Button 
+                          variant={logoPosition === 'right' ? 'default' : 'outline'} 
+                          size="sm" 
+                          onClick={() => setLogoPosition('right')}
+                          className="text-xs"
+                        >
+                          Direita
+                        </Button>
                       </div>
                     </div>
 
-                    {/* Bottom Info Section */}
-                    <div className="mt-auto space-y-4 text-center">
-                      <div className="flex justify-center mb-1">
-                        {renderStars(selectedContent.vote_average)}
+                    <div className="space-y-4 pt-2">
+                      <div className="space-y-2">
+                        <Label>Ajuste Horizontal ({logoX}%)</Label>
+                        <Slider
+                          value={[logoX]}
+                          onValueChange={([val]) => setLogoX(val)}
+                          max={50}
+                          min={-50}
+                          step={1}
+                        />
                       </div>
-
-                      <h1 className="text-4xl font-black uppercase tracking-widest leading-none drop-shadow-xl">
-                        {selectedContent.title || selectedContent.name}
-                      </h1>
-
-                      <div className="flex items-center justify-center gap-3 text-sm text-gray-300 font-medium">
-                        <span>{selectedContent.genres?.slice(0, 3).map(g => g.name).join(' • ')}</span>
-                        <span>•</span>
-                        <span>{new Date(selectedContent.release_date || selectedContent.first_air_date || '').getFullYear()}</span>
-                      </div>
-
-                      {showSynopsis && (
-                        <p className="text-sm text-gray-300 leading-relaxed max-w-[90%] mx-auto font-medium">
-                          {truncateSynopsis(selectedContent.overview, synopsisLength)}
-                        </p>
-                      )}
-
-                      <div className="pt-6 border-t border-white/10 flex flex-col items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-white/40 font-bold">|</span>
-                          <span className="text-[11px] font-black tracking-[0.3em] uppercase">Disponível em</span>
-                        </div>
-                        <div className="flex gap-4 items-center">
-                          <div className="flex items-center justify-center border border-white/30 rounded-md w-10 h-8">
-                            <Smartphone size={18} strokeWidth={1.5} />
-                          </div>
-                          <div className="flex items-center justify-center border border-white/30 rounded-md w-10 h-8">
-                            <Laptop size={18} strokeWidth={1.5} />
-                          </div>
-                          <div className="flex items-center justify-center border border-white/30 rounded-md w-10 h-8">
-                            <div className="relative">
-                              <Monitor size={18} strokeWidth={1.5} />
-                              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[6px] font-bold">SMART</div>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-center border border-white/30 rounded-md w-10 h-8 relative">
-                            <Tv size={18} strokeWidth={1.5} />
-                            <span className="absolute -right-1 bottom-0 text-[8px] font-bold">TV</span>
-                          </div>
-                        </div>
+                      <div className="space-y-2">
+                        <Label>Ajuste Vertical ({logoY}%)</Label>
+                        <Slider
+                          value={[logoY]}
+                          onValueChange={([val]) => setLogoY(val)}
+                          max={50}
+                          min={-50}
+                          step={1}
+                        />
                       </div>
                     </div>
                   </div>
-                </>
-              )}
-            </div>
-            
-            {/* Legend for controls */}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="layout" className="space-y-4 pt-4">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Largura da Capa ({posterWidth}%)</Label>
+                    <Slider
+                      value={[posterWidth]}
+                      onValueChange={([val]) => setPosterWidth(val)}
+                      max={100}
+                      min={20}
+                      step={1}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Proporção Altura ({posterHeight})</Label>
+                    <Slider
+                      value={[posterHeight]}
+                      onValueChange={([val]) => setPosterHeight(val)}
+                      max={20}
+                      min={10}
+                      step={0.5}
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            <Button 
+              className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-bold"
+              disabled={!selectedContent}
+              onClick={downloadImage}
+            >
+              <Download className="w-5 h-5 mr-2" />
+              Baixar Imagem (PNG)
+            </Button>
+
             <div className="mt-4 flex gap-4 text-xs text-muted-foreground">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded-full bg-primary/20" />
@@ -665,9 +495,175 @@ const GeradorPost = () => {
               </div>
             </div>
           </div>
+
+          {/* Right Column: Preview */}
+          <div className="flex-1 flex justify-center items-start">
+            <div className="sticky top-24 w-full flex flex-col items-center">
+              {!selectedContent ? (
+                <div className="w-full aspect-video flex flex-col items-center justify-center border-2 border-dashed border-border/40 rounded-xl bg-muted/10 text-muted-foreground p-12 text-center">
+                  <Sparkles className="w-16 h-16 mb-4 opacity-20" />
+                  <h3 className="text-xl font-medium mb-2">Sua arte aparecerá aqui</h3>
+                  <p className="max-w-xs mx-auto">Busque um filme ou série à esquerda para começar a personalizar seu post.</p>
+                </div>
+              ) : (
+                <>
+                  <div 
+                    ref={previewRef}
+                    className="relative w-[500px] h-[750px] bg-black overflow-hidden flex flex-col p-8 font-sans text-white shadow-2xl rounded-sm"
+                  >
+                    {/* Background with Blur */}
+                    <div 
+                      className="absolute inset-0 z-0 scale-110"
+                      style={{
+                        backgroundImage: `url(https://image.tmdb.org/t/p/w1280${selectedContent.backdrop_path})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        filter: `blur(${backgroundBlur}px)`,
+                      }}
+                    />
+                    
+                    {/* Overlay */}
+                    <div 
+                      className="absolute inset-0 z-10"
+                      style={{ 
+                        backgroundColor: 'black',
+                        opacity: overlayOpacity
+                      }}
+                    />
+                    
+                    {/* Content Layer */}
+                    <div className="relative z-20 flex flex-col h-full items-center">
+                      {/* Logo Section */}
+                      <div 
+                        className={cn(
+                          "w-full flex mb-6",
+                          logoPosition === 'left' && "justify-start",
+                          logoPosition === 'center' && "justify-center",
+                          logoPosition === 'right' && "justify-end"
+                        )}
+                        style={{
+                          transform: `translate(${logoX}%, ${logoY}%)`
+                        }}
+                      >
+                        {logo ? (
+                          <img 
+                            src={logo} 
+                            alt="Brand Logo" 
+                            style={{ width: `${logoSize}%` }} 
+                            className="max-h-16 object-contain"
+                          />
+                        ) : (
+                          <div className="h-8" />
+                        )}
+                      </div>
+
+                      {/* Featured Section */}
+                      <div className="w-full space-y-2 mb-8 text-center">
+                        <Badge 
+                          className="bg-primary/20 text-primary border-primary/30 text-[10px] px-3 py-0.5 tracking-[0.2em] font-black italic rounded-sm uppercase"
+                          style={{ color: accentColor, borderColor: `${accentColor}30`, backgroundColor: `${accentColor}20` }}
+                        >
+                          {featuredLabel}
+                        </Badge>
+                      </div>
+
+                      {/* Smartphone Frame with Poster */}
+                      <div className="relative w-full flex justify-center mb-8">
+                        <div 
+                          className="relative shadow-2xl overflow-hidden rounded-[2.5rem] border-[6px] border-[#1a1a1a]"
+                          style={{ 
+                            width: `${posterWidth}%`,
+                            aspectRatio: `9 / ${posterHeight}`,
+                            maxWidth: '280px'
+                          }}
+                        >
+                          {/* Screen Reflections/Gloss */}
+                          <div className="absolute inset-0 z-30 pointer-events-none bg-gradient-to-tr from-white/5 to-transparent opacity-50" />
+                          
+                          {/* Inner Screen */}
+                          <div className="absolute inset-0 z-20 bg-black flex flex-col">
+                            {/* Poster Image */}
+                            <img 
+                              src={`https://image.tmdb.org/t/p/w780${selectedContent.poster_path}`} 
+                              alt={selectedContent.title || selectedContent.name}
+                              className="w-full h-full object-cover"
+                            />
+                            
+                            {/* Poster Overlay Label */}
+                            <div className="absolute top-6 left-0 right-0 flex justify-center z-30">
+                              <Badge 
+                                className="text-[9px] px-3 py-0.5 font-black rounded-full bg-white text-black shadow-lg"
+                              >
+                                {statusLabel}
+                              </Badge>
+                            </div>
+
+                            {/* Corner Accents */}
+                            <div className="absolute bottom-6 left-6 z-30 flex items-center gap-1 opacity-80">
+                              <div className="w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse" />
+                              <span className="text-[10px] font-black uppercase tracking-tighter italic">Live Now</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bottom Info Section */}
+                      <div className="mt-auto space-y-4 text-center">
+                        <div className="flex justify-center mb-1">
+                          {renderStars(selectedContent.vote_average)}
+                        </div>
+
+                        <h1 className="text-4xl font-black uppercase tracking-widest leading-none drop-shadow-xl">
+                          {selectedContent.title || selectedContent.name}
+                        </h1>
+
+                        <div className="flex items-center justify-center gap-3 text-sm text-gray-300 font-medium">
+                          <span>{selectedContent.genres?.slice(0, 3).map(g => g.name).join(' • ')}</span>
+                          <span>•</span>
+                          <span>{new Date(selectedContent.release_date || selectedContent.first_air_date || '').getFullYear()}</span>
+                        </div>
+
+                        {showSynopsis && (
+                          <p className="text-sm text-gray-300 leading-relaxed max-w-[90%] mx-auto font-medium">
+                            {truncateSynopsis(selectedContent.overview, synopsisLength)}
+                          </p>
+                        )}
+
+                        <div className="pt-6 border-t border-white/10 flex flex-col items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-white/40 font-bold">|</span>
+                            <span className="text-[11px] font-black tracking-[0.3em] uppercase">Disponível em</span>
+                          </div>
+                          <div className="flex gap-4 items-center">
+                            <div className="flex items-center justify-center border border-white/30 rounded-md w-10 h-8">
+                              <Smartphone size={18} strokeWidth={1.5} />
+                            </div>
+                            <div className="flex items-center justify-center border border-white/30 rounded-md w-10 h-8">
+                              <Laptop size={18} strokeWidth={1.5} />
+                            </div>
+                            <div className="flex items-center justify-center border border-white/30 rounded-md w-10 h-8">
+                              <div className="relative">
+                                <Monitor size={18} strokeWidth={1.5} />
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[6px] font-bold">SMART</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-center border border-white/30 rounded-md w-10 h-8 relative">
+                              <Tv size={18} strokeWidth={1.5} />
+                              <span className="absolute -right-1 bottom-0 text-[8px] font-bold">TV</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
-      <GeradorBannerEsportes />
+      ) : (
+        <GeradorBannerEsportes />
+      )}
     </div>
   );
 };
