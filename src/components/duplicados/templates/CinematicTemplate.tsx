@@ -39,6 +39,9 @@ const CinematicTemplate = ({
   posterWidth,
   posterHeight,
   statusLabel,
+  statusX = 0,
+  statusY = 0,
+  statusAlign = 'right',
   showSynopsis,
   synopsisLength
 }: TemplateProps) => {
