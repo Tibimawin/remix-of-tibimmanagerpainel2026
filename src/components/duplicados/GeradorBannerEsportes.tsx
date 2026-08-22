@@ -291,7 +291,7 @@ const GeradorBannerEsportes = () => {
                           <div className="w-20 h-20 flex items-center justify-center p-1 border-2 border-gray-100 rounded-full bg-white shadow-sm overflow-hidden">
                             {match.logoHome ? <img src={match.logoHome} className="w-full h-full object-contain" /> : <div className="w-12 h-12 bg-gray-200 rounded-full" />}
                           </div>
-                          <span className="text-2xl font-black tracking-tighter text-right leading-tight max-w-[150px]">{match.teamHome}</span>
+                          <span className="text-2xl font-black tracking-tighter text-right leading-tight max-w-[150px] text-black">{match.teamHome}</span>
                         </div>
 
                         {/* VS Divider */}
@@ -301,7 +301,7 @@ const GeradorBannerEsportes = () => {
 
                         {/* Team Away */}
                         <div className="flex items-center gap-6 flex-1 justify-start">
-                          <span className="text-2xl font-black tracking-tighter text-left leading-tight max-w-[150px]">{match.teamAway}</span>
+                          <span className="text-2xl font-black tracking-tighter text-left leading-tight max-w-[150px] text-black">{match.teamAway}</span>
                           <div className="w-20 h-20 flex items-center justify-center p-1 border-2 border-gray-100 rounded-full bg-white shadow-sm overflow-hidden">
                             {match.logoAway ? <img src={match.logoAway} className="w-full h-full object-contain" /> : <div className="w-12 h-12 bg-gray-200 rounded-full" />}
                           </div>
