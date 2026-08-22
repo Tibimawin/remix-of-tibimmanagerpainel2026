@@ -330,7 +330,7 @@ const GeradorBannerEsportes = () => {
                       {['BUNDESLIGA', 'PREMIER LEAGUE', 'LALIGA', 'CHAMPIONS LEAGUE', 'LIGUE 1', 'LIBERTADORES', 'COPA DO BRASIL', 'BRASILEIRÃO'].map(league => (
                         <div key={league} className="bg-white/10 backdrop-blur-sm border border-white/10 rounded px-3 py-1.5 flex flex-col items-center opacity-70 hover:opacity-100 transition-opacity">
                            <div className="w-8 h-8 mb-1 bg-white/20 rounded-full" />
-                           <span className="text-[8px] font-black tracking-tighter">{league}</span>
+                           <span className="text-[8px] font-black tracking-tighter text-white">{league}</span>
                         </div>
                       ))}
                    </div>
