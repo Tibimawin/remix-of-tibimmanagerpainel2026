@@ -54,6 +54,9 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
   const [posterHeight, setPosterHeight] = useState(14);
   const [accentColor, setAccentColor] = useState('#e50914'); // Netflix Red
   const [statusLabel, setStatusLabel] = useState('LANÇAMENTOS');
+  const [statusX, setStatusX] = useState(0);
+  const [statusY, setStatusY] = useState(0);
+  const [statusAlign, setStatusAlign] = useState<'left' | 'center' | 'right'>('center');
   const [featuredLabel, setFeaturedLabel] = useState('FILME EM DESTAQUE');
   const [showSynopsis, setShowSynopsis] = useState(true);
   const [synopsisLength, setSynopsisLength] = useState(250);
@@ -342,6 +345,54 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                       className="bg-muted/50"
                     />
                   </div>
+
+                  <div className="space-y-3 rounded-lg border border-border/50 p-3">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Posição do Rótulo (Poster)
+                    </Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['left', 'center', 'right'] as const).map((pos) => (
+                        <Button
+                          key={pos}
+                          variant={statusAlign === pos ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setStatusAlign(pos)}
+                          className="text-xs"
+                        >
+                          {pos === 'left' ? 'Esquerda' : pos === 'center' ? 'Centro' : 'Direita'}
+                        </Button>
+                      ))}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Ajuste Horizontal ({statusX}%)</Label>
+                      <Slider
+                        value={[statusX]}
+                        onValueChange={([val]) => setStatusX(val)}
+                        max={100}
+                        min={-100}
+                        step={1}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Ajuste Vertical ({statusY}%)</Label>
+                      <Slider
+                        value={[statusY]}
+                        onValueChange={([val]) => setStatusY(val)}
+                        max={1200}
+                        min={0}
+                        step={10}
+                      />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => { setStatusX(0); setStatusY(0); setStatusAlign('center'); }}
+                    >
+                      Redefinir posição
+                    </Button>
+                  </div>
+
                   <div className="space-y-2">
                     <Label>Rótulo Superior (Geral)</Label>
                     <Input 
@@ -561,6 +612,9 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                         posterWidth={posterWidth}
                         posterHeight={posterHeight}
                         statusLabel={statusLabel}
+                        statusX={statusX}
+                        statusY={statusY}
+                        statusAlign={statusAlign}
                         showSynopsis={showSynopsis}
                         synopsisLength={synopsisLength}
                       />
@@ -579,6 +633,9 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                         posterWidth={posterWidth}
                         posterHeight={posterHeight}
                         statusLabel={statusLabel}
+                        statusX={statusX}
+                        statusY={statusY}
+                        statusAlign={statusAlign}
                         showSynopsis={showSynopsis}
                         synopsisLength={synopsisLength}
                       />
