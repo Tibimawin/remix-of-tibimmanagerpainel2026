@@ -136,6 +136,16 @@ const menuItems: MenuItem[] = [
     badge: { type: 'new' }
   },
   {
+    id: 'gerador-banner',
+    label: 'Gerador de Banners',
+    href: '/gerador-post',
+    icon: LayoutIcon,
+    category: 'main',
+    description: 'Criar tabelas de jogos',
+    feature: 'gerador-post',
+    badge: { type: 'new' }
+  },
+  {
     id: 'conteudos',
     label: 'Conteúdos',
     href: '/conteudos',
