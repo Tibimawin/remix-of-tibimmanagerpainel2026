@@ -8,6 +8,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, range",
 };
 
+// Quando true, os links camuflados apenas redirecionam para a URL original
+// (sem consumir banda de streaming).
+const REDIRECT_MODE = true;
+
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(Deno.env.get("SUPABASE_URL")!, SERVICE_KEY);
 
@@ -97,6 +101,24 @@ Deno.serve(async (req) => {
       if (!sig || (await sign(u)) !== sig) return deny("Assinatura inválida", 403);
       target = atob(u.replace(/-/g, "+").replace(/_/g, "/"));
     }
+
+    // 🔁 Modo redirecionamento: não fazemos streaming (economiza banda da Vercel
+    // e do backend) — apenas devolvemos um 302 para o link original.
+    if (REDIRECT_MODE) {
+      void Promise.all([
+        supabase.from("cloaked_links").update({
+          access_count: Number(link.access_count || 0) + 1,
+          last_access_at: new Date().toISOString(),
+        }).eq("short_id", id),
+        log({ link_short_id: id, owner_uid: user.firebase_uid, status: "redirect", ip, user_agent: userAgent, bytes_served: 0 }),
+      ]);
+      return new Response(null, {
+        status: 302,
+        headers: { ...corsHeaders, Location: target, "Cache-Control": "no-store" },
+      });
+    }
+
+
 
     const range = req.headers.get("range");
     const upstream = await fetch(target, {
