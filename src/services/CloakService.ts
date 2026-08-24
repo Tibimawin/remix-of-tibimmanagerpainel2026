@@ -38,6 +38,13 @@ function shortHash(input: string): string {
   return [h1, h2, h3, h4].map(h => h.toString(36)).join('');
 }
 
+/**
+ * 🔴 Interruptor global da camuflagem de links.
+ * Desativado para não consumir recursos do proxy (Vercel):
+ * os links originais são gravados direto, sem passar por /api/s/...
+ */
+export const CLOAK_ENABLED = false;
+
 export const getCloakBaseUrl = (): string => {
   const configured = (import.meta as any).env?.VITE_CLOAK_BASE_URL as string | undefined;
   if (configured) return configured.replace(/\/$/, '');
@@ -63,6 +70,7 @@ class CloakServiceImpl {
     blocked?: boolean;
     features?: string[];
   }): Promise<string | null> {
+    if (!CLOAK_ENABLED) return null;
     try {
       const idToken = await auth.currentUser?.getIdToken();
       const { data, error } = await supabase.functions.invoke('cloak', {
@@ -92,6 +100,7 @@ class CloakServiceImpl {
   }
 
   getCachedToken(uid: string): string | null {
+    if (!CLOAK_ENABLED) return null;
     if (this.tokenCache?.uid === uid) return this.tokenCache.token;
     try {
       const raw = localStorage.getItem('cloak-token');
@@ -116,6 +125,7 @@ class CloakServiceImpl {
    * e enviado automaticamente para o banco.
    */
   cloakUrl(ownerUid: string, token: string, input: CloakLinkInput): string {
+    if (!CLOAK_ENABLED) return input.originalUrl;
     const url = (input.originalUrl || '').trim();
     if (!url || !/^https?:\/\//i.test(url)) return input.originalUrl;
 
@@ -143,6 +153,7 @@ class CloakServiceImpl {
 
   /** Recupera links pendentes de sessões anteriores. */
   restorePending(): void {
+    if (!CLOAK_ENABLED) return;
     try {
       const raw = localStorage.getItem(PENDING_KEY);
       if (!raw) return;
@@ -164,6 +175,7 @@ class CloakServiceImpl {
 
   /** Envia os links enfileirados para o banco (em lotes, com retentativa). */
   async flush(): Promise<void> {
+    if (!CLOAK_ENABLED) return;
     if (this.flushing) return;
     if (this.queue.size === 0) {
       try { localStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
