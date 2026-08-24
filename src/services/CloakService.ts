@@ -38,6 +38,13 @@ function shortHash(input: string): string {
   return [h1, h2, h3, h4].map(h => h.toString(36)).join('');
 }
 
+/**
+ * 🔴 Interruptor global da camuflagem de links.
+ * Desativado para não consumir recursos do proxy (Vercel):
+ * os links originais são gravados direto, sem passar por /api/s/...
+ */
+export const CLOAK_ENABLED = false;
+
 export const getCloakBaseUrl = (): string => {
   const configured = (import.meta as any).env?.VITE_CLOAK_BASE_URL as string | undefined;
   if (configured) return configured.replace(/\/$/, '');
