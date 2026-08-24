@@ -382,24 +382,8 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
         return mappedContent;
       });
 
-      // 🔒 Camuflagem de links (apenas Minisséries): o link original nunca vai para o Baserow
-      if (isMiniseries && userInfo?.id) {
-        const token = await CloakService.ensureToken({
-          uid: userInfo.id,
-          email: userInfo.email,
-        });
-        if (token) {
-          autoImportService.linkTransform = (url, contentName, kind) =>
-            CloakService.cloakUrl(userInfo.id, token, {
-              originalUrl: url,
-              contentName,
-              kind,
-              source: 'miniseries',
-            });
-        } else {
-          toast.warning('Não foi possível ativar a proteção de links; importando com links originais.');
-        }
-      }
+      // 🔓 Camuflagem de links desativada: os links originais são gravados direto
+      autoImportService.linkTransform = undefined;
 
       toast.info(`Importando ${contentsToImport.length} conteúdo(s)...`);
 
