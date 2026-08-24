@@ -8,6 +8,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, range",
 };
 
+// Quando true, os links camuflados apenas redirecionam para a URL original
+// (sem consumir banda de streaming).
+const REDIRECT_MODE = true;
+
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(Deno.env.get("SUPABASE_URL")!, SERVICE_KEY);
 

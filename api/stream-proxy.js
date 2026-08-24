@@ -6,6 +6,9 @@ export const config = {
   api: { responseLimit: false },
 };
 
+// Quando true, não fazemos streaming pela Vercel: apenas redirecionamos.
+const REDIRECT_MODE = true;
+
 const BACKEND_URL =
   process.env.SUPABASE_URL ||
   process.env.VITE_SUPABASE_URL ||
@@ -22,6 +25,14 @@ export default async function handler(req, res) {
   const params = new URLSearchParams({ token: String(token), id: String(id) });
   if (u) params.set('u', String(u));
   if (sig) params.set('sig', String(sig));
+
+  // 🔁 Modo redirecionamento: a Vercel só devolve um 302 para o backend,
+  // que por sua vez redireciona para o link original. Consumo mínimo.
+  if (REDIRECT_MODE) {
+    res.setHeader('Cache-Control', 'no-store');
+    res.writeHead(302, { Location: `${BACKEND_URL}/functions/v1/cloak-stream?${params}` });
+    return res.end();
+  }
 
   try {
     const upstream = await fetch(`${BACKEND_URL}/functions/v1/cloak-stream?${params}`, {
