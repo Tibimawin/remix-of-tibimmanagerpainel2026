@@ -34,6 +34,9 @@ import { UserConfigService } from '@/services/UserConfigService';
 import { useUserConfig } from '@/hooks/useUserConfig';
 import { useM3UImport } from '@/contexts/M3UImportContext';
 import { safeJsonStringify, safeJsonParse } from '@/utils/safeJson';
+import { useTypeMode, TypeMode } from '@/contexts/TypeModeContext';
+import { getColumnMap } from '@/config/columnMappings';
+import { BASEROW_PROXY_CONFIG } from '@/config/proxyConfig';
 
 interface M3UItem {
   name: string;
@@ -96,8 +99,9 @@ const M3UImporter = () => {
   const [dnsM3UContent, setDnsM3UContent] = useState<string | null>(null);
   const [hasSavedDnsConfig, setHasSavedDnsConfig] = useState(false);
   const [pendingAutoFetch, setPendingAutoFetch] = useState(false);
+  const { mode: currentTypeMode } = useTypeMode();
   const [importMode, setImportMode] = useState<'automatic' | 'manual'>('automatic');
-  const [namingMode, setNamingMode] = useState<'singular' | 'plural'>('singular');
+  const [namingMode, setNamingMode] = useState<TypeMode>(currentTypeMode || 'singular');
   const [ignoreDuplicates, setIgnoreDuplicates] = useState(true);
   const [enrichWithTMDB, setEnrichWithTMDB] = useState(true);
   const [parsedItems, setParsedItems] = useState<M3UItem[]>([]);
@@ -122,13 +126,20 @@ const M3UImporter = () => {
     currentItem: ''
   });
 
+  // Sincronizar namingMode se o modo global mudar
+  useEffect(() => {
+    if (currentTypeMode) {
+      setNamingMode(currentTypeMode);
+    }
+  }, [currentTypeMode]);
+
   // ✅ Retomada de importação
   const RESUME_KEY = 'm3u-import-resume';
   const [resumeState, setResumeState] = useState<{
     parsedItems: M3UItem[];
     ignoreDuplicates: boolean;
     enrichWithTMDB: boolean;
-    namingMode: 'singular' | 'plural';
+    namingMode: TypeMode;
     importMode: 'automatic' | 'manual';
     importFilters: { movies: boolean; series: boolean; tv: boolean };
     seriesStartIdx: number;
@@ -515,15 +526,10 @@ const M3UImporter = () => {
 
       console.log('[DNS] Fetching M3U from:', m3uUrl);
 
-      // Detectar ambiente para proxy
-      const isLovablePreview = window.location.hostname.includes('lovable.app');
-      const proxyBase = isLovablePreview 
-        ? 'https://pixel-perfect-clone-4083.lovable.app'
-        : '';
-
       setDnsFetchPhase('downloading');
 
-      const response = await fetch(`${proxyBase}/api/m3u-proxy`, {
+      const proxyEndpoint = BASEROW_PROXY_CONFIG.M3U_PROXY_URL;
+      const response = await fetch(proxyEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: m3uUrl }),
@@ -850,6 +856,20 @@ const M3UImporter = () => {
               const nome = item.Nome;
               return nome ? normalizeName(nome) : '';
             }).filter(Boolean));
+
+            // Se for modo plural ou tibim e canais de TV forem importados para tabela separada, carregar nomes de lá também
+            if ((namingMode === 'plural' || namingMode === 'tibim') && config.tableIds.canaisTv && importFilters.tv) {
+              try {
+                const canaisRes = await baserowService.getAllTableData(config.tableIds.canaisTv);
+                canaisRes.results.forEach((item: any) => {
+                  const nome = item.Nome;
+                  if (nome) existingNames.add(normalizeName(nome));
+                });
+              } catch (cErr) {
+                console.warn('Não foi possível carregar canais existentes para deduplicação:', cErr);
+              }
+            }
+
             toast.success(`Verificação de duplicados ativa`, {
               description: `${existingNames.size} conteúdos existentes carregados para comparação.`,
               icon: <Database className="w-4 h-4" />,
@@ -944,19 +964,23 @@ const M3UImporter = () => {
             if (category) category += ', ';
             category += 'Series';
 
-            const seriesData = {
-              Nome: tmdbData?.title || series.name,
-              Capa: tmdbData?.poster || series.logo || '',
-              Categoria: category,
-              Sinopse: tmdbData?.overview || '',
-              Link: series.url || series.logo || '',
-              Tipo: namingMode === 'plural' ? 'Series' : 'Serie',
-              Idioma: series.language || 'DUBLADO',
-              Views: 0,
-              Temporadas: Math.max(...series.episodes.map(e => e.season || 0)),
-              Imdb: tmdbData?.rating || '',
-              'Capa de fundo': tmdbData?.backdrop || '',
-              'Data de Lançamento': tmdbData?.release_date || ''
+            const colMap = getColumnMap(namingMode);
+            const seriesData: Record<string, any> = {
+              [colMap.nome]: tmdbData?.title || series.name,
+              [colMap.capa]: tmdbData?.poster || series.logo || '',
+              [colMap.categoria]: category,
+              [colMap.sinopse]: tmdbData?.overview || '',
+              [colMap.link]: series.url || series.logo || '',
+              [colMap.tipo]: colMap.tipoSerie,
+              [colMap.idioma]: series.language || 'DUBLADO',
+              [colMap.views]: 0,
+              [colMap.temporadas]: Math.max(...series.episodes.map(e => e.season || 0)),
+              [colMap.imdb]: tmdbData?.rating || '',
+              [colMap.capaFundo]: tmdbData?.backdrop || '',
+              [colMap.dataLancamento]: tmdbData?.release_date || '',
+              ...(colMap.visualizacoes ? { [colMap.visualizacoes]: 0 } : {}),
+              ...(colMap.selo ? { [colMap.selo]: '' } : {}),
+              ...(colMap.elenco ? { [colMap.elenco]: '' } : {}),
             };
             
             // Séries são criadas individualmente (precisamos do ID para vincular episódios)
@@ -964,7 +988,7 @@ const M3UImporter = () => {
             currentSeriesId = createdSeries.id;
             successCount++;
             // ✅ Atualizar existingNames com o nome salvo (pode ser do TMDB)
-            existingNames.add(normalizeName(seriesData.Nome));
+            existingNames.add(normalizeName(seriesData[colMap.nome] || seriesData.Nome));
             // Também adicionar o nome original do M3U
             existingNames.add(normalizeName(series.name));
           } catch (error) {
@@ -974,17 +998,18 @@ const M3UImporter = () => {
 
           // 🚀 Importar episódios em LOTE se a série foi criada com sucesso
           if (currentSeriesId) {
+            const colMap = getColumnMap(namingMode);
             const EPISODE_BATCH_SIZE = 100;
             const episodeBatches: any[][] = [];
             let currentBatch: any[] = [];
 
             for (const episode of series.episodes) {
               currentBatch.push({
-                Nome: episode.seriesName || series.name,
-                Temporada: episode.season || 1,
-                'Episódio': episode.episode || 1,
-                Link: episode.url,
-                Conteudo: [currentSeriesId]
+                [colMap.episodioNome]: episode.seriesName || series.name,
+                [colMap.episodioTemporada]: episode.season || 1,
+                [colMap.episodioNumero]: episode.episode || 1,
+                [colMap.episodioLink]: episode.url,
+                [colMap.episodioSerie || 'Serie']: [currentSeriesId]
               });
 
               if (currentBatch.length >= EPISODE_BATCH_SIZE) {
@@ -1050,6 +1075,7 @@ const M3UImporter = () => {
         }
 
         // Preparar dados dos filmes e enviar em lotes
+        const colMap = getColumnMap(namingMode);
         const FILME_BATCH_SIZE = 100;
         const filmesData: any[] = [];
 
@@ -1063,17 +1089,20 @@ const M3UImporter = () => {
           category += 'Filmes';
 
           filmesData.push({
-            Nome: tmdbData?.title || filme.name,
-            Capa: tmdbData?.poster || filme.logo || '',
-            Categoria: category,
-            Sinopse: tmdbData?.overview || '',
-            Link: filme.url,
-            Tipo: namingMode === 'plural' ? 'Filmes' : 'Filme',
-            Idioma: filme.language || 'DUBLADO',
-            Views: 0,
-            Imdb: tmdbData?.rating || '',
-            'Capa de fundo': tmdbData?.backdrop || '',
-            'Data de Lançamento': tmdbData?.release_date || ''
+            [colMap.nome]: tmdbData?.title || filme.name,
+            [colMap.capa]: tmdbData?.poster || filme.logo || '',
+            [colMap.categoria]: category,
+            [colMap.sinopse]: tmdbData?.overview || '',
+            [colMap.link]: filme.url,
+            [colMap.tipo]: colMap.tipoFilme,
+            [colMap.idioma]: filme.language || 'DUBLADO',
+            [colMap.views]: 0,
+            [colMap.imdb]: tmdbData?.rating || '',
+            [colMap.capaFundo]: tmdbData?.backdrop || '',
+            [colMap.dataLancamento]: tmdbData?.release_date || '',
+            ...(colMap.visualizacoes ? { [colMap.visualizacoes]: 0 } : {}),
+            ...(colMap.selo ? { [colMap.selo]: '' } : {}),
+            ...(colMap.elenco ? { [colMap.elenco]: '' } : {}),
           });
         }
 
@@ -1089,7 +1118,8 @@ const M3UImporter = () => {
             successCount += batch.length;
             // ✅ Atualizar existingNames com nomes dos filmes importados
             for (const filmeData of batch) {
-              existingNames.add(normalizeName(filmeData.Nome));
+              const fName = filmeData[colMap.nome] || filmeData.Nome;
+              if (fName) existingNames.add(normalizeName(fName));
             }
           } catch (error) {
             console.error('Erro ao importar lote de filmes:', error);
@@ -1125,6 +1155,13 @@ const M3UImporter = () => {
           updateProgressCount(canaisSkipped, 'Canais', 'Duplicados ignorados');
         }
 
+        const colMap = getColumnMap(namingMode);
+        const targetTableId = ((namingMode === 'plural' || namingMode === 'tibim') && config.tableIds.canaisTv) 
+          ? config.tableIds.canaisTv 
+          : config.tableIds.conteudos;
+
+        const isSeparateCanaisTable = targetTableId === config.tableIds.canaisTv;
+
         const CANAL_BATCH_SIZE = 100;
         const canaisData: any[] = [];
 
@@ -1134,20 +1171,34 @@ const M3UImporter = () => {
           if (category) category += ', ';
           category += 'TV';
 
-          canaisData.push({
-            Nome: canal.name,
-            Capa: canal.logo || '',
-            Categoria: category,
-            Link: canal.url,
-            Tipo: 'TV',
-            Idioma: 'Ao Vivo',
-            Views: 0
-          });
+          if (isSeparateCanaisTable) {
+            const canalRecord: Record<string, any> = {
+              [colMap.canalNome]: canal.name,
+              [colMap.canalCapa]: canal.logo || '',
+              [colMap.canalCategoria]: category,
+              [colMap.canalLink]: canal.url,
+              [colMap.canalTipo]: 'TV',
+            };
+            if (namingMode === 'tibim') {
+              if (colMap.canalVisualizacoes) canalRecord[colMap.canalVisualizacoes] = 0;
+              if (colMap.canalSelo) canalRecord[colMap.canalSelo] = '';
+            }
+            canaisData.push(canalRecord);
+          } else {
+            canaisData.push({
+              [colMap.nome]: canal.name,
+              [colMap.capa]: canal.logo || '',
+              [colMap.categoria]: category,
+              [colMap.link]: canal.url,
+              [colMap.tipo]: 'TV',
+              [colMap.idioma]: 'Ao Vivo',
+              [colMap.views]: 0,
+              ...(colMap.visualizacoes ? { [colMap.visualizacoes]: 0 } : {}),
+              ...(colMap.selo ? { [colMap.selo]: '' } : {}),
+              ...(colMap.elenco ? { [colMap.elenco]: '' } : {}),
+            });
+          }
         }
-
-        const targetTableId = (namingMode === 'plural' && config.tableIds.canaisTv) 
-          ? config.tableIds.canaisTv 
-          : config.tableIds.conteudos;
 
         for (let i = 0; i < canaisData.length; i += CANAL_BATCH_SIZE) {
           if (abortRef.current) break;
@@ -1160,7 +1211,8 @@ const M3UImporter = () => {
             successCount += batch.length;
             // ✅ Atualizar existingNames com nomes dos canais importados
             for (const canalData of batch) {
-              existingNames.add(normalizeName(canalData.Nome));
+              const cName = canalData[colMap.canalNome] || canalData[colMap.nome] || canalData.Nome;
+              if (cName) existingNames.add(normalizeName(cName));
             }
           } catch (error) {
             console.error('Erro ao importar lote de canais:', error);
@@ -1305,24 +1357,32 @@ const M3UImporter = () => {
           {/* Estrutura de Conteúdo */}
           <div className="space-y-3">
             <Label className="text-base font-medium">Estrutura de Conteúdo</Label>
-            <RadioGroup value={namingMode} onValueChange={(v) => setNamingMode(v as any)} className="flex flex-col sm:flex-row gap-4">
+            <RadioGroup value={namingMode} onValueChange={(v) => setNamingMode(v as TypeMode)} className="flex flex-col sm:flex-row gap-4">
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="singular" id="mode-singular" />
                 <Label htmlFor="mode-singular" className="cursor-pointer">
-                  Thiago (Padrão)
+                  Thiago (Singular)
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="plural" id="mode-plural" />
                 <Label htmlFor="mode-plural" className="cursor-pointer">
-                  Francisco
+                  Francisco (Plural)
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="tibim" id="mode-tibim" />
+                <Label htmlFor="mode-tibim" className="cursor-pointer font-semibold text-primary">
+                  Tibim (Separa Canais TV)
                 </Label>
               </div>
             </RadioGroup>
             <p className="text-xs text-muted-foreground">
-              {namingMode === 'plural' 
-                ? 'Canais de TV serão enviados para a tabela "Canais TV".' 
-                : 'Todo conteúdo será enviado para a tabela "Conteúdos".'}
+              {namingMode === 'tibim'
+                ? 'Modo Tibim: Filmes e Séries vão para "Conteúdos" e Canais de TV vão para a tabela "Canais TV".'
+                : namingMode === 'plural' 
+                ? 'Modo Francisco: Canais de TV serão enviados para a tabela "Canais TV" separadamente.' 
+                : 'Modo Thiago: Todo conteúdo (inclusive canais) será enviado para a tabela "Conteúdos".'}
             </p>
           </div>
 

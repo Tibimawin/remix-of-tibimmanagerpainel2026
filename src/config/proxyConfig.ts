@@ -74,6 +74,15 @@ export const BASEROW_PROXY_CONFIG = {
         return this.VERCEL_PROXY_URL;
     },
 
+    // URL do proxy de M3U
+    get M3U_PROXY_URL() {
+        const envType = getEnvironmentType();
+        if (shouldUseAbsoluteVercelUrl(envType)) {
+            return `${VERCEL_PROXY_BASE}/api/m3u-proxy`;
+        }
+        return '/api/m3u-proxy';
+    },
+
     // Supabase desativado definitivamente como fallback do proxy Baserow.
     // O fallback antigo tentava a Edge Function após qualquer 404 do Vercel,
     // mas esse 404 muitas vezes é uma resposta real do Baserow (tabela inexistente

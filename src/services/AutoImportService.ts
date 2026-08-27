@@ -1145,10 +1145,10 @@ export class AutoImportService {
             (content.Tipo || '').toUpperCase().includes('TV') ||
             (content.Tipo || '').toUpperCase().includes('CANAL');
 
-          // Se for TV e modo plural, usar tabela de canais TV se disponível
-          if (isTv && typeMode === 'plural' && validatedUserConfig.tableIds?.canaisTv) {
+          // Se for TV e modo plural ou tibim, usar tabela de canais TV se disponível
+          if (isTv && (typeMode === 'plural' || typeMode === 'tibim') && validatedUserConfig.tableIds?.canaisTv) {
             targetTableId = validatedUserConfig.tableIds.canaisTv;
-            console.log('📺 Roteando canal de TV para tabela específica:', targetTableId);
+            console.log('📺 Roteando canal de TV para tabela específica (Tibim/Plural):', targetTableId);
           }
 
           // Buscar se o conteúdo já existe
