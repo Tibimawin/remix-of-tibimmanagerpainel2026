@@ -26,8 +26,8 @@ const versionFilePlugin = () => ({
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "::",
-    port: 8080,
+    host: "0.0.0.0",
+    port: 3000,
     proxy: {
       "/api": {
         target: "https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app",

@@ -1,0 +1,6 @@
+{
+  "name": "Tibim Manager",
+  "description": "Painel de gerenciamento de conteúdo e controle de mídias",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
