@@ -2,6 +2,8 @@ import { useState, useCallback, useMemo, useRef } from 'react';
 import { useBaserowService } from '@/services/BaserowService';
 import { getValueByPossibleKeys } from '@/utils/baserowHelpers';
 
+import { safeJsonStringify } from '@/utils/safeJson';
+
 export interface DuplicateGroup {
   key: string;
   records: any[];
@@ -31,7 +33,14 @@ export const MATCH_MODE_LABELS: Record<MatchMode, string> = {
 /** Normaliza um valor para comparação: minúsculo, sem acentos, sem pontuação extra */
 export const normalizeValue = (value: any): string => {
   if (value === undefined || value === null) return '';
-  const raw = typeof value === 'object' ? (value.value ?? value.name ?? JSON.stringify(value)) : value;
+  let raw: any = value;
+  if (typeof value === 'object') {
+    if (Array.isArray(value)) {
+      raw = value.map(v => (typeof v === 'object' ? (v?.value ?? v?.name ?? v?.url ?? '') : String(v))).join(' ');
+    } else {
+      raw = value?.value ?? value?.name ?? value?.url ?? value?.title ?? safeJsonStringify(value);
+    }
+  }
   return String(raw)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')

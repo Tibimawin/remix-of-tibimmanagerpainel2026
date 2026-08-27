@@ -33,6 +33,7 @@ import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { UserConfigService } from '@/services/UserConfigService';
 import { useUserConfig } from '@/hooks/useUserConfig';
 import { useM3UImport } from '@/contexts/M3UImportContext';
+import { safeJsonStringify, safeJsonParse } from '@/utils/safeJson';
 
 interface M3UItem {
   name: string;
@@ -137,6 +138,19 @@ const M3UImporter = () => {
   } | null>(null);
   // índices de retomada usados durante a execução do handleImport
   const resumeIdxRef = useRef({ series: 0, filmes: 0, canais: 0 });
+
+  // Carregar estado de retomada salvo no localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(RESUME_KEY);
+      if (saved) {
+        const parsed = safeJsonParse<any>(saved, null);
+        if (parsed?.parsedItems?.length) {
+          setResumeState(parsed);
+        }
+      }
+    } catch {}
+  }, []);
 
   const { config } = useConfig();
   const baserowService = useBaserowService();
@@ -870,7 +884,7 @@ const M3UImporter = () => {
         saveCounter++;
         if (saveCounter % 5 !== 0) return;
         try {
-          localStorage.setItem(RESUME_KEY, JSON.stringify({
+          localStorage.setItem(RESUME_KEY, safeJsonStringify({
             parsedItems,
             ignoreDuplicates,
             enrichWithTMDB,

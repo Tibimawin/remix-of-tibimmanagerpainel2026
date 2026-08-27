@@ -128,7 +128,8 @@ export const SeriesUpdateDialog: React.FC<SeriesUpdateDialogProps> = ({
                             >
                               <Checkbox
                                 checked={isSelected}
-                                onChange={() => handleEpisodeToggle(episode)}
+                                onCheckedChange={() => handleEpisodeToggle(episode)}
+                                onClick={(e) => e.stopPropagation()}
                               />
                                <div className="flex-1 min-w-0">
                                  <p className="text-sm font-medium truncate">

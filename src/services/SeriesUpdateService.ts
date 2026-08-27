@@ -128,16 +128,17 @@ class SeriesUpdateService {
     const source = await this.getSourceConfig();
     console.log('🔍 Buscando episódios da tabela central ID:', source.tableId);
 
-    while (hasMore) {
+    const maxPages = 25; // Limite de segurança de páginas (até 5.000 episódios)
+
+    while (hasMore && page <= maxPages) {
       try {
         console.log(`📖 Carregando página ${page}...`);
         
-        // Pequena pausa entre páginas para evitar 429 na origem
-        if (page > 1) await new Promise(resolve => setTimeout(resolve, 800));
+        // Pequena pausa entre páginas
+        if (page > 1) await new Promise(resolve => setTimeout(resolve, 150));
 
         const endpoint = `/api/database/rows/table/${source.tableId}/?user_field_names=true&page=${page}&size=${pageSize}`;
         const response = await this.makeSystemRequest(endpoint, {}, source);
-
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -150,7 +151,7 @@ class SeriesUpdateService {
 
           if (response.status === 429) {
             console.log('⏳ Rate limit na origem, aguardando...');
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            await new Promise(resolve => setTimeout(resolve, 2000));
             continue;
           }
           
@@ -176,17 +177,6 @@ class SeriesUpdateService {
           const formattedEpisodes = pageResults
             .filter((ep: any) => ep.Titulo || ep.Nome) // Apenas episódios com título
             .map((ep: any) => {
-              console.log('📋 Dados do episódio da tabela central:', ep);
-
-              // Debug: vamos ver todos os campos disponíveis
-              console.log('🔍 Campos disponíveis no episódio da tabela 3777:', Object.keys(ep));
-              console.log('📋 Valores dos campos de episódio:', {
-                'Episódios': ep['Episódios'],
-                'Episodio': ep['Episodio'],
-                'Episode': ep['Episode'],
-                'Episódio': ep['Episódio']
-              });
-
               return {
                 id: ep.id,
                 Titulo: ep.Titulo || ep.Nome || 'Episódio sem título',
@@ -205,15 +195,13 @@ class SeriesUpdateService {
             hasMore = false;
           } else {
             page++;
-            // Pequena pausa para não sobrecarregar
-            await new Promise(resolve => setTimeout(resolve, 200));
           }
         } else {
           hasMore = false;
         }
 
       } catch (error: any) {
-        console.error(`❌ [SeriesUpdateService] Erro fatal ao carregar página ${page}:`, error);
+        console.error(`❌ [SeriesUpdateService] Erro ao carregar página ${page}:`, error);
         
         // Se já tivermos alguns episódios, retornar o que foi carregado em vez de falhar tudo
         if (allEpisodes.length > 0) {

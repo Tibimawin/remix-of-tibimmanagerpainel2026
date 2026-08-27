@@ -3,9 +3,9 @@ import { UserConfigService, GlobalSeriesUpdateConfig } from '@/services/UserConf
 import { toast } from 'sonner';
 
 export const DEFAULT_SERIES_UPDATE_CONFIG = {
-  sourceToken: '',
-  sourceBaseUrl: '',
-  sourceTableId: '',
+  sourceToken: 'bOs1UqfA6YdpGV5yqGgSeK9WimkFhXbB',
+  sourceBaseUrl: 'http://213.199.56.115',
+  sourceTableId: '3777',
 };
 
 export const useGlobalSeriesUpdateConfig = () => {

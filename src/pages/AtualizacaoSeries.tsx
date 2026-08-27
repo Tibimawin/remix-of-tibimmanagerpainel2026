@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { useSeriesUpdateService } from '@/services/SeriesUpdateService';
@@ -25,23 +24,34 @@ import {
   Tv,
   BarChart3,
   AlertTriangle,
-  Settings
+  Settings,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  CheckSquare,
+  Square,
+  Sparkles,
+  X
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 
+const SERIES_PER_PAGE = 15;
+
 const AtualizacaoSeries = () => {
   const [loading, setLoading] = useState(false);
   const [episodes, setEpisodes] = useState<any[]>([]);
-  const [filteredEpisodes, setFilteredEpisodes] = useState<any[]>([]);
   const [selectedEpisodes, setSelectedEpisodes] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [seriesFilter, setSeriesFilter] = useState('');
   const [importing, setImporting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [collapsedSeries, setCollapsedSeries] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
-  const [availableSeries, setAvailableSeries] = useState<string[]>([]);
+  
   const [progress, setProgress] = useState<{ processed: number; total: number; current?: string; startedAt: number } | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [lastSummary, setLastSummary] = useState<{ created: number; updated: number; ignored: number; total: number; seasonsUpdated?: { nome: string; from: number; to: number; episodes?: number; at?: string }[] } | null>(null);
@@ -57,79 +67,187 @@ const AtualizacaoSeries = () => {
   } = useUserPermissions();
 
   // Verificar se o usuário tem configuração válida
-  const isConfigured = cloudConfig?.apiToken && cloudConfig?.baseUrl && cloudConfig?.tableIds?.episodios;
+  const isConfigured = Boolean(cloudConfig?.apiToken && cloudConfig?.baseUrl && cloudConfig?.tableIds?.episodios);
 
   // Carregar episódios disponíveis
-  const loadAvailableEpisodes = async () => {
+  const loadAvailableEpisodes = useCallback(async () => {
     if (!isConfigured) {
-      toast.error('Configure suas credenciais primeiro na página de Importação Automática');
+      toast.error('Configure suas credenciais primeiro na página de Configurações ou Importação');
       return;
     }
 
     setLoading(true);
     try {
-      toast('Carregando episódios disponíveis...', { description: 'Buscando novos episódios das séries' });
+      toast('Buscando atualizações de séries...', { description: 'Consultando catálogo de episódios mais recentes' });
       
       const episodesData = await seriesUpdateService.getAvailableEpisodes();
       setEpisodes(episodesData);
-      setFilteredEpisodes(episodesData);
+      setSelectedEpisodes(new Set());
+      setCurrentPage(1);
       
-      // Extrair lista de séries únicas
-      const series = [...new Set(episodesData.map(ep => ep.Serie || ep.Titulo).filter(Boolean))];
-      setAvailableSeries(series.sort());
+      const uniqueSeriesCount = new Set(episodesData.map(ep => ep.Serie || ep.Titulo).filter(Boolean)).size;
+      toast.success(`${episodesData.length} episódios encontrados de ${uniqueSeriesCount} séries`);
       
-      toast.success(`${episodesData.length} episódios encontrados de ${series.length} séries`);
-      
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao carregar episódios:', error);
-      toast.error('Erro ao carregar episódios disponíveis');
+      toast.error(error.message || 'Erro ao carregar episódios disponíveis da central');
     } finally {
       setLoading(false);
     }
-  };
+  }, [isConfigured, seriesUpdateService]);
 
-  // Filtrar episódios
+  // Carregar automaticamente na montagem se configurado e vazio
   useEffect(() => {
-    let filtered = episodes;
+    if (isConfigured && episodes.length === 0 && !loading) {
+      loadAvailableEpisodes();
+    }
+  }, [isConfigured]); // Executa uma vez se configurado
 
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(ep => 
-        (ep.Titulo || '').toLowerCase().includes(searchLower) ||
-        (ep.Serie || '').toLowerCase().includes(searchLower) ||
-        (ep.Sinopse || '').toLowerCase().includes(searchLower)
-      );
+  // 1. Contagem otimizada O(N) de episódios por série em uma única passada
+  const seriesCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (let i = 0; i < episodes.length; i++) {
+      const ep = episodes[i];
+      const name = ep.Serie || ep.Titulo;
+      if (name) {
+        counts[name] = (counts[name] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [episodes]);
+
+  // 2. Lista ordenada de séries únicas
+  const availableSeries = useMemo(() => {
+    return Object.keys(seriesCounts).sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
+  }, [seriesCounts]);
+
+  // 3. Filtragem instantânea sem cascata de re-renders
+  const filteredEpisodes = useMemo(() => {
+    if (!searchTerm.trim() && (!seriesFilter || seriesFilter === 'all')) {
+      return episodes;
     }
 
-    if (seriesFilter && seriesFilter !== 'all') {
-      filtered = filtered.filter(ep => 
-        (ep.Serie || ep.Titulo) === seriesFilter
-      );
-    }
+    const searchLower = searchTerm.trim().toLowerCase();
+    const hasSearch = searchLower.length > 0;
+    const hasSeriesFilter = Boolean(seriesFilter && seriesFilter !== 'all');
 
-    setFilteredEpisodes(filtered);
+    return episodes.filter(ep => {
+      if (hasSeriesFilter) {
+        const epSerie = ep.Serie || ep.Titulo;
+        if (epSerie !== seriesFilter) return false;
+      }
+
+      if (hasSearch) {
+        const titleMatch = (ep.Titulo || '').toLowerCase().includes(searchLower);
+        const serieMatch = (ep.Serie || '').toLowerCase().includes(searchLower);
+        const sinopseMatch = (ep.Sinopse || '').toLowerCase().includes(searchLower);
+        if (!titleMatch && !serieMatch && !sinopseMatch) return false;
+      }
+
+      return true;
+    });
   }, [episodes, searchTerm, seriesFilter]);
 
-  // Selecionar/desselecionar episódio
-  const toggleEpisode = (episodeId: string) => {
-    const newSelected = new Set(selectedEpisodes);
-    if (newSelected.has(episodeId)) {
-      newSelected.delete(episodeId);
-    } else {
-      newSelected.add(episodeId);
+  // 4. Agrupamento estruturado por série
+  const groupedEpisodes = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    for (let i = 0; i < filteredEpisodes.length; i++) {
+      const ep = filteredEpisodes[i];
+      const seriesName = ep.Serie || ep.Titulo || 'Série Desconhecida';
+      if (!groups[seriesName]) {
+        groups[seriesName] = [];
+      }
+      groups[seriesName].push(ep);
     }
-    setSelectedEpisodes(newSelected);
-  };
+    return groups;
+  }, [filteredEpisodes]);
 
-  // Selecionar todos
-  const selectAll = () => {
-    if (selectedEpisodes.size === filteredEpisodes.length) {
-      setSelectedEpisodes(new Set());
-    } else {
-      const allIds = filteredEpisodes.map(ep => ep.id);
-      setSelectedEpisodes(new Set(allIds));
-    }
-  };
+  // 5. Paginação das séries para evitar travar o DOM
+  const groupedSeriesEntries = useMemo(() => {
+    return Object.entries(groupedEpisodes);
+  }, [groupedEpisodes]);
+
+  const totalSeriesPages = Math.max(1, Math.ceil(groupedSeriesEntries.length / SERIES_PER_PAGE));
+
+  const paginatedSeriesEntries = useMemo(() => {
+    const start = (currentPage - 1) * SERIES_PER_PAGE;
+    return groupedSeriesEntries.slice(start, start + SERIES_PER_PAGE);
+  }, [groupedSeriesEntries, currentPage]);
+
+  // Resetar página quando o filtro mudar
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, seriesFilter]);
+
+  // Selecionar/desselecionar episódio individual
+  const toggleEpisode = useCallback((episodeId: string) => {
+    setSelectedEpisodes(prev => {
+      const next = new Set(prev);
+      if (next.has(episodeId)) {
+        next.delete(episodeId);
+      } else {
+        next.add(episodeId);
+      }
+      return next;
+    });
+  }, []);
+
+  // Selecionar todos os episódios de uma série específica
+  const toggleSeriesEpisodes = useCallback((seriesName: string) => {
+    const seriesEps = groupedEpisodes[seriesName] || [];
+    const allSeriesIds = seriesEps.map(ep => ep.id);
+    
+    setSelectedEpisodes(prev => {
+      const next = new Set(prev);
+      const allSelected = allSeriesIds.every(id => next.has(id));
+      
+      if (allSelected) {
+        allSeriesIds.forEach(id => next.delete(id));
+      } else {
+        allSeriesIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  }, [groupedEpisodes]);
+
+  // Selecionar todos os episódios filtrados
+  const selectAll = useCallback(() => {
+    if (filteredEpisodes.length === 0) return;
+    
+    setSelectedEpisodes(prev => {
+      if (prev.size === filteredEpisodes.length) {
+        return new Set();
+      } else {
+        return new Set(filteredEpisodes.map(ep => ep.id));
+      }
+    });
+  }, [filteredEpisodes]);
+
+  // Desmarcar todos
+  const clearSelection = useCallback(() => {
+    setSelectedEpisodes(new Set());
+  }, []);
+
+  // Recolher/Expandir série
+  const toggleCollapse = useCallback((seriesName: string) => {
+    setCollapsedSeries(prev => {
+      const next = new Set(prev);
+      if (next.has(seriesName)) {
+        next.delete(seriesName);
+      } else {
+        next.add(seriesName);
+      }
+      return next;
+    });
+  }, []);
+
+  const expandAll = useCallback(() => {
+    setCollapsedSeries(new Set());
+  }, []);
+
+  const collapseAll = useCallback(() => {
+    setCollapsedSeries(new Set(groupedSeriesEntries.map(([name]) => name)));
+  }, [groupedSeriesEntries]);
 
   // Importar episódios selecionados
   const importSelectedEpisodes = async () => {
@@ -145,16 +263,16 @@ const AtualizacaoSeries = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-card border border-white/10 rounded-xl p-4 shadow-xl max-w-md"
+          className="bg-card border border-border rounded-xl p-4 shadow-xl max-w-md"
         >
           <div className="flex items-start gap-3">
-            <div className="p-2 bg-yellow-500/10 rounded-lg">
-              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+            <div className="p-2 bg-amber-500/10 rounded-lg shrink-0">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
             </div>
             <div className="flex-1">
               <h4 className="font-bold text-sm mb-1">Tabela de Episódios não configurada</h4>
               <p className="text-xs text-muted-foreground mb-3">
-                Você precisa configurar o ID da tabela de episódios nas configurações dos Ids das tabelas antes de importar.
+                Você precisa configurar o ID da tabela de episódios nas configurações dos IDs das tabelas antes de importar.
               </p>
               <Button
                 size="sm"
@@ -183,10 +301,10 @@ const AtualizacaoSeries = () => {
 
     setImporting(true);
     try {
-      const episodesToImport = filteredEpisodes.filter(ep => selectedEpisodes.has(ep.id));
+      const episodesToImport = episodes.filter(ep => selectedEpisodes.has(ep.id));
       
       toast('Importando episódios...', { 
-        description: `Importando ${episodesToImport.length} episódios selecionados` 
+        description: `Processando ${episodesToImport.length} episódios selecionados` 
       });
 
       setProgress({ processed: 0, total: episodesToImport.length, startedAt: Date.now() });
@@ -199,6 +317,7 @@ const AtualizacaoSeries = () => {
           startedAt: prev?.startedAt ?? Date.now()
         }));
       });
+
       const updatedCount = result.updated || 0;
       const ignoredCount = result.ignored || 0;
 
@@ -215,21 +334,19 @@ const AtualizacaoSeries = () => {
         if (result.imported > 0) partes.push(`${result.imported} novos episódios`);
         if (updatedCount > 0) partes.push(`${updatedCount} atualizados`);
         if (ignoredCount > 0) partes.push(`${ignoredCount} ignorados`);
-        if (result.seasonsUpdated?.length) partes.push(`${result.seasonsUpdated.length} série(s) com temporada atualizada`);
-        toast.success(partes.join(' • ') || 'Importação concluída');
-        setSelectedEpisodes(new Set());
+        if (result.seasonsUpdated?.length) partes.push(`${result.seasonsUpdated.length} série(s) sincronizada(s)`);
         
-        // Recarregar para atualizar a lista
-        loadAvailableEpisodes();
+        toast.success(partes.join(' • ') || 'Importação concluída com sucesso!');
+        setSelectedEpisodes(new Set());
       } else {
         toast.error(`${result.imported}/${episodesToImport.length} episódios importados`, {
-          description: result.errors?.length > 0 ? 'Alguns episódios falharam na importação' : undefined
+          description: result.errors && result.errors.length > 0 ? 'Alguns episódios falharam na importação' : undefined
         });
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao importar episódios:', error);
-      toast.error('Erro ao importar episódios');
+      toast.error(error.message || 'Erro ao importar episódios');
     } finally {
       setImporting(false);
       setProgress(null);
@@ -242,7 +359,6 @@ const AtualizacaoSeries = () => {
     const startedAt = progress.startedAt;
     const timer = setInterval(() => setElapsed(Date.now() - startedAt), 500);
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [importing, progress?.startedAt]);
 
   const formatDuration = (ms: number) => {
@@ -260,63 +376,72 @@ const AtualizacaoSeries = () => {
     ? ((elapsed / progress.processed) * (progress.total - progress.processed))
     : null;
 
-  // Agrupar episódios por série
-  const groupedEpisodes = filteredEpisodes.reduce((acc, episode) => {
-    const seriesName = episode.Serie || episode.Titulo || 'Série Desconhecida';
-    if (!acc[seriesName]) {
-      acc[seriesName] = [];
-    }
-    acc[seriesName].push(episode);
-    return acc;
-  }, {} as Record<string, any[]>);
-
   return (
     <PermissionGate feature="atualizacao-series">
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Tv className="h-8 w-8 text-primary" />
-            Atualização de Séries
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Importe novos episódios das séries mais recentes
-          </p>
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        
+        {/* Cabeçalho */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                <Tv className="h-6 w-6 sm:h-7 sm:w-7" />
+              </div>
+              Atualização de Séries
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
+              Catálogo sincronizado com episódios recentes e atualização inteligente de temporadas
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              id="btn-recarregar-series"
+              onClick={loadAvailableEpisodes}
+              disabled={loading || importing}
+              variant="outline"
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Sincronizando...' : 'Atualizar Catálogo'}
+            </Button>
+          </div>
         </div>
 
         {/* Card de Limite de Importação */}
         {permissions && hasContentLimit() && (
-          <Card className="mb-6 border-primary/20 bg-primary/5">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-primary">
-                <Shield className="h-5 w-5" />
+          <Card className="border-primary/20 bg-primary/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-primary">
+                <Shield className="h-4 w-4" />
                 Limite de Importação Mensal
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">
-                    Uso atual: <span className="font-medium">{permissions.currentMonthUsage}</span> de{' '}
-                    <span className="font-medium">{permissions.monthlyContentLimit}</span> conteúdos
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-1.5 flex-1 max-w-md">
+                  <p className="text-xs text-muted-foreground">
+                    Uso atual: <strong className="text-foreground">{permissions.currentMonthUsage}</strong> de{' '}
+                    <strong className="text-foreground">{permissions.monthlyContentLimit}</strong> conteúdos
                   </p>
-                  <div className="w-full bg-muted rounded-full h-2">
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                     <div 
-                      className="bg-primary h-2 rounded-full transition-all" 
+                      className="bg-primary h-2 rounded-full transition-all duration-300" 
                       style={{ 
                         width: `${Math.min((permissions.currentMonthUsage / permissions.monthlyContentLimit) * 100, 100)}%` 
                       }}
                     />
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <p className="text-lg font-bold text-primary">
                     {getRemainingContent()} restantes
                   </p>
                   {!canAddMoreContent() && (
-                    <div className="flex items-center gap-1 text-destructive text-sm mt-1">
+                    <span className="inline-flex items-center gap-1 text-destructive text-xs font-medium mt-0.5">
                       <Lock className="h-3 w-3" />
                       Limite atingido
-                    </div>
+                    </span>
                   )}
                 </div>
               </div>
@@ -324,53 +449,56 @@ const AtualizacaoSeries = () => {
           </Card>
         )}
 
-        {/* Status da Configuração */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Status da Configuração</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {isConfigured ? (
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  <span className="text-green-600 font-medium">Configuração válida</span>
+        {/* Status da Configuração se ausente */}
+        {!isConfigured && (
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-6 w-6 text-amber-500 shrink-0" />
+                  <div>
+                    <h3 className="font-semibold text-sm">Configurações pendentes</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Configure o token e IDs das tabelas para habilitar a busca e importação direta.
+                    </p>
+                  </div>
                 </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-orange-600" />
-                  <span className="text-orange-600 font-medium">
-                    Configure suas credenciais na página de Importação Automática
-                  </span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                <Button 
+                  size="sm" 
+                  onClick={() => navigate('/configuracoes')}
+                  className="gap-2 shrink-0"
+                >
+                  <Settings className="h-4 w-4" />
+                  Ir para Configurações
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Progresso da Importação */}
         {importing && progress && (
-          <Card className="mb-6 border-primary/30 bg-primary/5">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-primary">
+          <Card className="border-primary/40 bg-primary/5 shadow-md">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2 text-primary">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Importando episódios...
+                Importando episódios para sua biblioteca...
               </CardTitle>
-              <CardDescription className="truncate">
-                {progress.current ? `Último processado: ${progress.current}` : 'Preparando importação...'}
+              <CardDescription className="truncate text-xs">
+                {progress.current ? `Processando: ${progress.current}` : 'Iniciando importação...'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Progress value={progressPercent} />
-              <div className="flex flex-wrap justify-between gap-2 text-sm text-muted-foreground">
+              <Progress value={progressPercent} className="h-2.5" />
+              <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
                 <span>
-                  <strong className="text-foreground">{progress.processed}</strong> de {progress.total} ({progressPercent}%)
+                  <strong className="text-foreground">{progress.processed}</strong> de {progress.total} episódios ({progressPercent}%)
                 </span>
                 <span>Tempo decorrido: {formatDuration(elapsed)}</span>
                 <span>
                   {estimatedRemaining !== null
-                    ? `Tempo restante estimado: ${formatDuration(estimatedRemaining)}`
-                    : 'Calculando tempo restante...'}
+                    ? `Restante: ~${formatDuration(estimatedRemaining)}`
+                    : 'Calculando tempo estimado...'}
                 </span>
               </div>
             </CardContent>
@@ -378,350 +506,490 @@ const AtualizacaoSeries = () => {
         )}
 
         {/* Resumo da Última Importação */}
-        {lastSummary && (
-          <Card className="mb-6 border-green-200 bg-green-50/50 dark:bg-green-950/20">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-400">
-                <BarChart3 className="h-5 w-5" />
-                Resumo da Última Importação
-              </CardTitle>
-              <CardDescription>
-                Resultado da importação mais recente de episódios
-              </CardDescription>
+        {lastSummary && !importing && (
+          <Card className="border-emerald-500/30 bg-emerald-500/5">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                  <BarChart3 className="h-4 w-4" />
+                  Resultado da Última Importação
+                </CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setLastSummary(null)} 
+                  className="h-6 w-6 p-0 text-muted-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="bg-background rounded-lg p-4 border text-center">
-                  <p className="text-2xl font-bold text-green-600">{lastSummary.created}</p>
-                  <p className="text-sm text-muted-foreground">Criados</p>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-card rounded-lg p-3 border text-center">
+                  <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{lastSummary.created}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Criados</p>
                 </div>
-                <div className="bg-background rounded-lg p-4 border text-center">
-                  <p className="text-2xl font-bold text-blue-600">{lastSummary.updated}</p>
-                  <p className="text-sm text-muted-foreground">Atualizados</p>
+                <div className="bg-card rounded-lg p-3 border text-center">
+                  <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{lastSummary.updated}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Atualizados</p>
                 </div>
-                <div className="bg-background rounded-lg p-4 border text-center">
-                  <p className="text-2xl font-bold text-amber-600">{lastSummary.ignored}</p>
-                  <p className="text-sm text-muted-foreground">Ignorados</p>
+                <div className="bg-card rounded-lg p-3 border text-center">
+                  <p className="text-xl font-bold text-amber-600 dark:text-amber-400">{lastSummary.ignored}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Sem alterações</p>
                 </div>
-                <div className="bg-background rounded-lg p-4 border text-center">
-                  <p className="text-2xl font-bold text-slate-700 dark:text-slate-300">{lastSummary.total}</p>
-                  <p className="text-sm text-muted-foreground">Total Selecionados</p>
+                <div className="bg-card rounded-lg p-3 border text-center">
+                  <p className="text-xl font-bold text-foreground">{lastSummary.total}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Processados</p>
                 </div>
               </div>
 
               {lastSummary.seasonsUpdated && lastSummary.seasonsUpdated.length > 0 && (
-                <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                      Temporada atualizada automaticamente em {lastSummary.seasonsUpdated.length} série(s)
-                    </p>
-                    {seriesFilter && (
-                      <p className="text-xs text-muted-foreground">
-                        Mostrando avisos de <strong>{seriesFilter}</strong>
-                      </p>
-                    )}
-                  </div>
-                  <ul className="space-y-2">
-                    {(seriesFilter
-                      ? lastSummary.seasonsUpdated.filter(s => s.nome === seriesFilter)
-                      : lastSummary.seasonsUpdated
-                    ).map((s) => (
-                      <li key={s.nome} className="text-sm text-muted-foreground">
-                        <span className="font-medium text-foreground">{s.nome}</span>:{' '}
-                        <span className="font-mono">Temporadas {s.from} → {s.to}</span>
-                        <span className="block text-xs">
-                          {s.episodes} episódio(s) impactado(s)
-                          {s.at ? ` • ${new Date(s.at).toLocaleString('pt-BR')}` : ''}
-                        </span>
+                <div className="rounded-lg border border-emerald-500/30 bg-card p-3">
+                  <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Temporadas sincronizadas ({lastSummary.seasonsUpdated.length} séries)
+                  </p>
+                  <ul className="space-y-1.5 max-h-32 overflow-y-auto text-xs">
+                    {lastSummary.seasonsUpdated.map((s) => (
+                      <li key={s.nome} className="flex items-center justify-between text-muted-foreground border-b border-border/50 pb-1 last:border-0 last:pb-0">
+                        <span className="font-medium text-foreground truncate max-w-[200px] sm:max-w-xs">{s.nome}</span>
+                        <Badge variant="outline" className="text-[10px] font-mono shrink-0">
+                          T{s.from} → T{s.to} ({s.episodes} eps)
+                        </Badge>
                       </li>
                     ))}
-                    {seriesFilter && !lastSummary.seasonsUpdated.some(s => s.nome === seriesFilter) && (
-                      <li className="text-sm text-muted-foreground italic">
-                        Nenhuma atualização de temporada para {seriesFilter} na última importação.
-                      </li>
-                    )}
                   </ul>
                 </div>
               )}
-
             </CardContent>
           </Card>
         )}
 
-        {/* Controles de Filtro e Busca */}
+        {/* Painel Principal de Filtros e Listagem */}
         {isConfigured && (
-          <Card className="mb-6">
-            <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <div className="space-y-4">
+            
+            {/* Barra de Busca e Filtros */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                
+                {/* Linha 1: Input de Busca + Select de Série */}
+                <div className="flex flex-col md:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar episódios por título, série ou sinopse..."
+                      id="input-busca-series"
+                      placeholder="Buscar por episódio, série ou sinopse..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
+                      className="pl-9 pr-8"
                     />
+                    {searchTerm && (
+                      <button 
+                        onClick={() => setSearchTerm('')} 
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
-                </div>
-                
-                <div className="sm:w-72">
-                  <div className="relative">
-                    <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+
+                  <div className="md:w-72 relative">
+                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                     <select
+                      id="select-filtro-series"
                       value={seriesFilter}
                       onChange={(e) => setSeriesFilter(e.target.value)}
-                      className="w-full pl-10 pr-8 py-2 border border-input bg-background rounded-md text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
+                      className="w-full pl-9 pr-8 py-2 border border-input bg-background rounded-md text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring transition-colors cursor-pointer"
                     >
-                      <option value="">Todas as séries</option>
-                      {availableSeries.map(series => {
-                        const count = episodes.filter(ep => (ep.Serie || ep.Titulo) === series).length;
-                        return (
-                          <option key={series} value={series}>
-                            {series} ({count} episódios)
-                          </option>
-                        );
-                      })}
+                      <option value="">Todas as séries ({availableSeries.length})</option>
+                      {availableSeries.map(series => (
+                        <option key={series} value={series}>
+                          {series} ({seriesCounts[series] || 0} eps)
+                        </option>
+                      ))}
                     </select>
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                      <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   </div>
                 </div>
 
-                <Button
-                  onClick={loadAvailableEpisodes}
-                  disabled={loading}
-                  variant="outline"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                  )}
-                  Atualizar
-                </Button>
-              </div>
+                {/* Linha 2: Filtros Rápidos em Tags de Séries (Mais Populares/Primeiras) */}
+                {availableSeries.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-border">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="font-medium uppercase tracking-wider text-[10px]">
+                        Atalhos de Séries ({availableSeries.length})
+                      </span>
+                      {(searchTerm || seriesFilter) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSearchTerm('');
+                            setSeriesFilter('');
+                          }}
+                          className="h-6 text-xs px-2"
+                        >
+                          Limpar Filtros
+                        </Button>
+                      )}
+                    </div>
 
-              {/* Filtros rápidos por série */}
-              {availableSeries.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Filtro rápido por série
-                    </p>
-                    {(searchTerm || seriesFilter) && (
+                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1 scrollbar-thin">
+                      <Button
+                        variant={seriesFilter === '' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSeriesFilter('')}
+                        className="h-7 text-xs px-2.5"
+                      >
+                        Todas
+                        <Badge variant={seriesFilter === '' ? 'secondary' : 'outline'} className="ml-1.5 text-[10px] px-1 py-0 h-4">
+                          {episodes.length}
+                        </Badge>
+                      </Button>
+
+                      {availableSeries.slice(0, 30).map(series => {
+                        const count = seriesCounts[series] || 0;
+                        const isActive = seriesFilter === series;
+                        return (
+                          <Button
+                            key={series}
+                            variant={isActive ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setSeriesFilter(isActive ? '' : series)}
+                            className="h-7 text-xs px-2.5 max-w-[200px]"
+                            title={`${series} (${count} episódios)`}
+                          >
+                            <span className="truncate">{series}</span>
+                            <Badge variant={isActive ? 'secondary' : 'outline'} className="ml-1.5 text-[10px] px-1 py-0 h-4 shrink-0">
+                              {count}
+                            </Badge>
+                          </Button>
+                        );
+                      })}
+
+                      {availableSeries.length > 30 && (
+                        <span className="text-xs text-muted-foreground self-center px-1">
+                          +{availableSeries.length - 30} séries no menu
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Linha 3: Barra de Ações em Lote e Contagem */}
+                {episodes.length > 0 && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                      <Button
+                        id="btn-selecionar-todos"
+                        variant="outline"
+                        size="sm"
+                        onClick={selectAll}
+                        disabled={filteredEpisodes.length === 0}
+                        className="gap-2 h-8 text-xs"
+                      >
+                        {selectedEpisodes.size === filteredEpisodes.length && filteredEpisodes.length > 0 ? (
+                          <CheckSquare className="h-4 w-4 text-primary" />
+                        ) : (
+                          <Square className="h-4 w-4" />
+                        )}
+                        {selectedEpisodes.size === filteredEpisodes.length && filteredEpisodes.length > 0
+                          ? 'Desmarcar Todos'
+                          : `Selecionar Todos (${filteredEpisodes.length})`}
+                      </Button>
+
+                      {selectedEpisodes.size > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearSelection}
+                          className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          Limpar Seleção
+                        </Button>
+                      )}
+
+                      <Badge variant="secondary" className="text-xs px-2.5 py-1">
+                        {selectedEpisodes.size} de {filteredEpisodes.length} selecionados
+                      </Badge>
+                    </div>
+
+                    <Button
+                      id="btn-importar-selecionados"
+                      onClick={importSelectedEpisodes}
+                      disabled={selectedEpisodes.size === 0 || importing || !canAddMoreContent()}
+                      className="gap-2 h-9 px-4 ml-auto"
+                    >
+                      {importing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Importando...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4" />
+                          Importar Selecionados ({selectedEpisodes.size})
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Listagem de Séries e Episódios */}
+            <Card>
+              <CardHeader className="pb-3 border-b border-border">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                      Episódios Disponíveis
+                      {filteredEpisodes.length > 0 && (
+                        <Badge variant="outline" className="text-xs font-normal">
+                          {filteredEpisodes.length} encontrados em {groupedSeriesEntries.length} séries
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Selecione os episódios que deseja gravar em sua tabela
+                    </CardDescription>
+                  </div>
+
+                  {groupedSeriesEntries.length > 0 && (
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => {
-                          setSearchTerm('');
-                          setSeriesFilter('');
-                        }}
-                        className="h-6 text-xs"
+                        onClick={expandAll}
+                        className="h-7 text-xs px-2"
                       >
-                        Limpar filtros
+                        Expandir Todas
                       </Button>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant={seriesFilter === '' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSeriesFilter('')}
-                      className="text-xs"
-                    >
-                      Todas
-                      <Badge variant="secondary" className="ml-2">
-                        {episodes.length}
-                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={collapseAll}
+                        className="h-7 text-xs px-2"
+                      >
+                        Recolher Todas
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-4 sm:p-6 space-y-4">
+                
+                {/* Estado: Sem episódios carregados */}
+                {!episodes.length && !loading && (
+                  <div className="text-center py-12 px-4">
+                    <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3 text-muted-foreground">
+                      <Tv className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-base font-semibold mb-1">Nenhum episódio em cache</h3>
+                    <p className="text-xs text-muted-foreground max-w-sm mx-auto mb-4">
+                      Clique no botão abaixo para buscar as atualizações recentes de séries na tabela central.
+                    </p>
+                    <Button onClick={loadAvailableEpisodes} disabled={loading} className="gap-2">
+                      <RefreshCw className="h-4 w-4" />
+                      Buscar Episódios Agora
                     </Button>
-                    {availableSeries.map(series => {
-                      const count = episodes.filter(ep => (ep.Serie || ep.Titulo) === series).length;
-                      const isActive = seriesFilter === series;
-                      return (
-                        <Button
-                          key={series}
-                          variant={isActive ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setSeriesFilter(isActive ? '' : series)}
-                          className="text-xs max-w-[200px] truncate"
-                          title={series}
-                        >
-                          <span className="truncate">{series}</span>
-                          <Badge variant={isActive ? 'secondary' : 'outline'} className="ml-2 shrink-0">
-                            {count}
-                          </Badge>
-                        </Button>
-                      );
-                    })}
                   </div>
-                </div>
-              )}
-
-              {seriesFilter && (
-                <div className="mt-4 p-3 rounded-lg border border-primary/20 bg-primary/5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-primary" />
-                    <span className="text-sm">
-                      Visualizando apenas episódios de{' '}
-                      <strong className="text-primary">{seriesFilter}</strong>
-                    </span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSeriesFilter('')}
-                    className="h-7 text-xs"
-                  >
-                    Remover filtro
-                  </Button>
-                </div>
-              )}
-
-              {episodes.length > 0 && (
-                <div className="flex items-center justify-between mt-4">
-                  <div className="flex items-center gap-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={selectAll}
-                      disabled={filteredEpisodes.length === 0}
-                    >
-                      <Checkbox 
-                        checked={selectedEpisodes.size === filteredEpisodes.length && filteredEpisodes.length > 0}
-                        className="mr-2"
-                      />
-                      {selectedEpisodes.size === filteredEpisodes.length ? 'Desselecionar todos' : 'Selecionar todos'}
-                    </Button>
-                    
-                    <Badge variant="secondary">
-                      {selectedEpisodes.size} selecionados
-                    </Badge>
-                  </div>
-
-                  <Button
-                    onClick={importSelectedEpisodes}
-                    disabled={selectedEpisodes.size === 0 || importing || !canAddMoreContent()}
-                  >
-                    {importing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Importando...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-4 w-4 mr-2" />
-                        Importar {selectedEpisodes.size} episódios
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Lista de Episódios */}
-        {isConfigured && (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                Episódios Disponíveis 
-                {filteredEpisodes.length > 0 && (
-                  <Badge variant="outline" className="ml-2">
-                    {filteredEpisodes.length}
-                  </Badge>
                 )}
-              </CardTitle>
-              <CardDescription>
-                Selecione os episódios que deseja importar para sua biblioteca
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!episodes.length && !loading ? (
-                <div className="text-center py-12">
-                  <Tv className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Nenhum episódio carregado</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Clique em "Atualizar" para carregar os episódios disponíveis
-                  </p>
-                  <Button onClick={loadAvailableEpisodes} disabled={loading}>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Carregar Episódios
-                  </Button>
-                </div>
-              ) : loading ? (
-                <div className="text-center py-12">
-                  <Loader2 className="h-8 w-8 text-primary mx-auto mb-4 animate-spin" />
-                  <p className="text-muted-foreground">Carregando episódios...</p>
-                </div>
-              ) : filteredEpisodes.length === 0 ? (
-                <div className="text-center py-8">
-                  <Search className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    Nenhum episódio encontrado com os filtros aplicados
-                  </p>
-                </div>
-              ) : (
-                <ScrollArea className="h-[500px]">
-                  <div className="space-y-6">
-                    {Object.entries(groupedEpisodes).map(([seriesName, seriesEpisodes]) => (
-                      <div key={seriesName} className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-medium text-lg">{seriesName}</h4>
-                          <Badge variant="outline">{(seriesEpisodes as any[]).length} episódios</Badge>
-                        </div>
-                        
-                        <div className="grid gap-2 pl-4">
-                          {(seriesEpisodes as any[]).map((episode) => (
-                            <div
-                              key={episode.id}
-                              className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
-                              onClick={() => toggleEpisode(episode.id)}
-                            >
+
+                {/* Estado: Carregando */}
+                {loading && (
+                  <div className="text-center py-16">
+                    <Loader2 className="h-8 w-8 text-primary mx-auto mb-3 animate-spin" />
+                    <p className="text-sm font-medium">Carregando catálogo de episódios...</p>
+                    <p className="text-xs text-muted-foreground mt-1">Isso pode levar alguns segundos na primeira busca</p>
+                  </div>
+                )}
+
+                {/* Estado: Nenhum resultado para a busca */}
+                {episodes.length > 0 && filteredEpisodes.length === 0 && !loading && (
+                  <div className="text-center py-12">
+                    <Search className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                    <p className="text-sm font-medium">Nenhum episódio corresponde à busca</p>
+                    <p className="text-xs text-muted-foreground mt-1 mb-3">Tente buscar por outro termo ou limpe os filtros.</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => { setSearchTerm(''); setSeriesFilter(''); }}
+                    >
+                      Limpar Filtros
+                    </Button>
+                  </div>
+                )}
+
+                {/* Listagem Paginada de Séries (Ultra-rápida, sem travar o DOM) */}
+                {paginatedSeriesEntries.length > 0 && !loading && (
+                  <div className="space-y-4">
+                    {paginatedSeriesEntries.map(([seriesName, seriesEpisodes]) => {
+                      const isCollapsed = collapsedSeries.has(seriesName);
+                      const seriesEpisodeIds = seriesEpisodes.map(ep => ep.id);
+                      const selectedInSeriesCount = seriesEpisodeIds.filter(id => selectedEpisodes.has(id)).length;
+                      const allSeriesSelected = selectedInSeriesCount === seriesEpisodes.length && seriesEpisodes.length > 0;
+                      const someSeriesSelected = selectedInSeriesCount > 0 && !allSeriesSelected;
+
+                      return (
+                        <div 
+                          key={seriesName} 
+                          className="rounded-xl border border-border/80 bg-card overflow-hidden transition-all shadow-sm"
+                        >
+                          {/* Cabeçalho da Série */}
+                          <div 
+                            className="flex items-center justify-between p-3 sm:p-4 bg-muted/30 hover:bg-muted/50 cursor-pointer select-none transition-colors border-b border-border/50"
+                            onClick={() => toggleCollapse(seriesName)}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
                               <Checkbox
-                                checked={selectedEpisodes.has(episode.id)}
-                                onChange={() => toggleEpisode(episode.id)}
+                                id={`check-series-${seriesName}`}
+                                checked={allSeriesSelected ? true : (someSeriesSelected ? 'indeterminate' : false)}
+                                onCheckedChange={() => toggleSeriesEpisodes(seriesName)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="shrink-0"
                               />
                               
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h5 className="font-medium truncate">
-                                    {episode.Titulo}
-                                  </h5>
-                                  {episode.Temporada && episode.Episodio && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      T{episode.Temporada}E{episode.Episodio}
-                                    </Badge>
-                                  )}
-                                </div>
-                                
-                                {episode.Sinopse && (
-                                  <p className="text-sm text-muted-foreground line-clamp-2">
-                                    {episode.Sinopse}
+                              <div className="min-w-0">
+                                <h4 className="font-semibold text-sm sm:text-base truncate flex items-center gap-2">
+                                  {seriesName}
+                                  <Badge variant="outline" className="text-[11px] font-normal shrink-0">
+                                    {seriesEpisodes.length} {seriesEpisodes.length === 1 ? 'ep' : 'eps'}
+                                  </Badge>
+                                </h4>
+                                {selectedInSeriesCount > 0 && (
+                                  <p className="text-xs text-primary font-medium mt-0.5">
+                                    {selectedInSeriesCount} de {seriesEpisodes.length} selecionados
                                   </p>
                                 )}
                               </div>
-                              
-                              <Play className="h-4 w-4 text-muted-foreground" />
                             </div>
-                          ))}
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleSeriesEpisodes(seriesName);
+                                }}
+                                className="h-7 text-xs px-2 text-muted-foreground hover:text-foreground hidden sm:inline-flex"
+                              >
+                                {allSeriesSelected ? 'Desmarcar Série' : 'Marcar Série'}
+                              </Button>
+
+                              <button 
+                                className="p-1 text-muted-foreground hover:text-foreground rounded"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleCollapse(seriesName);
+                                }}
+                              >
+                                {isCollapsed ? (
+                                  <ChevronDown className="h-5 w-5" />
+                                ) : (
+                                  <ChevronUp className="h-5 w-5" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Lista de Episódios da Série */}
+                          {!isCollapsed && (
+                            <div className="p-2 sm:p-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                              {seriesEpisodes.map((episode) => {
+                                const isChecked = selectedEpisodes.has(episode.id);
+                                return (
+                                  <div
+                                    key={episode.id}
+                                    className={`flex items-start gap-2.5 p-2.5 rounded-lg border transition-all cursor-pointer select-none text-left ${
+                                      isChecked 
+                                        ? 'border-primary/50 bg-primary/5 shadow-xs' 
+                                        : 'border-border/60 hover:bg-muted/40'
+                                    }`}
+                                    onClick={() => toggleEpisode(episode.id)}
+                                  >
+                                    <Checkbox
+                                      id={`check-ep-${episode.id}`}
+                                      checked={isChecked}
+                                      onCheckedChange={() => toggleEpisode(episode.id)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="mt-0.5 shrink-0"
+                                    />
+                                    
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                                        {(episode.Temporada || episode.Episodio) && (
+                                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-mono shrink-0">
+                                            T{episode.Temporada || '?'}E{episode.Episodio || '?'}
+                                          </Badge>
+                                        )}
+                                        <span className="font-medium text-xs truncate text-foreground">
+                                          {episode.Titulo}
+                                        </span>
+                                      </div>
+
+                                      {episode.Sinopse && (
+                                        <p className="text-[11px] text-muted-foreground line-clamp-2 mt-1 leading-snug">
+                                          {episode.Sinopse}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
-                        
-                        {seriesName !== Object.keys(groupedEpisodes)[Object.keys(groupedEpisodes).length - 1] && (
-                          <Separator className="mt-4" />
-                        )}
+                      );
+                    })}
+
+                    {/* Controles de Paginação de Séries */}
+                    {totalSeriesPages > 1 && (
+                      <div className="flex items-center justify-between pt-4 border-t border-border">
+                        <p className="text-xs text-muted-foreground">
+                          Mostrando página <strong className="text-foreground">{currentPage}</strong> de{' '}
+                          <strong className="text-foreground">{totalSeriesPages}</strong> ({groupedSeriesEntries.length} séries)
+                        </p>
+
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="h-8 w-8 p-0"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                          
+                          <span className="text-xs px-2 font-medium">
+                            {currentPage} / {totalSeriesPages}
+                          </span>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(p => Math.min(totalSeriesPages, p + 1))}
+                            disabled={currentPage === totalSeriesPages}
+                            className="h-8 w-8 p-0"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                    ))}
+                    )}
                   </div>
-                </ScrollArea>
-              )}
-            </CardContent>
-          </Card>
+                )}
+
+              </CardContent>
+            </Card>
+          </div>
         )}
+
       </div>
     </PermissionGate>
   );

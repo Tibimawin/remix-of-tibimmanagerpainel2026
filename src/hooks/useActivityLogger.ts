@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { FirebaseUserService } from '@/services/FirebaseUserService';
 import { db } from '@/config/firebase';
 import { collection, doc, setDoc, getDoc, onSnapshot, addDoc, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { safeJsonStringify, safeJsonParse } from '@/utils/safeJson';
 
 export interface ActivityLog {
   id: string;
@@ -35,9 +36,11 @@ export const useActivityLogger = () => {
       }
 
       // Manter localStorage como backup
-      const existingLogs = JSON.parse(localStorage.getItem('activity-logs') || '[]');
+      const existingLogs = safeJsonParse(localStorage.getItem('activity-logs'), []);
       const updatedLogs = [newLog, ...existingLogs].slice(0, 1000);
-      localStorage.setItem('activity-logs', JSON.stringify(updatedLogs));
+      try {
+        localStorage.setItem('activity-logs', safeJsonStringify(updatedLogs));
+      } catch {}
       
       setLogs(updatedLogs);
     } catch (error) {
@@ -64,7 +67,9 @@ export const useActivityLogger = () => {
         if (firebaseLogs.length > 0) {
           setLogs(firebaseLogs);
           // Sincronizar com localStorage
-          localStorage.setItem('activity-logs', JSON.stringify(firebaseLogs));
+          try {
+            localStorage.setItem('activity-logs', safeJsonStringify(firebaseLogs));
+          } catch {}
           return;
         }
       } catch (firebaseError) {

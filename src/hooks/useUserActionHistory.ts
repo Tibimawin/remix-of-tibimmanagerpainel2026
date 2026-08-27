@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { db } from '@/config/firebase';
 import { collection, doc, setDoc, getDoc, onSnapshot, updateDoc, arrayUnion, query, orderBy, limit } from 'firebase/firestore';
+import { safeJsonStringify, safeJsonParse } from '@/utils/safeJson';
 
 export interface UserAction {
   id: string;
@@ -24,13 +25,12 @@ export const useUserActionHistory = () => {
   // Carregar histórico prioritariamente do localStorage (LocalStorage-first)
   useEffect(() => {
     if (!userInfo?.id) return;
-
     const storageKey = getStorageKey();
 
     try {
       const savedActions = localStorage.getItem(storageKey);
       if (savedActions) {
-        const parsedActions = JSON.parse(savedActions);
+        const parsedActions = safeJsonParse(savedActions, []);
         setActions(parsedActions);
       }
     } catch (error) {
@@ -85,11 +85,13 @@ export const useUserActionHistory = () => {
 
     try {
       // Sempre salvar no localStorage imediatamente (fonte principal)
-      localStorage.setItem(getStorageKey(), JSON.stringify(updatedActions));
+      localStorage.setItem(getStorageKey(), safeJsonStringify(updatedActions));
       setActions(updatedActions);
     } catch (error) {
       console.error('Erro ao processar ação:', error);
-      localStorage.setItem(getStorageKey(), JSON.stringify(updatedActions));
+      try {
+        localStorage.setItem(getStorageKey(), safeJsonStringify(updatedActions));
+      } catch {}
       setActions(updatedActions);
     }
   }, [userInfo?.id]);
