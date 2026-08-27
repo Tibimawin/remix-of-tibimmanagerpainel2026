@@ -1,4 +1,4 @@
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://kuszskrqzxwpzsmfsjwg.supabase.co';
 const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/maxplus-proxy`;
 
 export interface MaxPlusContent {
