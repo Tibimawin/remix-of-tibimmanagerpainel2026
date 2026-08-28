@@ -76,6 +76,19 @@ export const AsaasPaymentService = {
     return subscription;
   },
 
+  async createOneTimePayment(customerId: string, value: number, description: string): Promise<AsaasPayment> {
+    const today = new Date().toISOString().split('T')[0];
+    const payment = await proxyFetch('/payments', 'POST', {
+      customer: customerId,
+      billingType: 'PIX',
+      value,
+      dueDate: today,
+      description,
+    });
+    console.log('Cobrança avulsa criada:', payment.id);
+    return payment;
+  },
+
   async getPixQrCode(paymentId: string): Promise<{ encodedImage: string; payload: string; expirationDate: string }> {
     return await proxyFetch(`/payments/${paymentId}/pixQrCode`);
   },

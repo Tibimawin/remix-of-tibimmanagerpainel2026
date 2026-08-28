@@ -43,6 +43,14 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ isOpen, onClose }) => {
       category: 'Navegação'
     },
     {
+      id: 'status',
+      title: 'Status do Plano',
+      description: 'Dias restantes e funcionalidades ativas',
+      path: '/status',
+      icon: <BarChart3 className="h-4 w-4" />,
+      category: 'Navegação'
+    },
+    {
       id: 'conteudos',
       title: 'Conteúdos',
       description: 'Gerenciar filmes e séries',

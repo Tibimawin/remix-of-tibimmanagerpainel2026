@@ -40,6 +40,16 @@ const routeTitles: Record<string, { title: string; subtitle: string; icon?: Reac
     subtitle: 'Visão geral do sistema',
     icon: Menu
   },
+  '/status': { 
+    title: 'Status do Plano', 
+    subtitle: 'Acompanhe a validade e funcionalidades do plano',
+    icon: Menu
+  },
+  '/statur': { 
+    title: 'Status do Plano', 
+    subtitle: 'Acompanhe a validade e funcionalidades do plano',
+    icon: Menu
+  },
   '/conteudos': { 
     title: 'Conteúdos', 
     subtitle: 'Gerenciar conteúdos do sistema',
@@ -93,6 +103,11 @@ const routeTitles: Record<string, { title: string; subtitle: string; icon?: Reac
   '/gerador-post': { 
     title: 'Gerador de Posts', 
     subtitle: 'Criar artes promocionais para redes sociais',
+    icon: Sparkles
+  },
+  '/gerador-banner': { 
+    title: 'Gerador de Banners', 
+    subtitle: 'Criar tabelas e banners de jogos e esportes',
     icon: Sparkles
   },
   '/estatisticas': { 

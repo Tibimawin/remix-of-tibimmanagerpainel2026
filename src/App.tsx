@@ -57,6 +57,7 @@ import NotFound from "./pages/NotFound";
 import Estatisticas from "./pages/Estatisticas";
 import AdicionarConteudo from "./pages/AdicionarConteudo";
 import Produtos from "./pages/Produtos";
+import ProdutoDetalhes from "./pages/ProdutoDetalhes";
 import SuporteAoVivo from "./pages/SuporteAoVivo";
 import Precos from "./pages/Precos";
 import PrecosInterno from "./pages/PrecosInterno";
@@ -93,6 +94,7 @@ import Planos from "./pages/Planos";
 import MinhaApi from "./pages/MinhaApi";
 import ApiDocs from "./pages/ApiDocs";
 import GeradorPost from "./pages/GeradorPost";
+import Status from "./pages/Status";
 import { UpdateNotificationModal } from "./components/UpdateNotificationModal";
 import { M3UImportProvider } from "./contexts/M3UImportContext";
 
@@ -281,10 +283,20 @@ const App = () => {
                                 </SimpleProtectedRoute>
                               } />
 
+                              <Route path="/produto/:id" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <ProdutoDetalhes />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
                               <Route path="/gerador-post" element={
                                 <SimpleProtectedRoute>
                                   <Layout>
-                                    <GeradorPost type="post" />
+                                    <PermissionGate feature="gerador-post">
+                                      <GeradorPost type="post" />
+                                    </PermissionGate>
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />
@@ -292,7 +304,9 @@ const App = () => {
                               <Route path="/gerador-banner" element={
                                 <SimpleProtectedRoute>
                                   <Layout>
-                                    <GeradorPost type="banner" />
+                                    <PermissionGate feature="gerador-banner">
+                                      <GeradorPost type="banner" />
+                                    </PermissionGate>
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />
@@ -631,6 +645,22 @@ const App = () => {
                                 <SimpleProtectedRoute>
                                   <Layout>
                                     <Planos />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/status" element={
+                                <SimpleProtectedRoute allowExpired>
+                                  <Layout>
+                                    <Status />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/statur" element={
+                                <SimpleProtectedRoute allowExpired>
+                                  <Layout>
+                                    <Status />
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />

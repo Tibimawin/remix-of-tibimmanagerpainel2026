@@ -3,9 +3,14 @@
  * Valem para todos os usuários, independente do plano anterior.
  */
 export const FREE_FEATURES_WHEN_EXPIRED: string[] = [
+  'dashboard',
+  'status',
+  'produtos',
+  'loja',
   'conteudos',
   'episodios',
   'configuracoes',
+  'perfil',
   'pedido',
   'carrosseu',
   'categoriaFilmes',

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Loader2, Copy, CheckCircle2, QrCode, User, Mail, CreditCard, AlertCircle, Download } from 'lucide-react';
+import { Loader2, Copy, CheckCircle2, QrCode, User, Mail, CreditCard, AlertCircle, Download, RefreshCw, ShieldCheck } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { pushEventsService } from '@/services/PushEventsService';
 import { toast } from 'sonner';
@@ -17,6 +17,7 @@ import { db } from '@/config/firebase';
 import { addDoc, collection, doc, setDoc, getDocs, query, where } from 'firebase/firestore';
 import { usePlans } from '@/hooks/usePlans';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { generateValidCPF, validateCPF } from '@/utils/cpfGenerator';
 
 interface AsaasPixPaymentDialogProps {
   isOpen: boolean;
@@ -54,14 +55,26 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
   useEffect(() => {
     if (userInfo) {
       setEmail(userInfo.email || '');
+      if (userInfo.name && !name) {
+        setName(userInfo.name);
+      }
     }
-  }, [userInfo]);
+    if (isOpen && !cpf) {
+      setCpf(generateValidCPF());
+    }
+  }, [userInfo, isOpen]);
 
   useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, []);
+
+  const handleGenerateNewCpf = () => {
+    const newCpf = generateValidCPF();
+    setCpf(newCpf);
+    toast.success('Novo CPF válido gerado!');
+  };
 
   const formatCpf = (value: string) => {
     const nums = value.replace(/\D/g, '').slice(0, 11);
@@ -73,8 +86,12 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
 
   const handleSubmit = async () => {
     const cleanCpf = cpf.replace(/\D/g, '');
-    if (!name.trim() || !email.trim() || cleanCpf.length !== 11) {
-      toast.error('Preencha todos os campos corretamente');
+    if (!name.trim() || !email.trim()) {
+      toast.error('Preencha nome e email');
+      return;
+    }
+    if (cleanCpf.length !== 11 || !validateCPF(cleanCpf)) {
+      toast.error('CPF inválido. Clique em "Gerar CPF" para gerar um válido.');
       return;
     }
 
@@ -386,10 +403,41 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
               <Input id="pix-email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pix-cpf" className="flex items-center gap-1">
-                <CreditCard className="h-3.5 w-3.5" /> CPF
-              </Label>
-              <Input id="pix-cpf" value={cpf} onChange={e => setCpf(formatCpf(e.target.value))} placeholder="000.000.000-00" maxLength={14} />
+              <div className="flex items-center justify-between">
+                <Label htmlFor="pix-cpf" className="flex items-center gap-1">
+                  <CreditCard className="h-3.5 w-3.5" /> CPF
+                </Label>
+                <button
+                  type="button"
+                  onClick={handleGenerateNewCpf}
+                  className="text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-1"
+                >
+                  <RefreshCw className="h-3 w-3" /> Gerar CPF Válido
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <Input 
+                  id="pix-cpf" 
+                  value={cpf} 
+                  onChange={e => setCpf(formatCpf(e.target.value))} 
+                  placeholder="000.000.000-00" 
+                  maxLength={14} 
+                  className="font-mono text-sm"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleGenerateNewCpf} 
+                  className="shrink-0 gap-1 text-xs"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Gerar
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                🔒 Geramos um CPF matematicamente válido para proteger sua privacidade.
+              </p>
             </div>
 
             <Card className="p-3 bg-muted/50">

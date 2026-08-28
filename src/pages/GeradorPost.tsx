@@ -35,6 +35,7 @@ import { toPng } from 'html-to-image';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import debounce from 'lodash/debounce';
+import { PermissionGate } from '@/components/PermissionGate';
 
 const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
   // States for search
@@ -168,7 +169,8 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-7xl animate-fade-in">
+    <PermissionGate feature={type === 'banner' ? 'gerador-banner' : 'gerador-post'}>
+      <div className="container mx-auto py-8 px-4 max-w-7xl animate-fade-in">
       {type === 'post' ? (
         <div className="flex flex-col lg:flex-row gap-8">
           
@@ -649,7 +651,8 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
       ) : (
         <GeradorBannerEsportes />
       )}
-    </div>
+      </div>
+    </PermissionGate>
   );
 };
 

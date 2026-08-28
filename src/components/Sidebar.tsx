@@ -47,6 +47,7 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Status', href: '/status', icon: Activity },
   { name: 'Loja', href: '/produtos', icon: ShoppingCart },
   { name: 'Gerador de Posts', href: '/gerador-post', icon: Sparkles },
   { name: 'Gerador de Banners', href: '/gerador-banner', icon: LayoutIcon },
@@ -161,11 +162,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                 const isActive = isMenuActive(item);
                 const hasSubmenu = item.children && item.children.length > 0;
                 const isOpen = openMenus.includes(item.name);
-                const needsPermission = item.href === '/limpeza-dados' || item.href === '/maxplus-import';
+                
                 let requiredFeature = '';
                 if (item.href === '/limpeza-dados') requiredFeature = 'clean-data';
-                if (item.href === '/maxplus-import') requiredFeature = 'maxplus-import';
-                const showLock = needsPermission && !hasFeature(requiredFeature);
+                else if (item.href === '/maxplus-import') requiredFeature = 'maxplus-import';
+                else if (item.href === '/gerador-post') requiredFeature = 'gerador-post';
+                else if (item.href === '/gerador-banner') requiredFeature = 'gerador-banner';
+                
+                const showLock = !!requiredFeature && !hasFeature(requiredFeature);
                 
                 return (
                   <li 

@@ -41,6 +41,8 @@ export const AVAILABLE_FEATURES: FeatureAccess[] = [
   { id: 'episodios', name: 'Gerenciar Episódios', description: 'Visualizar e editar episódios' },
   { id: 'lista-m3u', name: 'Lista M3U', description: 'Gerenciar listas de reprodução M3U' },
   { id: 'banners', name: 'Gerenciar Banners', description: 'Criar e editar banners do sistema' },
+  { id: 'gerador-post', name: 'Gerador de Posts', description: 'Criar artes e posts para redes sociais com capas e logos' },
+  { id: 'gerador-banner', name: 'Gerador de Banners', description: 'Criar tabelas e banners de jogos e esportes' },
 
   { id: 'categorias', name: 'Gerenciar Categorias', description: 'Organizar e editar categorias' },
   { id: 'categorias-tv', name: 'Categorias TV', description: 'Gerenciar categorias de canais de TV' },
@@ -97,12 +99,17 @@ export const AVAILABLE_FEATURES: FeatureAccess[] = [
 
   // Planos
   { id: 'planos', name: 'Planos', description: 'Visualizar tabela de planos disponíveis' },
+  { id: 'status', name: 'Status do Plano', description: 'Visualizar status do plano, dias restantes e funcionalidades' },
 
   // Integração API
   { id: 'minha-api', name: 'Integração API', description: 'Gerar API Keys para integrar conteúdos em sites e apps externos' },
 
   // Jogos do Dia
   { id: 'jogos-dia', name: 'Jogos do Dia', description: 'Importar jogos do dia da tabela origem' },
+
+  // Loja & Módulos Extras (Liberação Manual)
+  { id: 'source_csv_full', name: 'Carga Total do Painel (Acervo CSV)', description: 'Permissão manual para download de todas as planilhas CSV do acervo completo' },
+  { id: 'backup_nuvem_auto', name: 'Módulo Backup em Nuvem Automático', description: 'Permissão manual para rotinas de backup automático e restauração de tabelas' },
 
 
   // Tabelas do Modo Tibim

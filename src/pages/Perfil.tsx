@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
-import { LogOut, User, Calendar, Clock, Smartphone, Hash, Mail, Monitor, Shield, Receipt, HelpCircle, Package } from 'lucide-react';
+import { LogOut, User, Calendar, Clock, Smartphone, Hash, Mail, Monitor, Shield, Receipt, HelpCircle, Package, Activity, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useUserPermissions } from '@/contexts/UserPermissionsContext';
 import UserSecuritySettings from '@/components/UserSecuritySettings';
 import UserDevices from '@/components/UserDevices';
@@ -21,6 +22,7 @@ interface UserDetails {
 }
 
 const Perfil = () => {
+  const navigate = useNavigate();
   const { logout, userInfo } = useSimpleAuth();
   const { permissions } = useUserPermissions();
   const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
@@ -317,6 +319,26 @@ const Perfil = () => {
                       <p className="text-muted-foreground">Erro ao carregar informações do usuário.</p>
                     </div>
                   )}
+
+                  <div className="mt-6 p-4 rounded-xl bg-primary/10 border border-primary/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 text-left">
+                      <div className="p-2.5 bg-primary text-primary-foreground rounded-lg">
+                        <Activity className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-foreground">Status do Plano & Dias Restantes</h4>
+                        <p className="text-xs text-muted-foreground">Veja a barra de progresso do painel e do Baserow, benefícios e recursos ativos</p>
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={() => navigate('/status')}
+                      className="w-full sm:w-auto gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs shrink-0"
+                      size="sm"
+                    >
+                      <span>Ver Status Completo</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

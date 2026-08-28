@@ -118,6 +118,15 @@ const menuItems: MenuItem[] = [
     badge: { type: 'count', value: 3 } // Exemplo: 3 notificações
   },
   {
+    id: 'status',
+    label: 'Status',
+    href: '/status',
+    icon: Activity,
+    category: 'main',
+    description: 'Status do plano e dias restantes',
+    feature: 'status',
+  },
+  {
     id: 'loja',
     label: 'Loja',
     href: '/produtos',
@@ -143,7 +152,7 @@ const menuItems: MenuItem[] = [
     icon: LayoutIcon,
     category: 'main',
     description: 'Criar tabelas de jogos',
-    feature: 'gerador-post',
+    feature: 'gerador-banner',
     badge: { type: 'new' }
   },
   {
@@ -336,15 +345,6 @@ const menuItems: MenuItem[] = [
     category: 'management',
     description: 'Plataformas de streaming',
     feature: 'plataformas'
-  },
-  {
-    id: 'loja',
-    label: 'Loja',
-    href: '/produtos',
-    icon: ShoppingCart,
-    category: 'main',
-    description: 'Loja oficial do sistema',
-    feature: 'produtos'
   },
   {
     id: 'estatisticas',
