@@ -124,86 +124,28 @@ const AdminFinancialDashboard: React.FC = () => {
           if (asaasStatus.status === 'RECEIVED' || asaasStatus.status === 'CONFIRMED') {
             console.log(`✅ Pagamento confirmado para ${record.userName} (ID: ${record.paymentId})`);
 
-            const confirmedTime = new Date().toISOString();
-            
-            // 1. Atualizar no Firestore
+            const { PaymentReconciliationService } = await import('@/services/PaymentReconciliationService');
+            await PaymentReconciliationService.activatePaidPlanOrProduct(
+              record.userId,
+              record.userEmail,
+              record.userName,
+              {
+                planName: record.planName,
+                planPrice: record.planPrice,
+                accessDays: record.accessDays,
+                isUpgrade: record.isUpgrade,
+                upgradeFrom: record.upgradeFrom,
+                source: record.source,
+                items: record.items
+              },
+              record.paymentId
+            );
+
+            // Atualizar no Firestore
             await setDoc(doc(db, 'financialRecords', record.paymentId), {
               status: 'confirmed',
-              confirmedAt: confirmedTime
+              confirmedAt: new Date().toISOString()
             }, { merge: true });
-
-            // 2. Estender o acesso
-            await FirebaseUserService.extendUserAccess(record.userId, record.accessDays);
-
-            // 3. Dar as permissões
-            const permissionsRef = doc(db, 'userPermissions', record.userId);
-            const permissionsDoc = await getDoc(permissionsRef);
-            const currentPermissions = permissionsDoc.exists() ? permissionsDoc.data() : {};
-            const currentFeatures = currentPermissions.enabledFeatures || [];
-
-            if (record.isUpgrade) {
-              const apiPlanFeatures = plans.find(p => p.name.includes('API'))?.features || ['minha-api'];
-              const mergedFeatures = [...new Set([...currentFeatures, ...apiPlanFeatures, 'planos', 'minha-api'])];
-
-              await setDoc(permissionsRef, {
-                userId: record.userId,
-                userEmail: record.userEmail,
-                userName: record.userName,
-                planId: 'upgrade-api',
-                planName: record.planName,
-                monthlyContentLimit: 999,
-                enabledFeatures: mergedFeatures,
-                currentMonthUsage: 0,
-                lastUpdated: new Date().toISOString(),
-                expiryDate: record.endDate,
-                isActive: true
-              }, { merge: true });
-
-              await addDoc(collection(db, 'autoPermissionLogs'), {
-                userId: record.userId,
-                userEmail: record.userEmail,
-                userName: record.userName,
-                planName: record.planName,
-                planId: 'upgrade-api',
-                featuresCount: mergedFeatures.length,
-                features: mergedFeatures,
-                grantedAt: new Date().toISOString(),
-                source: 'payment-upgrade-reconciled'
-              });
-            } else {
-              const matchedPlan = plans.find(p => p.name === record.planName);
-              if (matchedPlan) {
-                const featuresWithPlanos = matchedPlan.features.includes('planos')
-                  ? matchedPlan.features
-                  : [...matchedPlan.features, 'planos'];
-
-                await setDoc(permissionsRef, {
-                  userId: record.userId,
-                  userEmail: record.userEmail,
-                  userName: record.userName,
-                  planId: matchedPlan.id,
-                  planName: matchedPlan.name,
-                  monthlyContentLimit: matchedPlan.monthlyContentLimit,
-                  enabledFeatures: featuresWithPlanos,
-                  currentMonthUsage: 0,
-                  lastUpdated: new Date().toISOString(),
-                  expiryDate: record.endDate,
-                  isActive: true
-                }, { merge: true });
-
-                await addDoc(collection(db, 'autoPermissionLogs'), {
-                  userId: record.userId,
-                  userEmail: record.userEmail,
-                  userName: record.userName,
-                  planName: matchedPlan.name,
-                  planId: matchedPlan.id,
-                  featuresCount: featuresWithPlanos.length,
-                  features: featuresWithPlanos,
-                  grantedAt: new Date().toISOString(),
-                  source: 'payment-auto-reconciled'
-                });
-              }
-            }
 
             reconciledCount++;
             toast.success(`Pagamento de ${formatBRL(record.planPrice)} (${record.userName}) reconciliado e acesso liberado!`);

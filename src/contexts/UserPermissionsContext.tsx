@@ -77,6 +77,19 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
 
         const check = async () => {
             try {
+                // 🔄 Tenta auto-reconciliar pagamentos pendentes com o Asaas silenciosamente
+                if (userInfo?.id && userInfo?.email) {
+                    try {
+                        const { PaymentReconciliationService } = await import('@/services/PaymentReconciliationService');
+                        const res = await PaymentReconciliationService.reconcileUserPayments(userInfo.id, userInfo.email, userInfo.name);
+                        if (res.reconciled) {
+                            console.log('🎉 [UserPermissionsContext] Pagamento Asaas auto-reconciliado com sucesso!', res);
+                        }
+                    } catch (recErr) {
+                        console.warn('Aviso na auto-reconciliação de pagamentos:', recErr);
+                    }
+                }
+
                 const ok = await FirebaseUserService.checkUserAccess(userInfo.id);
                 if (!cancelled) setIsSubscriptionExpired(!ok);
             } catch {

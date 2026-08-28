@@ -3,16 +3,20 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, Star, Crown, Shield, ArrowRight } from 'lucide-react';
+import { Check, Star, Crown, Shield, ArrowRight, Zap, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePlans } from '@/hooks/usePlans';
 import { useActivePlan } from '@/hooks/useActivePlan';
+import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import AsaasPixPaymentDialog from '@/components/AsaasPixPaymentDialog';
+import { PaymentReconciliationService } from '@/services/PaymentReconciliationService';
 
 const Precos = () => {
+  const { userInfo } = useSimpleAuth();
   const { activePlans, loading } = usePlans();
   const { hasActivePlan } = useActivePlan();
   const [showPayment, setShowPayment] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<{ name: string; price: number; description: string } | null>(null);
 
   const handleRequestPlan = (planName: string, planPrice: string, planDescription: string) => {
@@ -20,6 +24,30 @@ const Precos = () => {
     const numericPrice = parseFloat(planPrice.replace(/[^\d,]/g, '').replace(',', '.')) || 30;
     setSelectedPlanForPayment({ name: planName, price: numericPrice, description: planDescription });
     setShowPayment(true);
+  };
+
+  const handleVerifyPayment = async () => {
+    if (!userInfo?.id || !userInfo?.email) {
+      toast.error('Você precisa estar conectado para consultar.');
+      return;
+    }
+    setIsVerifying(true);
+    toast.loading('Consultando pagamentos no Asaas...', { id: 'verif-precos-ext' });
+    try {
+      const res = await PaymentReconciliationService.reconcileUserPayments(userInfo.id, userInfo.email, userInfo.name);
+      if (res.reconciled) {
+        toast.success(res.message, { id: 'verif-precos-ext' });
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        toast.info(res.message, { id: 'verif-precos-ext' });
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao verificar pagamentos', { id: 'verif-precos-ext' });
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   return (
@@ -35,24 +63,37 @@ const Precos = () => {
           </div>
           
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-            Escolha o plano ideal para suas necessidades e aguarde a liberação do administrador. 
-            Oferecemos soluções personalizadas para cada tipo de usuário.
+            Escolha o plano ideal para suas necessidades. Ativação automática e instantânea via PIX.
           </p>
           
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6 mx-auto max-w-3xl">
-            <div className="flex items-start space-x-3">
-              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span className="text-white text-sm">ℹ</span>
+          <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-6 mx-auto max-w-3xl">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-start space-x-3 text-left">
+                <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
+                  <Zap className="text-white w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-emerald-800 dark:text-emerald-200 mb-1">
+                    Liberação 100% Automática via PIX
+                  </h3>
+                  <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                    Ao pagar o PIX, nosso sistema reconhece a compensação imediatamente e ativa todos os dias e ferramentas da sua conta.
+                  </p>
+                </div>
               </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
-                  Como funciona o processo?
-                </h3>
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  Após solicitar um plano, o administrador irá manualmente liberar as permissões 
-                  no painel administrativo. Você receberá uma notificação quando sua solicitação for processada.
-                </p>
-              </div>
+
+              {userInfo?.id && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleVerifyPayment}
+                  disabled={isVerifying}
+                  className="shrink-0 border-emerald-500/50 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 font-semibold gap-1.5"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isVerifying ? 'animate-spin' : ''}`} />
+                  Já Paguei? Ativar
+                </Button>
+              )}
             </div>
           </div>
         </div>

@@ -5,14 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Crown, Check, Zap, Star, Rocket, Shield, MessageSquare, Loader2 } from 'lucide-react';
+import { Crown, Check, Zap, Star, Rocket, Shield, MessageSquare, Loader2, RefreshCw } from 'lucide-react';
 import { usePlanRequests } from '@/hooks/usePlanRequests';
 import { useActivePlan } from '@/hooks/useActivePlan';
 import { usePlans } from '@/hooks/usePlans';
+import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { Plan } from '@/types/planTypes';
+import { toast } from 'sonner';
 import AsaasPixPaymentDialog from '@/components/AsaasPixPaymentDialog';
+import { PaymentReconciliationService } from '@/services/PaymentReconciliationService';
 
 const PrecosInterno = () => {
+  const { userInfo } = useSimpleAuth();
   const { createPlanRequest } = usePlanRequests();
   const { hasActivePlan, loading: planLoading } = useActivePlan();
   const { activePlans, loading } = usePlans();
@@ -20,7 +24,32 @@ const PrecosInterno = () => {
   const [userMessage, setUserMessage] = useState('');
   const [requesting, setRequesting] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<{ name: string; price: number; description: string } | null>(null);
+
+  const handleVerifyPayment = async () => {
+    if (!userInfo?.id || !userInfo?.email) {
+      toast.error('Você precisa estar conectado.');
+      return;
+    }
+    setIsVerifying(true);
+    toast.loading('Consultando pagamentos no Asaas...', { id: 'verif-precos' });
+    try {
+      const res = await PaymentReconciliationService.reconcileUserPayments(userInfo.id, userInfo.email, userInfo.name);
+      if (res.reconciled) {
+        toast.success(res.message, { id: 'verif-precos' });
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        toast.info(res.message, { id: 'verif-precos' });
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao verificar pagamentos', { id: 'verif-precos' });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   const handleChoosePlan = (plan: Plan) => {
     const numericPrice = parseFloat(plan.price.replace(/[^\d,]/g, '').replace(',', '.')) || 30;
@@ -90,11 +119,22 @@ const PrecosInterno = () => {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Escolha o plano ideal para suas necessidades e acelere seus resultados
           </p>
-          <div className="flex items-center justify-center space-x-2">
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <Badge variant="outline" className="modern-badge bg-green-50 text-green-700 border-green-200">
               <Crown className="w-3 h-3 mr-1" />
               Promoção Limitada
             </Badge>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleVerifyPayment}
+              disabled={isVerifying}
+              className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold gap-1.5 rounded-full px-4"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isVerifying ? 'animate-spin' : ''}`} />
+              Já Paguei? Verificar e Ativar Agora
+            </Button>
           </div>
         </div>
 

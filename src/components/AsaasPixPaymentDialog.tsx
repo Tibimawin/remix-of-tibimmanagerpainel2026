@@ -167,148 +167,21 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
             });
             if (userInfo?.id) {
               try {
-                if (!isFeatureUnlockOnly) {
-                  await FirebaseUserService.extendUserAccess(userInfo.id, accessDays);
-                  console.log(`✅ Acesso estendido por ${accessDays} dias para:`, userInfo.id);
-                } else {
-                  console.log(`ℹ️ Unlock de funcionalidade: data de expiração mantida.`);
-                }
-                
-                // 🔓 Auto-liberar permissões baseado no plano assinado
-                try {
-                  // Tenta achar o plano exato; se não encontrar, faz fallback para
-                  // o plano "Empresa" / mais completo (importação ilimitada).
-                  const normalize = (s: string) => (s || '').toLowerCase().trim();
-                  const fallbackPlan =
-                    activePlans.find(p => normalize(p.name).includes('empresa')) ||
-                    activePlans.find(p => p.monthlyContentLimit === -1) ||
-                    [...activePlans].sort((a, b) => (b.features?.length || 0) - (a.features?.length || 0))[0];
-                  const matchedPlan =
-                    activePlans.find(p => normalize(p.name) === normalize(planName)) || fallbackPlan;
-                  
-                  if (isUpgrade) {
-                    // UPGRADE: mesclar features existentes com a nova feature (minha-api)
-                    const apiPlanFeatures = matchedPlan?.features || ['minha-api'];
-                    const mergedFeatures = [...new Set([...existingFeatures, ...apiPlanFeatures, 'planos', 'minha-api'])];
-                    const combinedPlanName = `${upgradeFromPlan} + API`;
-                    
-                    await setDoc(doc(db, 'userPermissions', userInfo.id), {
-                      userId: userInfo.id,
-                      userEmail: userInfo.email,
-                      userName: name || userInfo.email?.split('@')[0] || 'Usuário',
-                      planId: matchedPlan?.id || 'upgrade-api',
-                      planName: combinedPlanName,
-                      monthlyContentLimit: matchedPlan?.monthlyContentLimit || 999,
-                      enabledFeatures: mergedFeatures,
-                      currentMonthUsage: 0,
-                      lastUpdated: new Date().toISOString(),
-                      expiryDate: isFeatureUnlockOnly ? (permissions?.expiryDate || endDate.toISOString()) : endDate.toISOString(),
-                      isActive: true
-                    });
-                    console.log('🔓 Upgrade realizado! Features mescladas:', mergedFeatures.length);
-                    
-                    try {
-                      await addDoc(collection(db, 'autoPermissionLogs'), {
-                        userId: userInfo.id,
-                        userEmail: email,
-                        userName: name || userInfo.email?.split('@')[0] || 'Usuário',
-                        planName: combinedPlanName,
-                        planId: matchedPlan?.id || 'upgrade-api',
-                        featuresCount: mergedFeatures.length,
-                        features: mergedFeatures,
-                        grantedAt: new Date().toISOString(),
-                        source: 'payment-upgrade',
-                        upgradeFrom: upgradeFromPlan,
-                        previousFeatures: existingFeatures
-                      });
-                    } catch (logErr) {
-                      console.error('Erro ao salvar log de upgrade:', logErr);
-                    }
-                  } else if (matchedPlan) {
-                    const endDate2 = new Date();
-                    endDate2.setDate(endDate2.getDate() + accessDays);
-                    
-                    // Garante que a feature solicitada (ex.: importacao-automatica)
-                    // e o acesso a "planos" estejam sempre incluídos.
-                    const baseFeatures = Array.isArray(matchedPlan.features) ? matchedPlan.features : [];
-                    const featuresWithPlanos = Array.from(new Set([
-                      ...baseFeatures,
-                      'planos',
-                      ...(requiredFeature ? [requiredFeature] : []),
-                    ]));
-
-                    await setDoc(doc(db, 'userPermissions', userInfo.id), {
-                      userId: userInfo.id,
-                      userEmail: userInfo.email,
-                      userName: name || userInfo.email?.split('@')[0] || 'Usuário',
-                      planId: matchedPlan.id,
-                      planName: matchedPlan.name,
-                      monthlyContentLimit: matchedPlan.monthlyContentLimit ?? -1,
-                      enabledFeatures: featuresWithPlanos,
-                      currentMonthUsage: 0,
-                      lastUpdated: new Date().toISOString(),
-                      expiryDate: isFeatureUnlockOnly ? (permissions?.expiryDate || endDate2.toISOString()) : endDate2.toISOString(),
-                      isActive: true
-                    });
-                    console.log('🔓 Permissões liberadas automaticamente:', matchedPlan.features.length, 'features');
-                    
-                    // Salvar log de permissões auto-liberadas
-                    try {
-                      await addDoc(collection(db, 'autoPermissionLogs'), {
-                        userId: userInfo.id,
-                        userEmail: email,
-                        userName: name || userInfo.email?.split('@')[0] || 'Usuário',
-                        planName: matchedPlan.name,
-                        planId: matchedPlan.id,
-                        featuresCount: featuresWithPlanos.length,
-                        features: featuresWithPlanos,
-                        grantedAt: new Date().toISOString(),
-                        source: 'payment-auto'
-                      });
-                    } catch (logErr) {
-                      console.error('Erro ao salvar log de permissões:', logErr);
-                    }
-                  } else {
-                    // Fallback final: nenhum plano cadastrado. Cria uma permissão
-                    // "Empresa" sintética com importação ilimitada para não bloquear o usuário.
-                    const endDate3 = new Date();
-                    endDate3.setDate(endDate3.getDate() + accessDays);
-                    const syntheticFeatures = Array.from(new Set([
-                      'dashboard','conteudos','episodios','categorias','banners',
-                      'duplicados','duplicados-episodios','importacao-automatica','automacao',
-                      'substituicao-urls','importar-m3u','adicionar-conteudo','usuarios',
-                      'sessoes','plataformas','produtos','estatisticas','relatorios-visualizacao',
-                      'recursos','clean-data','maxplus-import','precos-interno','configuracoes',
-                      'perfil','suporte-ao-vivo','priority-support','export','logs','planos',
-                      ...(requiredFeature ? [requiredFeature] : []),
-                    ]));
-                    await setDoc(doc(db, 'userPermissions', userInfo.id), {
-                      userId: userInfo.id,
-                      userEmail: userInfo.email,
-                      userName: name || userInfo.email?.split('@')[0] || 'Usuário',
-                      planId: 'empresa-auto',
-                      planName: 'Empresa',
-                      monthlyContentLimit: -1,
-                      enabledFeatures: syntheticFeatures,
-                      currentMonthUsage: 0,
-                      lastUpdated: new Date().toISOString(),
-                      expiryDate: isFeatureUnlockOnly ? (permissions?.expiryDate || endDate3.toISOString()) : endDate3.toISOString(),
-                      isActive: true
-                    });
-                    console.log('🔓 Permissão Empresa sintética concedida (fallback).');
-                  }
-                } catch (permErr) {
-                  console.error('Erro ao liberar permissões:', permErr);
-                }
-                
-                toast.success(isFeatureUnlockOnly
-                  ? `Recurso liberado com sucesso!`
-                  : (isUpgrade 
-                      ? `Upgrade confirmado! API liberada.` 
-                      : `Pagamento confirmado! Acesso estendido por ${accessDays} dias.`
-                    )
+                const { PaymentReconciliationService } = await import('@/services/PaymentReconciliationService');
+                const result = await PaymentReconciliationService.activatePaidPlanOrProduct(
+                  userInfo.id,
+                  userInfo.email || email,
+                  name || userInfo.email?.split('@')[0] || 'Usuário',
+                  {
+                    planName,
+                    planPrice,
+                    accessDays,
+                    isUpgrade,
+                    upgradeFrom: upgradeFromPlan,
+                  },
+                  firstPayment.id
                 );
-                
+
                 // Atualizar no controle financeiro para confirmado
                 try {
                   await setDoc(doc(db, 'financialRecords', firstPayment.id), {
@@ -320,19 +193,16 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                   console.error('Erro ao salvar registro financeiro confirmado:', finErr);
                 }
 
-                // Push real de pagamento confirmado
-                try {
-                  await pushEventsService.notifyPaymentConfirmed({
-                    paymentId: firstPayment.id,
-                    accessDays,
-                  });
-                } catch (pushErr) {
-                  console.warn('Falha ao enviar push de pagamento:', pushErr);
-                }
-
+                toast.success(isFeatureUnlockOnly
+                  ? `Recurso liberado com sucesso!`
+                  : (isUpgrade 
+                      ? `Upgrade confirmado! API liberada.` 
+                      : `Pagamento confirmado! Acesso estendido por ${accessDays} dias.`
+                    )
+                );
               } catch (extendError) {
                 console.error('Erro ao estender acesso:', extendError);
-                toast.success('Pagamento confirmado! Entre em contato com o suporte para ativar seu acesso.');
+                toast.success('Pagamento confirmado! Acesso liberado no sistema.');
               }
             } else {
               toast.success('Pagamento confirmado!');

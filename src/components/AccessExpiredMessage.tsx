@@ -3,21 +3,24 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Clock, Crown, Sparkles, CreditCard } from 'lucide-react';
+import { AlertCircle, Clock, Crown, Sparkles, CreditCard, RefreshCw } from 'lucide-react';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { usePlans } from '@/hooks/usePlans';
 import { Plan } from '@/types/planTypes';
+import { toast } from 'sonner';
 import AsaasPixPaymentDialog from '@/components/AsaasPixPaymentDialog';
+import { PaymentReconciliationService } from '@/services/PaymentReconciliationService';
 
 interface AccessExpiredMessageProps {
   expiryDate?: string;
 }
 
 const AccessExpiredMessage: React.FC<AccessExpiredMessageProps> = ({ expiryDate }) => {
-  const { logout } = useSimpleAuth();
+  const { userInfo, logout } = useSimpleAuth();
   const { activePlans, loading } = usePlans();
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [showPixDialog, setShowPixDialog] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const handleSelectPlan = (plan: Plan) => {
     const price = parseFloat(plan.price.replace(/[^\d,]/g, '').replace(',', '.'));
@@ -29,21 +32,57 @@ const AccessExpiredMessage: React.FC<AccessExpiredMessageProps> = ({ expiryDate 
     return parseFloat(priceStr.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
   };
 
+  const handleVerifyPayment = async () => {
+    if (!userInfo?.id || !userInfo?.email) {
+      toast.error('Identificação de usuário não encontrada. Faça login novamente.');
+      return;
+    }
+    setIsVerifying(true);
+    toast.loading('Consultando pagamentos no Asaas...', { id: 'verif-pay' });
+    try {
+      const res = await PaymentReconciliationService.reconcileUserPayments(userInfo.id, userInfo.email, userInfo.name);
+      if (res.reconciled) {
+        toast.success(res.message, { id: 'verif-pay' });
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        toast.info(res.message, { id: 'verif-pay' });
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao consultar pagamento', { id: 'verif-pay' });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="max-w-2xl w-full space-y-6">
         {/* Banner informativo */}
         <Alert className="border-primary/30 bg-primary/5">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <CreditCard className="h-5 w-5 text-primary" />
+          <div className="flex items-center justify-between gap-3 w-full">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <CreditCard className="h-5 w-5 text-primary" />
+              </div>
+              <AlertDescription className="text-foreground">
+                <p className="font-semibold text-sm">💳 Renove diretamente pelo painel!</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Escolha um plano abaixo e pague via PIX de forma rápida e segura.
+                </p>
+              </AlertDescription>
             </div>
-            <AlertDescription className="text-foreground">
-              <p className="font-semibold text-sm">💳 Renove diretamente pelo painel!</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Escolha um plano abaixo e pague via PIX de forma rápida e segura.
-              </p>
-            </AlertDescription>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleVerifyPayment}
+              disabled={isVerifying}
+              className="shrink-0 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold gap-1.5"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isVerifying ? 'animate-spin' : ''}`} />
+              Já Paguei? Ativar
+            </Button>
           </div>
         </Alert>
         {/* Header Card */}
