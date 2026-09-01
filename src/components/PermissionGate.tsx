@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { usePlans } from '@/hooks/usePlans';
+import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 import {
   Lock,
   Shield,
@@ -15,9 +17,11 @@ import {
   Rocket,
   CreditCard,
   RefreshCw,
+  Zap,
 } from 'lucide-react';
 import { Plan, AVAILABLE_FEATURES } from '@/types/planTypes';
 import AsaasPixPaymentDialog from './AsaasPixPaymentDialog';
+import { PaymentReconciliationService } from '@/services/PaymentReconciliationService';
 
 interface PermissionGateProps {
   feature: string;
@@ -33,10 +37,12 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
   fallback 
 }) => {
   const { hasFeature, loading, permissions } = useUserPermissions();
+  const { userInfo } = useSimpleAuth();
   const { activePlans } = usePlans();
   const [showUpgradePayment, setShowUpgradePayment] = useState(false);
   const [showPlanPayment, setShowPlanPayment] = useState(false);
   const [showFeatureUnlockPayment, setShowFeatureUnlockPayment] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<
     | {
         name: string;
@@ -48,6 +54,30 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
       }
     | null
   >(null);
+
+  const handleVerifyPayment = async () => {
+    if (!userInfo?.id || !userInfo?.email) {
+      toast.error('Você precisa estar conectado.');
+      return;
+    }
+    setIsVerifying(true);
+    toast.loading('Consultando pagamentos no Asaas...', { id: 'verif-gate' });
+    try {
+      const res = await PaymentReconciliationService.reconcileUserPayments(userInfo.id, userInfo.email, userInfo.name);
+      if (res.reconciled) {
+        toast.success(res.message, { id: 'verif-gate' });
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        toast.info(res.message, { id: 'verif-gate' });
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao verificar pagamentos', { id: 'verif-gate' });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -62,22 +92,8 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
     const hasActivePlan = !!(permissions?.planName && permissions?.isActive && permissions?.expiryDate);
     const isSubscriptionExpired = permissions?.isActive === false || !permissions?.expiryDate || new Date(permissions.expiryDate) < new Date();
     
-    // Identifica se o usuário possui um dos planos base de 30 dias (R$ 30 a R$ 35)
-    const isBasicActive = hasActivePlan && !isSubscriptionExpired && (
-      permissions?.planName?.toLowerCase().includes('básico') || 
-      permissions?.planName?.toLowerCase().includes('basico') || 
-      permissions?.planName?.toLowerCase().includes('mensal') ||
-      permissions?.planName?.toLowerCase().includes('baserow')
-    );
-
-    // Identifica o plano de destino que contém o recurso
-    const targetPlanForFeature = activePlans.find(p => p.features.includes(feature));
-    const targetPrice = targetPlanForFeature 
-      ? parseFloat(targetPlanForFeature.price.replace(/[^\d,]/g, '').replace(',', '.')) 
-      : 0;
-
-    // "Liberar Recurso (R$ 15)" só deve aparecer se o usuário estiver ATIVO em um plano básico
-    const canUnlockIndividual = isBasicActive && targetPrice >= 44;
+    // "Liberar Recurso (R$ 15)" pode ser contratado por qualquer usuário com conta ativa
+    const canUnlockIndividual = hasActivePlan && !isSubscriptionExpired;
     
     if (fallback) {
       return <>{fallback}</>;
@@ -175,7 +191,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                   </h2>
                   <p className="text-sm text-muted-foreground mt-2">
                     {hasActivePlan && !isSubscriptionExpired ? (
-                      <>Você está no plano <strong>{permissions?.planName}</strong>. Desbloqueie este recurso extra para turbinar seu painel.</>
+                      <>Você está no plano <strong>{permissions?.planName}</strong>. Desbloqueie este recurso extra (R$ 15) para turbinar seu painel.</>
                     ) : (
                       <>Sua assinatura está <strong>expirada</strong> ou você não possui um plano ativo. Escolha uma opção abaixo para continuar.</>
                     )}
@@ -194,6 +210,17 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                       Vencimento: {new Date(permissions.expiryDate).toLocaleDateString()}
                     </div>
                   )}
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleVerifyPayment}
+                    disabled={isVerifying}
+                    className="mt-2 text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold gap-1.5 h-8 rounded-full px-3"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isVerifying ? 'animate-spin' : ''}`} />
+                    Já Paguei? Ativar Agora
+                  </Button>
                 </div>
               </div>
 
@@ -254,14 +281,24 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                     </p>
                     <p className="text-[9px] text-muted-foreground leading-tight">
                       {canUnlockIndividual 
-                        ? `Upgrade disponível de ${permissions?.planName || 'Básico'} para R$ 44,90` 
-                        : 'Disponível em planos Premium'}
+                        ? `Desbloqueio avulso por apenas R$ 15,00 ou plano completo` 
+                        : 'Disponível em planos ativos'}
                     </p>
                   </div>
                   <div className="flex flex-col gap-1.5 shrink-0">
                     <Button 
                       size="sm" 
-                      className="h-7 px-3 text-[10px] bg-rose-500 hover:bg-rose-600 text-white font-bold"
+                      className="h-7 px-3 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1"
+                      onClick={() => setShowFeatureUnlockPayment(true)}
+                    >
+                      <Zap className="w-3 h-3" />
+                      Liberar Recurso (R$ 15)
+                    </Button>
+                    
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="h-7 px-3 text-[10px] border-rose-500/30 text-rose-400 hover:bg-rose-500/10 font-bold"
                       onClick={() => {
                         const firstPremium = activePlans.find(p => p.features.includes(feature)) || activePlans[0];
                         if (firstPremium) handleChoosePlan(firstPremium);
@@ -269,17 +306,6 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                     >
                       Trocar Plano
                     </Button>
-                    
-                    {canUnlockIndividual && (
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="h-7 px-3 text-[10px] border-rose-500/30 text-rose-400 hover:bg-rose-500/10 font-bold"
-                        onClick={() => setShowFeatureUnlockPayment(true)}
-                      >
-                        Liberar Recurso (R$ 15)
-                      </Button>
-                    )}
                   </div>
                 </div>
                   </div>
@@ -299,106 +325,126 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
                       : activePlans.length === 2
                       ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl'
                       : activePlans.length === 3
-                      ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                      ? 'grid-cols-1 md:grid-cols-3 max-w-5xl'
                       : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
-                  }`}
+                  } mx-auto`}
                 >
                   {activePlans.map((plan, index) => {
+                    const IconComponent = planIcons[index % planIcons.length];
                     const scheme = planSchemes[index % planSchemes.length];
-                    const numericPrice =
-                      parseFloat(plan.price.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
                     const isApiPlan = plan.features.includes('minha-api');
-                    const showUpgradePrice =
-                      isApiPlan && hasSubscription && currentPlanPrice > 0 && numericPrice > currentPlanPrice;
-                    const displayPrice = showUpgradePrice ? numericPrice - currentPlanPrice : numericPrice;
-                    const isCurrent = permissions?.planId === plan.id;
-                    const isPopular = !isCurrent && index === activePlans.length - 1 && activePlans.length >= 3;
+                    const numericPrice =
+                      parseFloat(
+                        plan.price.replace(/[^\d,]/g, '').replace(',', '.')
+                      ) || 30;
+                    const isUpgrade =
+                      isApiPlan &&
+                      hasSubscription &&
+                      currentPlanPrice > 0 &&
+                      numericPrice > currentPlanPrice;
+                    const finalPrice = isUpgrade
+                      ? numericPrice - currentPlanPrice
+                      : numericPrice;
 
                     return (
                       <Card
                         key={plan.id}
-                        className={`relative p-6 border-2 rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl flex flex-col ${scheme.cardBg}`}
+                        className={`relative flex flex-col justify-between border-2 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl ${
+                          plan.features.includes(feature)
+                            ? 'border-primary shadow-lg ring-1 ring-primary/30'
+                            : scheme.cardBg
+                        }`}
                       >
-                        {isPopular && (
-                          <Badge className={`absolute top-4 right-4 ${scheme.badge} text-[10px] px-2 py-0.5`}>
-                            Mais Popular
-                          </Badge>
-                        )}
-                        {isCurrent && (
-                          <Badge className="absolute top-4 right-4 bg-foreground/80 text-background text-[10px] px-2 py-0.5">
-                            Plano atual
-                          </Badge>
-                        )}
-
-                        <div className="flex items-center gap-2 mb-1">
-                          <Crown className={`w-5 h-5 ${scheme.priceText}`} />
-                          <h3 className="text-2xl font-bold text-foreground">{plan.name}</h3>
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-5 line-clamp-2">
-                          {plan.description || `Desbloqueia ${feature.replace(/-/g, ' ')} e outros recursos avançados`}
-                        </p>
-
-                        <div className="mb-5">
-                          {showUpgradePrice ? (
-                            <>
-                              <div className={`text-3xl font-extrabold ${scheme.priceText}`}>
-                                R$ {displayPrice.toFixed(2).replace('.', ',')}
-                              </div>
-                              <div className="text-xs text-muted-foreground line-through">{plan.price}</div>
-                              <Badge variant="secondary" className="mt-1 text-[10px]">Upgrade</Badge>
-                            </>
-                          ) : (
-                            <>
-                              <div className={`text-3xl font-extrabold ${scheme.priceText}`}>
-                                {plan.price.replace(/\/.*$/, '')}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {plan.price.includes('/') ? `/${plan.price.split('/').pop()}` : '/mês'}
-                              </div>
-                            </>
-                          )}
-                        </div>
-
-                        <ul className="space-y-2 mb-6 flex-1">
-                          {plan.features.slice(0, 6).map((featureId) => (
-                            <li key={featureId} className="flex items-start gap-2 text-sm">
-                              <Check className={`w-4 h-4 shrink-0 mt-0.5 ${scheme.check}`} />
-                              <span className="text-foreground/90 capitalize">
-                                {featureId.replace(/-/g, ' ')}
-                              </span>
-                            </li>
-                          ))}
-                          {plan.features.length > 6 && (
-                            <li className="text-xs text-muted-foreground pl-6">
-                              +{plan.features.length - 6} recursos incluídos
-                            </li>
-                          )}
-                        </ul>
-
-                        {isCurrent ? (
-                          <div className="flex flex-col gap-2">
-                            <Button disabled variant="outline" className="w-full rounded-full">
-                              Plano atual
-                            </Button>
-                            {isSubscriptionExpired && (
-                              <Button
-                                onClick={() => handleChoosePlan(plan)}
-                                className={`w-full rounded-full font-bold shadow-lg transition-all duration-300 animate-pulse ${scheme.btn}`}
-                              >
-                                <RefreshCw className="h-4 w-4 mr-2" />
-                                Renovar Agora
-                              </Button>
-                            )}
+                        {plan.features.includes(feature) && (
+                          <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                            <Badge className="bg-primary text-primary-foreground font-semibold px-3 py-0.5 text-xs shadow-md">
+                              Recomendado
+                            </Badge>
                           </div>
-                        ) : (
-                          <Button
-                            onClick={() => handleChoosePlan(plan)}
-                            className={`w-full rounded-full font-semibold ${scheme.btn}`}
-                          >
-                            <CreditCard className="h-4 w-4 mr-2" />
-                            {showUpgradePrice ? 'Fazer Upgrade' : `Assinar ${plan.name}`}
-                          </Button>
                         )}
+
+                        <CardContent className="p-5 flex flex-col flex-1 justify-between">
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div className="p-2 rounded-lg bg-background/50 border border-border/50">
+                                <IconComponent className="w-5 h-5 text-foreground" />
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] font-bold ${scheme.badge}`}
+                              >
+                                {plan.name}
+                              </Badge>
+                            </div>
+
+                            <div>
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-xs text-muted-foreground">
+                                  R$
+                                </span>
+                                <span
+                                  className={`text-3xl font-extrabold tracking-tight ${scheme.priceText}`}
+                                >
+                                  {finalPrice.toFixed(2).replace('.', ',')}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  /mês
+                                </span>
+                              </div>
+                              {isUpgrade && (
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  Diferença do seu plano atual
+                                </p>
+                              )}
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                {plan.description}
+                              </p>
+                            </div>
+
+                            <div className="space-y-2 pt-2 border-t border-border/40">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                O que está incluído:
+                              </p>
+                              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                {plan.features.map((feat) => {
+                                  const featObj = AVAILABLE_FEATURES.find(
+                                    (f) => f.id === feat
+                                  );
+                                  const isThisFeature = feat === feature;
+                                  return (
+                                    <div
+                                      key={feat}
+                                      className={`flex items-center gap-2 text-xs ${
+                                        isThisFeature
+                                          ? 'font-bold text-primary'
+                                          : 'text-muted-foreground'
+                                      }`}
+                                    >
+                                      <Check
+                                        className={`w-3.5 h-3.5 shrink-0 ${
+                                          isThisFeature
+                                            ? 'text-primary'
+                                            : scheme.check
+                                        }`}
+                                      />
+                                      <span className="truncate">
+                                        {featObj?.name || feat}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+
+                          <Button
+                            className={`w-full mt-5 font-bold text-xs h-9 ${scheme.btn}`}
+                            onClick={() => handleChoosePlan(plan)}
+                          >
+                            <CreditCard className="w-3.5 h-3.5 mr-1.5" />
+                            {isUpgrade ? 'Fazer Upgrade' : 'Contratar via PIX'}
+                          </Button>
+                        </CardContent>
                       </Card>
                     );
                   })}
@@ -441,7 +487,7 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
           onOpenChange={setShowFeatureUnlockPayment}
           planName={`Desbloqueio: ${AVAILABLE_FEATURES.find(f => f.id === feature)?.name || feature}`}
           planPrice={15}
-          planDescription={`Acesso vitalício ao recurso ${AVAILABLE_FEATURES.find(f => f.id === feature)?.name || feature} durante a vigência do seu plano atual.`}
+          planDescription={`Acesso ao recurso ${AVAILABLE_FEATURES.find(f => f.id === feature)?.name || feature} durante a vigência do seu plano.`}
           isFeatureUnlockOnly={true}
           requiredFeature={feature}
         />

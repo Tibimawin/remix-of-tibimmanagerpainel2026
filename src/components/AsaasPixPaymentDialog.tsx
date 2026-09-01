@@ -130,9 +130,9 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
           userId: userInfo?.id || 'unknown',
           userEmail: email,
           userName: name,
-          planName: isFeatureUnlockOnly ? `Unlock: ${requiredFeature}` : (isUpgrade ? `${upgradeFromPlan} + API` : planName),
+          planName: isFeatureUnlockOnly ? `Unlock: ${requiredFeature || planName}` : (isUpgrade ? `${upgradeFromPlan} + API` : planName),
           planPrice,
-          accessDays,
+          accessDays: isFeatureUnlockOnly ? 0 : accessDays,
           paymentMethod: 'PIX',
           paymentId: firstPayment.id,
           status: 'pending',
@@ -140,9 +140,11 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
           endDate: endDate.toISOString(),
           confirmedAt: '',
           createdAt: new Date().toISOString(),
-          source: isUpgrade ? 'upgrade' : 'panel',
+          source: isUpgrade ? 'upgrade' : (isFeatureUnlockOnly ? 'feature_unlock' : 'panel'),
           isUpgrade,
-          upgradeFrom: isUpgrade ? upgradeFromPlan : undefined
+          upgradeFrom: isUpgrade ? upgradeFromPlan : undefined,
+          isFeatureUnlockOnly,
+          requiredFeature
         });
         console.log('💰 Registro financeiro pendente criado:', firstPayment.id);
       } catch (finErr) {
@@ -157,10 +159,10 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
             if (pollRef.current) clearInterval(pollRef.current);
             
             // Estender acesso: 365 dias para plano anual, 30 para mensal
-            const accessDays = planPrice >= 300 ? 365 : 30;
+            const accessDays = planPrice >= 300 ? 365 : (isFeatureUnlockOnly ? 0 : 30);
             const startDate = new Date();
             const endDate = new Date();
-            endDate.setDate(endDate.getDate() + accessDays);
+            endDate.setDate(endDate.getDate() + (accessDays || 30));
             setConfirmedDates({
               start: startDate.toLocaleDateString('pt-BR'),
               end: endDate.toLocaleDateString('pt-BR')
@@ -173,11 +175,13 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                   userInfo.email || email,
                   name || userInfo.email?.split('@')[0] || 'Usuário',
                   {
-                    planName,
+                    planName: isFeatureUnlockOnly ? `Desbloqueio: ${requiredFeature || planName}` : planName,
                     planPrice,
                     accessDays,
                     isUpgrade,
                     upgradeFrom: upgradeFromPlan,
+                    isFeatureUnlockOnly,
+                    requiredFeature
                   },
                   firstPayment.id
                 );
