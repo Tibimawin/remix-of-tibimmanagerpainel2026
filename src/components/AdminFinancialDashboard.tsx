@@ -124,7 +124,13 @@ const AdminFinancialDashboard: React.FC = () => {
           if (asaasStatus.status === 'RECEIVED' || asaasStatus.status === 'CONFIRMED') {
             console.log(`✅ Pagamento confirmado para ${record.userName} (ID: ${record.paymentId})`);
 
-            const { PaymentReconciliationService } = await import('@/services/PaymentReconciliationService');
+            const { PaymentReconciliationService, resolveFeatureId } = await import('@/services/PaymentReconciliationService');
+            const isUnlock = record.isFeatureUnlockOnly || 
+                             (record.planPrice !== undefined && record.planPrice <= 25) || 
+                             (record.planName?.toLowerCase().includes('desbloqueio')) ||
+                             (record.planName?.toLowerCase().includes('unlock')) ||
+                             (record.source === 'feature_unlock');
+
             await PaymentReconciliationService.activatePaidPlanOrProduct(
               record.userId,
               record.userEmail,
@@ -132,10 +138,12 @@ const AdminFinancialDashboard: React.FC = () => {
               {
                 planName: record.planName,
                 planPrice: record.planPrice,
-                accessDays: record.accessDays,
+                accessDays: isUnlock ? 0 : record.accessDays,
                 isUpgrade: record.isUpgrade,
                 upgradeFrom: record.upgradeFrom,
                 source: record.source,
+                isFeatureUnlockOnly: isUnlock,
+                requiredFeature: record.requiredFeature || resolveFeatureId(record.planName || '') || undefined,
                 items: record.items
               },
               record.paymentId
@@ -144,7 +152,8 @@ const AdminFinancialDashboard: React.FC = () => {
             // Atualizar no Firestore
             await setDoc(doc(db, 'financialRecords', record.paymentId), {
               status: 'confirmed',
-              confirmedAt: new Date().toISOString()
+              confirmedAt: new Date().toISOString(),
+              accessDays: isUnlock ? 0 : (record.accessDays || 30)
             }, { merge: true });
 
             reconciledCount++;

@@ -102,39 +102,51 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
       // 1. Criar/buscar cliente
       const customer = await AsaasPaymentService.findOrCreateCustomer(name, email, cleanCpf);
 
-      // 2. Criar assinatura
-      const subscription = await AsaasPaymentService.createSubscription(
-        customer.id, planPrice, `Assinatura ${planName}`
-      );
+      let firstPaymentId = '';
 
-      // 3. Buscar primeira cobrança
-      const payments = await AsaasPaymentService.getSubscriptionPayments(subscription.id);
-      if (!payments.length) throw new Error('Nenhuma cobrança gerada');
+      if (isFeatureUnlockOnly || planPrice <= 25) {
+        // Para desbloqueio avulso de funcionalidade (R$ 15), cria cobrança avulsa única (sem assinatura recorrente)
+        const payment = await AsaasPaymentService.createOneTimePayment(
+          customer.id,
+          planPrice,
+          `Desbloqueio: ${requiredFeature || planName}`
+        );
+        firstPaymentId = payment.id;
+      } else {
+        // Para planos de assinatura do painel (Mensal, Trimestral, Anual), cria assinatura recorrente
+        const subscription = await AsaasPaymentService.createSubscription(
+          customer.id,
+          planPrice,
+          `Assinatura ${planName}`
+        );
+        const payments = await AsaasPaymentService.getSubscriptionPayments(subscription.id);
+        if (!payments.length) throw new Error('Nenhuma cobrança gerada para a assinatura');
+        firstPaymentId = payments[0].id;
+      }
 
-      const firstPayment = payments[0];
-      setPaymentId(firstPayment.id);
+      setPaymentId(firstPaymentId);
 
       // 4. Gerar QR Code PIX
-      const qrData = await AsaasPaymentService.getPixQrCode(firstPayment.id);
+      const qrData = await AsaasPaymentService.getPixQrCode(firstPaymentId);
       setPixData(qrData);
       setStep('pix');
 
       // Registrar no controle financeiro como PENDENTE (reconciliação auto se a aba fechar)
       try {
-        const accessDays = planPrice >= 300 ? 365 : 30;
+        const accessDays = isFeatureUnlockOnly || planPrice <= 25 ? 0 : (planPrice >= 250 ? 365 : (planPrice >= 70 ? 90 : 30));
         const startDate = new Date();
         const endDate = new Date();
-        endDate.setDate(endDate.getDate() + accessDays);
+        endDate.setDate(endDate.getDate() + (accessDays || 30));
 
-        await setDoc(doc(db, 'financialRecords', firstPayment.id), {
+        await setDoc(doc(db, 'financialRecords', firstPaymentId), {
           userId: userInfo?.id || 'unknown',
           userEmail: email,
           userName: name,
-          planName: isFeatureUnlockOnly ? `Unlock: ${requiredFeature || planName}` : (isUpgrade ? `${upgradeFromPlan} + API` : planName),
+          planName: isFeatureUnlockOnly ? `Desbloqueio: ${requiredFeature || planName}` : (isUpgrade ? `${upgradeFromPlan} + API` : planName),
           planPrice,
-          accessDays: isFeatureUnlockOnly ? 0 : accessDays,
+          accessDays: isFeatureUnlockOnly || planPrice <= 25 ? 0 : accessDays,
           paymentMethod: 'PIX',
-          paymentId: firstPayment.id,
+          paymentId: firstPaymentId,
           status: 'pending',
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
@@ -143,10 +155,10 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
           source: isUpgrade ? 'upgrade' : (isFeatureUnlockOnly ? 'feature_unlock' : 'panel'),
           isUpgrade,
           upgradeFrom: isUpgrade ? upgradeFromPlan : undefined,
-          isFeatureUnlockOnly,
+          isFeatureUnlockOnly: isFeatureUnlockOnly || planPrice <= 25,
           requiredFeature
         });
-        console.log('💰 Registro financeiro pendente criado:', firstPayment.id);
+        console.log('💰 Registro financeiro pendente criado:', firstPaymentId);
       } catch (finErr) {
         console.error('Erro ao salvar registro financeiro pendente:', finErr);
       }
@@ -154,58 +166,59 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
       // 5. Polling para verificar pagamento
       pollRef.current = setInterval(async () => {
         try {
-          const status = await AsaasPaymentService.getPaymentStatus(firstPayment.id);
+          const status = await AsaasPaymentService.getPaymentStatus(firstPaymentId);
           if (status.status === 'RECEIVED' || status.status === 'CONFIRMED') {
             if (pollRef.current) clearInterval(pollRef.current);
             
-            // Estender acesso: 365 dias para plano anual, 30 para mensal
-            const accessDays = planPrice >= 300 ? 365 : (isFeatureUnlockOnly ? 0 : 30);
+            const isUnlock = isFeatureUnlockOnly || planPrice <= 25;
+            const accessDays = isUnlock ? 0 : (planPrice >= 250 ? 365 : (planPrice >= 70 ? 90 : 30));
             const startDate = new Date();
             const endDate = new Date();
             endDate.setDate(endDate.getDate() + (accessDays || 30));
             setConfirmedDates({
               start: startDate.toLocaleDateString('pt-BR'),
-              end: endDate.toLocaleDateString('pt-BR')
+              end: isUnlock ? 'Inalterada (Plano Atual Mantido)' : endDate.toLocaleDateString('pt-BR')
             });
             if (userInfo?.id) {
               try {
                 const { PaymentReconciliationService } = await import('@/services/PaymentReconciliationService');
-                const result = await PaymentReconciliationService.activatePaidPlanOrProduct(
+                await PaymentReconciliationService.activatePaidPlanOrProduct(
                   userInfo.id,
                   userInfo.email || email,
                   name || userInfo.email?.split('@')[0] || 'Usuário',
                   {
-                    planName: isFeatureUnlockOnly ? `Desbloqueio: ${requiredFeature || planName}` : planName,
+                    planName: isUnlock ? `Desbloqueio: ${requiredFeature || planName}` : planName,
                     planPrice,
-                    accessDays,
+                    accessDays: isUnlock ? 0 : accessDays,
                     isUpgrade,
                     upgradeFrom: upgradeFromPlan,
-                    isFeatureUnlockOnly,
+                    isFeatureUnlockOnly: isUnlock,
                     requiredFeature
                   },
-                  firstPayment.id
+                  firstPaymentId
                 );
 
                 // Atualizar no controle financeiro para confirmado
                 try {
-                  await setDoc(doc(db, 'financialRecords', firstPayment.id), {
+                  await setDoc(doc(db, 'financialRecords', firstPaymentId), {
                     status: 'confirmed',
-                    confirmedAt: new Date().toISOString()
+                    confirmedAt: new Date().toISOString(),
+                    accessDays: isUnlock ? 0 : accessDays
                   }, { merge: true });
                   console.log('💰 Registro financeiro confirmado atualizado');
                 } catch (finErr) {
                   console.error('Erro ao salvar registro financeiro confirmado:', finErr);
                 }
 
-                toast.success(isFeatureUnlockOnly
-                  ? `Recurso liberado com sucesso!`
+                toast.success(isUnlock
+                  ? `Recurso liberado com sucesso! Seu plano e validade foram mantidos intactos.`
                   : (isUpgrade 
                       ? `Upgrade confirmado! API liberada.` 
                       : `Pagamento confirmado! Acesso estendido por ${accessDays} dias.`
                     )
                 );
               } catch (extendError) {
-                console.error('Erro ao estender acesso:', extendError);
+                console.error('Erro ao ativar acesso:', extendError);
                 toast.success('Pagamento confirmado! Acesso liberado no sistema.');
               }
             } else {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Trophy, 
@@ -15,7 +15,10 @@ import {
   History,
   Settings,
   Lock,
-  ArrowRight
+  ArrowRight,
+  Sparkles,
+  Download,
+  CalendarDays
 } from 'lucide-react';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useGlobalJogosDiaConfig } from '@/hooks/useGlobalJogosDiaConfig';
@@ -34,6 +37,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useNavigate } from 'react-router-dom';
 import { PermissionGate } from '@/components/PermissionGate';
+import { analyzeJogoDate, JogoDateInfo } from '@/utils/jogosDiaDateUtils';
 
 
 interface JogoDia {
@@ -43,7 +47,8 @@ interface JogoDia {
   'Logo Casa': string;
   'Time Fora': string;
   'Logo Fora': string;
-  'Data Horario': string;
+  'Data Horario'?: string;
+  Data?: string;
   Link: string;
   Campeonato: string;
   'Link 1'?: string;
@@ -61,10 +66,12 @@ const JogosDia = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [importingIds, setImportingIds] = useState<Set<string>>(new Set());
+  const [isImportingAllToday, setIsImportingAllToday] = useState(false);
   const baserowService = useBaserowService();
   const [logs, setLogs] = useState<any[]>([]);
   const [showLogs, setShowLogs] = useState(false);
   const [selectedCampeonato, setSelectedCampeonato] = useState<string>('todos');
+  const [selectedDateFilter, setSelectedDateFilter] = useState<'todos' | 'hoje' | 'amanha' | 'proximos'>('todos');
   const [importProgress, setImportProgress] = useState<{
     status: 'running' | 'completed' | 'error' | 'idle';
     current: number;
@@ -135,7 +142,31 @@ const JogosDia = () => {
     return () => unsub();
   }, [userInfo?.id]);
 
+  // Contagem dinâmica por data
+  const dateCounts = useMemo(() => {
+    let hoje = 0;
+    let amanha = 0;
+    let proximos = 0;
+
+    jogos.forEach(jogo => {
+      const dateInfo = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
+      if (dateInfo.isToday) hoje++;
+      else if (dateInfo.isTomorrow) amanha++;
+      else if (dateInfo.isFuture) proximos++;
+    });
+
+    return { hoje, amanha, proximos, todos: jogos.length };
+  }, [jogos]);
+
   const handleImport = async (jogo: JogoDia) => {
+    const dateInfo = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
+
+    // 🔒 BLOQUEIO SEGURO: Não permitir importação de jogos de amanhã ou de datas futuras
+    if (!dateInfo.canImport) {
+      toast.error(`Importação bloqueada: Este jogo está agendado para ${dateInfo.displayDate}. Só pode ser importado no dia da partida.`);
+      return;
+    }
+
     const targetTableId = config?.tableIds?.jogosDia;
     
     if (!targetTableId) {
@@ -175,15 +206,13 @@ const JogosDia = () => {
     setImportingIds(prev => new Set(prev).add(jogo.id));
     
     try {
-      // Mapeamento para o formato da tabela de Canais TV/Jogos do usuário
-      // Assumindo campos padrão: Nome, Link, Categoria, Logo (ou similar)
       const data = {
         'Nome': jogo.Nome,
         'Link': jogo.Link,
         'Categoria': jogo.Campeonato || 'Jogos do Dia',
         'Capa': jogo['Logo Casa'] || '',
         'Logo': jogo['Logo Casa'] || '',
-        'Data': jogo['Data Horario'] || '',
+        'Data': jogo.Data || jogo['Data Horario'] || '',
         'TimeCasa': jogo['Time Casa'],
         'TimeFora': jogo['Time Fora'],
         'Campeonato': jogo.Campeonato,
@@ -191,36 +220,103 @@ const JogosDia = () => {
         'LogoFora': jogo['Logo Fora'] || '',
         'Link1': jogo['Link 1'] || '',
         'Link2': jogo['Link 2'] || '',
-        // Mapeamento extra com espaços para compatibilidade máxima com a tabela destino
         'Time Casa': jogo['Time Casa'],
         'Time Fora': jogo['Time Fora'],
         'Logo Casa': jogo['Logo Casa'],
         'Logo Fora': jogo['Logo Fora'],
-        'Data Horario': jogo['Data Horario'],
+        'Data Horario': jogo['Data Horario'] || jogo.Data || '',
         'Link 1': jogo['Link 1'] || '',
         'Link 2': jogo['Link 2'] || ''
       };
 
-      // Verificar se já existe para evitar duplicados na importação manual
       const existing = await baserowService.getTableData(targetTableId, 1, 10, jogo.Nome);
       const match = existing.results?.find((r: any) => r.Link === jogo.Link || r['Link'] === jogo.Link);
 
-      let success;
       if (match) {
-        success = await baserowService.updateRow(targetTableId, String(match.id), data);
-        toast.success(`Jogo ${jogo.Nome} já existia e foi atualizado!`);
+        await baserowService.updateRow(targetTableId, String(match.id), data);
+        toast.success(`Jogo '${jogo.Nome}' atualizado na grade com sucesso!`);
       } else {
-        success = await baserowService.createRow(targetTableId, data);
-        toast.success(`Jogo ${jogo.Nome} importado com sucesso!`);
+        await baserowService.createRow(targetTableId, data);
+        toast.success(`Jogo '${jogo.Nome}' importado para a grade!`);
       }
     } catch (error) {
-      toast.error('Erro durante a importação');
+      toast.error('Erro durante a importação do jogo');
     } finally {
       setImportingIds(prev => {
         const next = new Set(prev);
         next.delete(jogo.id);
         return next;
       });
+    }
+  };
+
+  // Importar todos os jogos liberados de HOJE em 1 clique
+  const handleImportAllToday = async () => {
+    const todayGames = jogos.filter(j => {
+      const dateInfo = analyzeJogoDate(j.Data || (j as any)['Data'], j['Data Horario'] || (j as any)['Data Horario']);
+      return dateInfo.canImport;
+    });
+
+    if (todayGames.length === 0) {
+      toast.info('Não há jogos agendados para hoje disponíveis para importação.');
+      return;
+    }
+
+    const targetTableId = config?.tableIds?.jogosDia;
+    if (!targetTableId) {
+      toast.error('Configure o ID da tabela de Jogos do Dia em Configurações antes de importar.');
+      return;
+    }
+
+    setIsImportingAllToday(true);
+    let imported = 0;
+    let errors = 0;
+
+    for (const jogo of todayGames) {
+      try {
+        const data = {
+          'Nome': jogo.Nome,
+          'Link': jogo.Link,
+          'Categoria': jogo.Campeonato || 'Jogos do Dia',
+          'Capa': jogo['Logo Casa'] || '',
+          'Logo': jogo['Logo Casa'] || '',
+          'Data': jogo.Data || jogo['Data Horario'] || '',
+          'TimeCasa': jogo['Time Casa'],
+          'TimeFora': jogo['Time Fora'],
+          'Campeonato': jogo.Campeonato,
+          'LogoCasa': jogo['Logo Casa'] || '',
+          'LogoFora': jogo['Logo Fora'] || '',
+          'Link1': jogo['Link 1'] || '',
+          'Link2': jogo['Link 2'] || '',
+          'Time Casa': jogo['Time Casa'],
+          'Time Fora': jogo['Time Fora'],
+          'Logo Casa': jogo['Logo Casa'],
+          'Logo Fora': jogo['Logo Fora'],
+          'Data Horario': jogo['Data Horario'] || jogo.Data || '',
+          'Link 1': jogo['Link 1'] || '',
+          'Link 2': jogo['Link 2'] || ''
+        };
+
+        const existing = await baserowService.getTableData(targetTableId, 1, 5, jogo.Nome);
+        const match = existing.results?.find((r: any) => r.Link === jogo.Link);
+
+        if (match) {
+          await baserowService.updateRow(targetTableId, String(match.id), data);
+        } else {
+          await baserowService.createRow(targetTableId, data);
+        }
+        imported++;
+      } catch (err) {
+        errors++;
+      }
+    }
+
+    setIsImportingAllToday(false);
+    if (imported > 0) {
+      toast.success(`${imported} jogos de hoje foram importados/atualizados na sua grade!`);
+    }
+    if (errors > 0) {
+      toast.warning(`${errors} jogos falharam ao importar.`);
     }
   };
 
@@ -234,8 +330,20 @@ const JogosDia = () => {
       jogo['Time Fora']?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesFilter = selectedCampeonato === 'todos' || jogo.Campeonato === selectedCampeonato;
+
+    // Filtro por Data
+    const dateInfo = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
+    let matchesDate = true;
+
+    if (selectedDateFilter === 'hoje') {
+      matchesDate = dateInfo.isToday;
+    } else if (selectedDateFilter === 'amanha') {
+      matchesDate = dateInfo.isTomorrow;
+    } else if (selectedDateFilter === 'proximos') {
+      matchesDate = dateInfo.isFuture && !dateInfo.isTomorrow;
+    }
     
-    return matchesSearch && matchesFilter;
+    return matchesSearch && matchesFilter && matchesDate;
   });
 
   if (loadingConfig) {
@@ -284,10 +392,10 @@ const JogosDia = () => {
           </div>
 
           <h1 className="text-4xl lg:text-5xl font-black tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
-            Jogos do Dia
+            Jogos do Dia & Programação
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl">
-            Importe os principais eventos esportivos de hoje diretamente para sua grade de canais com apenas um clique.
+            Acompanhe a grade esportiva completa da semana. Os jogos de <span className="text-emerald-400 font-semibold">Hoje</span> estão liberados para importação imediata, enquanto os jogos de <span className="text-amber-400 font-semibold">Amanhã</span> e próximos dias ficam visíveis para consulta e liberados automaticamente no dia do confronto.
           </p>
         </motion.div>
       </div>
@@ -461,6 +569,91 @@ const JogosDia = () => {
           )}
         </AnimatePresence>
 
+        {/* Date Filter Tabs */}
+        <div className="mb-6 flex flex-wrap items-center gap-2 p-1.5 bg-card/60 border border-white/5 rounded-2xl backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => setSelectedDateFilter('todos')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              selectedDateFilter === 'todos'
+                ? 'bg-white/10 text-white shadow-lg border border-white/10'
+                : 'text-muted-foreground hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <CalendarDays className="w-4 h-4" />
+            <span>Todos os Jogos</span>
+            <Badge variant="secondary" className="text-[10px] ml-1 bg-white/10 text-white">
+              {dateCounts.todos}
+            </Badge>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedDateFilter('hoje')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              selectedDateFilter === 'hoje'
+                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                : 'text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/5'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Jogos de Hoje (Liberados)</span>
+            <Badge variant="secondary" className="text-[10px] ml-1 bg-emerald-500/20 text-emerald-300">
+              {dateCounts.hoje}
+            </Badge>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedDateFilter('amanha')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              selectedDateFilter === 'amanha'
+                ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
+                : 'text-muted-foreground hover:text-amber-400 hover:bg-amber-500/5'
+            }`}
+          >
+            <Clock className="w-4 h-4 text-amber-400" />
+            <span>Amanhã (Programação)</span>
+            <Badge variant="secondary" className="text-[10px] ml-1 bg-amber-500/20 text-amber-300">
+              {dateCounts.amanha}
+            </Badge>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedDateFilter('proximos')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              selectedDateFilter === 'proximos'
+                ? 'bg-sky-600 text-white shadow-lg shadow-sky-500/20'
+                : 'text-muted-foreground hover:text-sky-400 hover:bg-sky-500/5'
+            }`}
+          >
+            <Calendar className="w-4 h-4 text-sky-400" />
+            <span>Próximos Dias</span>
+            <Badge variant="secondary" className="text-[10px] ml-1 bg-sky-500/20 text-sky-300">
+              {dateCounts.proximos}
+            </Badge>
+          </button>
+
+          {dateCounts.hoje > 0 && (
+            <div className="ml-auto flex items-center pr-1">
+              <Button
+                size="sm"
+                onClick={handleImportAllToday}
+                disabled={isImportingAllToday || loading}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-2 rounded-xl"
+              >
+                {isImportingAllToday ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5" />
+                )}
+                Importar {dateCounts.hoje} Jogos de Hoje
+              </Button>
+            </div>
+          )}
+        </div>
+
         {/* Controls */}
         <div className="bg-card/50 backdrop-blur-md border border-white/5 rounded-2xl p-4 shadow-xl flex flex-col md:flex-row gap-4 items-center justify-between mb-8">
           <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto flex-1">
@@ -502,101 +695,155 @@ const JogosDia = () => {
           </div>
         </div>
 
+        {/* Notice Info Box */}
+        <div className="mb-6 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/15 flex items-start gap-3">
+          <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 mt-0.5">
+            <Calendar className="w-5 h-5" />
+          </div>
+          <div className="text-xs space-y-1">
+            <p className="font-bold text-foreground">Regra de Liberação Automática por Data</p>
+            <p className="text-muted-foreground">
+              Apenas os confrontos com data de <strong>Hoje</strong> podem ser adicionados à sua tabela de canais. Os jogos de <strong>Amanhã</strong> e dos <strong>Próximos Dias</strong> ficam visíveis para você planejar a programação e serão desbloqueados automaticamente à meia-noite do dia da partida.
+            </p>
+          </div>
+        </div>
+
         {/* Grid Content */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3, 4, 5, 6].map(i => (
-              <Skeleton key={i} className="h-48 rounded-2xl bg-white/5" />
+              <Skeleton key={i} className="h-56 rounded-2xl bg-white/5" />
             ))}
           </div>
         ) : filteredJogos.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <AnimatePresence mode="popLayout">
-              {filteredJogos.map((jogo, index) => (
-                <motion.div
-                  key={jogo.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <Card className="group relative overflow-hidden bg-card/40 border-white/5 hover:border-emerald-500/30 transition-all duration-500 hover:shadow-2xl hover:shadow-emerald-500/10 rounded-2xl">
-                    <CardContent className="p-0">
-                      {/* Match Header */}
-                      <div className="p-4 bg-emerald-500/5 flex items-center justify-between border-b border-white/5">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500/80 truncate pr-2">
-                          {jogo.Campeonato || 'Evento'}
-                        </span>
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <Calendar className="w-3 h-3" />
-                          <span className="text-[11px] font-medium">{jogo['Data Horario'] || 'Hoje'}</span>
-                        </div>
-                      </div>
+              {filteredJogos.map((jogo, index) => {
+                const dateInfo = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
 
-                      {/* Match Content */}
-                      <div className="p-6">
-                        <div className="flex items-center justify-between gap-4">
-                          {/* Team A */}
-                          <div className="flex flex-col items-center gap-3 flex-1">
-                            <div className="w-14 h-14 rounded-full bg-white/5 p-2 border border-white/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                              {jogo['Logo Casa'] ? (
-                                <img src={jogo['Logo Casa']} alt={jogo['Time Casa']} className="w-full h-full object-contain" />
-                              ) : (
-                                <Users className="w-6 h-6 text-muted-foreground/50" />
-                              )}
-                            </div>
-                            <span className="text-xs font-bold text-center line-clamp-2 min-h-[2rem]">
-                              {jogo['Time Casa'] || 'Time A'}
-                            </span>
-                          </div>
-
-                          <div className="flex flex-col items-center">
-                            <div className="text-xl font-black text-white/20 italic tracking-tighter">VS</div>
-                          </div>
-
-                          {/* Team B */}
-                          <div className="flex flex-col items-center gap-3 flex-1">
-                            <div className="w-14 h-14 rounded-full bg-white/5 p-2 border border-white/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                              {jogo['Logo Fora'] ? (
-                                <img src={jogo['Logo Fora']} alt={jogo['Time Fora']} className="w-full h-full object-contain" />
-                              ) : (
-                                <Users className="w-6 h-6 text-muted-foreground/50" />
-                              )}
-                            </div>
-                            <span className="text-xs font-bold text-center line-clamp-2 min-h-[2rem]">
-                              {jogo['Time Fora'] || 'Time B'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="p-4 pt-0">
-
-                        <Button 
-                          className={`w-full rounded-xl font-bold transition-all duration-300 ${
-                            jogo.imported 
-                              ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' 
-                              : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                          }`}
-                          onClick={() => handleImport(jogo)}
-                          disabled={importingIds.has(jogo.id) || jogo.imported}
-                        >
-                          {importingIds.has(jogo.id) ? (
-                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          ) : jogo.imported ? (
-                            <Check className="w-4 h-4 mr-2" />
+                return (
+                  <motion.div
+                    key={jogo.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ delay: index * 0.04 }}
+                  >
+                    <Card className={`group relative overflow-hidden bg-card/40 transition-all duration-500 hover:shadow-2xl rounded-2xl ${
+                      dateInfo.canImport
+                        ? 'border-white/5 hover:border-emerald-500/40 hover:shadow-emerald-500/10'
+                        : 'border-amber-500/20 hover:border-amber-500/40 bg-card/30'
+                    }`}>
+                      <CardContent className="p-0">
+                        {/* Match Header */}
+                        <div className="p-4 bg-emerald-500/5 flex items-center justify-between border-b border-white/5">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500/80 truncate pr-2">
+                            {jogo.Campeonato || 'Evento'}
+                          </span>
+                          
+                          {/* Date status badge */}
+                          {dateInfo.isToday ? (
+                            <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              Hoje
+                            </Badge>
+                          ) : dateInfo.isTomorrow ? (
+                            <Badge className="bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {dateInfo.displayDate}
+                            </Badge>
+                          ) : dateInfo.isFuture ? (
+                            <Badge className="bg-sky-500/15 text-sky-300 border border-sky-500/30 text-[10px] font-bold flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {dateInfo.displayDate}
+                            </Badge>
                           ) : (
-                            <Plus className="w-4 h-4 mr-2" />
+                            <Badge className="bg-zinc-500/15 text-zinc-400 border border-zinc-500/30 text-[10px]">
+                              {dateInfo.displayDate}
+                            </Badge>
                           )}
-                          {jogo.imported ? 'Importado' : 'Importar'}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
+                        </div>
+
+                        {/* Match Content */}
+                        <div className="p-6">
+                          <div className="flex items-center justify-between gap-4">
+                            {/* Team A */}
+                            <div className="flex flex-col items-center gap-3 flex-1">
+                              <div className="w-14 h-14 rounded-full bg-white/5 p-2 border border-white/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                                {jogo['Logo Casa'] ? (
+                                  <img src={jogo['Logo Casa']} alt={jogo['Time Casa']} className="w-full h-full object-contain" />
+                                ) : (
+                                  <Users className="w-6 h-6 text-muted-foreground/50" />
+                                )}
+                              </div>
+                              <span className="text-xs font-bold text-center line-clamp-2 min-h-[2rem]">
+                                {jogo['Time Casa'] || 'Time A'}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-col items-center">
+                              <div className="text-xl font-black text-white/20 italic tracking-tighter">VS</div>
+                              {(jogo['Data Horario'] || jogo.Data) && (
+                                <span className="text-[10px] text-muted-foreground mt-1 font-mono">
+                                  {jogo['Data Horario'] || jogo.Data}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Team B */}
+                            <div className="flex flex-col items-center gap-3 flex-1">
+                              <div className="w-14 h-14 rounded-full bg-white/5 p-2 border border-white/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                                {jogo['Logo Fora'] ? (
+                                  <img src={jogo['Logo Fora']} alt={jogo['Time Fora']} className="w-full h-full object-contain" />
+                                ) : (
+                                  <Users className="w-6 h-6 text-muted-foreground/50" />
+                                )}
+                              </div>
+                              <span className="text-xs font-bold text-center line-clamp-2 min-h-[2rem]">
+                                {jogo['Time Fora'] || 'Time B'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="p-4 pt-0">
+                          {dateInfo.canImport ? (
+                            <Button 
+                              className={`w-full rounded-xl font-bold transition-all duration-300 ${
+                                jogo.imported 
+                                  ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' 
+                                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                              }`}
+                              onClick={() => handleImport(jogo)}
+                              disabled={importingIds.has(jogo.id) || jogo.imported}
+                            >
+                              {importingIds.has(jogo.id) ? (
+                                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                              ) : jogo.imported ? (
+                                <Check className="w-4 h-4 mr-2" />
+                              ) : (
+                                <Plus className="w-4 h-4 mr-2" />
+                              )}
+                              {jogo.imported ? 'Importado' : 'Importar para Grade'}
+                            </Button>
+                          ) : (
+                            <Button 
+                              variant="outline"
+                              className="w-full rounded-xl font-medium text-xs bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 cursor-not-allowed opacity-90"
+                              onClick={() => toast.info(`Este jogo está programado para ${dateInfo.displayDate} e só poderá ser importado no dia da partida.`)}
+                            >
+                              <Lock className="w-3.5 h-3.5 mr-2 text-amber-400" />
+                              Disponível no dia ({dateInfo.displayDate})
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           </div>
         ) : (
@@ -606,7 +853,9 @@ const JogosDia = () => {
             </div>
             <h3 className="text-xl font-bold mb-2">Nenhum jogo encontrado</h3>
             <p className="text-muted-foreground max-w-sm mx-auto">
-              Tente ajustar seus termos de busca ou sincronize novamente para buscar novos eventos.
+              {selectedDateFilter !== 'todos'
+                ? `Não há jogos cadastrados na categoria '${selectedDateFilter}'. Tente selecionar 'Todos os Jogos'.`
+                : 'Tente ajustar seus termos de busca ou sincronize novamente para buscar novos eventos.'}
             </p>
           </div>
         )}
@@ -617,3 +866,4 @@ const JogosDia = () => {
 };
 
 export default JogosDia;
+

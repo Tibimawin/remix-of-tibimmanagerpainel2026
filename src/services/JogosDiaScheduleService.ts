@@ -2,6 +2,7 @@ import { collection, doc, getDoc, updateDoc, addDoc, setDoc } from 'firebase/fir
 import { db } from '@/config/firebase';
 import { UserConfigService } from './UserConfigService';
 import { BaserowService } from './BaserowService';
+import { isJogoElegivelHoje, analyzeJogoDate } from '@/utils/jogosDiaDateUtils';
 
 export interface JogosDiaSchedule {
   id: string;
@@ -81,9 +82,24 @@ export class JogosDiaScheduleService {
         updatedAt: new Date().toISOString()
       });
       
+      let skippedFuture = 0;
+
       for (let i = 0; i < total; i++) {
         const jogo = items[i];
         try {
+          // REGRA DE OURO: Apenas jogos agendados para HOJE são importados para a grade.
+          // Jogos de amanhã ou outras datas futuras são ignorados até o dia do evento.
+          const dateCheck = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
+          if (!dateCheck.canImport) {
+            console.log(`⏳ [JogosDiaSchedule] Ignorando jogo futuro '${jogo.Nome}' (${dateCheck.displayDate}) - liberado apenas no dia.`);
+            skippedFuture++;
+            await updateDoc(progressRef, {
+              current: i + 1,
+              updatedAt: new Date().toISOString()
+            });
+            continue;
+          }
+
           const existing = await userBaserow.getTableData(targetTableId, 1, 1, jogo.Nome);
           const match = existing.results.find((r: any) => r.Link === jogo.Link);
           
@@ -96,7 +112,7 @@ export class JogosDiaScheduleService {
             'TimeCasa': jogo['Time Casa'],
             'TimeFora': jogo['Time Fora'],
             'Campeonato': jogo.Campeonato,
-            'Data': jogo['Data Horario'] || '',
+            'Data': jogo.Data || jogo['Data Horario'] || '',
             'LogoCasa': jogo['Logo Casa'] || '',
             'LogoFora': jogo['Logo Fora'] || '',
             'Link1': jogo['Link 1'] || '',
@@ -106,7 +122,7 @@ export class JogosDiaScheduleService {
             'Time Fora': jogo['Time Fora'],
             'Logo Casa': jogo['Logo Casa'],
             'Logo Fora': jogo['Logo Fora'],
-            'Data Horario': jogo['Data Horario'],
+            'Data Horario': jogo['Data Horario'] || jogo.Data || '',
             'Link 1': jogo['Link 1'] || '',
             'Link 2': jogo['Link 2'] || ''
           };

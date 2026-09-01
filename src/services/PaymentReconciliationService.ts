@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc, addDoc, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, addDoc, query, where, runTransaction } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { AsaasPaymentService } from './AsaasPaymentService';
 import { FirebaseUserService } from './FirebaseUserService';
@@ -26,7 +26,7 @@ export function resolveFeatureId(nameOrId: string): string | null {
   if (directMatch) return directMatch.id;
 
   // 2. Mapeamentos rápidos para termos populares
-  if (norm.includes('jogos') || norm.includes('jogo do dia') || norm.includes('jogos-dia')) return 'jogos-dia';
+  if (norm.includes('jogos') || norm.includes('jogo ao dia') || norm.includes('jogo do dia') || norm.includes('jogos-dia')) return 'jogos-dia';
   if (norm.includes('gerador de post') || norm.includes('gerador-post') || norm.includes('post')) return 'gerador-post';
   if (norm.includes('gerador de banner') || norm.includes('gerador-banner') || norm.includes('banner')) return 'gerador-banner';
   if (norm.includes('ferramentas ia') || norm.includes('ferramentas-ia') || norm.includes('inteligencia') || norm.includes('ia')) return 'ferramentas-ia';
@@ -55,6 +55,146 @@ export function resolveFeatureId(nameOrId: string): string | null {
 }
 
 export const PaymentReconciliationService = {
+  /**
+   * Executa uma transação no Firebase Firestore ao processar a liberação de funcionalidades.
+   * Regras estritas:
+   * 1. Lê atomicamente as permissões e o usuário no Firestore.
+   * 2. Verifica se o usuário já possui um plano ativo e mantém o plano intacto.
+   * 3. Apenas adiciona o novo recurso à lista de 'enabledFeatures' (sem duplicatas e preservando os existentes).
+   * 4. Garante que o timestamp de expiração da assinatura (expiryDate) NÃO seja sobrescrito ou estendido.
+   */
+  async unlockFeatureWithTransaction(
+    userId: string,
+    userEmail: string,
+    userName: string,
+    targetFeatureId: string,
+    paymentId: string,
+    planPrice: number = 15
+  ): Promise<{
+    planName: string;
+    enabledFeatures: string[];
+    expiryDate: string;
+    hasActivePlan: boolean;
+  }> {
+    const emailNorm = (userEmail || '').toLowerCase().trim();
+    const cleanUserName = userName || emailNorm.split('@')[0] || 'Usuário';
+
+    const featureObj = AVAILABLE_FEATURES.find(f => f.id === targetFeatureId);
+    const featureDisplayName = featureObj?.name || targetFeatureId;
+
+    const permissionsRef = doc(db, 'userPermissions', userId);
+    const userRef = doc(db, 'users', userId);
+    const unlockDocRef = doc(db, 'featureUnlocks', `${userId}_${targetFeatureId}`);
+    const autoLogDocRef = doc(collection(db, 'autoPermissionLogs'));
+
+    console.log(`🔒 [Transaction] Processando liberação atômica de '${targetFeatureId}' para ${emailNorm} (ID: ${userId})...`);
+
+    const result = await runTransaction(db, async (transaction) => {
+      // LEITURAS ATÔMICAS (Devem preceder todas as escritas)
+      const permissionsSnap = await transaction.get(permissionsRef);
+      const userSnap = await transaction.get(userRef);
+
+      const permData = permissionsSnap.exists() ? permissionsSnap.data() : null;
+      const userData = userSnap.exists() ? userSnap.data() : null;
+
+      // 1. Extrair funcionalidades existentes
+      const currentFeatures: string[] = (permData && Array.isArray(permData.enabledFeatures))
+        ? permData.enabledFeatures
+        : [];
+
+      // 2. Verificar dados do plano existente
+      const existingPlanId = permData?.planId || 'plano-atual';
+      const existingPlanName = permData?.planName || 'Plano Atual';
+      const existingMonthlyLimit = permData?.monthlyContentLimit ?? -1;
+      const existingUsage = permData?.currentMonthUsage || 0;
+      const existingIsActive = permData?.isActive !== undefined
+        ? permData.isActive
+        : (userData?.isActive !== undefined ? userData.isActive : true);
+
+      // 3. ⚠️ GARANTIA ATÔMICA DO TIMESTAMP DE EXPIRAÇÃO:
+      // O timestamp de expiração da assinatura do plano NÃO é sobrescrito nem estendido!
+      const existingExpiryDate: string = permData?.expiryDate || userData?.expiryDate || new Date(Date.now() + 30 * 86400000).toISOString();
+
+      const hasActivePlan = (permData?.planName && permData.planName !== 'Gratuito (1 dia)') ||
+                            (userData?.expiryDate && new Date(userData.expiryDate).getTime() > Date.now());
+
+      // 4. Adicionar apenas o novo recurso à lista de 'features' permitidas sem duplicatas
+      const mergedFeatures = Array.from(new Set([
+        ...currentFeatures,
+        targetFeatureId,
+        'planos'
+      ]));
+
+      // ESCRITAS ATÔMICAS
+      // Atualizar userPermissions preservando 100% dos dados de plano e validade
+      transaction.set(permissionsRef, {
+        userId,
+        userEmail: emailNorm,
+        userName: cleanUserName,
+        planId: existingPlanId,
+        planName: existingPlanName,
+        monthlyContentLimit: existingMonthlyLimit,
+        enabledFeatures: mergedFeatures,
+        currentMonthUsage: existingUsage,
+        lastUpdated: new Date().toISOString(),
+        // 🛡️ TIMESTAMP PRESERVADO INTACTO (Não estendido e não sobrescrito)
+        expiryDate: existingExpiryDate,
+        isActive: existingIsActive
+      }, { merge: true });
+
+      // Registrar o desbloqueio permanente na coleção featureUnlocks
+      transaction.set(unlockDocRef, {
+        userId,
+        userEmail: emailNorm,
+        userName: cleanUserName,
+        featureId: targetFeatureId,
+        featureName: featureDisplayName,
+        amount: planPrice,
+        paymentId,
+        unlockedAt: new Date().toISOString(),
+        status: 'active'
+      }, { merge: true });
+
+      // Registrar log auditável de auto-permissão
+      transaction.set(autoLogDocRef, {
+        userId,
+        userEmail: emailNorm,
+        userName: cleanUserName,
+        planName: existingPlanName,
+        planId: existingPlanId,
+        featureId: targetFeatureId,
+        featureName: featureDisplayName,
+        featuresCount: mergedFeatures.length,
+        features: mergedFeatures,
+        grantedAt: new Date().toISOString(),
+        source: 'firebase-transaction-feature-unlock',
+        paymentId,
+        originalExpiryDatePreserved: existingExpiryDate
+      });
+
+      return {
+        planName: existingPlanName,
+        enabledFeatures: mergedFeatures,
+        expiryDate: existingExpiryDate,
+        hasActivePlan
+      };
+    });
+
+    console.log(`✅ [Transaction] Transação concluída com sucesso! Recurso '${targetFeatureId}' liberado. Expiração preservada: ${result.expiryDate}`);
+
+    // Push notification (após confirmação da transação)
+    try {
+      await pushEventsService.notifyPaymentConfirmed({
+        paymentId,
+        accessDays: 0,
+      });
+    } catch (pushErr) {
+      console.warn('Falha no push pós-transação:', pushErr);
+    }
+
+    return result;
+  },
+
   /**
    * Ativa as permissões e dias de um plano, produto ou desbloqueio avulso de funcionalidade
    */
@@ -133,17 +273,26 @@ export const PaymentReconciliationService = {
 
     // ─────────────────────────────────────────────────────────────
     // 3. DESBLOQUEIO DE FUNCIONALIDADE AVULSA (R$ 15,00)
+    // TRANSAÇÃO NO FIREBASE:
+    // - Executa via runTransaction do Firestore garantindo atomicidade.
+    // - Verifica se o usuário já possui um plano ativo e dados no banco.
+    // - Adiciona a funcionalidade à lista de features permitidas sem duplicatas.
+    // - Garante que o timestamp de expiração da assinatura do plano NÃO seja sobrescrito ou estendido.
     // ─────────────────────────────────────────────────────────────
     const isFeatureUnlock = 
       planInfo.isFeatureUnlockOnly === true ||
       !!planInfo.requiredFeature ||
       planInfo.source === 'feature_unlock' ||
+      (planInfo.planPrice !== undefined && planInfo.planPrice <= 25) ||
       normalizedName.includes('desbloqueio') ||
       normalizedName.includes('unlock') ||
-      (planInfo.planPrice !== undefined && Math.abs(planInfo.planPrice - 15) < 2);
+      normalizedName.includes('jogo ao dia') ||
+      normalizedName.includes('jogos do dia') ||
+      normalizedName.includes('jogos-dia') ||
+      normalizedName.includes('liberar recurso');
 
     if (isFeatureUnlock) {
-      console.log(`🔓 [Reconciliation] Processando desbloqueio avulso de funcionalidade (R$ 15) para ${emailNorm}`);
+      console.log(`🔓 [Reconciliation] Desbloqueio avulso de recurso para ${emailNorm} (Transação Firestore - Plano e Validade INALTERADOS)`);
       
       // Descobrir qual é a funcionalidade
       let targetFeatureId = planInfo.requiredFeature;
@@ -151,110 +300,41 @@ export const PaymentReconciliationService = {
         targetFeatureId = resolveFeatureId(planInfo.planName || '') || 'jogos-dia';
       }
 
-      const featureObj = AVAILABLE_FEATURES.find(f => f.id === targetFeatureId);
-      const featureDisplayName = featureObj?.name || targetFeatureId;
-
-      // Buscar as permissões atuais do usuário
-      const permissionsRef = doc(db, 'userPermissions', userId);
-      const permissionsDoc = await getDoc(permissionsRef);
-      const currentPermissions = permissionsDoc.exists() ? permissionsDoc.data() : {};
-      const currentFeatures: string[] = Array.isArray(currentPermissions.enabledFeatures) ? currentPermissions.enabledFeatures : [];
-
-      // Mesclar mantendo tudo o que o usuário já tinha + a nova feature desbloqueada + 'planos'
-      const mergedFeatures = Array.from(new Set([
-        ...currentFeatures,
-        targetFeatureId,
-        'planos'
-      ]));
-
-      // Determinar data de expiração
-      let finalExpiry = currentPermissions.expiryDate;
-      const now = new Date();
-      if (!finalExpiry || new Date(finalExpiry) <= now) {
-        // Se estava sem data ou expirado, garante 30 dias de acesso
-        const expDate = new Date();
-        expDate.setDate(expDate.getDate() + 30);
-        finalExpiry = expDate.toISOString();
-        try {
-          await FirebaseUserService.extendUserAccess(userId, 30);
-        } catch (e) {
-          console.warn('Aviso ao estender usuário no desbloqueio:', e);
-        }
-      }
-
-      const finalPlanName = currentPermissions.planName || 'Plano com Recursos Desbloqueados';
-      const finalPlanId = currentPermissions.planId || 'feature-unlocked';
-
-      await setDoc(permissionsRef, {
+      const txResult = await this.unlockFeatureWithTransaction(
         userId,
-        userEmail: emailNorm,
-        userName: cleanUserName,
-        planId: finalPlanId,
-        planName: finalPlanName,
-        monthlyContentLimit: currentPermissions.monthlyContentLimit ?? -1,
-        enabledFeatures: mergedFeatures,
-        currentMonthUsage: currentPermissions.currentMonthUsage || 0,
-        lastUpdated: new Date().toISOString(),
-        expiryDate: finalExpiry,
-        isActive: true
-      }, { merge: true });
+        emailNorm,
+        cleanUserName,
+        targetFeatureId,
+        paymentId,
+        planInfo.planPrice || 15
+      );
 
-      console.log(`✅ Feature '${targetFeatureId}' desbloqueada com sucesso para ${emailNorm}! Total de features: ${mergedFeatures.length}`);
-
-      // Registrar na coleção featureUnlocks (persistência permanente e auditável)
-      try {
-        await setDoc(doc(db, 'featureUnlocks', `${userId}_${targetFeatureId}`), {
-          userId,
-          userEmail: emailNorm,
-          userName: cleanUserName,
-          featureId: targetFeatureId,
-          featureName: featureDisplayName,
-          amount: planInfo.planPrice || 15,
-          paymentId,
-          unlockedAt: new Date().toISOString(),
-          status: 'active'
-        }, { merge: true });
-      } catch (errUnlock) {
-        console.warn('Aviso ao registrar featureUnlocks:', errUnlock);
-      }
-
-      // Registrar log de auto-permissão
-      try {
-        await addDoc(collection(db, 'autoPermissionLogs'), {
-          userId,
-          userEmail: emailNorm,
-          userName: cleanUserName,
-          planName: `Desbloqueio: ${featureDisplayName}`,
-          planId: `unlock-${targetFeatureId}`,
-          featureId: targetFeatureId,
-          featuresCount: mergedFeatures.length,
-          features: mergedFeatures,
-          grantedAt: new Date().toISOString(),
-          source: 'payment-feature-unlock',
-          paymentId
-        });
-      } catch (logErr) {
-        console.warn('Erro ao salvar autoPermissionLogs:', logErr);
-      }
-
-      // Push notification
-      try {
-        await pushEventsService.notifyPaymentConfirmed({
-          paymentId,
-          accessDays: 0,
-        });
-      } catch (pushErr) {
-        console.warn('Falha no push:', pushErr);
-      }
-
-      return { planName: `Desbloqueio: ${featureDisplayName}`, accessDays: 0 };
+      return {
+        planName: txResult.planName || `Desbloqueio: ${targetFeatureId}`,
+        accessDays: 0
+      };
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 4. PLANO DE ASSINATURA DO PAINEL (Mensal, Trimestral, Anual, etc.)
+    // 4. PLANO DE ASSINATURA DO PAINEL (Mensal, Trimestral, Anual)
     // ─────────────────────────────────────────────────────────────
     const price = planInfo.planPrice || 35;
-    const accessDays = planInfo.accessDays || (price >= 300 ? 365 : 30);
+    
+    // Cálculo seguro de dias com base no valor ou nome:
+    // >= 250 -> Anual (365 dias)
+    // 70 - 249 -> Trimestral (90 dias)
+    // Padrão -> Mensal (30 dias)
+    let accessDays = planInfo.accessDays;
+    if (!accessDays) {
+      if (price >= 250 || normalizedName.includes('anual')) {
+        accessDays = 365;
+      } else if (price >= 70 || normalizedName.includes('trimestral')) {
+        accessDays = 90;
+      } else {
+        accessDays = 30;
+      }
+    }
+
     const startDate = new Date();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + accessDays);
@@ -291,11 +371,18 @@ export const PaymentReconciliationService = {
     const norm = (s: string) => (s || '').toLowerCase().trim();
     const targetPlanName = planInfo.planName || '';
 
-    // Encontrar o plano mais adequado
-    let matchedPlan = allPlans.find(p => norm(p.name) === norm(targetPlanName));
-    if (!matchedPlan && targetPlanName) {
-      matchedPlan = allPlans.find(p => norm(p.name).includes(norm(targetPlanName)) || norm(targetPlanName).includes(norm(p.name)));
+    // Encontrar o plano mais adequado de forma inteligente e segura
+    let matchedPlan: Plan | undefined;
+
+    // 1. Match por nome exato
+    if (targetPlanName) {
+      matchedPlan = allPlans.find(p => norm(p.name) === norm(targetPlanName));
+      if (!matchedPlan) {
+        matchedPlan = allPlans.find(p => norm(p.name).includes(norm(targetPlanName)) || norm(targetPlanName).includes(norm(p.name)));
+      }
     }
+
+    // 2. Match por preço aproximado (+- R$ 3)
     if (!matchedPlan && planInfo.planPrice) {
       matchedPlan = allPlans.find(p => {
         const pPrice = typeof p.price === 'number' ? p.price : parseFloat(String(p.price).replace(/[^\d,]/g, '').replace(',', '.'));
@@ -303,11 +390,33 @@ export const PaymentReconciliationService = {
       });
     }
 
-    // Fallback: se não encontrar correspondência exata, selecionar o plano com mais recursos (Empresa / Completo)
+    // 3. Fallback inteligente POR FAIXA DE PREÇO (NUNCA atribuir plano Anual/Empresa para R$ 35!)
     if (!matchedPlan) {
-      matchedPlan = allPlans.find(p => norm(p.name).includes('empresa')) ||
-                    allPlans.find(p => p.monthlyContentLimit === -1) ||
-                    [...allPlans].sort((a, b) => (b.features?.length || 0) - (a.features?.length || 0))[0];
+      if (price <= 60) {
+        // Mensal (~R$ 35)
+        matchedPlan = allPlans.find(p => norm(p.name).includes('mensal') || norm(p.name).includes('básico') || norm(p.name).includes('padrao')) ||
+                      allPlans.find(p => {
+                        const pPrice = typeof p.price === 'number' ? p.price : parseFloat(String(p.price).replace(/[^\d,]/g, '').replace(',', '.'));
+                        return pPrice <= 60;
+                      });
+      } else if (price > 60 && price < 200) {
+        // Trimestral / Semestral
+        matchedPlan = allPlans.find(p => norm(p.name).includes('trimestral') || norm(p.name).includes('intermediário'));
+      } else {
+        // Anual / Empresa
+        matchedPlan = allPlans.find(p => norm(p.name).includes('anual') || norm(p.name).includes('empresa'));
+      }
+    }
+
+    // 4. Último fallback se a lista de planos estiver vazia
+    if (!matchedPlan && allPlans.length > 0) {
+      // Pega o plano de MENOR preço se o valor for baixo, ou o mais compatível
+      const sortedByPrice = [...allPlans].sort((a, b) => {
+        const pa = typeof a.price === 'number' ? a.price : parseFloat(String(a.price).replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+        const pb = typeof b.price === 'number' ? b.price : parseFloat(String(b.price).replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+        return pa - pb;
+      });
+      matchedPlan = price <= 60 ? sortedByPrice[0] : sortedByPrice[sortedByPrice.length - 1];
     }
 
     const permissionsRef = doc(db, 'userPermissions', userId);
@@ -316,8 +425,8 @@ export const PaymentReconciliationService = {
     const existingFeatures = Array.isArray(currentPermissions.enabledFeatures) ? currentPermissions.enabledFeatures : [];
 
     let enabledFeatures: string[] = [];
-    let finalPlanName = targetPlanName || 'Plano Painel';
-    let finalPlanId = matchedPlan?.id || 'plano-auto';
+    let finalPlanName = targetPlanName || (matchedPlan ? matchedPlan.name : (price >= 250 ? 'Plano Anual' : 'Plano Mensal'));
+    let finalPlanId = matchedPlan?.id || (price >= 250 ? 'plano-anual' : 'plano-mensal');
     let monthlyContentLimit = matchedPlan?.monthlyContentLimit ?? -1;
 
     if (planInfo.isUpgrade) {
@@ -333,17 +442,16 @@ export const PaymentReconciliationService = {
         'planos'
       ]));
     } else {
-      // Super fallback completo para garantir que o cliente nunca fique travado
+      // Super fallback padrão seguro para plano mensal
       enabledFeatures = [
         'dashboard', 'conteudos', 'episodios', 'categorias', 'banners',
         'duplicados', 'duplicados-episodios', 'importacao-automatica', 'automacao',
         'substituicao-urls', 'importar-m3u', 'adicionar-conteudo', 'usuarios',
         'sessoes', 'plataformas', 'produtos', 'estatisticas', 'relatorios-visualizacao',
         'recursos', 'clean-data', 'maxplus-import', 'precos-interno', 'configuracoes',
-        'perfil', 'suporte-ao-vivo', 'priority-support', 'export', 'logs', 'planos',
-        'jogos-dia', 'gerador-post', 'gerador-banner'
+        'perfil', 'suporte-ao-vivo', 'priority-support', 'export', 'logs', 'planos'
       ];
-      finalPlanName = targetPlanName || 'Plano Completo';
+      finalPlanName = targetPlanName || (price >= 250 ? 'Plano Anual' : 'Plano Mensal');
     }
 
     await setDoc(permissionsRef, {
@@ -360,7 +468,7 @@ export const PaymentReconciliationService = {
       isActive: true
     }, { merge: true });
 
-    console.log(`🔓 Permissões gravadas no Firestore para ${emailNorm}:`, enabledFeatures.length, 'features');
+    console.log(`🔓 Permissões gravadas no Firestore para ${emailNorm}: ${finalPlanName} (${enabledFeatures.length} features, ${accessDays} dias)`);
 
     // Registrar log
     try {
@@ -430,6 +538,12 @@ export const PaymentReconciliationService = {
           console.log(`Status Asaas para cobrança pendente ${paymentId}:`, asaasStatus?.status);
 
           if (asaasStatus?.status === 'RECEIVED' || asaasStatus?.status === 'CONFIRMED') {
+            const isFeatureUnlock = record.isFeatureUnlockOnly || 
+                                    (record.planPrice !== undefined && record.planPrice <= 25) || 
+                                    (record.planName?.toLowerCase().includes('desbloqueio')) ||
+                                    (record.planName?.toLowerCase().includes('unlock')) ||
+                                    (record.source === 'feature_unlock');
+
             const { planName, accessDays } = await this.activatePaidPlanOrProduct(
               userId,
               emailNorm,
@@ -437,11 +551,11 @@ export const PaymentReconciliationService = {
               {
                 planName: record.planName,
                 planPrice: record.planPrice || asaasStatus.value,
-                accessDays: record.accessDays,
+                accessDays: isFeatureUnlock ? 0 : record.accessDays,
                 isUpgrade: record.isUpgrade,
                 upgradeFrom: record.upgradeFrom,
                 source: record.source,
-                isFeatureUnlockOnly: record.isFeatureUnlockOnly || (record.planPrice === 15) || (record.planName?.toLowerCase().includes('desbloqueio')),
+                isFeatureUnlockOnly: isFeatureUnlock,
                 requiredFeature: record.requiredFeature || resolveFeatureId(record.planName || '') || undefined,
                 items: record.items
               },
@@ -452,7 +566,8 @@ export const PaymentReconciliationService = {
             await setDoc(doc(db, 'financialRecords', paymentId), {
               status: 'confirmed',
               confirmedAt: new Date().toISOString(),
-              asaasPaymentStatus: asaasStatus.status
+              asaasPaymentStatus: asaasStatus.status,
+              accessDays: isFeatureUnlock ? 0 : (record.accessDays || 30)
             }, { merge: true });
 
             activatedPlans.push(planName);
@@ -491,18 +606,27 @@ export const PaymentReconciliationService = {
               console.log(`⚡ Pagamento confirmado encontrado diretamente no Asaas que não estava no Firestore! ID: ${payment.id}`);
               
               const description = payment.description || '';
-              const isUnlock15 = Math.abs(payment.value - 15) < 2 || description.toLowerCase().includes('desbloqueio') || description.toLowerCase().includes('unlock');
-              const resolvedFeature = resolveFeatureId(description) || (isUnlock15 ? 'jogos-dia' : undefined);
+              const isUnlock = payment.value <= 25 || 
+                               description.toLowerCase().includes('desbloqueio') || 
+                               description.toLowerCase().includes('unlock') ||
+                               description.toLowerCase().includes('jogo');
+              
+              const resolvedFeature = resolveFeatureId(description) || (isUnlock ? 'jogos-dia' : undefined);
+
+              let calcDays = 0;
+              if (!isUnlock) {
+                calcDays = payment.value >= 250 ? 365 : (payment.value >= 70 ? 90 : 30);
+              }
 
               const { planName, accessDays } = await this.activatePaidPlanOrProduct(
                 userId,
                 emailNorm,
                 userName || '',
                 {
-                  planName: description.replace('Assinatura ', '').trim() || (isUnlock15 ? 'Desbloqueio: Funcionalidade' : 'Plano Painel'),
+                  planName: description.replace('Assinatura ', '').trim() || (isUnlock ? 'Desbloqueio de Recurso' : 'Plano Painel'),
                   planPrice: payment.value,
-                  accessDays: payment.value >= 300 ? 365 : (isUnlock15 ? 0 : 30),
-                  isFeatureUnlockOnly: isUnlock15,
+                  accessDays: calcDays,
+                  isFeatureUnlockOnly: isUnlock,
                   requiredFeature: resolvedFeature
                 },
                 payment.id
@@ -514,14 +638,14 @@ export const PaymentReconciliationService = {
                 userName: userName || emailNorm.split('@')[0],
                 planName,
                 planPrice: payment.value,
-                accessDays,
+                accessDays: isUnlock ? 0 : calcDays,
                 paymentMethod: payment.billingType || 'PIX',
                 paymentId: payment.id,
                 status: 'confirmed',
                 confirmedAt: new Date().toISOString(),
                 createdAt: payment.dateCreated || new Date().toISOString(),
-                source: isUnlock15 ? 'feature_unlock' : 'asaas-direct-sync',
-                isFeatureUnlockOnly: isUnlock15,
+                source: isUnlock ? 'feature_unlock' : 'asaas-direct-sync',
+                isFeatureUnlockOnly: isUnlock,
                 requiredFeature: resolvedFeature
               }, { merge: true });
 
@@ -537,7 +661,7 @@ export const PaymentReconciliationService = {
       if (activatedPlans.length > 0) {
         return {
           reconciled: true,
-          message: `Pagamento identificado com sucesso! Seu recurso/plano (${activatedPlans.join(', ')}) foi ativado.`,
+          message: `Pagamento identificado com sucesso! Ativação concluída (${activatedPlans.join(', ')}).`,
           activatedPlans,
           daysAdded: totalDaysAdded
         };

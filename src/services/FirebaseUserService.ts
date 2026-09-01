@@ -449,5 +449,27 @@ export const FirebaseUserService = {
     }
 
     return results;
+  },
+
+  /**
+   * Executa a liberação de funcionalidade através de transação atômica no Firebase.
+   * Garante que o usuário mantenha seu plano ativo e que a data de expiração não seja estendida ou sobrescrita.
+   */
+  async unlockFeatureWithTransaction(
+    uid: string,
+    featureId: string,
+    paymentId: string = 'manual_or_direct_unlock',
+    amount: number = 15
+  ) {
+    const { PaymentReconciliationService } = await import('@/services/PaymentReconciliationService');
+    const user = await this.getUserById(uid);
+    return PaymentReconciliationService.unlockFeatureWithTransaction(
+      uid,
+      user?.email || '',
+      user?.name || '',
+      featureId,
+      paymentId,
+      amount
+    );
   }
 };

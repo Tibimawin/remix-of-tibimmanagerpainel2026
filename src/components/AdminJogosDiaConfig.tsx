@@ -160,6 +160,21 @@ const AdminJogosDiaConfig: React.FC = () => {
           </Select>
         </div>
 
+        <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 p-4 space-y-2">
+          <div className="flex items-center gap-2 text-emerald-500 font-bold text-sm">
+            <span>📅</span>
+            <span>Programação da Semana & Coluna "Data"</span>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Você pode cadastrar jogos de <strong>Hoje</strong>, <strong>Amanhã</strong> e de <strong>toda a semana</strong> na tabela de origem.
+          </p>
+          <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1 pl-1">
+            <li><strong>Coluna reconhecida:</strong> <code className="text-emerald-400 font-mono">Data</code> (tipo <em>Date</em> no Baserow) ou <code className="text-emerald-400 font-mono">Data Horario</code>.</li>
+            <li><strong>Jogos de Hoje:</strong> Liberados com botão verde para importação imediata e processados pelo robô automático.</li>
+            <li><strong>Jogos de Amanhã / Próximos Dias:</strong> Ficam visíveis na grade para os usuários consultarem, mas com botão de importação bloqueado 🔒 até o dia exato da partida.</li>
+          </ul>
+        </div>
+
         <div className="flex flex-wrap gap-3">
           <Button onClick={handleSave} disabled={isSaving} className="gap-2">
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
