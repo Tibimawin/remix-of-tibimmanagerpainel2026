@@ -172,6 +172,7 @@ const AdminJogosDiaConfig: React.FC = () => {
             <li><strong>Coluna reconhecida:</strong> <code className="text-emerald-400 font-mono">Data</code> (tipo <em>Date</em> no Baserow) ou <code className="text-emerald-400 font-mono">Data Horario</code>.</li>
             <li><strong>Jogos de Hoje:</strong> Liberados com botão verde para importação imediata e processados pelo robô automático.</li>
             <li><strong>Jogos de Amanhã / Próximos Dias:</strong> Ficam visíveis na grade para os usuários consultarem, mas com botão de importação bloqueado 🔒 até o dia exato da partida.</li>
+            <li><strong>Separadores de Dias / Eventos:</strong> Ao criar uma linha em branco na tabela (ou apenas com a Data), o painel renderizará automaticamente uma barra divisória elegante para separar os dias.</li>
           </ul>
         </div>
 

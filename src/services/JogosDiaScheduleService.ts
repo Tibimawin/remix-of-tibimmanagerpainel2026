@@ -2,7 +2,7 @@ import { collection, doc, getDoc, updateDoc, addDoc, setDoc } from 'firebase/fir
 import { db } from '@/config/firebase';
 import { UserConfigService } from './UserConfigService';
 import { BaserowService } from './BaserowService';
-import { isJogoElegivelHoje, analyzeJogoDate } from '@/utils/jogosDiaDateUtils';
+import { isJogoElegivelHoje, analyzeJogoDate, isBlankOrSeparatorRow } from '@/utils/jogosDiaDateUtils';
 
 export interface JogosDiaSchedule {
   id: string;
@@ -87,6 +87,15 @@ export class JogosDiaScheduleService {
       for (let i = 0; i < total; i++) {
         const jogo = items[i];
         try {
+          // Ignorar linhas em branco ou separadores de eventos
+          if (isBlankOrSeparatorRow(jogo)) {
+            await updateDoc(progressRef, {
+              current: i + 1,
+              updatedAt: new Date().toISOString()
+            });
+            continue;
+          }
+
           // REGRA DE OURO: Apenas jogos agendados para HOJE são importados para a grade.
           // Jogos de amanhã ou outras datas futuras são ignorados até o dia do evento.
           const dateCheck = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);

@@ -138,7 +138,87 @@ export function analyzeJogoDate(dataRaw?: string, dataHorarioRaw?: string): Jogo
 /**
  * Retorna se um objeto de jogo é elegível para importação hoje
  */
-export function isJogoElegivelHoje(jogo: { Data?: string; 'Data Horario'?: string; [key: string]: any }): boolean {
-  const dateInfo = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
+export function isJogoElegivelHoje(jogo: Record<string, unknown>): boolean {
+  if (isBlankOrSeparatorRow(jogo)) return false;
+  const dateStr = (jogo.Data || jogo['Data Horario'] || '') as string;
+  const dateInfo = analyzeJogoDate(dateStr);
   return dateInfo.canImport;
+}
+
+/**
+ * Detecta se a linha vinda do Baserow é uma linha em branco ou um separador de eventos/dias
+ */
+export function isBlankOrSeparatorRow(jogo?: Record<string, unknown> | null): boolean {
+  if (!jogo) return true;
+
+  const nome = String(jogo.Nome ?? '').trim();
+  const timeCasa = String(jogo['Time Casa'] ?? jogo.TimeCasa ?? '').trim();
+  const timeFora = String(jogo['Time Fora'] ?? jogo.TimeFora ?? '').trim();
+  const link = String(jogo.Link ?? jogo.link ?? '').trim();
+  const link1 = String(jogo['Link 1'] ?? '').trim();
+
+  // Linha 100% vazia ou sem times, links e nome
+  if (!link && !link1 && !timeCasa && !timeFora && !nome) {
+    return true;
+  }
+
+  // Linhas marcadas propositalmente como divisor (ex: '---', '===', 'Separador', 'Divisor')
+  if (nome && (/^[-=_*~]{2,}$/.test(nome) || /^(separador|divisor|linha em branco|---)/i.test(nome))) {
+    return true;
+  }
+
+  // Linha sem links e sem times (mesmo que tenha preenchido só a Data ou um título no Campeonato/Nome)
+  if (!link && !link1 && !timeCasa && !timeFora) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Retorna o título formatado para exibição no separador visual de dias/eventos
+ */
+export function getSeparatorLabel(jogo?: Record<string, unknown> | null): { title: string; subtitle?: string; isDateSpecific: boolean } {
+  const dataRaw = String(jogo?.Data ?? jogo?.['Data Horario'] ?? '').trim();
+  const campeonato = String(jogo?.Campeonato ?? '').trim();
+  const nome = String(jogo?.Nome ?? '').trim();
+
+  // Se tiver data preenchida
+  if (dataRaw) {
+    const dateInfo = analyzeJogoDate(dataRaw);
+    return {
+      title: dateInfo.isToday
+        ? 'Data dos Eventos — Hoje'
+        : dateInfo.isTomorrow
+        ? 'Data dos Eventos — Amanhã'
+        : `Data dos Eventos — ${dateInfo.displayDate}`,
+      subtitle: 'Programação de Jogos',
+      isDateSpecific: true
+    };
+  }
+
+  // Se tiver um nome customizado que não seja só traços
+  if (nome && !/^[-=_*~]{2,}$/.test(nome) && !/^(separador|divisor|linha em branco|---)/i.test(nome)) {
+    return {
+      title: `Data dos Eventos — ${nome}`,
+      subtitle: 'Programação de Jogos',
+      isDateSpecific: false
+    };
+  }
+
+  // Se tiver campeonato preenchido na linha divisória
+  if (campeonato && !/^(jogos do dia|evento)/i.test(campeonato)) {
+    return {
+      title: `Data dos Eventos — ${campeonato}`,
+      subtitle: 'Programação de Jogos',
+      isDateSpecific: false
+    };
+  }
+
+  // Linha totalmente em branco: divisor geral de dias
+  return {
+    title: 'Data dos Eventos',
+    subtitle: 'Programação e Confrontos',
+    isDateSpecific: false
+  };
 }

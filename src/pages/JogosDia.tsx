@@ -35,9 +35,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
 import { useNavigate } from 'react-router-dom';
 import { PermissionGate } from '@/components/PermissionGate';
-import { analyzeJogoDate, JogoDateInfo } from '@/utils/jogosDiaDateUtils';
+import { analyzeJogoDate, JogoDateInfo, isBlankOrSeparatorRow, getSeparatorLabel } from '@/utils/jogosDiaDateUtils';
 
 
 interface JogoDia {
@@ -142,23 +149,28 @@ const JogosDia = () => {
     return () => unsub();
   }, [userInfo?.id]);
 
-  // Contagem dinâmica por data
+  // Contagem dinâmica por data (ignora linhas em branco / separadores)
   const dateCounts = useMemo(() => {
     let hoje = 0;
     let amanha = 0;
     let proximos = 0;
+    let realJogosCount = 0;
 
     jogos.forEach(jogo => {
+      if (isBlankOrSeparatorRow(jogo)) return;
+      realJogosCount++;
       const dateInfo = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
       if (dateInfo.isToday) hoje++;
       else if (dateInfo.isTomorrow) amanha++;
       else if (dateInfo.isFuture) proximos++;
     });
 
-    return { hoje, amanha, proximos, todos: jogos.length };
+    return { hoje, amanha, proximos, todos: realJogosCount };
   }, [jogos]);
 
   const handleImport = async (jogo: JogoDia) => {
+    if (isBlankOrSeparatorRow(jogo)) return;
+
     const dateInfo = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
 
     // 🔒 BLOQUEIO SEGURO: Não permitir importação de jogos de amanhã ou de datas futuras
@@ -253,6 +265,7 @@ const JogosDia = () => {
   // Importar todos os jogos liberados de HOJE em 1 clique
   const handleImportAllToday = async () => {
     const todayGames = jogos.filter(j => {
+      if (isBlankOrSeparatorRow(j)) return false;
       const dateInfo = analyzeJogoDate(j.Data || (j as any)['Data'], j['Data Horario'] || (j as any)['Data Horario']);
       return dateInfo.canImport;
     });
@@ -320,30 +333,55 @@ const JogosDia = () => {
     }
   };
 
-  const campeonatos = Array.from(new Set(jogos.map(j => j.Campeonato).filter(Boolean))).sort();
+  const campeonatos = Array.from(new Set(
+    jogos
+      .filter(j => !isBlankOrSeparatorRow(j))
+      .map(j => j.Campeonato)
+      .filter(Boolean)
+  )).sort();
 
   const filteredJogos = jogos.filter(jogo => {
-    const matchesSearch = 
-      jogo.Nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      jogo.Campeonato?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      jogo['Time Casa']?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      jogo['Time Fora']?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesFilter = selectedCampeonato === 'todos' || jogo.Campeonato === selectedCampeonato;
+    const isSeparator = isBlankOrSeparatorRow(jogo);
+
+    // Se estiver pesquisando por termo, esconde separadores a menos que coincida com a busca
+    if (searchTerm.trim()) {
+      if (isSeparator) return false;
+      const term = searchTerm.toLowerCase();
+      const matchesSearch = 
+        jogo.Nome?.toLowerCase().includes(term) ||
+        jogo.Campeonato?.toLowerCase().includes(term) ||
+        jogo['Time Casa']?.toLowerCase().includes(term) ||
+        jogo['Time Fora']?.toLowerCase().includes(term);
+      return matchesSearch;
+    }
+
+    // Se filtrou por campeonato específico, esconde separadores que não pertençam ao campeonato
+    if (selectedCampeonato !== 'todos') {
+      if (isSeparator) return false;
+      return jogo.Campeonato === selectedCampeonato;
+    }
 
     // Filtro por Data
-    const dateInfo = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
-    let matchesDate = true;
+    if (selectedDateFilter !== 'todos') {
+      if (isSeparator) {
+        const rawDate = jogo.Data || (jogo as any)['Data'] || jogo['Data Horario'] || (jogo as any)['Data Horario'];
+        if (rawDate) {
+          const dateInfo = analyzeJogoDate(rawDate);
+          if (selectedDateFilter === 'hoje') return dateInfo.isToday;
+          if (selectedDateFilter === 'amanha') return dateInfo.isTomorrow;
+          if (selectedDateFilter === 'proximos') return dateInfo.isFuture && !dateInfo.isTomorrow;
+        }
+        // Se for linha em branco sem data e filtramos por uma aba específica, não polui
+        return false;
+      }
 
-    if (selectedDateFilter === 'hoje') {
-      matchesDate = dateInfo.isToday;
-    } else if (selectedDateFilter === 'amanha') {
-      matchesDate = dateInfo.isTomorrow;
-    } else if (selectedDateFilter === 'proximos') {
-      matchesDate = dateInfo.isFuture && !dateInfo.isTomorrow;
+      const dateInfo = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
+      if (selectedDateFilter === 'hoje') return dateInfo.isToday;
+      if (selectedDateFilter === 'amanha') return dateInfo.isTomorrow;
+      if (selectedDateFilter === 'proximos') return dateInfo.isFuture && !dateInfo.isTomorrow;
     }
     
-    return matchesSearch && matchesFilter && matchesDate;
+    return true;
   });
 
   if (loadingConfig) {
@@ -667,18 +705,30 @@ const JogosDia = () => {
               />
             </div>
 
-            <div className="relative w-full md:w-60">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <select
-                className="w-full h-10 pl-10 pr-4 bg-white/5 border border-white/10 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 appearance-none text-foreground"
+            <div className="relative w-full md:w-64">
+              <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10 pointer-events-none" />
+              <Select
                 value={selectedCampeonato}
-                onChange={(e) => setSelectedCampeonato(e.target.value)}
+                onValueChange={(val) => setSelectedCampeonato(val)}
               >
-                <option value="todos">Todos os Campeonatos</option>
-                {campeonatos.map(camp => (
-                  <option key={camp} value={camp}>{camp}</option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full h-10 pl-10 pr-3 bg-white/5 border border-white/10 hover:border-emerald-500/40 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 text-foreground transition-all">
+                  <SelectValue placeholder="Todos os Campeonatos" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#0b101b]/95 border border-white/10 text-white rounded-2xl shadow-2xl backdrop-blur-xl p-1.5 z-50 max-h-72">
+                  <SelectItem value="todos" className="rounded-xl text-xs py-2 px-3 focus:bg-emerald-500/20 focus:text-emerald-300 text-white hover:bg-white/5 cursor-pointer font-medium">
+                    Todos os Campeonatos
+                  </SelectItem>
+                  {campeonatos.map(camp => (
+                    <SelectItem 
+                      key={camp} 
+                      value={camp} 
+                      className="rounded-xl text-xs py-2 px-3 focus:bg-emerald-500/20 focus:text-emerald-300 text-white/90 hover:bg-white/5 cursor-pointer"
+                    >
+                      {camp}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -719,6 +769,50 @@ const JogosDia = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <AnimatePresence mode="popLayout">
               {filteredJogos.map((jogo, index) => {
+                if (isBlankOrSeparatorRow(jogo)) {
+                  const label = getSeparatorLabel(jogo);
+                  return (
+                    <motion.div
+                      key={jogo.id || `separator-${index}`}
+                      layout
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ delay: index * 0.02 }}
+                      className="col-span-1 md:col-span-2 lg:col-span-3 my-3"
+                    >
+                      <div className="relative flex items-center justify-center">
+                        {/* Linha gradiente esquerda */}
+                        <div className="flex-grow h-px bg-gradient-to-r from-transparent via-emerald-500/30 to-emerald-500/60" />
+                        
+                        {/* Pill central */}
+                        <div className="relative mx-3 sm:mx-6 px-4 sm:px-6 py-2.5 rounded-2xl bg-card/90 border border-emerald-500/30 backdrop-blur-xl shadow-xl shadow-emerald-500/10 flex items-center gap-3">
+                          <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                            <Calendar className="w-4 h-4" />
+                          </div>
+                          <div className="flex flex-col text-left">
+                            <span className="text-xs sm:text-sm font-black tracking-wide text-foreground uppercase">
+                              {label.title}
+                            </span>
+                            {label.subtitle && (
+                              <span className="text-[10px] text-muted-foreground font-medium">
+                                {label.subtitle}
+                              </span>
+                            )}
+                          </div>
+                          <div className="hidden sm:flex items-center gap-1.5 ml-2 pl-3 border-l border-white/10 text-[10px] text-emerald-400 font-bold tracking-wider uppercase">
+                            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Data dos Eventos</span>
+                          </div>
+                        </div>
+
+                        {/* Linha gradiente direita */}
+                        <div className="flex-grow h-px bg-gradient-to-l from-transparent via-emerald-500/30 to-emerald-500/60" />
+                      </div>
+                    </motion.div>
+                  );
+                }
+
                 const dateInfo = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
 
                 return (
