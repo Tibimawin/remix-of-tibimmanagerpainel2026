@@ -28,17 +28,17 @@ const SystemMetricsCards = () => {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5 md:gap-4">
         {[...Array(mode === 'tibim' ? 15 : 10)].map((_, i) => (
           <Card key={i} className="relative overflow-hidden border-border/40 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm">
-            <CardContent className="p-6">
+            <CardContent className="p-3.5 sm:p-5 md:p-6">
               <div className="animate-pulse space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="h-8 w-8 bg-gradient-to-br from-primary/20 to-primary/5 rounded-xl" />
                 </div>
                 <div>
-                  <div className="h-8 bg-muted/50 rounded w-16 mb-2" />
-                  <div className="h-3 bg-muted/30 rounded w-24" />
+                  <div className="h-6 sm:h-8 bg-muted/50 rounded w-16 mb-2" />
+                  <div className="h-3 bg-muted/30 rounded w-20 sm:w-24" />
                 </div>
               </div>
             </CardContent>
@@ -369,7 +369,7 @@ const SystemMetricsCards = () => {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5 md:gap-4">
       {metricsData.map((metric, index) => {
         const Icon = metric.icon;
         return (
@@ -394,30 +394,30 @@ const SystemMetricsCards = () => {
               metric.gradient
             )} />
 
-            <CardContent className="relative p-6">
-              <div className="flex items-start justify-between mb-4">
+            <CardContent className="relative p-3 sm:p-4 md:p-6">
+              <div className="flex items-start justify-between mb-2.5 sm:mb-3 md:mb-4">
                 <div className={cn(
-                  "w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-500",
+                  "w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-500",
                   metric.gradient
                 )}>
-                  <Icon className="w-6 h-6 text-white" />
+                  <Icon className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <div className="flex items-baseline gap-2">
+              <div className="space-y-0.5 sm:space-y-1 min-w-0">
+                <div className="flex items-baseline gap-1 sm:gap-2">
                   <span className={cn(
-                    "text-3xl font-bold bg-gradient-to-r bg-clip-text text-transparent",
+                    "text-lg sm:text-2xl md:text-3xl font-bold bg-gradient-to-r bg-clip-text text-transparent truncate",
                     metric.gradient
                   )}>
                     {(metric.value ?? 0).toLocaleString('pt-BR')}
                   </span>
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground/90">
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-semibold text-foreground/90 truncate">
                     {metric.title}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                     {metric.description}
                   </p>
                 </div>

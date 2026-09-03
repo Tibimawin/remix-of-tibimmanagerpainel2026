@@ -246,25 +246,35 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
   return (
     <>
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60" data-tour="header">
-        <div className="container flex h-16 items-center px-4 md:px-6">
-          <div className="flex items-center space-x-4">
+        <div className="container flex h-16 items-center justify-between px-3 sm:px-4 md:px-6">
+          <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
+            {/* Botão de Toggle da Sidebar (Mobile) */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleSidebar}
+              className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl transition-all duration-200 hover:bg-accent/50 md:hidden shrink-0"
+              aria-label="Alternar menu"
+              title="Alternar menu"
+            >
+              <Menu className="h-5 w-5 text-foreground" />
+            </Button>
+
             {/* Título da Página */}
-            <div className="hidden sm:block">
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-8 bg-gradient-to-b from-primary to-orange-500 rounded-full"></div>
-                <div>
-                  <h1 className="text-lg font-bold text-foreground leading-tight">
-                    {currentRoute.title}
-                  </h1>
-                  <p className="text-xs text-muted-foreground font-medium">
-                    {currentRoute.subtitle}
-                  </p>
-                </div>
+            <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+              <div className="w-1.5 sm:w-2 h-6 sm:h-8 bg-gradient-to-b from-primary to-orange-500 rounded-full shrink-0"></div>
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-lg font-bold text-foreground leading-tight truncate">
+                  {currentRoute.title}
+                </h1>
+                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium truncate hidden sm:block">
+                  {currentRoute.subtitle}
+                </p>
               </div>
             </div>
           </div>
           
-          <div className="flex flex-1 items-center justify-end space-x-3">
+          <div className="flex items-center justify-end space-x-1 sm:space-x-2 md:space-x-3">
             {/* Indicador de Status do Servidor */}
             <div className="hidden lg:block mr-2">
               <ServerStatusIndicator />
@@ -433,7 +443,7 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate('/configuracoes')}
-                className="h-10 w-10 rounded-xl transition-all duration-200 hover:bg-accent/50 hover:scale-105"
+                className="hidden sm:flex h-10 w-10 rounded-xl transition-all duration-200 hover:bg-accent/50 hover:scale-105"
                 title="Configurações"
               >
                 <Settings className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />

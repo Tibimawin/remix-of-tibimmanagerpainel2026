@@ -57,14 +57,14 @@ const FloatingChat = () => {
 
   if (!isOpen) {
     return (
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-30">
         <div className="relative">
           <Button
             onClick={() => setIsOpen(true)}
-            className="modern-button bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full p-4 shadow-soft hover-lift modern-pulse"
+            className="modern-button bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full p-3.5 sm:p-4 shadow-soft hover-lift modern-pulse"
             title="Chat ao Vivo"
           >
-            <MessageCircle className="h-6 w-6" />
+            <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
           </Button>
           
           {/* Indicador de mensagem não lida - estilo WhatsApp */}
@@ -79,7 +79,7 @@ const FloatingChat = () => {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 modern-animate-in">
+    <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 modern-animate-in max-w-[calc(100vw-2rem)]">
       {/* Botões de controle fora do chat */}
       <div className="absolute -top-12 right-0 flex items-center space-x-2 z-50">
         <Button
@@ -102,8 +102,8 @@ const FloatingChat = () => {
         </Button>
       </div>
 
-      <Card className={`modern-card bg-card/95 backdrop-blur-xl border-border transition-all duration-300 ${
-        isMinimized ? 'w-80 h-16' : 'w-96 h-[500px]'
+      <Card className={`modern-card bg-card/95 backdrop-blur-xl border-border transition-all duration-300 shadow-2xl ${
+        isMinimized ? 'w-[calc(100vw-2rem)] sm:w-80 h-16' : 'w-[calc(100vw-2rem)] sm:w-96 h-[480px] max-h-[70vh]'
       }`}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-2 px-3 border-b border-border min-h-[60px]">
           <div className="flex items-center space-x-2 flex-1 min-w-0">

@@ -88,18 +88,18 @@ export const UserOffers: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center space-x-3">
-        <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-orange-500 via-red-500 to-pink-500 rounded-xl shadow-lg">
-          <Sparkles className="w-5 h-5 text-white" />
+      <div className="flex items-center space-x-2.5 sm:space-x-3">
+        <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-500 via-red-500 to-pink-500 rounded-xl shadow-lg shrink-0">
+          <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Promoções</h2>
-          <p className="text-sm text-muted-foreground">Aproveite nossas ofertas especiais</p>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground">Promoções</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">Aproveite nossas ofertas especiais</p>
         </div>
       </div>
 
       {/* Grid de Banners */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
         {offers.map((offer) => (
           <div
             key={offer.id}
@@ -108,8 +108,8 @@ export const UserOffers: React.FC = () => {
           >
             {/* Badge "Nova" se aplicável */}
             {isNewOffer(offer.createdAt) && (
-              <div className="absolute top-4 left-4 z-10">
-                <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg animate-pulse">
+              <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10">
+                <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg animate-pulse text-[10px] sm:text-xs">
                   <Star className="w-3 h-3 mr-1 fill-current" />
                   NOVA
                 </Badge>
@@ -117,7 +117,7 @@ export const UserOffers: React.FC = () => {
             )}
 
             {/* Imagem do Banner */}
-            <div className="relative w-full h-72 bg-gradient-to-br from-gray-800 to-gray-900 overflow-hidden">
+            <div className="relative w-full h-48 sm:h-60 md:h-72 bg-gradient-to-br from-gray-800 to-gray-900 overflow-hidden">
               {offer.imageUrl ? (
                 <img
                   src={offer.imageUrl}
@@ -133,11 +133,11 @@ export const UserOffers: React.FC = () => {
                           <svg class="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
                           </svg>
-                          <div class="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/90 to-transparent">
-                            <p class="text-lg font-bold uppercase mb-2">${offer.title}</p>
+                          <div class="absolute bottom-0 left-0 right-0 p-4 sm:p-6 bg-gradient-to-t from-black via-black/90 to-transparent">
+                            <p class="text-base sm:text-lg font-bold uppercase mb-1.5 sm:mb-2">${offer.title}</p>
                             <div class="flex items-baseline gap-2">
                               <span class="text-xs font-medium opacity-80">Apenas</span>
-                              <span class="text-3xl font-black">${priceWithCurrency}</span>
+                              <span class="text-2xl sm:text-3xl font-black">${priceWithCurrency}</span>
                             </div>
                           </div>
                         </div>
@@ -148,7 +148,7 @@ export const UserOffers: React.FC = () => {
               ) : (
                 // Fallback visual se não houver imagem
                 <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-primary/20 to-accent/20">
-                  <Tag className="w-12 h-12 text-white/80 mb-3" />
+                  <Tag className="w-10 h-10 sm:w-12 sm:h-12 text-white/80 mb-3" />
                 </div>
               )}
 
@@ -156,7 +156,7 @@ export const UserOffers: React.FC = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
 
               {/* Texto sobreposto - SEMPRE VISÍVEL */}
-              <div className="absolute bottom-0 left-0 right-0 p-6 text-white z-5">
+              <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-white z-5">
                 <p className="text-lg font-bold uppercase mb-2 drop-shadow-lg">
                   {offer.title}
                 </p>

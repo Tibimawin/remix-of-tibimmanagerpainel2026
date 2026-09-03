@@ -41,6 +41,7 @@ import {
   Info,
   Smartphone,
   Star,
+  X,
   Layout as LayoutIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -751,7 +752,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
       {/* Overlay para mobile */}
       {isMobile && !isCollapsed && (
         <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden backdrop-blur-sm transition-opacity duration-300"
+          className="fixed inset-0 bg-black/60 z-50 md:hidden backdrop-blur-sm transition-opacity duration-300"
           onClick={onToggle}
           aria-hidden="true"
         />
@@ -772,45 +773,58 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
           }
         }}
         className={cn(
-          "fixed left-0 top-0 h-full bg-gradient-to-b from-card via-card/95 to-card/90 backdrop-blur-xl border-r border-border/40 flex flex-col z-40 transition-all duration-300 shadow-xl overscroll-contain",
+          "fixed left-0 top-0 h-full bg-gradient-to-b from-card via-card/95 to-card/90 backdrop-blur-xl border-r border-border/40 flex flex-col transition-all duration-300 shadow-xl overscroll-contain",
           isMobile
-            ? `${isCollapsed ? "-translate-x-full" : "translate-x-0"} w-80`
+            ? `${isCollapsed ? "-translate-x-full" : "translate-x-0"} w-[85vw] max-w-[320px] z-50 shadow-2xl`
             : effectiveCollapsed
-              ? "w-20"
+              ? "w-20 z-40"
               : isCollapsed
-                ? "w-80 shadow-2xl"
-                : "w-80"
+                ? "w-80 shadow-2xl z-40"
+                : "w-80 z-40"
         )}
         data-tour="sidebar"
       >
         {/* Header */}
-        <div className="p-6 border-b border-border/40 backdrop-blur-sm">
-          <div className="flex items-center">
+        <div className="p-4 sm:p-6 border-b border-border/40 backdrop-blur-sm">
+          <div className="flex items-center justify-between">
             <div className={cn(
-              "flex items-center space-x-3 transition-all duration-300",
+              "flex items-center space-x-3 transition-all duration-300 min-w-0",
               effectiveCollapsed && !isMobile && "opacity-0 scale-90"
             )}>
-              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-primary via-red-600 to-orange-500 rounded-2xl shadow-lg overflow-hidden">
+              <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary via-red-600 to-orange-500 rounded-2xl shadow-lg overflow-hidden shrink-0">
                 {currentTheme.logo ? (
                   <img src={currentTheme.logo} alt="Logo" className="w-full h-full object-contain p-2 brightness-0 invert" />
                 ) : (
-                  <Play className="w-6 h-6 text-white fill-white" />
+                  <Play className="w-5 h-5 sm:w-6 sm:h-6 text-white fill-white" />
                 )}
               </div>
               {(!effectiveCollapsed || isMobile) && (
-                <div>
-                  <h1 className="text-xl font-bold text-foreground bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent">
+                <div className="min-w-0">
+                  <h1 className="text-lg sm:text-xl font-bold text-foreground bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent truncate">
                     StreamFlix
                   </h1>
-                  <p className="text-sm text-muted-foreground font-medium">Management Panel</p>
+                  <p className="text-xs text-muted-foreground font-medium truncate">Management Panel</p>
                 </div>
               )}
             </div>
+
+            {/* Botão de Fechar no Mobile */}
+            {isMobile && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onToggle}
+                className="h-9 w-9 rounded-xl hover:bg-accent/60 text-muted-foreground hover:text-foreground shrink-0 ml-auto"
+                aria-label="Fechar menu lateral"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            )}
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 overflow-y-auto custom-scrollbar overscroll-contain">
+        <nav className="flex-1 p-3 sm:p-4 pb-24 sm:pb-8 overflow-y-auto custom-scrollbar overscroll-contain">
           <div className="space-y-6">
             {Object.entries(groupedMenuItems).map(([category, items], categoryIndex) => {
               const CategoryIcon = categoryIcons[category as keyof typeof categoryIcons];

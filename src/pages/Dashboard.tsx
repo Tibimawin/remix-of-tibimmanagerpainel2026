@@ -83,7 +83,7 @@ const Dashboard = () => {
 
   return (
     <PermissionGate feature="dashboard">
-      <div className="w-full space-y-6 animate-fade-in">
+      <div className="w-full space-y-4 sm:space-y-6 animate-fade-in">
         <ExpirationWarningBanner
           onRenewClick={() => {
             window.location.href = '/precos';
@@ -112,24 +112,24 @@ const Dashboard = () => {
         <UserAnnouncementsBanner />
 
         {showPaymentBanner && (
-          <Alert className="relative border-primary/30 bg-primary/5">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-primary/10 p-2">
-                  <Sparkles className="h-5 w-5 text-primary" />
+          <Alert className="relative border-primary/30 bg-primary/5 p-3.5 sm:p-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+              <div className="flex items-start sm:items-center gap-2.5 sm:gap-3">
+                <div className="rounded-lg bg-primary/10 p-1.5 sm:p-2 shrink-0 mt-0.5 sm:mt-0">
+                  <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                 </div>
                 <AlertDescription className="text-foreground">
-                  <p className="text-sm font-semibold">🎉 Novidade! Pagamento de assinatura pelo painel</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <p className="text-xs sm:text-sm font-semibold">🎉 Novidade! Pagamento de assinatura pelo painel</p>
+                  <p className="mt-0.5 text-[11px] sm:text-xs text-muted-foreground">
                     Agora você pode renovar ou assinar seu plano diretamente pela aba de Pagamentos no seu perfil, via PIX.
                   </p>
                 </AlertDescription>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end pt-1 sm:pt-0">
                 <Button
                   size="sm"
                   variant="default"
-                  className="gap-1.5"
+                  className="gap-1.5 text-xs h-8 sm:h-9 flex-1 sm:flex-initial"
                   onClick={() => navigate('/perfil')}
                 >
                   <CreditCard className="h-3.5 w-3.5" />
@@ -138,7 +138,7 @@ const Dashboard = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0"
+                  className="h-8 w-8 p-0 shrink-0"
                   onClick={() => {
                     setShowPaymentBanner(false);
                     localStorage.setItem('dismiss-payment-banner', 'true');
@@ -151,12 +151,12 @@ const Dashboard = () => {
           </Alert>
         )}
 
-        <div className="flex flex-col space-y-2">
-          <div className="flex items-center space-x-3">
-            <div className="h-8 w-1 rounded-full bg-gradient-to-b from-primary to-orange-500"></div>
+        <div className="flex flex-col space-y-1">
+          <div className="flex items-center space-x-2.5 sm:space-x-3">
+            <div className="h-6 sm:h-8 w-1 rounded-full bg-gradient-to-b from-primary to-orange-500 shrink-0"></div>
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-              <p className="font-medium text-muted-foreground">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Dashboard</h1>
+              <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                 Visão geral e métricas do sistema
               </p>
             </div>
@@ -171,18 +171,18 @@ const Dashboard = () => {
           />
         )}
 
-        <div className="space-y-6">
-          <div className="modern-card p-6 backdrop-blur-sm">
-            <div className="mb-6 flex items-center space-x-3">
-              <div className="h-6 w-1 rounded-full bg-gradient-to-b from-primary to-orange-500"></div>
-              <h2 className="text-xl font-bold text-foreground">Métricas do Sistema</h2>
+        <div className="space-y-4 sm:space-y-6">
+          <div className="modern-card p-3.5 sm:p-5 md:p-6 backdrop-blur-sm">
+            <div className="mb-4 sm:mb-6 flex items-center space-x-2.5 sm:space-x-3">
+              <div className="h-5 sm:h-6 w-1 rounded-full bg-gradient-to-b from-primary to-orange-500 shrink-0"></div>
+              <h2 className="text-base sm:text-lg md:text-xl font-bold text-foreground">Métricas do Sistema</h2>
             </div>
             <SystemMetricsCards />
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="modern-card p-6 backdrop-blur-sm">
+        <div className="space-y-4 sm:space-y-6">
+          <div className="modern-card p-3.5 sm:p-5 md:p-6 backdrop-blur-sm">
             <UserOffers />
           </div>
         </div>

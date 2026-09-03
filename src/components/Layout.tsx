@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserSidebar } from './user/UserSidebar';
 import { UserHeader } from './user/UserHeader';
+import { UserMobileNav } from './user/UserMobileNav';
 import { SuportePrioritario } from './SuportePrioritario';
 import FloatingChat from './FloatingChat';
 import { OnboardingTour } from './OnboardingTour';
@@ -96,14 +97,14 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="flex">
           <UserSidebar isCollapsed={isCollapsed} onToggle={handleToggleSidebar} isMobile={isMobile} onHoverChange={setIsSidebarHovered} />
           <main className={cn(
-            "flex-1 p-6 transition-all duration-300 min-h-[calc(100vh-4rem)]",
+            "flex-1 p-3 sm:p-5 md:p-6 pb-24 md:pb-6 transition-all duration-300 min-h-[calc(100vh-4rem)] max-w-full overflow-x-hidden",
             (isCollapsed && !isSidebarHovered)
               ? (isMobile ? "ml-0" : "ml-20")
               : (isMobile ? "ml-0" : "ml-80")
           )}>
             {/* Botão de Suporte Prioritário fixo */}
             {hasPrioritySupport() && (
-              <div className="fixed bottom-6 left-6 z-50">
+              <div className="fixed bottom-20 md:bottom-6 left-4 md:left-6 z-30">
                 <Button
                   onClick={() => {
                     setShowPrioritySupport(!showPrioritySupport);
@@ -224,6 +225,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* 📊 Barra de progresso persistente de importação M3U */}
         <M3UProgressBar />
+
+        {/* 📱 Barra de navegação inferior mobile */}
+        <UserMobileNav 
+          onToggleSidebar={handleToggleSidebar} 
+          isSidebarOpen={!isCollapsed && isMobile} 
+        />
       </div>
     </ErrorBoundary>
   );

@@ -40,7 +40,7 @@ const Login = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/configuracoes', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
@@ -53,7 +53,7 @@ const Login = () => {
       const result = await login(email, password);
       
       if (result.success) {
-        navigate('/configuracoes', { replace: true });
+        navigate('/dashboard', { replace: true });
       } else {
         setError(result.message || 'Credenciais inválidas. Verifique seus dados.');
       }
@@ -302,7 +302,7 @@ const Login = () => {
                   try {
                     const result = await loginWithGoogle();
                     if (result.success) {
-                      navigate('/configuracoes');
+                      navigate('/dashboard');
                     } else {
                       setError(result.message || 'Falha ao autenticar com Google.');
                     }
