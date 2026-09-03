@@ -39,7 +39,7 @@ export default defineConfig(({ mode }) => ({
             console.log("⚠️ [PROXY ERROR]:", err.message);
           });
           proxy.on("proxyReq", (proxyReq, req, res) => {
-            const target = (options && (options as any).target) || "https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app";
+            const target = (options && typeof options === "object" && "target" in options && options.target) || "https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app";
             const url = req.url || "";
             console.log("🔄 [PROXY] Redirecionando:", url, "→", target + url);
           });
@@ -54,6 +54,20 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        entryFileNames: `assets/[name]-[hash].js`,
+        chunkFileNames: `assets/[name]-[hash].js`,
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name && assetInfo.name.endsWith('.css')) {
+            return `assets/[name]-v${BUILD_ID.slice(-6)}-[hash][extname]`;
+          }
+          return `assets/[name]-[hash][extname]`;
+        },
+      },
     },
   },
 }));

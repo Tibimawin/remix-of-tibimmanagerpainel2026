@@ -31,7 +31,7 @@
       "destination": "/api/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!assets/|api/).*)",
       "destination": "/index.html"
     }
   ],
@@ -52,15 +52,10 @@
       ]
     },
     {
-      "source": "/index.html",
+      "source": "/((?!assets/).*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
-      ]
-    },
-    {
-      "source": "/version.json",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate, max-age=0" },
+        { "key": "Pragma", "value": "no-cache" }
       ]
     }
   ]
