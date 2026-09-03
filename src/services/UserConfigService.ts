@@ -665,7 +665,7 @@ export const UserConfigService = {
   // Credenciais DNS/IPTV do usuário
   // ============================================================
 
-  async getDnsConfig(userId: string): Promise<{ dnsUrl: string; dnsUsername: string; dnsPassword: string; lastFetchedAt?: string } | null> {
+  async getDnsConfig(userId: string): Promise<{ dnsUrl: string; dnsUsername: string; dnsPassword: string; format?: string; lastFetchedAt?: string } | null> {
     try {
       const userConfig = await this.getUserConfig(userId);
       return (userConfig as any)?.dnsConfig || null;
@@ -675,7 +675,7 @@ export const UserConfigService = {
     }
   },
 
-  async saveDnsConfig(userId: string, dnsConfig: { dnsUrl: string; dnsUsername: string; dnsPassword: string }): Promise<void> {
+  async saveDnsConfig(userId: string, dnsConfig: { dnsUrl: string; dnsUsername: string; dnsPassword: string; format?: string }): Promise<void> {
     try {
       await this.updateUserConfig(userId, {
         dnsConfig: {

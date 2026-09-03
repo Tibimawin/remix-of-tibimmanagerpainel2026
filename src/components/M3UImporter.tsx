@@ -16,8 +16,10 @@ import { useConfig } from '@/contexts/ConfigContext';
 import { useBaserowService } from '@/services/BaserowService';
 import { useSystemLogs } from '@/hooks/useSystemLogs';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, FileText, CheckCircle, AlertTriangle, Loader2, Film, Tv, Radio, Image, Languages, Shield, Sparkles, StopCircle, PauseCircle, PlayCircle, Star, Database, Globe, Eye, EyeOff, Save, RefreshCw, Trash2 } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertTriangle, Loader2, Film, Tv, Radio, Image, Languages, Shield, Sparkles, StopCircle, PauseCircle, PlayCircle, Star, Database, Globe, Eye, EyeOff, Save, RefreshCw, Trash2, Zap, Activity, Server, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { IptvServerService, IptvDiagnosticResult } from '@/services/IptvServerService';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Função de normalização para comparação robusta de nomes
 function normalizeName(name: string): string {
@@ -91,6 +93,11 @@ const M3UImporter = () => {
   const [dnsUsername, setDnsUsername] = useState('');
   const [dnsPassword, setDnsPassword] = useState('');
   const [showDnsPassword, setShowDnsPassword] = useState(false);
+  const [dnsFormat, setDnsFormat] = useState<string>('auto');
+  const [isTestingDns, setIsTestingDns] = useState(false);
+  const [dnsDiagnostic, setDnsDiagnostic] = useState<IptvDiagnosticResult | null>(null);
+  const [dnsFetchLog, setDnsFetchLog] = useState<string>('');
+  const [showAdvancedDns, setShowAdvancedDns] = useState(false);
   const [isFetchingDns, setIsFetchingDns] = useState(false);
   const [dnsFetchPhase, setDnsFetchPhase] = useState<'idle' | 'connecting' | 'downloading' | 'validating'>('idle');
   const [dnsFetchElapsed, setDnsFetchElapsed] = useState(0);
@@ -460,6 +467,7 @@ const M3UImporter = () => {
             setDnsUrl(config.dnsUrl);
             setDnsUsername(config.dnsUsername);
             setDnsPassword(config.dnsPassword);
+            if (config.format) setDnsFormat(config.format);
           }
         }
       });
@@ -480,6 +488,7 @@ const M3UImporter = () => {
     setDnsUrl(config.dnsUrl);
     setDnsUsername(config.dnsUsername);
     setDnsPassword(config.dnsPassword);
+    if (config.format) setDnsFormat(config.format);
     setPendingAutoFetch(true);
   };
 
@@ -498,20 +507,84 @@ const M3UImporter = () => {
     }
   };
 
-  // Buscar lista M3U via DNS/IPTV
+  // Manipular alteração da URL com extração inteligente caso o usuário cole um link completo
+  const handleDnsUrlChange = (val: string) => {
+    const raw = val || '';
+    // Se o usuário colou um link longo com parâmetros ou caminho de IPTV
+    if (raw.includes('username=') || raw.includes('get.php') || raw.includes('player_api.php') || raw.includes('/c/')) {
+      const extracted = IptvServerService.parseIptvServerInput(raw, dnsUsername, dnsPassword);
+      setDnsUrl(extracted.serverUrl);
+      if (extracted.username) setDnsUsername(extracted.username);
+      if (extracted.password) setDnsPassword(extracted.password);
+      if (extracted.extractedFormat) {
+        if (extracted.extractedFormat.toLowerCase().includes('ts')) setDnsFormat('m3u_plus_ts');
+        else if (extracted.extractedFormat.toLowerCase().includes('m3u8')) setDnsFormat('m3u_plus_m3u8');
+      }
+      toast.success('Link M3U detectado!', {
+        description: 'Servidor, usuário e senha extraídos automaticamente.'
+      });
+      return;
+    }
+    setDnsUrl(raw);
+  };
+
+  // Testar conexão / diagnóstico da conta no servidor IPTV
+  const handleTestDnsConnection = async () => {
+    const clean = IptvServerService.parseIptvServerInput(dnsUrl, dnsUsername, dnsPassword);
+    if (!clean.serverUrl || !clean.username || !clean.password) {
+      toast.error('Preencha os campos', {
+        description: 'URL do servidor, usuário e senha são obrigatórios para o teste.'
+      });
+      return;
+    }
+
+    setIsTestingDns(true);
+    setDnsDiagnostic(null);
+
+    try {
+      const result = await IptvServerService.testConnection(clean.serverUrl, clean.username, clean.password);
+      setDnsDiagnostic(result);
+      if (result.success && result.auth) {
+        toast.success('Servidor Conectado!', {
+          description: result.message,
+          duration: 6000,
+        });
+      } else {
+        toast.error('Atenção com as credenciais', {
+          description: result.message,
+          duration: 8000,
+        });
+      }
+    } catch (err: any) {
+      toast.error('Erro ao testar servidor', {
+        description: err.message || 'Não foi possível contatar o servidor IPTV.'
+      });
+    } finally {
+      setIsTestingDns(false);
+    }
+  };
+
+  // Buscar lista M3U via DNS/IPTV com compatibilidade total para todos os servidores
   const handleFetchDNS = async () => {
-    if (!dnsUrl || !dnsUsername || !dnsPassword) {
+    const clean = IptvServerService.parseIptvServerInput(dnsUrl, dnsUsername, dnsPassword);
+    if (!clean.serverUrl || !clean.username || !clean.password) {
       toast.error('Preencha todos os campos', {
         description: 'URL do servidor, usuário e senha são obrigatórios.'
       });
       return;
     }
 
+    // Normalizar valores nos inputs
+    setDnsUrl(clean.serverUrl);
+    setDnsUsername(clean.username);
+    setDnsPassword(clean.password);
+
     setIsFetchingDns(true);
     setDnsContentLoaded(false);
     setDnsM3UContent(null);
     setDnsFetchPhase('connecting');
     setDnsFetchElapsed(0);
+    setDnsFetchLog('');
 
     // Start elapsed timer
     const startTime = Date.now();
@@ -520,56 +593,48 @@ const M3UImporter = () => {
     }, 1000);
 
     try {
-      // Normalizar URL (remover barra final)
-      const baseUrl = dnsUrl.replace(/\/+$/, '');
-      const m3uUrl = `${baseUrl}/get.php?username=${encodeURIComponent(dnsUsername)}&password=${encodeURIComponent(dnsPassword)}&type=m3u_plus`;
-
-      console.log('[DNS] Fetching M3U from:', m3uUrl);
-
-      setDnsFetchPhase('downloading');
-
-      const proxyEndpoint = BASEROW_PROXY_CONFIG.M3U_PROXY_URL;
-      const response = await fetch(proxyEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: m3uUrl }),
+      console.log('[DNS/IPTV] Iniciando busca com máxima compatibilidade...');
+      
+      const content = await IptvServerService.fetchM3U({
+        serverUrl: clean.serverUrl,
+        username: clean.username,
+        password: clean.password,
+        preferredFormat: dnsFormat,
+        onPhaseChange: (phase) => {
+          if (phase !== 'idle') setDnsFetchPhase(phase);
+        },
+        onLog: (msg) => {
+          setDnsFetchLog(msg);
+        },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
-      }
-
-      const content = await response.text();
-
       setDnsFetchPhase('validating');
-
-      if (!content || content.length < 10) {
-        throw new Error('Resposta vazia do servidor. Verifique as credenciais.');
-      }
-
-      if (!content.includes('#EXTM3U') && !content.includes('#EXTINF')) {
-        throw new Error('O conteúdo retornado não é um arquivo M3U válido. Verifique as credenciais.');
-      }
-
       setDnsM3UContent(content);
       setDnsContentLoaded(true);
 
-      toast.success('Lista M3U carregada!', {
-        description: `${(content.length / 1024).toFixed(0)} KB recebidos em ${Math.floor((Date.now() - startTime) / 1000)}s.`
+      const sizeKB = (content.length / 1024).toFixed(0);
+      const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+
+      toast.success('Lista M3U carregada com sucesso!', {
+        description: `${sizeKB} KB recebidos em ${elapsedSec}s. Pronto para processar!`
       });
 
       // Salvar credenciais para uso futuro
       if (userInfo?.id) {
-        UserConfigService.saveDnsConfig(userInfo.id, { dnsUrl, dnsUsername, dnsPassword }).catch(err => {
+        UserConfigService.saveDnsConfig(userInfo.id, {
+          dnsUrl: clean.serverUrl,
+          dnsUsername: clean.username,
+          dnsPassword: clean.password,
+          format: dnsFormat,
+        }).catch(err => {
           console.warn('Falha ao salvar credenciais DNS:', err);
         });
       }
     } catch (error: any) {
-      console.error('[DNS] Error:', error);
-      toast.error('Erro ao buscar lista', {
-        description: error.message || 'Não foi possível conectar ao servidor IPTV.',
-        duration: 8000,
+      console.error('[DNS/IPTV] Erro:', error);
+      toast.error('Erro ao buscar lista do servidor IPTV', {
+        description: error.message || 'Não foi possível conectar ao servidor IPTV. Verifique as credenciais ou tente outro formato.',
+        duration: 10000,
       });
     } finally {
       setIsFetchingDns(false);
@@ -1636,17 +1701,39 @@ const M3UImporter = () => {
               </div>
             ) : (
               <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-                <p className="text-sm text-muted-foreground">
-                  Conecte diretamente ao seu servidor IPTV (Xtream Codes). O sistema buscará a lista M3U automaticamente.
-                </p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium">
+                      Conexão Direta ao Servidor IPTV / Xtream Codes
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Compatível com todos os servidores (Xtream Codes, XUI, Stream Crex, ZapX, HTTP e HTTPS). Se preferir, cole o link M3U completo no campo da URL.
+                    </p>
+                  </div>
+                  {hasSavedDnsConfig && (
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleClearDnsConfig}
+                        className="h-8 text-xs text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        Limpar Salvos
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="dns-url" className="text-sm">URL do Servidor</Label>
                     <Input
                       id="dns-url"
-                      placeholder="http://servidor.com"
+                      placeholder="http://servidor.com:8080"
                       value={dnsUrl}
-                      onChange={(e) => setDnsUrl(e.target.value)}
+                      onChange={(e) => handleDnsUrlChange(e.target.value)}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1679,58 +1766,168 @@ const M3UImporter = () => {
                     </div>
                   </div>
                 </div>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
+
+                {/* Formato e opções avançadas */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="dns-format" className="text-xs text-muted-foreground">Formato de Saída do Servidor</Label>
+                    <Select value={dnsFormat} onValueChange={setDnsFormat}>
+                      <SelectTrigger id="dns-format" className="h-9 text-xs">
+                        <SelectValue placeholder="Selecione o formato" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto" className="text-xs">
+                          ⚡ Automático (Recomendado - Tenta todos os formatos)
+                        </SelectItem>
+                        <SelectItem value="m3u_plus_ts" className="text-xs">
+                          M3U Plus (TS - Padrão Xtream Codes)
+                        </SelectItem>
+                        <SelectItem value="m3u_plus" className="text-xs">
+                          M3U Plus Direto (Sem parâmetro de output)
+                        </SelectItem>
+                        <SelectItem value="m3u_plus_m3u8" className="text-xs">
+                          M3U Plus (HLS / M3U8)
+                        </SelectItem>
+                        <SelectItem value="m3u_ts" className="text-xs">
+                          M3U Simples (TS)
+                        </SelectItem>
+                        <SelectItem value="m3u" className="text-xs">
+                          M3U Básico (Legado)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-end gap-2">
                     <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTestDnsConnection}
+                      disabled={isTestingDns || !dnsUrl || !dnsUsername || !dnsPassword}
+                      className="h-9 flex-1 text-xs"
+                    >
+                      {isTestingDns ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                          Testando...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="h-3.5 w-3.5 mr-1.5 text-amber-500" />
+                          Testar Conexão
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      type="button"
                       onClick={handleFetchDNS}
                       disabled={isFetchingDns || !dnsUrl || !dnsUsername || !dnsPassword}
                       variant="secondary"
+                      className="h-9 flex-1 text-xs"
                     >
                       {isFetchingDns ? (
                         <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                           {dnsFetchPhase === 'connecting' ? 'Conectando...' : dnsFetchPhase === 'downloading' ? 'Baixando...' : 'Validando...'}
                         </>
                       ) : (
                         <>
-                          <RefreshCw className="h-4 w-4 mr-2" />
+                          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
                           Buscar Lista
                         </>
                       )}
                     </Button>
-                    {dnsContentLoaded && !isFetchingDns && (
-                      <div className="flex items-center gap-2 text-sm text-green-500">
-                        <CheckCircle className="h-4 w-4" />
-                        Lista carregada com sucesso
+                  </div>
+                </div>
+
+                {/* Card de Diagnóstico da Conexão */}
+                {dnsDiagnostic && (
+                  <div className={`p-3 rounded-lg border text-xs space-y-2 ${
+                    dnsDiagnostic.success && dnsDiagnostic.auth
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                      : 'bg-destructive/10 border-destructive/30 text-destructive'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold flex items-center gap-1.5">
+                        {dnsDiagnostic.success && dnsDiagnostic.auth ? (
+                          <>
+                            <CheckCircle className="h-4 w-4 text-emerald-500" />
+                            Servidor Online & Conta Autenticada
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="h-4 w-4 text-destructive" />
+                            Atenção com o Servidor / Credenciais
+                          </>
+                        )}
+                      </span>
+                      {dnsDiagnostic.status && (
+                        <Badge variant={dnsDiagnostic.auth ? 'default' : 'destructive'} className="text-[10px] uppercase">
+                          {dnsDiagnostic.status}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-[11px] opacity-90">{dnsDiagnostic.message}</p>
+                    {dnsDiagnostic.auth && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-emerald-500/20 text-[11px]">
+                        <div>
+                          <span className="text-muted-foreground block text-[10px]">Validade</span>
+                          <span className="font-medium">{dnsDiagnostic.expDateFormatted || 'Indefinida'}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block text-[10px]">Conexões</span>
+                          <span className="font-medium">{dnsDiagnostic.activeConnections || 0} / {dnsDiagnostic.maxConnections || 1}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block text-[10px]">Protocolo</span>
+                          <span className="font-medium uppercase">{dnsDiagnostic.serverProtocol || 'HTTP'}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block text-[10px]">Tipo</span>
+                          <span className="font-medium">{dnsDiagnostic.isTrial ? 'Teste / Trial' : 'Assinatura Oficial'}</span>
+                        </div>
                       </div>
                     )}
                   </div>
+                )}
 
-                  {isFetchingDns && (
-                    <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          {dnsFetchPhase === 'connecting' && '🔌 Conectando ao servidor...'}
-                          {dnsFetchPhase === 'downloading' && '📥 Baixando lista M3U...'}
-                          {dnsFetchPhase === 'validating' && '✅ Validando conteúdo...'}
-                        </span>
-                        <span className="text-xs text-muted-foreground font-mono">
-                          {dnsFetchElapsed}s
-                        </span>
-                      </div>
-                      <div className="flex gap-1">
-                        <div className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${dnsFetchPhase === 'connecting' || dnsFetchPhase === 'downloading' || dnsFetchPhase === 'validating' ? 'bg-primary' : 'bg-muted'}`} />
-                        <div className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${dnsFetchPhase === 'downloading' || dnsFetchPhase === 'validating' ? 'bg-primary' : 'bg-muted'}`} />
-                        <div className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${dnsFetchPhase === 'validating' ? 'bg-primary' : 'bg-muted'}`} />
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {dnsFetchPhase === 'connecting' && 'Estabelecendo conexão com o servidor IPTV...'}
-                        {dnsFetchPhase === 'downloading' && 'Isso pode levar alguns minutos para listas grandes.'}
-                        {dnsFetchPhase === 'validating' && 'Verificando se o conteúdo é um arquivo M3U válido...'}
-                      </p>
+                {/* Status de Sucesso da Lista */}
+                {dnsContentLoaded && !isFetchingDns && (
+                  <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 p-2.5 rounded-md border border-emerald-500/20">
+                    <CheckCircle className="h-4 w-4 shrink-0" />
+                    <span>Lista M3U carregada e validada com sucesso! Clique em "Processar e Visualizar" abaixo para importar.</span>
+                  </div>
+                )}
+
+                {/* Indicador de progresso de download da lista */}
+                {isFetchingDns && (
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-foreground">
+                        {dnsFetchPhase === 'connecting' && '🔌 Conectando e testando formatos compatíveis...'}
+                        {dnsFetchPhase === 'downloading' && '📥 Baixando lista M3U do servidor...'}
+                        {dnsFetchPhase === 'validating' && '✅ Validando integridade do conteúdo M3U...'}
+                      </span>
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {dnsFetchElapsed}s
+                      </span>
                     </div>
-                  )}
-                </div>
+                    <div className="flex gap-1">
+                      <div className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${dnsFetchPhase === 'connecting' || dnsFetchPhase === 'downloading' || dnsFetchPhase === 'validating' ? 'bg-primary' : 'bg-muted'}`} />
+                      <div className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${dnsFetchPhase === 'downloading' || dnsFetchPhase === 'validating' ? 'bg-primary' : 'bg-muted'}`} />
+                      <div className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${dnsFetchPhase === 'validating' ? 'bg-primary' : 'bg-muted'}`} />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {dnsFetchLog || (dnsFetchPhase === 'connecting'
+                        ? 'Identificando padrão do servidor (Xtream Codes / M3U Plus)...'
+                        : dnsFetchPhase === 'downloading'
+                        ? 'Baixando playlist M3U completa. Em listas com muitos canais ou servidores lentos isso pode levar de 15 a 60 segundos.'
+                        : 'Verificando formato das tags #EXTM3U e streams...')}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
