@@ -3,9 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
     <title>Tibim Manager</title>
     <meta name="description" content="Painel de gerenciamento de conteúdo e controle de mídias" />
     <meta name="author" content="Tibim Manager" />
@@ -20,107 +17,6 @@
     <meta name="twitter:description" content="Painel de gerenciamento de conteúdo" />
     <meta name="twitter:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/lBkOSu76LNfXtVPbXEQen8eudig2/uploads/1758004158510-rrr.png" />
     <link rel="icon" type="image/x-icon" href="https://storage.googleapis.com/gpt-engineer-file-uploads/lBkOSu76LNfXtVPbXEQen8eudig2/uploads/1758004158510-rrr.png">
-
-    <!-- Script de auto-recuperação contra cache antigo e erro de MIME type -->
-    <script>
-      (function() {
-        var RELOAD_KEY = '__app_recovery_reload_ts';
-        function triggerAutoRecovery(reason) {
-          try {
-            var last = parseInt(sessionStorage.getItem(RELOAD_KEY) || '0', 10);
-            var now = Date.now();
-            if (now - last > 15000) {
-              sessionStorage.setItem(RELOAD_KEY, String(now));
-              console.warn('[Recovery] Recarregando aplicação:', reason);
-              if ('caches' in window) {
-                caches.keys().then(function(keys) {
-                  return Promise.all(keys.map(function(k) { return caches.delete(k); }));
-                }).catch(function() {}).finally(function() {
-                  hardReload();
-                });
-              } else {
-                hardReload();
-              }
-            } else {
-              renderEmergencyUI();
-            }
-          } catch(err) {
-            renderEmergencyUI();
-          }
-        }
-
-        function hardReload() {
-          var url = new URL(window.location.href);
-          url.searchParams.set('_v', String(Date.now()));
-          window.location.replace(url.toString());
-        }
-
-        function renderEmergencyUI() {
-          var root = document.getElementById('root');
-          if (!root) return;
-          if (root.children && root.children.length > 0) return;
-          root.innerHTML = `
-            <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#090d16;color:#fff;font-family:system-ui,-apple-system,sans-serif;padding:20px;text-align:center;">
-              <div style="max-width:420px;width:100%;background:#131b2e;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:32px 24px;box-shadow:0 20px 40px rgba(0,0,0,0.5);">
-                <div style="width:48px;height:48px;background:rgba(59,130,246,0.15);border-radius:12px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:22px;">🔄</div>
-                <h2 style="font-size:18px;font-weight:700;margin:0 0 8px;color:#fff;">Atualização do Sistema</h2>
-                <p style="font-size:13px;color:#94a3b8;margin:0 0 20px;line-height:1.5;">
-                  Uma nova versão do painel foi publicada. Clique abaixo para limpar o cache do navegador e recarregar os novos arquivos.
-                </p>
-                <button id="__btn_reload" style="width:100%;padding:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;">
-                  Atualizar Painel Agora
-                </button>
-              </div>
-            </div>
-          `;
-          var btn = document.getElementById('__btn_reload');
-          if (btn) {
-            btn.onclick = function() {
-              btn.disabled = true;
-              btn.innerText = 'Atualizando...';
-              if ('caches' in window) {
-                caches.keys().then(function(keys) {
-                  return Promise.all(keys.map(function(k) { return caches.delete(k); }));
-                }).finally(function() {
-                  hardReload();
-                });
-              } else {
-                hardReload();
-              }
-            };
-          }
-        }
-
-        window.addEventListener('error', function(e) {
-          var target = e.target;
-          if (target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK')) {
-            var src = target.src || target.href || '';
-            if (src.indexOf('/assets/') !== -1 || src.indexOf('.js') !== -1) {
-              triggerAutoRecovery('Falha de script: ' + src);
-            }
-          }
-        }, true);
-
-        window.addEventListener('unhandledrejection', function(e) {
-          var msg = String(e && e.reason && (e.reason.message || e.reason) || '');
-          if (/Failed to fetch dynamically imported module/i.test(msg) ||
-              /Importing a module script failed/i.test(msg) ||
-              /Strict MIME type/i.test(msg) ||
-              /text\/html/i.test(msg)) {
-            triggerAutoRecovery('Falha de módulo: ' + msg);
-          }
-        });
-
-        window.addEventListener('load', function() {
-          setTimeout(function() {
-            var root = document.getElementById('root');
-            if (root && (!root.children || root.children.length === 0)) {
-              renderEmergencyUI();
-            }
-          }, 4500);
-        });
-      })();
-    </script>
 </head>
 
   <body>
