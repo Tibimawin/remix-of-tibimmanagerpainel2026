@@ -97,11 +97,15 @@ export class JogosDiaScheduleService {
           }
 
           // REGRA DE OURO: Apenas jogos agendados para HOJE são importados para a grade.
-          // Jogos de amanhã ou outras datas futuras são ignorados até o dia do evento.
+          // Eventos passados (ontem, etc.) ou jogos futuros são ignorados.
           const dateCheck = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
           if (!dateCheck.canImport) {
-            console.log(`⏳ [JogosDiaSchedule] Ignorando jogo futuro '${jogo.Nome}' (${dateCheck.displayDate}) - liberado apenas no dia.`);
-            skippedFuture++;
+            if (dateCheck.isPast) {
+              console.log(`⏳ [JogosDiaSchedule] Ignorando jogo passado '${jogo.Nome}' (${dateCheck.displayDate}) - evento já finalizado.`);
+            } else {
+              console.log(`⏳ [JogosDiaSchedule] Ignorando jogo futuro '${jogo.Nome}' (${dateCheck.displayDate}) - liberado apenas no dia.`);
+              skippedFuture++;
+            }
             await updateDoc(progressRef, {
               current: i + 1,
               updatedAt: new Date().toISOString()

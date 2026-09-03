@@ -44,7 +44,13 @@ import {
 } from '@/components/ui/select';
 import { useNavigate } from 'react-router-dom';
 import { PermissionGate } from '@/components/PermissionGate';
-import { analyzeJogoDate, JogoDateInfo, isBlankOrSeparatorRow, getSeparatorLabel } from '@/utils/jogosDiaDateUtils';
+import { 
+  analyzeJogoDate, 
+  JogoDateInfo, 
+  isBlankOrSeparatorRow, 
+  getSeparatorLabel,
+  sanitizeAndFilterActiveJogos 
+} from '@/utils/jogosDiaDateUtils';
 
 
 interface JogoDia {
@@ -149,31 +155,40 @@ const JogosDia = () => {
     return () => unsub();
   }, [userInfo?.id]);
 
-  // Contagem dinâmica por data (ignora linhas em branco / separadores)
+  // Jogos ativos higienizados: Remove eventos do passado (ontem, anteontem) e limpa separadores órfãos
+  const activeJogos = useMemo(() => {
+    return sanitizeAndFilterActiveJogos(jogos);
+  }, [jogos]);
+
+  // Contagem dinâmica por data (ignora eventos passados e linhas em branco/separadores)
   const dateCounts = useMemo(() => {
     let hoje = 0;
     let amanha = 0;
     let proximos = 0;
-    let realJogosCount = 0;
 
-    jogos.forEach(jogo => {
+    activeJogos.forEach(jogo => {
       if (isBlankOrSeparatorRow(jogo)) return;
-      realJogosCount++;
       const dateInfo = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
+      if (dateInfo.isPast) return;
       if (dateInfo.isToday) hoje++;
       else if (dateInfo.isTomorrow) amanha++;
       else if (dateInfo.isFuture) proximos++;
     });
 
-    return { hoje, amanha, proximos, todos: realJogosCount };
-  }, [jogos]);
+    return { hoje, amanha, proximos, todos: hoje + amanha + proximos };
+  }, [activeJogos]);
 
   const handleImport = async (jogo: JogoDia) => {
     if (isBlankOrSeparatorRow(jogo)) return;
 
     const dateInfo = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
 
-    // 🔒 BLOQUEIO SEGURO: Não permitir importação de jogos de amanhã ou de datas futuras
+    // 🔒 BLOQUEIO SEGURO: Não permitir importação de jogos passados ou de datas futuras
+    if (dateInfo.isPast) {
+      toast.error('Este jogo já foi encerrado em data anterior e não pode ser importado.');
+      return;
+    }
+
     if (!dateInfo.canImport) {
       toast.error(`Importação bloqueada: Este jogo está agendado para ${dateInfo.displayDate}. Só pode ser importado no dia da partida.`);
       return;
@@ -264,7 +279,7 @@ const JogosDia = () => {
 
   // Importar todos os jogos liberados de HOJE em 1 clique
   const handleImportAllToday = async () => {
-    const todayGames = jogos.filter(j => {
+    const todayGames = activeJogos.filter(j => {
       if (isBlankOrSeparatorRow(j)) return false;
       const dateInfo = analyzeJogoDate(j.Data || (j as any)['Data'], j['Data Horario'] || (j as any)['Data Horario']);
       return dateInfo.canImport;
@@ -333,56 +348,87 @@ const JogosDia = () => {
     }
   };
 
-  const campeonatos = Array.from(new Set(
-    jogos
-      .filter(j => !isBlankOrSeparatorRow(j))
-      .map(j => j.Campeonato)
-      .filter(Boolean)
-  )).sort();
+  const campeonatos = useMemo(() => {
+    return Array.from(new Set(
+      activeJogos
+        .filter(j => !isBlankOrSeparatorRow(j))
+        .map(j => j.Campeonato)
+        .filter(Boolean)
+    )).sort();
+  }, [activeJogos]);
 
-  const filteredJogos = jogos.filter(jogo => {
-    const isSeparator = isBlankOrSeparatorRow(jogo);
+  const filteredJogos = useMemo(() => {
+    const list = activeJogos.filter(jogo => {
+      const isSeparator = isBlankOrSeparatorRow(jogo);
 
-    // Se estiver pesquisando por termo, esconde separadores a menos que coincida com a busca
-    if (searchTerm.trim()) {
-      if (isSeparator) return false;
-      const term = searchTerm.toLowerCase();
-      const matchesSearch = 
-        jogo.Nome?.toLowerCase().includes(term) ||
-        jogo.Campeonato?.toLowerCase().includes(term) ||
-        jogo['Time Casa']?.toLowerCase().includes(term) ||
-        jogo['Time Fora']?.toLowerCase().includes(term);
-      return matchesSearch;
-    }
-
-    // Se filtrou por campeonato específico, esconde separadores que não pertençam ao campeonato
-    if (selectedCampeonato !== 'todos') {
-      if (isSeparator) return false;
-      return jogo.Campeonato === selectedCampeonato;
-    }
-
-    // Filtro por Data
-    if (selectedDateFilter !== 'todos') {
-      if (isSeparator) {
-        const rawDate = jogo.Data || (jogo as any)['Data'] || jogo['Data Horario'] || (jogo as any)['Data Horario'];
-        if (rawDate) {
-          const dateInfo = analyzeJogoDate(rawDate);
-          if (selectedDateFilter === 'hoje') return dateInfo.isToday;
-          if (selectedDateFilter === 'amanha') return dateInfo.isTomorrow;
-          if (selectedDateFilter === 'proximos') return dateInfo.isFuture && !dateInfo.isTomorrow;
-        }
-        // Se for linha em branco sem data e filtramos por uma aba específica, não polui
-        return false;
+      // Se for um jogo normal, garante que jamais apareça se for do passado
+      if (!isSeparator) {
+        const dateInfo = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
+        if (dateInfo.isPast) return false;
       }
 
-      const dateInfo = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
-      if (selectedDateFilter === 'hoje') return dateInfo.isToday;
-      if (selectedDateFilter === 'amanha') return dateInfo.isTomorrow;
-      if (selectedDateFilter === 'proximos') return dateInfo.isFuture && !dateInfo.isTomorrow;
+      // Se estiver pesquisando por termo, esconde separadores a menos que coincida com a busca
+      if (searchTerm.trim()) {
+        if (isSeparator) return false;
+        const term = searchTerm.toLowerCase();
+        const matchesSearch = 
+          jogo.Nome?.toLowerCase().includes(term) ||
+          jogo.Campeonato?.toLowerCase().includes(term) ||
+          jogo['Time Casa']?.toLowerCase().includes(term) ||
+          jogo['Time Fora']?.toLowerCase().includes(term);
+        return matchesSearch;
+      }
+
+      // Se filtrou por campeonato específico, esconde separadores que não pertençam ao campeonato
+      if (selectedCampeonato !== 'todos') {
+        if (isSeparator) return false;
+        return jogo.Campeonato === selectedCampeonato;
+      }
+
+      // Filtro por Data
+      if (selectedDateFilter !== 'todos') {
+        if (isSeparator) {
+          const rawDate = jogo.Data || (jogo as any)['Data'] || jogo['Data Horario'] || (jogo as any)['Data Horario'];
+          if (rawDate) {
+            const dateInfo = analyzeJogoDate(rawDate);
+            if (dateInfo.isPast) return false;
+            if (selectedDateFilter === 'hoje') return dateInfo.isToday;
+            if (selectedDateFilter === 'amanha') return dateInfo.isTomorrow;
+            if (selectedDateFilter === 'proximos') return dateInfo.isFuture && !dateInfo.isTomorrow;
+          }
+          // Se for linha em branco sem data e filtramos por uma aba específica, não polui
+          return false;
+        }
+
+        const dateInfo = analyzeJogoDate(jogo.Data || (jogo as any)['Data'], jogo['Data Horario'] || (jogo as any)['Data Horario']);
+        if (dateInfo.isPast) return false;
+        if (selectedDateFilter === 'hoje') return dateInfo.isToday;
+        if (selectedDateFilter === 'amanha') return dateInfo.isTomorrow;
+        if (selectedDateFilter === 'proximos') return dateInfo.isFuture && !dateInfo.isTomorrow;
+      }
+      
+      return true;
+    });
+
+    // Higienização de separadores após os filtros
+    const cleanList: typeof list = [];
+    for (let i = 0; i < list.length; i++) {
+      const cur = list[i];
+      if (isBlankOrSeparatorRow(cur)) {
+        if (cleanList.length === 0 && !(cur.Data || (cur as any)['Data'] || cur['Data Horario'] || (cur as any)['Data Horario'])) {
+          continue;
+        }
+        if (cleanList.length > 0 && isBlankOrSeparatorRow(cleanList[cleanList.length - 1])) {
+          continue;
+        }
+      }
+      cleanList.push(cur);
     }
-    
-    return true;
-  });
+    if (cleanList.length > 0 && isBlankOrSeparatorRow(cleanList[cleanList.length - 1])) {
+      cleanList.pop();
+    }
+    return cleanList;
+  }, [activeJogos, searchTerm, selectedCampeonato, selectedDateFilter]);
 
   if (loadingConfig) {
     return (
@@ -424,16 +470,17 @@ const JogosDia = () => {
             <div className="p-2 bg-emerald-500/20 rounded-lg backdrop-blur-sm border border-emerald-500/20">
               <Trophy className="w-6 h-6 text-emerald-500" />
             </div>
-            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 uppercase tracking-wider text-[10px] font-bold">
-              Sports Central
+            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 uppercase tracking-wider text-[10px] font-bold flex items-center">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-2" />
+              Jogos ao Vivo
             </Badge>
           </div>
 
           <h1 className="text-4xl lg:text-5xl font-black tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
-            Jogos do Dia & Programação
+            Jogos ao Vivo & Programação
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl">
-            Acompanhe a grade esportiva completa da semana. Os jogos de <span className="text-emerald-400 font-semibold">Hoje</span> estão liberados para importação imediata, enquanto os jogos de <span className="text-amber-400 font-semibold">Amanhã</span> e próximos dias ficam visíveis para consulta e liberados automaticamente no dia do confronto.
+            Acompanhe a grade esportiva em tempo real. Os jogos de <span className="text-emerald-400 font-semibold">Hoje</span> estão liberados para importação imediata, eventos de datas passadas são automaticamente filtrados e as próximas rodadas ficam disponíveis para consulta.
           </p>
         </motion.div>
       </div>
@@ -619,7 +666,7 @@ const JogosDia = () => {
             }`}
           >
             <CalendarDays className="w-4 h-4" />
-            <span>Todos os Jogos</span>
+            <span>Todos os Jogos Ativos</span>
             <Badge variant="secondary" className="text-[10px] ml-1 bg-white/10 text-white">
               {dateCounts.todos}
             </Badge>
@@ -635,7 +682,7 @@ const JogosDia = () => {
             }`}
           >
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Jogos de Hoje (Liberados)</span>
+            <span>Jogos ao Vivo / Hoje (Liberados)</span>
             <Badge variant="secondary" className="text-[10px] ml-1 bg-emerald-500/20 text-emerald-300">
               {dateCounts.hoje}
             </Badge>

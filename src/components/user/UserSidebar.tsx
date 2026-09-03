@@ -291,11 +291,11 @@ const menuItems: MenuItem[] = [
   },
   {
     id: 'jogos-dia',
-    label: 'Jogos do Dia',
+    label: 'Jogos ao Vivo / Dia',
     href: '/jogos-dia',
     icon: Calendar,
     category: 'tools',
-    description: 'Importar jogos do dia da origem',
+    description: 'Jogos ao vivo e programação esportiva',
     feature: 'jogos-dia',
     badge: { type: 'new' }
   },
