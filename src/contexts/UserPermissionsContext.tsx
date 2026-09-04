@@ -99,8 +99,8 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
         };
         check();
 
-        // Revalida a cada 60s para reagir rapidamente à expiração/renovação.
-        const interval = setInterval(check, 60 * 1000);
+        // Revalida periodicamente (a cada 15 min) e no foco da aba para economizar quota
+        const interval = setInterval(check, 15 * 60 * 1000);
         // Revalida também quando o usuário volta pra aba (focus/visibilitychange).
         const onFocus = () => check();
         const onVisibility = () => {

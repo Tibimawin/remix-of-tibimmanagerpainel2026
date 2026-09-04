@@ -3,6 +3,8 @@ import { collection, onSnapshot, query, orderBy, doc, updateDoc, setDoc } from '
 import { db } from '@/config/firebase';
 import { FirebaseUser, FirebaseUserService } from '@/services/FirebaseUserService';
 import { ExpirationNotificationService } from '@/services/ExpirationNotificationService';
+import { useConfig } from '@/contexts/ConfigContext';
+import { BaserowUserSyncService } from '@/services/BaserowUserSyncService';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,7 +54,46 @@ interface EditUserModalProps {
   onSuccess: () => void;
 }
 
+// Utilitários de data à prova de falhas para inputs date e sincronização
+const toYMD = (dateVal: any): string => {
+  if (!dateVal) return '';
+  if (typeof dateVal === 'string') {
+    const trimmed = dateVal.trim();
+    const brMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (brMatch) {
+      return `${brMatch[3]}-${brMatch[2].padStart(2, '0')}-${brMatch[1].padStart(2, '0')}`;
+    }
+    const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  }
+  const d = new Date(dateVal);
+  return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+};
+
+const toSafeISO = (dateVal: any): string => {
+  if (!dateVal) return new Date().toISOString();
+  if (typeof dateVal === 'string') {
+    const trimmed = dateVal.trim();
+    const brMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (brMatch) {
+      const day = parseInt(brMatch[1], 10);
+      const month = parseInt(brMatch[2], 10) - 1;
+      const year = parseInt(brMatch[3], 10);
+      const d = new Date(Date.UTC(year, month, day, 23, 59, 59));
+      if (!isNaN(d.getTime())) return d.toISOString();
+    }
+  }
+  const ymd = toYMD(dateVal);
+  if (ymd) {
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d, 23, 59, 59)).toISOString();
+  }
+  const d = new Date(dateVal);
+  return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+};
+
 const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, onSuccess }) => {
+  const { config } = useConfig();
   const [loading, setLoading] = useState(false);
   const [hasAutomacaoFeature, setHasAutomacaoFeature] = useState(false);
   const [loadingPermissions, setLoadingPermissions] = useState(true);
@@ -60,13 +101,29 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const [customDays, setCustomDays] = useState('');
   const [formData, setFormData] = useState({
-    name: user.name,
-    email: user.email,
-    accessDays: user.accessDays,
-    startDate: user.startDate ? user.startDate.split('T')[0] : '',
-    expiryDate: user.expiryDate ? user.expiryDate.split('T')[0] : '',
-    isActive: user.isActive
+    name: user.name || '',
+    email: user.email || '',
+    accessDays: user.accessDays || 0,
+    startDate: toYMD(user.startDate),
+    expiryDate: toYMD(user.expiryDate),
+    isActive: user.isActive ?? true
   });
+
+  // Atualizar formData sempre que o modal abrir ou o usuário mudar
+  useEffect(() => {
+    if (isOpen && user) {
+      setFormData({
+        name: user.name || '',
+        email: user.email || '',
+        accessDays: user.accessDays || 0,
+        startDate: toYMD(user.startDate),
+        expiryDate: toYMD(user.expiryDate),
+        isActive: user.isActive ?? true
+      });
+      setLoading(false);
+      setCustomDays('');
+    }
+  }, [isOpen, user]);
 
   // Carregar permissões atuais e planos ao abrir o modal
   useEffect(() => {
@@ -107,94 +164,188 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
     loadData();
   }, [isOpen, user.uid]);
 
+  // Adiciona dias ao formulário e calcula nova expiração instantaneamente
+  const handleAddDaysToForm = (days: number) => {
+    const currentExpiryYMD = formData.expiryDate || toYMD(user.expiryDate);
+    let baseDate = new Date();
+    if (currentExpiryYMD) {
+      const parsed = new Date(toSafeISO(currentExpiryYMD));
+      if (!isNaN(parsed.getTime()) && parsed > new Date()) {
+        baseDate = parsed;
+      }
+    }
+    baseDate.setDate(baseDate.getDate() + days);
+    const newExpiryYMD = toYMD(baseDate);
+    const newAccessDays = Math.max(0, (Number(formData.accessDays) || 0) + days);
+
+    setFormData(prev => ({
+      ...prev,
+      accessDays: newAccessDays,
+      expiryDate: newExpiryYMD,
+      isActive: true
+    }));
+
+    toast.info(`+${days} dias adicionados ao formulário! Expiração: ${baseDate.toLocaleDateString('pt-BR')}. Clique em "Salvar Alterações" para sincronizar com o Baserow.`);
+  };
+
+  // Salvar no Firebase e Sincronizar com o Baserow
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      const safeStartDate = toSafeISO(formData.startDate);
+      const safeExpiryDate = toSafeISO(formData.expiryDate);
+
       const updates = {
-        name: formData.name,
-        email: formData.email,
-        accessDays: Number(formData.accessDays),
-        startDate: new Date(formData.startDate).toISOString(),
-        expiryDate: new Date(formData.expiryDate).toISOString(),
-        isActive: formData.isActive
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        accessDays: Number(formData.accessDays) || 0,
+        startDate: safeStartDate,
+        expiryDate: safeExpiryDate,
+        isActive: Boolean(formData.isActive)
       };
 
+      console.log('💾 [EditUserModal] Salvando atualizações no Firebase:', updates);
       await FirebaseUserService.updateUser(user.uid, updates);
 
       // Atualizar permissões incluindo enabledFeatures
-      const { getDoc } = await import('firebase/firestore');
-      const permissionsRef = doc(db, 'userPermissions', user.uid);
-      const permissionsDoc = await getDoc(permissionsRef);
+      try {
+        const { getDoc } = await import('firebase/firestore');
+        const permissionsRef = doc(db, 'userPermissions', user.uid);
+        const permissionsDoc = await getDoc(permissionsRef);
 
-      // Pegar features atuais e atualizar automacao
-      const currentPermissions = permissionsDoc.exists() ? permissionsDoc.data() : {};
-      const currentFeatures = currentPermissions.enabledFeatures || [];
+        const currentPermissions = permissionsDoc.exists() ? permissionsDoc.data() : {};
+        const currentFeatures = currentPermissions.enabledFeatures || [];
 
-      // Adicionar ou remover 'automacao' baseado no toggle
-      let updatedFeatures = [...currentFeatures];
-      if (hasAutomacaoFeature && !updatedFeatures.includes('automacao')) {
-        updatedFeatures.push('automacao');
-        console.log('✅ Adicionando feature automacao');
-      } else if (!hasAutomacaoFeature && updatedFeatures.includes('automacao')) {
-        updatedFeatures = updatedFeatures.filter(f => f !== 'automacao');
-        console.log('🚫 Removendo feature automacao');
+        let updatedFeatures = [...currentFeatures];
+        if (hasAutomacaoFeature && !updatedFeatures.includes('automacao')) {
+          updatedFeatures.push('automacao');
+          console.log('✅ Adicionando feature automacao');
+        } else if (!hasAutomacaoFeature && updatedFeatures.includes('automacao')) {
+          updatedFeatures = updatedFeatures.filter(f => f !== 'automacao');
+          console.log('🚫 Removendo feature automacao');
+        }
+
+        const selectedPlan = plans.find(p => p.id === selectedPlanId);
+
+        await setDoc(permissionsRef, {
+          userName: updates.name,
+          userEmail: updates.email,
+          expiryDate: updates.expiryDate,
+          isActive: updates.isActive,
+          enabledFeatures: updatedFeatures,
+          planId: selectedPlanId,
+          planName: selectedPlan ? selectedPlan.name : (currentPermissions.planName || 'Básico'),
+          lastUpdated: new Date().toISOString()
+        }, { merge: true });
+      } catch (permErr) {
+        console.warn('⚠️ Erro ao atualizar permissões (não impeditivo):', permErr);
       }
 
-      const selectedPlan = plans.find(p => p.id === selectedPlanId);
-
-      await setDoc(permissionsRef, {
-        userName: formData.name,
-        userEmail: formData.email,
-        expiryDate: updates.expiryDate,
-        isActive: formData.isActive,
-        enabledFeatures: updatedFeatures,
-        planId: selectedPlanId,
-        planName: selectedPlan ? selectedPlan.name : (currentPermissions.planName || 'Básico'),
-        lastUpdated: new Date().toISOString()
-      }, { merge: true });
-
-      // Verificar se o acesso foi estendido e remover notificações de expiração
-      const now = new Date();
-      const newExpiryDate = new Date(updates.expiryDate);
-      const daysRemaining = Math.ceil((newExpiryDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
-
-      if (daysRemaining > 5) {
-        console.log('🔔 Removendo notificações de expiração para usuário com acesso estendido');
-        await ExpirationNotificationService.dismissExpirationNotification(user.uid);
-
-        // Remover também notificações gerais de expiração que possam existir
-        await ExpirationNotificationService.removeAllUserExpirationNotifications(user.email);
+      // 🌐 SINCRONIZAÇÃO COM O BASEROW
+      console.log('🌐 [EditUserModal] Sincronizando com o Baserow...');
+      let baserowResult: any = null;
+      try {
+        baserowResult = await BaserowUserSyncService.syncUserToBaserow({
+          name: updates.name,
+          email: updates.email,
+          accessDays: updates.accessDays,
+          startDate: updates.startDate,
+          expiryDate: updates.expiryDate,
+          isActive: updates.isActive
+        }, config);
+        console.log('🌐 [EditUserModal] Resultado Baserow:', baserowResult);
+      } catch (baserowErr: any) {
+        console.error('❌ [EditUserModal] Erro ao sincronizar com Baserow:', baserowErr);
+        baserowResult = { success: false, error: baserowErr.message };
       }
 
-      toast.success('Usuário atualizado com sucesso!');
+      // Limpar notificações de expiração se o acesso for superior a 5 dias
+      try {
+        const now = new Date();
+        const newExpiryDate = new Date(safeExpiryDate);
+        const daysRemaining = Math.ceil((newExpiryDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+
+        if (daysRemaining > 5) {
+          await ExpirationNotificationService.dismissExpirationNotification(user.uid);
+          await ExpirationNotificationService.removeAllUserExpirationNotifications(updates.email);
+        }
+      } catch (notifErr) {
+        console.warn('⚠️ Erro ao remover notificações (não crítico):', notifErr);
+      }
+
+      // Feedback final ao usuário
+      if (baserowResult?.success) {
+        toast.success(`Usuário salvo no Firebase e sincronizado no Baserow com sucesso!`);
+      } else if (baserowResult?.error) {
+        toast.success(`Usuário salvo no Firebase!`);
+        toast.warning(`Baserow: ${baserowResult.error}`);
+      } else {
+        toast.success('Usuário atualizado com sucesso!');
+      }
+
       onSuccess();
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao atualizar usuário:', error);
-      toast.error('Erro ao atualizar usuário');
+      toast.error(`Erro ao atualizar usuário: ${error?.message || 'Falha inesperada'}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const extendAccess = async (days: number) => {
+  // Extensão direta em 1 clique (executa e sincroniza com Baserow imediatamente)
+  const extendAccessDirectly = async (days: number) => {
     setLoading(true);
     try {
       await FirebaseUserService.extendUserAccess(user.uid, days);
 
-      // Remover notificações de expiração após estender acesso
-      console.log('🔔 Removendo notificações de expiração após extensão de acesso');
-      await ExpirationNotificationService.dismissExpirationNotification(user.uid);
-      await ExpirationNotificationService.removeAllUserExpirationNotifications(user.email);
+      // Calcular dados atualizados para sincronização no Baserow
+      const now = new Date();
+      const currentExpiry = user.expiryDate ? new Date(toSafeISO(user.expiryDate)) : null;
+      const baseDate = (currentExpiry && currentExpiry > now) ? currentExpiry : now;
+      const newExpiry = new Date(baseDate);
+      newExpiry.setDate(baseDate.getDate() + days);
+      const newAccessDays = (Number(user.accessDays) || 0) + days;
 
-      toast.success(`Acesso estendido em ${days} dias!`);
+      // 🌐 Sincronizar com o Baserow
+      let baserowResult: any = null;
+      try {
+        baserowResult = await BaserowUserSyncService.syncUserToBaserow({
+          name: user.name,
+          email: user.email,
+          accessDays: newAccessDays,
+          startDate: toSafeISO(user.startDate),
+          expiryDate: newExpiry.toISOString(),
+          isActive: true
+        }, config);
+      } catch (e: any) {
+        baserowResult = { success: false, error: e.message };
+      }
+
+      // Remover notificações de expiração com segurança
+      try {
+        await ExpirationNotificationService.dismissExpirationNotification(user.uid);
+        await ExpirationNotificationService.removeAllUserExpirationNotifications(user.email);
+      } catch (notifErr) {
+        console.warn('Aviso não crítico ao remover notificações:', notifErr);
+      }
+
+      if (baserowResult?.success) {
+        toast.success(`Acesso estendido em ${days} dias e sincronizado no Baserow!`);
+      } else {
+        toast.success(`Acesso estendido em ${days} dias no Firebase!`);
+        if (baserowResult?.error) {
+          toast.warning(`Baserow: ${baserowResult.error}`);
+        }
+      }
+
       onSuccess();
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao estender acesso:', error);
-      toast.error('Erro ao estender acesso');
+      toast.error(`Erro ao estender acesso: ${error?.message || 'Falha inesperada'}`);
     } finally {
       setLoading(false);
     }
@@ -203,40 +354,68 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
   const toggleUserStatus = async () => {
     setLoading(true);
     try {
-      if (user.isActive) {
+      const newStatus = !user.isActive;
+
+      if (!newStatus) {
         await FirebaseUserService.deactivateUser(user.uid);
-        toast.success('Usuário desativado com sucesso!');
+        const permissionsRef = doc(db, 'userPermissions', user.uid);
+        await setDoc(permissionsRef, {
+          isActive: false,
+          lastUpdated: new Date().toISOString()
+        }, { merge: true });
+
+        // Sincronizar status inativo no Baserow
+        try {
+          await BaserowUserSyncService.syncUserToBaserow({
+            name: user.name,
+            email: user.email,
+            accessDays: user.accessDays,
+            startDate: toSafeISO(user.startDate),
+            expiryDate: toSafeISO(user.expiryDate),
+            isActive: false
+          }, config);
+        } catch (e) {
+          console.warn('Erro ao sincronizar status no Baserow:', e);
+        }
+
+        toast.success('Usuário desativado no Firebase e no Baserow!');
       } else {
         await FirebaseUserService.updateUser(user.uid, { isActive: true });
 
-        // Atualizar permissões também (usando setDoc com merge para evitar quebras se o documento não existir)
         const permissionsRef = doc(db, 'userPermissions', user.uid);
         await setDoc(permissionsRef, {
           isActive: true,
           lastUpdated: new Date().toISOString()
         }, { merge: true });
 
-        // Verificar se o usuário tem acesso válido e remover notificações se necessário
-        const userData = await FirebaseUserService.getUserById(user.uid);
-        if (userData) {
-          const now = new Date();
-          const expiryDate = new Date(userData.expiryDate);
-          const daysRemaining = Math.ceil((expiryDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
-
-          if (daysRemaining > 5) {
-            console.log('🔔 Removendo notificações de expiração para usuário reativado');
-            await ExpirationNotificationService.dismissExpirationNotification(user.uid);
-            await ExpirationNotificationService.removeAllUserExpirationNotifications(user.email);
-          }
+        // Sincronizar status ativo no Baserow
+        try {
+          await BaserowUserSyncService.syncUserToBaserow({
+            name: user.name,
+            email: user.email,
+            accessDays: user.accessDays,
+            startDate: toSafeISO(user.startDate),
+            expiryDate: toSafeISO(user.expiryDate),
+            isActive: true
+          }, config);
+        } catch (e) {
+          console.warn('Erro ao sincronizar status no Baserow:', e);
         }
 
-        toast.success('Usuário ativado com sucesso!');
+        try {
+          await ExpirationNotificationService.dismissExpirationNotification(user.uid);
+          await ExpirationNotificationService.removeAllUserExpirationNotifications(user.email);
+        } catch (e) {
+          console.warn('Aviso não crítico ao remover notificações:', e);
+        }
+
+        toast.success('Usuário ativado no Firebase e no Baserow!');
       }
       onSuccess();
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao alterar status do usuário:', error);
-      toast.error('Erro ao alterar status do usuário');
+      toast.error(`Erro ao alterar status: ${error?.message || 'Falha inesperada'}`);
     } finally {
       setLoading(false);
     }
@@ -252,9 +431,9 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
       toast.success('Usuário excluído com sucesso!');
       onSuccess();
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao excluir usuário:', error);
-      toast.error('Erro ao excluir usuário');
+      toast.error(`Erro ao excluir usuário: ${error?.message || 'Falha inesperada'}`);
     } finally {
       setLoading(false);
     }
@@ -385,97 +564,131 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2 items-center">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => extendAccess(1)}
-              disabled={loading}
-            >
-              +1 Dia
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => extendAccess(7)}
-              disabled={loading}
-            >
-              +7 Dias
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => extendAccess(30)}
-              disabled={loading}
-            >
-              +30 Dias
-            </Button>
-
-            <div className="flex items-center gap-2 border border-purple-500/20 bg-purple-500/5 p-1 rounded-md">
-              <Input
-                type="number"
-                placeholder="Outro (dias)"
-                value={customDays}
-                onChange={(e) => setCustomDays(e.target.value)}
+          {/* Ações de Extensão Rápida */}
+          <div className="flex flex-col gap-2 p-3 bg-muted/40 rounded-lg border">
+            <div className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
+              <span>⚡ Adicionar Dias de Acesso (Atualiza expiração no formulário):</span>
+              <span className="text-[11px] text-purple-600 dark:text-purple-400 font-normal">Depois clique em Salvar Alterações</span>
+            </div>
+            <div className="flex flex-wrap gap-2 items-center">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleAddDaysToForm(1)}
                 disabled={loading}
-                className="w-24 h-8 text-xs bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-              />
+                className="font-medium"
+              >
+                +1 Dia
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleAddDaysToForm(7)}
+                disabled={loading}
+                className="font-medium"
+              >
+                +7 Dias
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleAddDaysToForm(30)}
+                disabled={loading}
+                className="font-semibold text-purple-600 border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950"
+              >
+                +30 Dias
+              </Button>
+
+              <div className="flex items-center gap-1.5 border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 rounded-md">
+                <Input
+                  type="number"
+                  placeholder="Outro (dias)"
+                  value={customDays}
+                  onChange={(e) => setCustomDays(e.target.value)}
+                  disabled={loading}
+                  className="w-20 h-7 text-xs bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-1"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-purple-600 font-semibold hover:bg-purple-500/20 px-2"
+                  onClick={() => {
+                    const days = parseInt(customDays);
+                    if (isNaN(days) || days <= 0) {
+                      toast.error('Insira um número válido de dias');
+                      return;
+                    }
+                    handleAddDaysToForm(days);
+                  }}
+                  disabled={loading || !customDays}
+                >
+                  Aplicar
+                </Button>
+              </div>
+
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
-                className="h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white"
-                onClick={() => {
-                  const days = parseInt(customDays);
-                  if (isNaN(days) || days <= 0) {
-                    toast.error('Insira um número válido de dias');
-                    return;
-                  }
-                  extendAccess(days);
-                }}
-                disabled={loading || !customDays}
+                className="ml-auto text-xs bg-purple-600 hover:bg-purple-700 text-white font-medium shadow-sm"
+                onClick={() => extendAccessDirectly(30)}
+                disabled={loading}
+                title="Aplica +30 dias e sincroniza imediatamente no Firebase e Baserow"
               >
-                Renovar
+                ⚡ Renovar +30d Imediato
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t">
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant={user.isActive ? "destructive" : "default"}
+                onClick={toggleUserStatus}
+                disabled={loading}
+              >
+                {user.isActive ? (
+                  <>
+                    <ShieldOff className="h-4 w-4 mr-1" />
+                    Desativar
+                  </>
+                ) : (
+                  <>
+                    <Shield className="h-4 w-4 mr-1" />
+                    Ativar
+                  </>
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDeleteUser}
+                disabled={loading}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 dark:border-red-900/50"
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Excluir Usuário
               </Button>
             </div>
 
-            <Button
-              type="button"
-              variant={user.isActive ? "destructive" : "default"}
-              onClick={toggleUserStatus}
-              disabled={loading}
-            >
-              {user.isActive ? (
-                <>
-                  <ShieldOff className="h-4 w-4 mr-1" />
-                  Desativar
-                </>
-              ) : (
-                <>
-                  <Shield className="h-4 w-4 mr-1" />
-                  Ativar
-                </>
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleDeleteUser}
-              disabled={loading}
-              className="bg-red-600 hover:bg-red-700 text-white ml-auto"
-            >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Excluir Usuário
-            </Button>
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Salvando...' : 'Salvar Alterações'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+                Cancelar
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={loading}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 shadow-sm"
+              >
+                {loading ? 'Salvando no Firebase e Baserow...' : 'Salvar Alterações'}
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>

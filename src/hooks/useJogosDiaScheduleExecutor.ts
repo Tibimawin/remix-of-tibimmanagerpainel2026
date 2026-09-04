@@ -1,19 +1,8 @@
-import { useEffect } from 'react';
-import { JogosDiaScheduleService } from '@/services/JogosDiaScheduleService';
-import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
-import { useGlobalJogosDiaConfig } from '@/hooks/useGlobalJogosDiaConfig';
-
+/**
+ * Executor automático de Jogos do Dia desativado para preservação de quota do Firebase.
+ * A importação é feita 100% sob demanda/manual pelo usuário na página Jogos do Dia.
+ */
 export const useJogosDiaScheduleExecutor = () => {
-  const { userInfo } = useSimpleAuth();
-  const { globalConfig } = useGlobalJogosDiaConfig();
-
-  useEffect(() => {
-    if (!userInfo?.id || !globalConfig?.isActive) return;
-
-    const interval = setInterval(() => {
-      JogosDiaScheduleService.checkAndExecuteForUser(userInfo.id, userInfo.email);
-    }, 60000); // Checa a cada minuto
-
-    return () => clearInterval(interval);
-  }, [userInfo?.id, globalConfig?.isActive]);
+  // Desativado: preservação de quota do Firebase
 };
+

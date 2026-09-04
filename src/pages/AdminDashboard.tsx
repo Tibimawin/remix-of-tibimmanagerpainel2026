@@ -1,57 +1,83 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { FirebaseUserService, FirebaseUser } from '@/services/FirebaseUserService';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Activity, AlertTriangle, Menu, Search, Filter } from 'lucide-react';
+import { Activity, AlertTriangle, Menu, Search, Filter, UserPlus, Users, Bell, DollarSign, Shield, Zap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
 import { useRealtimeLogs } from '@/hooks/useRealtimeLogs';
 import { useRealtimeActivities } from '@/hooks/useRealtimeActivities';
-import DateRangeFilter from '@/components/DateRangeFilter';
-import VisualMetricsDashboard from '@/components/VisualMetricsDashboard';
-import AdminProducts from '@/components/AdminProducts';
-import AdminUsers from '@/components/AdminUsers';
-import AdminNotifications from '@/components/AdminNotifications';
-import AdminChat from '@/components/AdminChat';
-import AdminImportConfig from '@/components/AdminImportConfig';
-import AdminPlans from '@/components/AdminPlans';
-import AdminUserPermissions from '@/components/AdminUserPermissions';
-import { AdminSeriesCorrection } from '@/components/AdminSeriesCorrection';
-import { AdminSuportePrioritario } from '@/components/AdminSuportePrioritario';
-import { AdminOffers } from '@/components/AdminOffers';
-import AdminWhatsApp from '@/components/AdminWhatsApp';
-import { AdminMaintenanceControl } from '@/components/AdminMaintenanceControl';
-import { AdminAccessExpiredSettings } from '@/components/AdminAccessExpiredSettings';
-import { AdminFirebaseUsers } from '@/components/AdminFirebaseUsers';
-import AdminExpirationNotifications from '@/components/AdminExpirationNotifications';
-import AdminAnnouncements from '@/components/AdminAnnouncements';
-import AdminUserActionHistory from '@/components/AdminUserActionHistory';
-import { AdminReferrals } from '@/components/AdminReferrals';
-import { AdminAlertCenter } from '@/components/AdminAlertCenter';
-import { AdminSystemUpdates } from '@/components/AdminSystemUpdates';
-import AdminPlanosSolicitados from '@/pages/AdminPlanosSolicitados';
-import AdminOverviewMetrics from '@/components/AdminOverviewMetrics';
-import { SecurityCenter } from '@/components/SecurityCenter';
-import { AdminSeasonalTheme } from '@/components/AdminSeasonalTheme';
-import { AdminRegistrationControl } from '@/components/AdminRegistrationControl';
-import AdminFinancialDashboard from '@/components/AdminFinancialDashboard';
-import AdminPlanosConfig from '@/components/AdminPlanosConfig';
-import AdminSeriesUpdateConfig from '@/components/AdminSeriesUpdateConfig';
-import AdminMiniseriesConfig from '@/components/AdminMiniseriesConfig';
-import AdminApiKeys from '@/components/AdminApiKeys';
-import AdminProtectedChannels from '@/components/AdminProtectedChannels';
-import AdminCloakLinks from '@/components/AdminCloakLinks';
-import AdminCloakDashboard from '@/components/AdminCloakDashboard';
-import AdminPushCenter from '@/components/AdminPushCenter';
-import AdminJogosDiaConfig from '@/components/AdminJogosDiaConfig';
 import { AdminSidebar, AdminView } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { useMaintenanceMode } from '@/hooks/useMaintenanceMode';
+import { useApiKeyAutoBlocker } from '@/hooks/useApiKeyAutoBlocker';
 import { Button } from '@/components/ui/button';
+
+// Subcomponents lazy loaded for instantaneous navigation and minimal initial bundle
+const VisualMetricsDashboard = lazy(() => import('@/components/VisualMetricsDashboard'));
+const AdminProducts = lazy(() => import('@/components/AdminProducts'));
+const AdminUsers = lazy(() => import('@/components/AdminUsers'));
+const AdminNotifications = lazy(() => import('@/components/AdminNotifications'));
+const AdminChat = lazy(() => import('@/components/AdminChat'));
+const AdminImportConfig = lazy(() => import('@/components/AdminImportConfig'));
+const AdminPlans = lazy(() => import('@/components/AdminPlans'));
+const AdminUserPermissions = lazy(() => import('@/components/AdminUserPermissions'));
+const AdminSeriesCorrection = lazy(() => import('@/components/AdminSeriesCorrection').then(m => ({ default: m.AdminSeriesCorrection })));
+const AdminSuportePrioritario = lazy(() => import('@/components/AdminSuportePrioritario').then(m => ({ default: m.AdminSuportePrioritario })));
+const AdminOffers = lazy(() => import('@/components/AdminOffers').then(m => ({ default: m.AdminOffers })));
+const AdminWhatsApp = lazy(() => import('@/components/AdminWhatsApp'));
+const AdminMaintenanceControl = lazy(() => import('@/components/AdminMaintenanceControl').then(m => ({ default: m.AdminMaintenanceControl })));
+const AdminAccessExpiredSettings = lazy(() => import('@/components/AdminAccessExpiredSettings').then(m => ({ default: m.AdminAccessExpiredSettings })));
+const AdminFirebaseUsers = lazy(() => import('@/components/AdminFirebaseUsers').then(m => ({ default: m.AdminFirebaseUsers })));
+const AdminExpirationNotifications = lazy(() => import('@/components/AdminExpirationNotifications'));
+const AdminAnnouncements = lazy(() => import('@/components/AdminAnnouncements'));
+const AdminUserActionHistory = lazy(() => import('@/components/AdminUserActionHistory'));
+const AdminReferrals = lazy(() => import('@/components/AdminReferrals').then(m => ({ default: m.AdminReferrals })));
+const AdminAlertCenter = lazy(() => import('@/components/AdminAlertCenter').then(m => ({ default: m.AdminAlertCenter })));
+const AdminSystemUpdates = lazy(() => import('@/components/AdminSystemUpdates').then(m => ({ default: m.AdminSystemUpdates })));
+const AdminPlanosSolicitados = lazy(() => import('@/pages/AdminPlanosSolicitados'));
+const AdminOverviewMetrics = lazy(() => import('@/components/AdminOverviewMetrics'));
+const SecurityCenter = lazy(() => import('@/components/SecurityCenter').then(m => ({ default: m.SecurityCenter })));
+const AdminSeasonalTheme = lazy(() => import('@/components/AdminSeasonalTheme').then(m => ({ default: m.AdminSeasonalTheme })));
+const AdminRegistrationControl = lazy(() => import('@/components/AdminRegistrationControl').then(m => ({ default: m.AdminRegistrationControl })));
+const AdminFinancialDashboard = lazy(() => import('@/components/AdminFinancialDashboard'));
+const AdminPlanosConfig = lazy(() => import('@/components/AdminPlanosConfig'));
+const AdminSeriesUpdateConfig = lazy(() => import('@/components/AdminSeriesUpdateConfig'));
+const AdminMiniseriesConfig = lazy(() => import('@/components/AdminMiniseriesConfig'));
+const AdminApiKeys = lazy(() => import('@/components/AdminApiKeys'));
+const AdminProtectedChannels = lazy(() => import('@/components/AdminProtectedChannels'));
+const AdminCloakLinks = lazy(() => import('@/components/AdminCloakLinks'));
+const AdminCloakDashboard = lazy(() => import('@/components/AdminCloakDashboard'));
+const AdminPushCenter = lazy(() => import('@/components/AdminPushCenter'));
+const AdminJogosDiaConfig = lazy(() => import('@/components/AdminJogosDiaConfig'));
+const DateRangeFilter = lazy(() => import('@/components/DateRangeFilter'));
+
+const AdminViewSkeleton = () => (
+  <div className="space-y-4 animate-pulse">
+    <div className="h-24 bg-card/40 rounded-xl border border-purple-500/10 p-5 flex items-center justify-between">
+      <div className="space-y-2">
+        <div className="h-4 w-40 bg-purple-500/15 rounded"></div>
+        <div className="h-3 w-64 bg-muted/40 rounded"></div>
+      </div>
+      <div className="h-8 w-24 bg-purple-500/15 rounded-lg"></div>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="h-20 bg-card/30 rounded-xl border border-purple-500/10"></div>
+      <div className="h-20 bg-card/30 rounded-xl border border-purple-500/10"></div>
+      <div className="h-20 bg-card/30 rounded-xl border border-purple-500/10"></div>
+    </div>
+    <div className="h-64 bg-card/30 rounded-xl border border-purple-500/10 p-5 space-y-3">
+      <div className="h-5 w-32 bg-muted/30 rounded mb-4"></div>
+      <div className="h-9 bg-muted/20 rounded"></div>
+      <div className="h-9 bg-muted/20 rounded"></div>
+      <div className="h-9 bg-muted/20 rounded"></div>
+    </div>
+  </div>
+);
 
 const AdminDashboard = () => {
   console.log('=== ADMIN DASHBOARD INICIANDO ===');
@@ -68,6 +94,7 @@ const AdminDashboard = () => {
   const { logs: realtimeLogs, isLoading: logsLoading } = useRealtimeLogs();
   const { activities: recentActivities, isLoading: activitiesLoading } = useRealtimeActivities();
   const { maintenanceState, isMaintenanceActive } = useMaintenanceMode();
+  useApiKeyAutoBlocker();
 
   // Usar logs em tempo real do Firebase quando disponíveis, senão usar logs antigos
   const logs = realtimeLogs.length > 0 ? realtimeLogs : oldLogs;
@@ -173,14 +200,25 @@ const AdminDashboard = () => {
     loadData();
   }, []);
 
-  const renderContent = () => {
-    console.log('Renderizando view:', activeView);
+  const convertedUsersOverview = useMemo(() => {
+    const now = Date.now();
+    return users.map(user => ({
+      id: user.uid,
+      Nome: user.name,
+      Email: user.email,
+      Logins: user.totalLogins || 0,
+      Dias: user.expiryDate ? Math.floor((new Date(user.expiryDate).getTime() - now) / (1000 * 60 * 60 * 24)) : 0,
+      Pagamento: user.isActive ? 'Ativo' : 'Expirado'
+    }));
+  }, [users]);
 
-    const filteredActivities = recentActivities.filter(activity => {
-      const matchesSearch = 
-        activity.userEmail?.toLowerCase().includes(activitySearch.toLowerCase()) ||
-        activity.action?.toLowerCase().includes(activitySearch.toLowerCase()) ||
-        activity.details?.toLowerCase().includes(activitySearch.toLowerCase());
+  const filteredActivities = useMemo(() => {
+    const q = activitySearch.toLowerCase().trim();
+    return recentActivities.filter(activity => {
+      const matchesSearch = !q ||
+        activity.userEmail?.toLowerCase().includes(q) ||
+        activity.action?.toLowerCase().includes(q) ||
+        activity.details?.toLowerCase().includes(q);
       
       const matchesFilter = activityFilter === 'all' || 
         (activityFilter === 'error' && (activity.action?.toLowerCase().includes('erro') || activity.action?.toLowerCase().includes('fail'))) ||
@@ -189,19 +227,11 @@ const AdminDashboard = () => {
 
       return matchesSearch && matchesFilter;
     });
+  }, [recentActivities, activitySearch, activityFilter]);
 
+  const renderContent = () => {
     switch (activeView) {
       case 'overview':
-        // Converter FirebaseUser para User para o dashboard
-        const convertedUsersOverview = users.map(user => ({
-          id: user.uid,
-          Nome: user.name,
-          Email: user.email,
-          Logins: user.totalLogins || 0,
-          Dias: user.expiryDate ? Math.floor((new Date(user.expiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0,
-          Pagamento: user.isActive ? 'Ativo' : 'Expirado'
-        }));
-
         return (
           <div className="space-y-8">
             {/* Central de Alertas em Tempo Real */}
@@ -589,9 +619,47 @@ const AdminDashboard = () => {
                   logs={logs}
                 />
 
-                {/* Content */}
+                {/* Quick Action Shortcuts Bar for 1-click access */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider whitespace-nowrap mr-1">
+                    Atalhos Rápidos:
+                  </span>
+                  {[
+                    { id: 'overview', label: 'Visão Geral', icon: Zap },
+                    { id: 'users', label: 'Usuários', icon: Users },
+                    { id: 'user-management', label: 'Cadastrar', icon: UserPlus },
+                    { id: 'financial', label: 'Financeiro PIX', icon: DollarSign },
+                    { id: 'push-center', label: 'Push', icon: Bell },
+                    { id: 'security-center', label: 'Segurança', icon: Shield },
+                    { id: 'activity', label: 'Logs Ao Vivo', icon: Activity },
+                  ].map((shortcut) => {
+                    const SIcon = shortcut.icon;
+                    const isActive = activeView === shortcut.id;
+                    return (
+                      <Button
+                        key={shortcut.id}
+                        type="button"
+                        size="sm"
+                        variant={isActive ? 'default' : 'outline'}
+                        onClick={() => setActiveView(shortcut.id as AdminView)}
+                        className={`h-7 text-[11px] px-2.5 py-0 border-purple-500/20 cursor-pointer active:scale-95 transition-all duration-150 ${
+                          isActive
+                            ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-sm shadow-purple-500/20'
+                            : 'bg-background/40 hover:bg-purple-500/10 hover:text-purple-300'
+                        }`}
+                      >
+                        <SIcon className="w-3 h-3 mr-1" />
+                        {shortcut.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                {/* Content with instant Suspense fallback */}
                 <div className="animate-fade-in-up">
-                  {renderContent()}
+                  <Suspense fallback={<AdminViewSkeleton />}>
+                    {renderContent()}
+                  </Suspense>
                 </div>
               </div>
             </div>

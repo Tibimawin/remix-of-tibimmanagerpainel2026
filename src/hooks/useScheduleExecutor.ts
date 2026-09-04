@@ -22,10 +22,10 @@ export const useScheduleExecutor = () => {
       ScheduledCleanupService.checkAndExecuteSchedules(userInfo.id);
     }, 30000);
     
-    // Verificar a cada 5 minutos para reduzir chamadas repetidas ao proxy/Baserow
+    // Verificar a cada 10 minutos para reduzir chamadas repetidas
     const interval = setInterval(() => {
       ScheduledCleanupService.checkAndExecuteSchedules(userInfo.id);
-    }, 300000); // 5 minutos
+    }, 600000); // 10 minutos
     
     return () => {
       console.log('Parando verificador de agendamentos para usuário:', userInfo.id);

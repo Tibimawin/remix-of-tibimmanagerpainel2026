@@ -299,6 +299,22 @@ export const FirebaseUserService = {
         const { ReferralService } = await import('@/services/ReferralService');
         await ReferralService.updateSubscriptionStatusByReferred(uid, true);
       } catch { }
+
+      // 🌐 Sincronização automática com o Baserow
+      try {
+        const { BaserowUserSyncService } = await import('@/services/BaserowUserSyncService');
+        const syncResult = await BaserowUserSyncService.syncUserToBaserow({
+          name: user.name,
+          email: user.email,
+          accessDays: user.accessDays + additionalDays,
+          startDate: user.startDate,
+          expiryDate: newExpiry.toISOString(),
+          isActive: true
+        });
+        console.log('🌐 [FirebaseUserService] Sincronização Baserow:', syncResult);
+      } catch (baserowError) {
+        console.warn('⚠️ [FirebaseUserService] Erro ao sincronizar com Baserow (não impeditivo):', baserowError);
+      }
     } catch (error) {
       console.error('Erro ao estender acesso:', error);
       throw error;

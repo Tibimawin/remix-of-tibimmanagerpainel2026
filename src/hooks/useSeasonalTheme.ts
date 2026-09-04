@@ -3,43 +3,63 @@ import { SeasonalThemeService, SeasonalThemeConfig, SeasonalThemeType } from '@/
 import { onSnapshot, doc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 
+// Singleton compartilhado para evitar múltiplos listeners em páginas/layouts
+let cachedConfig: SeasonalThemeConfig | null = null;
+let isListenerInitialized = false;
+const subscribers = new Set<(cfg: SeasonalThemeConfig | null) => void>();
+
+function initSeasonalThemeListener() {
+  if (isListenerInitialized) return;
+  isListenerInitialized = true;
+
+  SeasonalThemeService.getConfig()
+    .then((saved) => {
+      cachedConfig = saved;
+      subscribers.forEach((fn) => fn(cachedConfig));
+    })
+    .catch((err) => {
+      console.warn('Erro ao carregar tema sazonal:', err);
+    });
+
+  try {
+    onSnapshot(
+      doc(db, 'app_config', 'seasonal_theme_config'),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          cachedConfig = docSnap.data() as SeasonalThemeConfig;
+          subscribers.forEach((fn) => fn(cachedConfig));
+        }
+      },
+      (error) => {
+        console.warn('Erro no listener compartilhado de tema sazonal:', error);
+      }
+    );
+  } catch (error) {
+    console.warn('Erro ao registrar listener singleton:', error);
+  }
+}
+
 export const useSeasonalTheme = () => {
-  const [config, setConfig] = useState<SeasonalThemeConfig | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [config, setConfig] = useState<SeasonalThemeConfig | null>(cachedConfig);
+  const [loading, setLoading] = useState<boolean>(cachedConfig === null);
 
   useEffect(() => {
-    // Carregar config inicial
-    const loadConfig = async () => {
-      try {
-        const savedConfig = await SeasonalThemeService.getConfig();
-        setConfig(savedConfig);
-      } catch (error) {
-        console.error('Erro ao carregar tema sazonal:', error);
-      } finally {
-        setLoading(false);
-      }
+    initSeasonalThemeListener();
+
+    const handler = (newConfig: SeasonalThemeConfig | null) => {
+      setConfig(newConfig);
+      setLoading(false);
     };
 
-    loadConfig();
-
-    // Listener em tempo real para mudanças
-    try {
-      const unsubscribe = onSnapshot(
-        doc(db, 'app_config', 'seasonal_theme_config'),
-        (docSnap) => {
-          if (docSnap.exists()) {
-            setConfig(docSnap.data() as SeasonalThemeConfig);
-          }
-        },
-        (error) => {
-          console.error('Erro no listener de tema sazonal:', error);
-        }
-      );
-
-      return () => unsubscribe();
-    } catch (error) {
-      console.error('Erro ao configurar listener:', error);
+    subscribers.add(handler);
+    if (cachedConfig !== null) {
+      setConfig(cachedConfig);
+      setLoading(false);
     }
+
+    return () => {
+      subscribers.delete(handler);
+    };
   }, []);
 
   const updateConfig = useCallback(async (newConfig: Partial<SeasonalThemeConfig>) => {

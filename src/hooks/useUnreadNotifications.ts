@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { db } from '@/config/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 
 /**
  * Subscribes to Firestore `userNotifications` in real time and returns
  * the unread count for the current user (matches destinatario === 'todos'
  * or emailDestinatario === current user email).
+ * Limited to recent notifications to avoid excessive Firestore reads.
  */
 export function useUnreadNotifications(): number {
   const { userInfo } = useSimpleAuth();
@@ -20,7 +21,8 @@ export function useUnreadNotifications(): number {
 
     const q = query(
       collection(db, 'userNotifications'),
-      orderBy('dataRecebimento', 'desc')
+      orderBy('dataRecebimento', 'desc'),
+      limit(20)
     );
 
     const unsubscribe = onSnapshot(

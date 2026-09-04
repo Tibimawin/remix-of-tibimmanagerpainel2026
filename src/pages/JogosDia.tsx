@@ -29,7 +29,7 @@ import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { usePlans } from '@/hooks/usePlans';
 import { db } from '@/config/firebase';
-import { collection, query, where, orderBy, limit, onSnapshot, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, doc, getDocs, getDoc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -126,33 +126,26 @@ const JogosDia = () => {
     }
   }, [globalConfig]);
 
+  // Carrega histórico de logs sob demanda para economizar quota do Firestore
   useEffect(() => {
     if (!userInfo?.id) return;
 
-    const q = query(
-      collection(db, 'jogosDiaLogs'),
-      where('userId', '==', userInfo.id),
-      orderBy('timestamp', 'desc'),
-      limit(10)
-    );
-
-    const unsub = onSnapshot(q, (snap) => {
-      setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    return () => unsub();
-  }, [userInfo?.id]);
-
-  useEffect(() => {
-    if (!userInfo?.id) return;
-
-    const unsub = onSnapshot(doc(db, 'jogosDiaProgress', userInfo.id), (snap) => {
-      if (snap.exists()) {
-        setImportProgress(snap.data() as any);
+    const loadLogs = async () => {
+      try {
+        const q = query(
+          collection(db, 'jogosDiaLogs'),
+          where('userId', '==', userInfo.id),
+          orderBy('timestamp', 'desc'),
+          limit(10)
+        );
+        const snap = await getDocs(q);
+        setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (err) {
+        console.warn('Não foi possível carregar logs de jogos do dia:', err);
       }
-    });
+    };
 
-    return () => unsub();
+    loadLogs();
   }, [userInfo?.id]);
 
   // Jogos ativos higienizados: Remove eventos do passado (ontem, anteontem) e limpa separadores órfãos

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Bell, BellOff, X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '@/config/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, where } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, where, limit } from 'firebase/firestore';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import ExpirationWarningBanner from './ExpirationWarningBanner';
 
@@ -34,10 +34,11 @@ const UserNotifications: React.FC<UserNotificationsProps> = ({ isOpen, onClose }
   useEffect(() => {
     if (!userInfo?.email) return;
     
-    // Escutar notificações em tempo real do Firestore
+    // Escutar notificações recentes do Firestore
     const q = query(
       collection(db, 'userNotifications'), 
-      orderBy('dataRecebimento', 'desc')
+      orderBy('dataRecebimento', 'desc'),
+      limit(30)
     );
     
     const unsubscribe = onSnapshot(q, (querySnapshot) => {

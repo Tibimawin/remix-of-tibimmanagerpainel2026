@@ -16,40 +16,9 @@ export interface JogosDiaSchedule {
 export class JogosDiaScheduleService {
   private static isRunning = false;
 
-  static async checkAndExecuteForUser(userId: string, userEmail?: string): Promise<void> {
-    if (this.isRunning) return;
-    this.isRunning = true;
-
-    try {
-      const scheduleRef = doc(db, 'jogosDiaSchedules', userId);
-      const scheduleSnap = await getDoc(scheduleRef);
-      
-      // Criar agendamento se não existir
-      if (!scheduleSnap.exists()) {
-        const globalConfig = await UserConfigService.getGlobalJogosDiaConfig();
-        const initialSchedule: JogosDiaSchedule = {
-          id: userId,
-          userId,
-          userEmail: userEmail || '',
-          isEnabled: true,
-          frequency: (globalConfig as any)?.frequency || 'daily',
-          nextRun: new Date().toISOString()
-        };
-        await setDoc(scheduleRef, initialSchedule);
-        return;
-      }
-
-      const schedule = { id: scheduleSnap.id, ...scheduleSnap.data() } as JogosDiaSchedule;
-      if (!schedule.isEnabled) return;
-
-      const now = new Date();
-      if (now >= new Date(schedule.nextRun)) {
-        await this.executeImport(schedule);
-        await this.scheduleNextRun(schedule);
-      }
-    } finally {
-      this.isRunning = false;
-    }
+  static async checkAndExecuteForUser(_userId: string, _userEmail?: string): Promise<void> {
+    // Automação desativada: importação manual realizada diretamente pelos usuários para economia de quota do Firebase
+    return;
   }
 
   private static async executeImport(schedule: JogosDiaSchedule): Promise<void> {

@@ -15,10 +15,8 @@ import { AdminAuthProvider } from "./contexts/AdminAuthContext";
 import { PermissionGate } from "./components/PermissionGate";
 import { useExpirationMonitor } from "@/hooks/useExpirationMonitor";
 import { useScheduleExecutor } from "@/hooks/useScheduleExecutor";
-import { useJogosDiaScheduleExecutor } from "@/hooks/useJogosDiaScheduleExecutor";
 import { useAutoImportExecutor } from "@/hooks/useAutoImportExecutor";
 import { useSubscriptionMonitor } from "@/hooks/useSubscriptionMonitor";
-import { useApiKeyAutoBlocker } from "@/hooks/useApiKeyAutoBlocker";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { SimpleProtectedRoute } from "./components/SimpleProtectedRoute";
 import { AdminProtectedRoute } from "./components/AdminProtectedRoute";
@@ -105,9 +103,7 @@ const AppWithMonitor = () => {
   useExpirationMonitor();
   useScheduleExecutor();
   useAutoImportExecutor();
-  useJogosDiaScheduleExecutor(); // Novo executor de jogos
   useSubscriptionMonitor();
-  useApiKeyAutoBlocker();
   useVersionCheck();
   return null;
 };

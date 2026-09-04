@@ -142,22 +142,18 @@ const AdminJogosDiaConfig: React.FC = () => {
           <Switch checked={isActive} onCheckedChange={setIsActive} />
         </div>
 
-        <div className="flex items-center justify-between rounded-lg border border-border p-4">
+        <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
           <div>
-            <p className="text-sm font-medium">Frequência de Importação Automática</p>
-            <p className="text-xs text-muted-foreground">
-              Define o intervalo entre as atualizações automáticas dos jogos.
+            <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+              <span>🛡️</span> Modo de Importação: Manual Sob Demanda (Economia de Quota)
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              A automação em segundo plano foi desativada para poupar operações no Firebase. Os usuários importam diretamente através do botão "Sincronizar" na página de Jogos do Dia.
             </p>
           </div>
-          <Select value={frequency} onValueChange={(v: any) => setFrequency(v)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Frequência" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="hourly">De hora em hora</SelectItem>
-              <SelectItem value="daily">Diariamente</SelectItem>
-            </SelectContent>
-          </Select>
+          <Badge variant="outline" className="text-xs border-emerald-500/40 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40">
+            Manual Ativo
+          </Badge>
         </div>
 
         <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 p-4 space-y-2">

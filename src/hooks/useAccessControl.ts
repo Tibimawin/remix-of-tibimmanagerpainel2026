@@ -49,8 +49,8 @@ export const useAccessControl = () => {
 
     checkAccess();
 
-    // Verificar acesso a cada 5 minutos
-    const interval = setInterval(checkAccess, 5 * 60 * 1000);
+    // Verificar acesso periodicamente (a cada 20 minutos)
+    const interval = setInterval(checkAccess, 20 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, [userInfo?.id]);
