@@ -390,11 +390,41 @@ const AdminUserPermissions = () => {
                 </Badge>
               </div>
               <div>
-                <span className="text-sm font-medium text-muted-foreground">Data de Expiração:</span>
+                <span className="text-sm font-medium text-muted-foreground">Início da Assinatura (Criado):</span>
                 <p className="text-foreground">
-                  {new Date(selectedUser.expiryDate).toLocaleDateString('pt-BR')}
+                  {new Date((selectedUser as any).lastSubscriptionDate || selectedUser.startDate || selectedUser.createdAt).toLocaleDateString('pt-BR')}
                 </p>
               </div>
+              <div>
+                <span className="text-sm font-medium text-muted-foreground">Data de Expiração:</span>
+                <p className="text-foreground">
+                  {new Date(selectedUser.expiryDate).toLocaleDateString('pt-BR')} ({selectedUser.accessDays || 30} dias de plano)
+                </p>
+              </div>
+              {(selectedUser.accessDays > 365 || (selectedUser.expiryDate && new Date(selectedUser.expiryDate).getFullYear() > 2028)) && (
+                <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-md">
+                  <div className="text-xs text-amber-900 dark:text-amber-200 mb-2">
+                    ⚠️ <strong>Anomalia detectada:</strong> Este usuário está com {selectedUser.accessDays} dias calculados.
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full text-xs border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950 font-semibold"
+                    onClick={async () => {
+                      const res = await FirebaseUserService.normalizeUserPlanDates(selectedUser.uid, 30, selectedUser.startDate);
+                      if (res.success) {
+                        const updated = await FirebaseUserService.getUserById(selectedUser.uid);
+                        if (updated) setSelectedUser(updated);
+                        toast.success('Usuário normalizado para 30 dias de plano!');
+                      } else {
+                        toast.error(`Erro: ${res.error}`);
+                      }
+                    }}
+                  >
+                    ⚡ Normalizar e Definir 30 Dias Exatos
+                  </Button>
+                </div>
+              )}
               <div>
                 <span className="text-sm font-medium text-muted-foreground">Total de Logins:</span>
                 <p className="text-foreground">{selectedUser.totalLogins || 0}</p>

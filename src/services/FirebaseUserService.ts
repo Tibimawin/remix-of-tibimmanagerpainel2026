@@ -233,34 +233,80 @@ export const FirebaseUserService = {
     }
   },
 
-  // Estender acesso do usuário
-  async extendUserAccess(uid: string, additionalDays: number): Promise<void> {
+  // Estender acesso do usuário de forma segura sem loops nem anos acumulados
+  async extendUserAccess(
+    uid: string, 
+    additionalDays: number, 
+    options?: { resetAccessDays?: boolean; paymentDate?: string }
+  ): Promise<void> {
     try {
       const user = await this.getUserById(uid);
       if (!user) throw new Error('Usuário não encontrado');
 
-      // Se a data de expiração atual for no futuro, estender a partir dela. Caso contrário, a partir de hoje.
       const now = new Date();
-      const currentExpiry = user.expiryDate ? new Date(user.expiryDate) : null;
-      const baseDate = (currentExpiry && currentExpiry > now) ? currentExpiry : now;
+
+      // Sanitização de expiração atual:
+      // Se a data de expiração no banco for uma anomalia (ex: ano > 2028 ou mais de 370 dias no futuro),
+      // descartar a expiração anterior corrompida e basear na data da assinatura ou agora.
+      let currentExpiry: Date | null = null;
+      if (user.expiryDate) {
+        const parsed = new Date(user.expiryDate);
+        if (!isNaN(parsed.getTime())) {
+          const diffDays = (parsed.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+          if (parsed > now && diffDays <= 370) {
+            currentExpiry = parsed;
+          } else if (diffDays > 370) {
+            console.warn(`⚠️ [FirebaseUserService] Data de expiração anormal descartada (${user.expiryDate}) para usuário ${uid}`);
+          }
+        }
+      }
+
+      // Data de início da assinatura recente
+      let subscriptionStart = now;
+      if (options?.paymentDate) {
+        const parsedPay = new Date(options.paymentDate);
+        if (!isNaN(parsedPay.getTime())) {
+          subscriptionStart = parsedPay;
+        }
+      }
+
+      // Se temos uma expiração futura válida, estender a partir dela. Caso contrário, a partir de hoje/pagamento.
+      const baseDate = currentExpiry || subscriptionStart;
       const newExpiry = new Date(baseDate);
       newExpiry.setDate(baseDate.getDate() + additionalDays);
 
-      await this.updateUser(uid, {
-        expiryDate: newExpiry.toISOString(),
-        accessDays: user.accessDays + additionalDays,
+      // Trava de segurança: expiração nunca pode ultrapassar 400 dias a partir de agora
+      const maxAllowed = new Date(now.getTime() + 400 * 24 * 60 * 60 * 1000);
+      const finalExpiry = newExpiry > maxAllowed ? maxAllowed : newExpiry;
+
+      // Cálculo de accessDays: se for renovação com reset, ou se o usuário estiver com anomalia (> 365 dias)
+      // define os dias exatos do plano (ex: 30 dias).
+      let newAccessDays = additionalDays;
+      if (!options?.resetAccessDays && user.accessDays && user.accessDays > 0 && user.accessDays <= 365) {
+        newAccessDays = Math.min(365, additionalDays);
+      }
+
+      const updates: any = {
+        expiryDate: finalExpiry.toISOString(),
+        accessDays: newAccessDays,
+        startDate: subscriptionStart.toISOString(),
+        lastSubscriptionDate: subscriptionStart.toISOString(),
         isActive: true
-      });
+      };
+
+      await this.updateUser(uid, updates);
 
       // Atualizar também as permissões (usando setDoc com merge para evitar quebras se o documento não existir)
       const permissionsRef = doc(db, 'userPermissions', uid);
       await setDoc(permissionsRef, {
-        expiryDate: newExpiry.toISOString(),
+        expiryDate: finalExpiry.toISOString(),
+        startDate: subscriptionStart.toISOString(),
+        lastSubscriptionDate: subscriptionStart.toISOString(),
         isActive: true,
         lastUpdated: new Date().toISOString()
       }, { merge: true });
 
-      console.log('Acesso estendido com sucesso:', additionalDays, 'dias');
+      console.log('✅ [FirebaseUserService] Acesso estendido com sucesso:', additionalDays, 'dias. Nova expiração:', finalExpiry.toISOString());
 
       // 🔒 Atualizar validade dos links protegidos (camuflagem)
       try {
@@ -269,7 +315,7 @@ export const FirebaseUserService = {
           uid,
           email: user.email,
           name: user.name,
-          expiresAt: newExpiry.toISOString(),
+          expiresAt: finalExpiry.toISOString(),
         });
       } catch (cloakError) {
         console.warn('Não foi possível atualizar links protegidos:', cloakError);
@@ -283,16 +329,9 @@ export const FirebaseUserService = {
         await UserSubscriptionNotificationService.removeExpirationWarnings(uid);
 
         // Enviar notificação de renovação
-        await UserSubscriptionNotificationService.notifySubscriptionRenewal(
-          uid,
-          user.email,
-          user.name,
-          additionalDays,
-          newExpiry.toISOString()
-        );
-        console.log('Notificação de renovação enviada ao usuário');
+        await UserSubscriptionNotificationService.notifySubscriptionRenewed(uid, additionalDays);
       } catch (notifError) {
-        console.error('Erro ao enviar notificação (não crítico):', notifError);
+        console.warn('Não foi possível enviar notificação de renovação:', notifError);
       }
 
       try {
@@ -306,9 +345,9 @@ export const FirebaseUserService = {
         const syncResult = await BaserowUserSyncService.syncUserToBaserow({
           name: user.name,
           email: user.email,
-          accessDays: user.accessDays + additionalDays,
-          startDate: user.startDate,
-          expiryDate: newExpiry.toISOString(),
+          accessDays: newAccessDays,
+          startDate: subscriptionStart.toISOString(),
+          expiryDate: finalExpiry.toISOString(),
           isActive: true
         });
         console.log('🌐 [FirebaseUserService] Sincronização Baserow:', syncResult);
@@ -316,8 +355,83 @@ export const FirebaseUserService = {
         console.warn('⚠️ [FirebaseUserService] Erro ao sincronizar com Baserow (não impeditivo):', baserowError);
       }
     } catch (error) {
-      console.error('Erro ao estender acesso:', error);
+      console.error('Erro ao estender acesso do usuário:', error);
       throw error;
+    }
+  },
+
+  /**
+   * Normaliza usuários com anomalias de datas/dias para os valores corretos do plano (ex: 30 dias).
+   * Atualiza Firestore e sincroniza com o Baserow.
+   */
+  async normalizeUserPlanDates(
+    uid: string, 
+    planDays: number = 30, 
+    customStartDate?: string
+  ): Promise<{ success: boolean; expiryDate: string; startDate: string; error?: string }> {
+    try {
+      const user = await this.getUserById(uid);
+      if (!user) throw new Error('Usuário não encontrado');
+
+      // Data de início recente: usar customStartDate ou recent date ou today
+      let startDateObj = new Date();
+      if (customStartDate) {
+        const parsed = new Date(customStartDate);
+        if (!isNaN(parsed.getTime())) {
+          startDateObj = parsed;
+        }
+      } else if (user.startDate) {
+        const parsed = new Date(user.startDate);
+        if (!isNaN(parsed.getTime()) && parsed <= new Date()) {
+          startDateObj = parsed;
+        }
+      }
+
+      const expiryDateObj = new Date(startDateObj);
+      expiryDateObj.setDate(startDateObj.getDate() + planDays);
+
+      const safeStartDate = startDateObj.toISOString();
+      const safeExpiryDate = expiryDateObj.toISOString();
+
+      // Atualizar no Firestore
+      await this.updateUser(uid, {
+        startDate: safeStartDate,
+        lastSubscriptionDate: safeStartDate,
+        expiryDate: safeExpiryDate,
+        accessDays: planDays,
+        isActive: true
+      } as any);
+
+      // Atualizar permissões
+      const permissionsRef = doc(db, 'userPermissions', uid);
+      await setDoc(permissionsRef, {
+        startDate: safeStartDate,
+        lastSubscriptionDate: safeStartDate,
+        expiryDate: safeExpiryDate,
+        isActive: true,
+        lastUpdated: new Date().toISOString()
+      }, { merge: true });
+
+      // Sincronizar com o Baserow
+      try {
+        const { BaserowUserSyncService } = await import('@/services/BaserowUserSyncService');
+        await BaserowUserSyncService.syncUserToBaserow({
+          name: user.name,
+          email: user.email,
+          accessDays: planDays,
+          startDate: safeStartDate,
+          expiryDate: safeExpiryDate,
+          isActive: true
+        });
+      } catch (baserowErr) {
+        console.warn('Aviso ao sincronizar normalização no Baserow:', baserowErr);
+      }
+
+      console.log(`✅ [FirebaseUserService] Usuário ${user.email} normalizado com sucesso para ${planDays} dias (Expira: ${safeExpiryDate})`);
+      return { success: true, expiryDate: safeExpiryDate, startDate: safeStartDate };
+    } catch (err: any) {
+      console.error(`❌ [FirebaseUserService] Erro ao normalizar usuário ${uid}:`, err);
+      return { success: false, expiryDate: '', startDate: '', error: err.message };
     }
   },
 

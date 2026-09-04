@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc, addDoc, query, where, runTransaction } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, addDoc, query, where, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { AsaasPaymentService } from './AsaasPaymentService';
 import { FirebaseUserService } from './FirebaseUserService';
@@ -6,6 +6,9 @@ import { PlansService } from './PlansService';
 import { SourceExportService } from './SourceExportService';
 import { pushEventsService } from './PushEventsService';
 import { Plan, AVAILABLE_FEATURES } from '@/types/planTypes';
+
+// Throttle em memória para evitar chamadas contínuas desnecessárias
+const lastReconciliationTimestamps = new Map<string, number>();
 
 export interface ReconcileResult {
   reconciled: boolean;
@@ -212,6 +215,7 @@ export const PaymentReconciliationService = {
       isFeatureUnlockOnly?: boolean;
       requiredFeature?: string;
       items?: Array<{ id: string; name: string; price: number; qty?: number }>;
+      paymentDate?: string;
     },
     paymentId: string
   ): Promise<{ planName: string; accessDays: number }> {
@@ -320,47 +324,7 @@ export const PaymentReconciliationService = {
     // ─────────────────────────────────────────────────────────────
     const price = planInfo.planPrice || 35;
     
-    // Cálculo seguro de dias com base no valor ou nome:
-    // >= 250 -> Anual (365 dias)
-    // 70 - 249 -> Trimestral (90 dias)
-    // Padrão -> Mensal (30 dias)
-    let accessDays = planInfo.accessDays;
-    if (!accessDays) {
-      if (price >= 250 || normalizedName.includes('anual')) {
-        accessDays = 365;
-      } else if (price >= 70 || normalizedName.includes('trimestral')) {
-        accessDays = 90;
-      } else {
-        accessDays = 30;
-      }
-    }
-
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + accessDays);
-
-    // Estender o acesso no registro do usuário
-    try {
-      await FirebaseUserService.extendUserAccess(userId, accessDays);
-      console.log(`✅ Acesso estendido por ${accessDays} dias para ${userId}`);
-    } catch (userErr) {
-      console.warn('Aviso ao estender usuário (tentando criar se não existir):', userErr);
-      try {
-        await FirebaseUserService.createUserRecord({
-          uid: userId,
-          email: emailNorm,
-          name: cleanUserName,
-          accessDays,
-          startDate: startDate.toISOString(),
-          expiryDate: endDate.toISOString(),
-          isActive: true
-        });
-      } catch (createErr) {
-        console.error('Erro crítico ao registrar usuário:', createErr);
-      }
-    }
-
-    // Buscar planos cadastrados para sincronizar permissões
+    // Buscar planos cadastrados para sincronizar permissões e dias
     let allPlans: Plan[] = [];
     try {
       allPlans = await PlansService.getAllPlans();
@@ -393,7 +357,7 @@ export const PaymentReconciliationService = {
     // 3. Fallback inteligente POR FAIXA DE PREÇO (NUNCA atribuir plano Anual/Empresa para R$ 35!)
     if (!matchedPlan) {
       if (price <= 60) {
-        // Mensal (~R$ 35)
+        // Mensal (~R$ 35) -> 30 dias
         matchedPlan = allPlans.find(p => norm(p.name).includes('mensal') || norm(p.name).includes('básico') || norm(p.name).includes('padrao')) ||
                       allPlans.find(p => {
                         const pPrice = typeof p.price === 'number' ? p.price : parseFloat(String(p.price).replace(/[^\d,]/g, '').replace(',', '.'));
@@ -410,13 +374,114 @@ export const PaymentReconciliationService = {
 
     // 4. Último fallback se a lista de planos estiver vazia
     if (!matchedPlan && allPlans.length > 0) {
-      // Pega o plano de MENOR preço se o valor for baixo, ou o mais compatível
       const sortedByPrice = [...allPlans].sort((a, b) => {
         const pa = typeof a.price === 'number' ? a.price : parseFloat(String(a.price).replace(/[^\d,]/g, '').replace(',', '.')) || 0;
         const pb = typeof b.price === 'number' ? b.price : parseFloat(String(b.price).replace(/[^\d,]/g, '').replace(',', '.')) || 0;
         return pa - pb;
       });
       matchedPlan = price <= 60 ? sortedByPrice[0] : sortedByPrice[sortedByPrice.length - 1];
+    }
+
+    // Determinar dias com precisão absoluta:
+    // Se o plano é de R$ 35 (mensal), DEVEM ser exatamente 30 dias!
+    let accessDays = planInfo.accessDays;
+    if (!accessDays || accessDays <= 0) {
+      if (matchedPlan) {
+        const customDuration = (matchedPlan as any).durationDays;
+        if (typeof customDuration === 'number' && customDuration > 0) {
+          accessDays = customDuration;
+        }
+      }
+      if (!accessDays) {
+        if (price >= 250 || normalizedName.includes('anual') || normalizedName.includes('ano')) {
+          accessDays = 365;
+        } else if (price >= 130 || normalizedName.includes('semestral')) {
+          accessDays = 180;
+        } else if (price >= 70 || normalizedName.includes('trimestral')) {
+          accessDays = 90;
+        } else if (normalizedName.includes('quinzenal')) {
+          accessDays = 15;
+        } else if (normalizedName.includes('semanal')) {
+          accessDays = 7;
+        } else {
+          accessDays = 30; // Padrão exato: 30 dias para assinaturas de R$ 35
+        }
+      }
+    }
+
+    // Data de início da assinatura: a data que ele assinou recentemente (ex: dia 28)
+    const now = new Date();
+    let subscriptionStart = now;
+    if (planInfo.paymentDate) {
+      const parsedPayDate = new Date(planInfo.paymentDate);
+      if (!isNaN(parsedPayDate.getTime())) {
+        subscriptionStart = parsedPayDate;
+      }
+    }
+
+    // Buscar dados do usuário existente no Firestore para checar histórico e expiração anterior
+    let existingUser: any = null;
+    try {
+      existingUser = await FirebaseUserService.getUserById(userId);
+    } catch { }
+
+    let baseExpiryDate = new Date(subscriptionStart);
+    // Se o usuário já tem expiração futura válida e NÃO ANORMAL (diff <= 35 dias para plano mensal):
+    if (existingUser?.expiryDate) {
+      const currentExpiry = new Date(existingUser.expiryDate);
+      const diffDays = (currentExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+      const maxAllowedCarryover = accessDays <= 31 ? 35 : (accessDays * 1.2);
+      if (currentExpiry > now && diffDays <= maxAllowedCarryover) {
+        baseExpiryDate = currentExpiry;
+      }
+    }
+
+    const calculatedEndDate = new Date(baseExpiryDate);
+    calculatedEndDate.setDate(baseExpiryDate.getDate() + accessDays);
+
+    // Trava de segurança rigorosa contra multiplicação indevida de anos:
+    // Uma assinatura mensal NUNCA pode ter validade maior que now + 65 dias!
+    // Uma assinatura anual NUNCA pode ter validade maior que now + 400 dias!
+    const hardMaxDays = accessDays <= 35 ? 65 : (accessDays <= 95 ? 120 : (accessDays <= 185 ? 210 : 400));
+    const maxAllowedExpiry = new Date(now.getTime() + hardMaxDays * 24 * 60 * 60 * 1000);
+    const finalExpiryDate = calculatedEndDate > maxAllowedExpiry ? maxAllowedExpiry : calculatedEndDate;
+
+    const safeStartDate = subscriptionStart.toISOString();
+    const safeExpiryDate = finalExpiryDate.toISOString();
+
+    // Atualizar registro do usuário
+    try {
+      const userUpdates: any = {
+        accessDays, // Exatamente os dias do plano (ex: 30 dias)!
+        startDate: safeStartDate,
+        lastSubscriptionDate: safeStartDate,
+        expiryDate: safeExpiryDate,
+        isActive: true
+      };
+      if (paymentId) {
+        userUpdates.processedPaymentIds = arrayUnion(paymentId);
+      }
+      if (matchedPlan) {
+        userUpdates.planName = matchedPlan.name;
+        userUpdates.planId = matchedPlan.id;
+      }
+
+      if (existingUser) {
+        await FirebaseUserService.updateUser(userId, userUpdates);
+      } else {
+        await FirebaseUserService.createUserRecord({
+          uid: userId,
+          email: emailNorm,
+          name: cleanUserName,
+          accessDays,
+          startDate: safeStartDate,
+          expiryDate: safeExpiryDate,
+          isActive: true
+        });
+      }
+      console.log(`✅ [PaymentReconciliation] Usuário ${userId} atualizado: ${accessDays} dias, início ${safeStartDate}, expira ${safeExpiryDate}`);
+    } catch (userErr) {
+      console.warn('Aviso ao atualizar registro do usuário:', userErr);
     }
 
     const permissionsRef = doc(db, 'userPermissions', userId);
@@ -431,14 +496,18 @@ export const PaymentReconciliationService = {
 
     if (planInfo.isUpgrade) {
       finalPlanName = `${planInfo.upgradeFrom || 'Plano'} + API`;
-      enabledFeatures = Array.from(new Set([...existingFeatures, 'minha-api', 'planos', ...(matchedPlan?.features || [])]));
-    } else if (matchedPlan) {
+      enabledFeatures = Array.from(new Set([
+        ...existingFeatures, 
+        'minha-api', 
+        'planos', 
+        ...(matchedPlan?.features || [])
+      ]));
+    } else if (matchedPlan && Array.isArray(matchedPlan.features) && matchedPlan.features.length > 0) {
       finalPlanName = matchedPlan.name;
       finalPlanId = matchedPlan.id;
-      // Garante que também mantém recursos que o usuário já havia desbloqueado avulsamente
+      // Os benefícios são as permissões exatas daquele plano assinado (+ planos)
       enabledFeatures = Array.from(new Set([
-        ...existingFeatures,
-        ...(Array.isArray(matchedPlan.features) ? matchedPlan.features : []),
+        ...matchedPlan.features,
         'planos'
       ]));
     } else {
@@ -454,7 +523,7 @@ export const PaymentReconciliationService = {
       finalPlanName = targetPlanName || (price >= 250 ? 'Plano Anual' : 'Plano Mensal');
     }
 
-    await setDoc(permissionsRef, {
+    const permUpdates: any = {
       userId,
       userEmail: emailNorm,
       userName: cleanUserName,
@@ -464,11 +533,33 @@ export const PaymentReconciliationService = {
       enabledFeatures,
       currentMonthUsage: currentPermissions.currentMonthUsage || 0,
       lastUpdated: new Date().toISOString(),
-      expiryDate: endDate.toISOString(),
+      startDate: safeStartDate,
+      lastSubscriptionDate: safeStartDate,
+      expiryDate: safeExpiryDate,
       isActive: true
-    }, { merge: true });
+    };
+    if (paymentId) {
+      permUpdates.processedPaymentIds = arrayUnion(paymentId);
+    }
+
+    await setDoc(permissionsRef, permUpdates, { merge: true });
 
     console.log(`🔓 Permissões gravadas no Firestore para ${emailNorm}: ${finalPlanName} (${enabledFeatures.length} features, ${accessDays} dias)`);
+
+    // Sincronização automática com o Baserow
+    try {
+      const { BaserowUserSyncService } = await import('@/services/BaserowUserSyncService');
+      await BaserowUserSyncService.syncUserToBaserow({
+        name: cleanUserName,
+        email: emailNorm,
+        accessDays,
+        startDate: safeStartDate,
+        expiryDate: safeExpiryDate,
+        isActive: true
+      });
+    } catch (bErr) {
+      console.warn('Aviso ao sincronizar Baserow no pagamento:', bErr);
+    }
 
     // Registrar log
     try {
@@ -508,18 +599,43 @@ export const PaymentReconciliationService = {
   async reconcileUserPayments(
     userId: string,
     userEmail: string,
-    userName?: string
+    userName?: string,
+    force: boolean = false
   ): Promise<ReconcileResult> {
     if (!userId || !userEmail) {
       return { reconciled: false, message: 'Dados do usuário ausentes', activatedPlans: [], daysAdded: 0 };
     }
 
+    const emailNorm = userEmail.toLowerCase().trim();
+
+    // Throttling: evitar múltiplas chamadas consecutivas em menos de 3 minutos
+    if (!force) {
+      const lastCheck = lastReconciliationTimestamps.get(userId) || 0;
+      if (Date.now() - lastCheck < 3 * 60 * 1000) {
+        return { reconciled: false, message: 'Reconciliação já executada recentemente', activatedPlans: [], daysAdded: 0 };
+      }
+    }
+    lastReconciliationTimestamps.set(userId, Date.now());
+
     console.log(`🔍 [PaymentReconciliation] Iniciando reconciliação automática para: ${userEmail}`);
     const activatedPlans: string[] = [];
     let totalDaysAdded = 0;
-    const emailNorm = userEmail.toLowerCase().trim();
 
     try {
+      // Carregar lista de pagamentos já processados para nunca reprocessar
+      let processedSet = new Set<string>();
+      try {
+        const permDoc = await getDoc(doc(db, 'userPermissions', userId));
+        if (permDoc.exists()) {
+          const permData = permDoc.data();
+          if (Array.isArray(permData.processedPaymentIds)) {
+            permData.processedPaymentIds.forEach((id: string) => processedSet.add(id));
+          }
+        }
+      } catch (e) {
+        console.warn('Aviso ao carregar processedPaymentIds:', e);
+      }
+
       // ── PASSO 1: Verificar financialRecords pendentes no Firestore ──
       const qPending = query(
         collection(db, 'financialRecords'),
@@ -533,6 +649,11 @@ export const PaymentReconciliationService = {
         const record = docSnap.data();
         const paymentId = record.paymentId || docSnap.id;
 
+        // Se já foi processado anteriormente, pular
+        if (paymentId && processedSet.has(paymentId)) {
+          continue;
+        }
+
         try {
           const asaasStatus = await AsaasPaymentService.getPaymentStatus(paymentId);
           console.log(`Status Asaas para cobrança pendente ${paymentId}:`, asaasStatus?.status);
@@ -543,6 +664,8 @@ export const PaymentReconciliationService = {
                                     (record.planName?.toLowerCase().includes('desbloqueio')) ||
                                     (record.planName?.toLowerCase().includes('unlock')) ||
                                     (record.source === 'feature_unlock');
+
+            const paymentDate = record.createdAt || asaasStatus.paymentDate || asaasStatus.clientPaymentDate;
 
             const { planName, accessDays } = await this.activatePaidPlanOrProduct(
               userId,
@@ -557,7 +680,8 @@ export const PaymentReconciliationService = {
                 source: record.source,
                 isFeatureUnlockOnly: isFeatureUnlock,
                 requiredFeature: record.requiredFeature || resolveFeatureId(record.planName || '') || undefined,
-                items: record.items
+                items: record.items,
+                paymentDate
               },
               paymentId
             );
@@ -570,6 +694,7 @@ export const PaymentReconciliationService = {
               accessDays: isFeatureUnlock ? 0 : (record.accessDays || 30)
             }, { merge: true });
 
+            processedSet.add(paymentId);
             activatedPlans.push(planName);
             totalDaysAdded += accessDays;
           } else if (asaasStatus?.status === 'OVERDUE' || asaasStatus?.status === 'REFUNDED' || asaasStatus?.status === 'CHARGEBACK') {
@@ -593,8 +718,13 @@ export const PaymentReconciliationService = {
 
         for (const payment of customerPayments) {
           if (payment.status === 'RECEIVED' || payment.status === 'CONFIRMED') {
+            // Se já processado, pular
+            if (payment.id && processedSet.has(payment.id)) {
+              continue;
+            }
+
             // Verificar se o pagamento é recente (últimos 30 dias)
-            const paymentDate = payment.clientPaymentDate || payment.dueDate;
+            const paymentDate = payment.clientPaymentDate || payment.dueDate || payment.dateCreated;
             if (paymentDate) {
               const pTime = new Date(paymentDate).getTime();
               if (pTime < thirtyDaysAgo) continue;
@@ -627,7 +757,8 @@ export const PaymentReconciliationService = {
                   planPrice: payment.value,
                   accessDays: calcDays,
                   isFeatureUnlockOnly: isUnlock,
-                  requiredFeature: resolvedFeature
+                  requiredFeature: resolvedFeature,
+                  paymentDate
                 },
                 payment.id
               );
@@ -649,6 +780,7 @@ export const PaymentReconciliationService = {
                 requiredFeature: resolvedFeature
               }, { merge: true });
 
+              processedSet.add(payment.id);
               activatedPlans.push(planName);
               totalDaysAdded += accessDays;
             }

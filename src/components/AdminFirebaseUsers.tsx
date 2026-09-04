@@ -170,13 +170,17 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
     let baseDate = new Date();
     if (currentExpiryYMD) {
       const parsed = new Date(toSafeISO(currentExpiryYMD));
-      if (!isNaN(parsed.getTime()) && parsed > new Date()) {
+      // Se a data for válida, no futuro, e NÃO for anomalia de anos multiplicados
+      if (!isNaN(parsed.getTime()) && parsed > new Date() && parsed.getFullYear() <= 2028) {
         baseDate = parsed;
       }
     }
     baseDate.setDate(baseDate.getDate() + days);
     const newExpiryYMD = toYMD(baseDate);
-    const newAccessDays = Math.max(0, (Number(formData.accessDays) || 0) + days);
+
+    // Se os dias atuais forem anormais (> 365), redefinir para a quantidade adicionada
+    const currentDays = Number(formData.accessDays) || 0;
+    const newAccessDays = currentDays > 365 ? days : Math.max(0, currentDays + days);
 
     setFormData(prev => ({
       ...prev,
@@ -186,6 +190,30 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
     }));
 
     toast.info(`+${days} dias adicionados ao formulário! Expiração: ${baseDate.toLocaleDateString('pt-BR')}. Clique em "Salvar Alterações" para sincronizar com o Baserow.`);
+  };
+
+  // Corrige cálculo defeituoso e redefine para 30 dias exatos
+  const handleFixAnomalousPlan = () => {
+    let start = new Date();
+    const existingStart = (user as any).lastSubscriptionDate || user.startDate;
+    if (existingStart) {
+      const parsed = new Date(existingStart);
+      if (!isNaN(parsed.getTime())) {
+        start = parsed;
+      }
+    }
+    const expiry = new Date(start);
+    expiry.setDate(start.getDate() + 30);
+
+    setFormData(prev => ({
+      ...prev,
+      startDate: toYMD(start),
+      expiryDate: toYMD(expiry),
+      accessDays: 30,
+      isActive: true
+    }));
+
+    toast.success('Formulário recalculado para 30 dias exatos a partir da data de assinatura! Clique em "Salvar Alterações" para sincronizar.');
   };
 
   // Salvar no Firebase e Sincronizar com o Baserow
@@ -450,6 +478,26 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {(user.accessDays > 365 || (user.expiryDate && new Date(user.expiryDate).getFullYear() > 2028)) && (
+            <div className="p-3 bg-amber-500/15 border border-amber-500/40 rounded-lg flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                <div className="text-xs text-amber-900 dark:text-amber-200">
+                  <span className="font-bold">Anomalia de cálculo detectada:</span> Este usuário está com {user.accessDays} dias de acesso cadastrados.
+                </div>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="text-xs font-semibold border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950 shrink-0 ml-2"
+                onClick={handleFixAnomalousPlan}
+              >
+                ⚡ Corrigir para 30 Dias
+              </Button>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="name">Nome</Label>
@@ -842,6 +890,45 @@ export const AdminFirebaseUsers: React.FC = () => {
     }
   };
 
+  const [normalizing, setNormalizing] = useState(false);
+
+  // Detecta usuários com anomalia de cálculo (mais de 365 dias ou anos no futuro extremo)
+  const anomalousUsers = users.filter(u =>
+    u.accessDays > 365 || (u.expiryDate && new Date(u.expiryDate).getFullYear() > 2028)
+  );
+
+  const handleNormalizeAllAnomalies = async () => {
+    if (anomalousUsers.length === 0) return;
+    setNormalizing(true);
+    let successCount = 0;
+    try {
+      for (const u of anomalousUsers) {
+        const res = await FirebaseUserService.normalizeUserPlanDates(u.uid, 30, u.startDate);
+        if (res.success) successCount++;
+      }
+      toast.success(`${successCount} usuário(s) normalizados com sucesso para 30 dias de plano e sincronizados no Baserow!`);
+    } catch (err) {
+      console.error('Erro ao normalizar anomalias:', err);
+      toast.error('Erro ao normalizar usuários');
+    } finally {
+      setNormalizing(false);
+    }
+  };
+
+  const handleNormalizeSingleUser = async (u: FirebaseUser) => {
+    try {
+      toast.loading(`Normalizando ${u.name || u.email}...`, { id: `norm-${u.uid}` });
+      const res = await FirebaseUserService.normalizeUserPlanDates(u.uid, 30, u.startDate);
+      if (res.success) {
+        toast.success(`Usuário ${u.name || u.email} normalizado para 30 dias exatos e sincronizado com o Baserow!`, { id: `norm-${u.uid}` });
+      } else {
+        toast.error(`Falha ao normalizar: ${res.error}`, { id: `norm-${u.uid}` });
+      }
+    } catch (err: any) {
+      toast.error(`Erro ao normalizar: ${err.message}`, { id: `norm-${u.uid}` });
+    }
+  };
+
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1050,6 +1137,33 @@ export const AdminFirebaseUsers: React.FC = () => {
       )}
 
 
+      {/* Aviso e Normalização Automática de Anomalias de Cálculo */}
+      {anomalousUsers.length > 0 && (
+        <Card className="bg-amber-500/10 border-amber-500/30">
+          <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-6 w-6 text-amber-600 dark:text-amber-400 shrink-0" />
+              <div>
+                <div className="font-semibold text-sm text-amber-900 dark:text-amber-200">
+                  Detectada anomalia de cálculo em {anomalousUsers.length} usuário(s) ({anomalousUsers.slice(0, 2).map(u => u.name || u.email).join(', ')})
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Estes usuários estão com dias inflados (mais de 365 dias ou anos duplicados). Clique para normalizar e definir exatamente 30 dias de uso do plano e sincronizar com o Baserow.
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shrink-0"
+              onClick={handleNormalizeAllAnomalies}
+              disabled={normalizing}
+            >
+              {normalizing ? 'Corrigindo...' : `Normalizar ${anomalousUsers.length} Usuário(s) para 30d`}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Lista de usuários */}
       <div className="flex items-center gap-2 mb-2 px-2">
         <input 
@@ -1063,12 +1177,28 @@ export const AdminFirebaseUsers: React.FC = () => {
 
       <div className="grid gap-4">
         {filteredUsers.map((user) => {
-          // Vamos buscar o plano deste usuário em tempo real a partir de um mapa de permissões
-          // Para evitar complexidade de N hooks, usaremos o componente UserPlanBadge
+          const isAnomalous = user.accessDays > 365 || (user.expiryDate && new Date(user.expiryDate).getFullYear() > 2028);
+          // Em Criado deve aparecer a data da assinatura recente/última vez
+          const subscriptionDate = (user as any).lastSubscriptionDate || user.startDate || user.createdAt;
+          const formattedSubscriptionDate = (() => {
+            try {
+              return format(new Date(subscriptionDate), 'dd/MM/yyyy', { locale: ptBR });
+            } catch {
+              return format(new Date(user.createdAt), 'dd/MM/yyyy', { locale: ptBR });
+            }
+          })();
+          const formattedExpiryDate = (() => {
+            try {
+              return format(new Date(user.expiryDate), 'dd/MM/yyyy', { locale: ptBR });
+            } catch {
+              return 'Data inválida';
+            }
+          })();
+
           return (
             <Card 
               key={user.uid} 
-              className={`hover:shadow-md transition-all duration-200 ${selectedUids.includes(user.uid) ? 'border-primary bg-primary/5' : ''}`}
+              className={`hover:shadow-md transition-all duration-200 ${isAnomalous ? 'border-amber-500/40 bg-amber-500/5' : ''} ${selectedUids.includes(user.uid) ? 'border-primary bg-primary/5' : ''}`}
             >
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -1089,30 +1219,50 @@ export const AdminFirebaseUsers: React.FC = () => {
                         <UserPlanBadge userId={user.uid} />
                       </div>
                       <p className="text-sm text-muted-foreground">{user.email}</p>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
                         {getStatusBadge(user)}
                         <Badge variant="outline">
                           <CalendarDays className="h-3 w-3 mr-1" />
                           {user.accessDays} dias totais
                         </Badge>
+                        {isAnomalous && (
+                          <Badge variant="destructive" className="bg-amber-600 hover:bg-amber-700 text-white text-[10px] py-0 h-4">
+                            ⚠️ Anomalia ({user.accessDays}d)
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </div>
 
                 <div className="text-right space-y-2">
                   <div className="text-sm text-muted-foreground">
-                    <div>Criado: {format(new Date(user.createdAt), 'dd/MM/yyyy', { locale: ptBR })}</div>
-                    <div>Expira: {format(new Date(user.expiryDate), 'dd/MM/yyyy', { locale: ptBR })}</div>
+                    <div title="Data da assinatura recente ou início">Criado: {formattedSubscriptionDate}</div>
+                    <div>Expira: {formattedExpiryDate}</div>
                     <div>Total de logins: {user.totalLogins}</div>
                   </div>
 
-                  <Button
-                    onClick={() => handleEditUser(user)}
-                    size="sm"
-                  >
-                    <Edit className="h-4 w-4 mr-1" />
-                    Gerenciar
-                  </Button>
+                  <div className="flex items-center justify-end gap-2">
+                    {isAnomalous && (
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleNormalizeSingleUser(user);
+                        }}
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950 font-medium"
+                      >
+                        ⚡ Corrigir p/ 30d
+                      </Button>
+                    )}
+                    <Button
+                      onClick={() => handleEditUser(user)}
+                      size="sm"
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Gerenciar
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>
