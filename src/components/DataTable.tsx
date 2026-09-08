@@ -352,11 +352,15 @@ export const DataTable: React.FC<DataTableProps & {
       const originalKeys = Object.keys(renewItem);
       const vencimentoKey = originalKeys.find(k => k.toLowerCase() === 'vencimento') || 'Vencimento';
       const statusKey = originalKeys.find(k => k.toLowerCase() === 'status') || 'Status';
+      const diasKey = originalKeys.find(k => k.toLowerCase() === 'dias' || k.toLowerCase() === 'totaldedias');
+      const pagKey = originalKeys.find(k => k.toLowerCase() === 'pagamento');
       
-      const updatePayload = {
+      const updatePayload: Record<string, any> = {
         [vencimentoKey]: newVencimentoStr,
         [statusKey]: 'Ativo'
       };
+      if (diasKey) updatePayload[diasKey] = numDays;
+      if (pagKey) updatePayload[pagKey] = new Date().toISOString().split('T')[0];
       
       await baserowService.updateRow(tableId, renewItem.id, updatePayload);
       

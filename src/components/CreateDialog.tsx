@@ -6,6 +6,14 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Eye, EyeOff } from "lucide-react";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -18,7 +26,7 @@ import { useTypeMode } from '@/contexts/TypeModeContext';
 import { toast } from '@/hooks/use-toast';
 import { useUserActionHistory } from '@/hooks/useUserActionHistory';
 import { useAutoNotifyCRUD } from '@/hooks/useActionNotifier';
-import { mapToDatabaseKeys } from '@/utils/baserowHelpers';
+import { mapToDatabaseKeys, findMatchingKey } from '@/utils/baserowHelpers';
 
 interface CreateDialogProps {
   open: boolean;
@@ -37,15 +45,33 @@ interface FieldConfig {
   required: boolean;
   minLength?: number;
   min?: number;
+  options?: { label: string; value: string }[];
 }
 
 const userFieldConfig: FieldConfig[] = [
-  { label: 'Nome', name: 'Nome', type: 'text', required: true },
-  { label: 'Email', name: 'Email', type: 'email', required: true },
-  { label: 'Senha', name: 'Senha', type: 'password', required: true, minLength: 6 },
-  { label: 'Dias', name: 'Dias', type: 'number', required: true, min: 1 },
-  { label: 'Logins', name: 'Logins', type: 'number', required: false, min: 0 },
-  { label: 'Pagamento', name: 'Pagamento', type: 'date', required: false },
+  { label: 'Nome Completo', name: 'Nome', type: 'text', required: true },
+  { label: 'E-mail', name: 'Email', type: 'email', required: true },
+  { label: 'Senha de Acesso', name: 'Senha', type: 'password', required: true, minLength: 6 },
+  {
+    label: 'Status da Conta',
+    name: 'Status',
+    type: 'select',
+    required: false,
+    options: [
+      { label: '🟢 Ativo', value: 'Ativo' },
+      { label: '🔴 Expirado', value: 'Expirado' },
+      { label: '⛔ Bloqueado', value: 'Bloqueado' },
+      { label: '⭐ VIP / Assinante', value: 'VIP' },
+      { label: '🟣 Grátis', value: 'Grátis' },
+    ]
+  },
+  { label: 'Data de Vencimento', name: 'Vencimento', type: 'date', required: false },
+  { label: 'Limite de Telas', name: 'Limite', type: 'number', required: false, min: 1 },
+  { label: 'Moedas / Saldo', name: 'Moedas', type: 'number', required: false, min: 0 },
+  { label: 'Data de Criação', name: 'DataCriacao', type: 'date', required: false },
+  { label: 'ID do Usuário', name: 'ID', type: 'text', required: false },
+  { label: 'ID do Aplicativo (AppId)', name: 'AppId', type: 'text', required: false },
+  { label: 'Total de Dias de Acesso', name: 'Dias', type: 'number', required: false, min: 1 },
 ];
 
 const conteudosFieldConfig: FieldConfig[] = [
@@ -86,28 +112,43 @@ export const CreateDialog = ({
   const { addAction } = useUserActionHistory();
   const { notifyCreate } = useAutoNotifyCRUD(tableKey);
 
+  const [formData, setFormData] = React.useState<any>({});
+  const [showPassword, setShowPassword] = React.useState(false);
+
   const getFieldConfig = (): FieldConfig[] => {
     console.log('CreateDialog - tableKey recebido:', tableKey);
     
     switch (tableKey) {
       case 'usuarios':
-        console.log('Usando configuração de usuários');
-        if (mode === 'tibim') {
-          return [
-            { label: 'Nome', name: 'Nome', type: 'text', required: true },
-            { label: 'Email', name: 'Email', type: 'email', required: true },
-            { label: 'Senha', name: 'Senha', type: 'password', required: true, minLength: 6 },
-            { label: 'Status', name: 'Status', type: 'text', required: false },
-            { label: 'DataCriacao', name: 'DataCriacao', type: 'text', required: false },
-            { label: 'Vencimento', name: 'Vencimento', type: 'text', required: false },
-            { label: 'ID', name: 'ID', type: 'text', required: false },
-            { label: 'Limite', name: 'Limite', type: 'text', required: false },
-            { label: 'Moedas', name: 'Moedas', type: 'number', required: false, min: 0 },
+        console.log('Usando configuração de usuários alinhada ao Baserow');
+        return [
+          { label: 'Nome Completo', name: 'Nome', type: 'text', required: true },
+          { label: 'E-mail', name: 'Email', type: 'email', required: true },
+          { label: 'Senha de Acesso', name: 'Senha', type: 'password', required: true, minLength: 6 },
+          {
+            label: 'Status da Conta',
+            name: 'Status',
+            type: 'select',
+            required: false,
+            options: [
+              { label: '🟢 Ativo', value: 'Ativo' },
+              { label: '🔴 Expirado', value: 'Expirado' },
+              { label: '⛔ Bloqueado', value: 'Bloqueado' },
+              { label: '⭐ VIP / Assinante', value: 'VIP' },
+              { label: '🟣 Grátis', value: 'Grátis' },
+            ]
+          },
+          { label: 'Data de Vencimento', name: 'Vencimento', type: 'date', required: false },
+          { label: 'Limite de Telas', name: 'Limite', type: 'number', required: false, min: 1 },
+          { label: 'Moedas / Saldo', name: 'Moedas', type: 'number', required: false, min: 0 },
+          { label: 'Data de Criação', name: 'DataCriacao', type: 'date', required: false },
+          { label: 'ID do Usuário', name: 'ID', type: 'text', required: false },
+          { label: 'ID do Aplicativo (AppId)', name: 'AppId', type: 'text', required: false },
+          ...(mode === 'tibim' ? [
             { label: 'Favoritos', name: 'Favoritos', type: 'textarea', required: false },
-            { label: 'Historico', name: 'Historico', type: 'textarea', required: false },
-          ];
-        }
-        return userFieldConfig;
+            { label: 'Histórico', name: 'Historico', type: 'textarea', required: false },
+          ] : [])
+        ];
       case 'conteudos':
         console.log('Usando configuração de conteúdos');
         return [
@@ -184,7 +225,7 @@ export const CreateDialog = ({
         ];
       default:
         console.log('Usando configuração padrão para tableKey:', tableKey);
-        return columns.filter((col) => col !== "ID").map((col) => ({
+        return columns.filter((col) => col !== "ID" && col !== "Ações").map((col) => ({
           label: col,
           name: col,
           type: 'text',
@@ -194,24 +235,41 @@ export const CreateDialog = ({
   };
 
   const handleSubmit = async (data: any) => {
-    if (!config || !config.tableIds || !config.tableIds[tableKey]) {
+    const tableId = config?.tableIds?.[tableKey as keyof typeof config.tableIds];
+    if (!config || !config.tableIds || !tableId) {
       alert(`Table ID para ${tableKey} não configurado.`);
       return;
     }
 
     try {
-      const mappedData = mapToDatabaseKeys(data, existingKeys);
+      let mappedData = mapToDatabaseKeys(data, existingKeys);
       
+      // Se tivermos as chaves reais da tabela do Baserow, filtrar para evitar enviar chaves desconhecidas
+      if (existingKeys && existingKeys.length > 0) {
+        const cleanPayload: Record<string, any> = {};
+        Object.keys(mappedData).forEach(key => {
+          const matchedKey = findMatchingKey(existingKeys, key);
+          if (matchedKey) {
+            cleanPayload[matchedKey] = mappedData[key];
+          }
+        });
+        
+        // Só substitui se filtrou com sucesso algum campo válido
+        if (Object.keys(cleanPayload).length > 0) {
+          mappedData = cleanPayload;
+        }
+      }
+
       // Converter campos de data para o formato datetime do Baserow se necessário
       Object.keys(mappedData).forEach(key => {
         const val = mappedData[key];
-        const keyLower = key.toLowerCase();
+        const keyLower = key.toLowerCase().replace(/[\s_-]/g, '');
         if ((keyLower === 'datacriacao' || keyLower === 'vencimento' || keyLower === 'pagamento') && val && /^\d{4}-\d{2}-\d{2}$/.test(String(val))) {
           mappedData[key] = `${val}T00:00:00Z`;
         }
       });
       
-      await baserowService.createRow(config.tableIds[tableKey], mappedData);
+      await baserowService.createRow(tableId, mappedData);
       
       // Registrar ação no histórico pessoal
       const itemName = data.Nome || data.Email || `Item em ${tableKey}`;
@@ -235,13 +293,18 @@ export const CreateDialog = ({
     }
   };
 
-  const [formData, setFormData] = React.useState<any>({});
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     setFormData((prev: any) => ({
       ...prev,
       [name]: type === "number" ? Number(value) : value
+    }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      [name]: value
     }));
   };
 
@@ -254,9 +317,21 @@ export const CreateDialog = ({
 
   React.useEffect(() => {
     if (open) {
-      setFormData({});
+      if (tableKey === 'usuarios') {
+        const today = new Date().toISOString().split('T')[0];
+        const thirtyDaysAhead = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        setFormData({
+          Status: 'Ativo',
+          Limite: 1,
+          Moedas: 0,
+          DataCriacao: today,
+          Vencimento: thirtyDaysAhead,
+        });
+      } else {
+        setFormData({});
+      }
     }
-  }, [open]);
+  }, [open, tableKey]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -281,7 +356,7 @@ export const CreateDialog = ({
         return;
       }
 
-      if (field.min && formData[field.name] && Number(formData[field.name]) < field.min) {
+      if (field.min !== undefined && formData[field.name] !== undefined && Number(formData[field.name]) < field.min) {
         alert(`${field.label} deve ser maior ou igual a ${field.min}.`);
         return;
       }
@@ -300,11 +375,11 @@ export const CreateDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title ? `Adicionar ${title}` : "Adicionar registro"}</DialogTitle>
           <DialogDescription>
-            Preencha os campos abaixo para criar um novo registro.
+            Preencha os campos abaixo para criar um novo registro no sistema.
           </DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={handleCreate}>
@@ -321,9 +396,47 @@ export const CreateDialog = ({
                     checked={formData[field.name] || false}
                     onCheckedChange={(checked) => handleSwitchChange(field.name, checked)}
                   />
-                  <Label htmlFor={field.name} className="text-sm text-muted-foreground">
+                  <Label htmlFor={field.name} className="text-sm text-muted-foreground cursor-pointer">
                     {field.label}
                   </Label>
+                </div>
+              ) : field.type === 'select' ? (
+                <Select
+                  value={formData[field.name] || (field.options?.[0]?.value || 'Ativo')}
+                  onValueChange={(val) => handleSelectChange(field.name, val)}
+                >
+                  <SelectTrigger id={field.name} className="w-full">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {field.options?.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : field.type === 'password' ? (
+                <div className="relative">
+                  <Input
+                    id={field.name}
+                    name={field.name}
+                    type={showPassword ? "text" : "password"}
+                    minLength={field.minLength}
+                    value={formData[field.name] || ""}
+                    onChange={handleChange}
+                    required={field.required}
+                    placeholder={`Digite ${field.label.toLowerCase()}...`}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(prev => !prev)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                    title={showPassword ? "Ocultar senha" : "Ver senha"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               ) : field.type === 'textarea' ? (
                 <Textarea
@@ -342,7 +455,7 @@ export const CreateDialog = ({
                   type={field.type}
                   min={field.min}
                   minLength={field.minLength}
-                  value={formData[field.name] || ""}
+                  value={formData[field.name] !== undefined ? formData[field.name] : ""}
                   onChange={handleChange}
                   required={field.required}
                   placeholder={`Digite ${field.label.toLowerCase()}...`}
@@ -364,3 +477,5 @@ export const CreateDialog = ({
     </Dialog>
   );
 };
+
+export default CreateDialog;

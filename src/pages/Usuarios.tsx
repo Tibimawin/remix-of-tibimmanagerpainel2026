@@ -31,29 +31,29 @@ const Usuarios = () => {
   const { mode } = useTypeMode();
   const baserowService = useBaserowService();
 
-  const columns = mode === 'tibim'
-    ? ['Nome', 'Email', 'Senha', 'Status', 'DataCriacao', 'Vencimento', 'ID', 'Limite', 'Moedas', 'Favoritos', 'Historico']
-    : ['Nome', 'Email', 'Logins', 'Total de Dias', 'Data Pagamento', 'Dias Restantes', 'Ações'];
+  const columns = [
+    'Nome',
+    'Email',
+    'Senha',
+    'Status',
+    'Vencimento',
+    'DataCriacao',
+    'Limite',
+    'Moedas',
+    'ID',
+    'AppId',
+    ...(mode === 'tibim' ? ['Favoritos', 'Historico'] : [])
+  ];
 
-  const sortOptions = mode === 'tibim'
-    ? [
-        { label: 'Mais Novos primeiro', value: 'id_desc' },
-        { label: 'Mais Antigos primeiro', value: 'id_asc' },
-        { label: 'Nome (A-Z)', value: 'nome_asc' },
-        { label: 'Nome (Z-A)', value: 'nome_desc' },
-        { label: 'Vencimento (Mais recente)', value: 'vencimento_desc' },
-        { label: 'Moedas (Maior primeiro)', value: 'moedas_desc' },
-      ]
-    : [
-        { label: 'Mais Novos primeiro', value: 'id_desc' },
-        { label: 'Mais Antigos primeiro', value: 'id_asc' },
-        { label: 'Nome (A-Z)', value: 'nome_asc' },
-        { label: 'Nome (Z-A)', value: 'nome_desc' },
-        { label: 'Logins (Maior primeiro)', value: 'logins_desc' },
-        { label: 'Dias (Maior primeiro)', value: 'dias_desc' },
-        { label: 'Restam (Maior primeiro)', value: 'restam_desc' },
-        { label: 'Pagamento (Mais recente)', value: 'pagamento_desc' },
-      ];
+  const sortOptions = [
+    { label: 'Mais Novos primeiro', value: 'id_desc' },
+    { label: 'Mais Antigos primeiro', value: 'id_asc' },
+    { label: 'Nome (A-Z)', value: 'nome_asc' },
+    { label: 'Nome (Z-A)', value: 'nome_desc' },
+    { label: 'Vencimento (Mais recente)', value: 'vencimento_desc' },
+    { label: 'Status', value: 'status_asc' },
+    { label: 'Moedas (Maior primeiro)', value: 'moedas_desc' },
+  ];
 
   // Calcular dias restantes
   const calculateDaysRemaining = (pagamento: string, totalDias: number) => {
@@ -91,15 +91,6 @@ const Usuarios = () => {
       const tableId = config.tableIds['usuarios'];
       console.log('🔍 [Usuarios] tableId:', tableId);
 
-      if (mode === 'tibim') {
-        // Obter contagem exata de forma extremamente leve (página 1, tamanho 1)
-        const response = await baserowService.getTableData(tableId, 1, 1);
-        const total = response.count || 0;
-        setStats({ total, active: 0, blocked: 0, expiringSoon: 0 });
-        setLoading(false);
-        return;
-      }
-
       if (!tableId) {
         console.error('❌ [Usuarios] tableId não encontrado! tableIds disponíveis:', Object.keys(config.tableIds));
         return;
@@ -112,13 +103,48 @@ const Usuarios = () => {
       const users = response.results || [];
       console.log('👥 [Usuarios] Total de usuários encontrados:', users.length);
 
-      let total = users.length;
+      let total = response.count || users.length;
       let active = 0;
       let blocked = 0;
       let expiringSoon = 0;
 
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+
       users.forEach((user: any) => {
-        const diasRestantes = calculateDaysRemaining(user.Pagamento, Number(user.Dias) || 0);
+        // 1. Tentar calcular via campo Vencimento
+        const vencVal = getValueByPossibleKeys(user, 'Vencimento');
+        if (vencVal) {
+          const vencDate = new Date(vencVal);
+          if (!isNaN(vencDate.getTime())) {
+            vencDate.setHours(0, 0, 0, 0);
+            const diffDays = Math.ceil((vencDate.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays >= 0) {
+              active++;
+              if (diffDays <= 7) {
+                expiringSoon++;
+              }
+            } else {
+              blocked++;
+            }
+            return;
+          }
+        }
+
+        // 2. Tentar calcular via campo Status
+        const statusVal = String(getValueByPossibleKeys(user, 'Status') || '').toLowerCase();
+        if (statusVal === 'ativo' || statusVal === 'active' || statusVal === 'vip') {
+          active++;
+          return;
+        } else if (statusVal === 'expirado' || statusVal === 'bloqueado' || statusVal === 'blocked') {
+          blocked++;
+          return;
+        }
+
+        // 3. Fallback via Pagamento e Dias
+        const pagVal = getValueByPossibleKeys(user, 'Pagamento');
+        const diasVal = Number(getValueByPossibleKeys(user, 'Dias')) || 0;
+        const diasRestantes = calculateDaysRemaining(pagVal, diasVal);
 
         if (diasRestantes > 0) {
           active++;
@@ -145,8 +171,12 @@ const Usuarios = () => {
   }, [isConfigured, refreshTrigger]);
 
   const formatters = {
-    Nome: (value: any) => value || '-',
-    Email: (value: any) => value || '-',
+    Nome: (value: any) => (
+      <span className="font-semibold text-white">{value || '-'}</span>
+    ),
+    Email: (value: any) => (
+      <span className="text-slate-300 font-mono text-xs">{value || '-'}</span>
+    ),
     Logins: (value: any) => Number(value) || 0,
     'Total de Dias': (value: any, item: any) => {
       const dias = Number(getValueByPossibleKeys(item, 'Dias')) || 0;
@@ -176,17 +206,42 @@ const Usuarios = () => {
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">{restam}d</span>;
       }
     },
-    Senha: (value: any) => value ? '••••••' : '-',
+    Senha: (value: any) => value ? <span className="font-mono text-xs tracking-wider text-slate-400">••••••</span> : '-',
     Status: (value: any) => {
       const statusText = value || 'Ativo';
-      const isActive = statusText.toLowerCase() === 'ativo' || statusText.toLowerCase() === 'active';
+      const s = String(statusText).toLowerCase();
+      if (s === 'ativo' || s === 'active') {
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            Ativo
+          </span>
+        );
+      }
+      if (s === 'vip') {
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            ⭐ VIP
+          </span>
+        );
+      }
+      if (s === 'grátis' || s === 'gratis') {
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            🟣 Grátis
+          </span>
+        );
+      }
+      if (s === 'bloqueado' || s === 'blocked') {
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+            ⛔ Bloqueado
+          </span>
+        );
+      }
       return (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold border ${
-          isActive 
-            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 animate-pulse' 
-            : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
-        }`}>
-          {statusText}
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+          🔴 {statusText}
         </span>
       );
     },
@@ -202,13 +257,12 @@ const Usuarios = () => {
     },
     Vencimento: (value: any, item: any) => {
       try {
-        const vencVal = getValueByPossibleKeys(item, 'Vencimento');
+        const vencVal = getValueByPossibleKeys(item, 'Vencimento') || value;
         if (!vencVal) return '-';
         const vencDate = new Date(vencVal);
         if (isNaN(vencDate.getTime())) return vencVal;
         
         const hoje = new Date();
-        // Zera as horas para comparar apenas datas
         hoje.setHours(0,0,0,0);
         vencDate.setHours(0,0,0,0);
         
@@ -239,12 +293,27 @@ const Usuarios = () => {
         return value || '-';
       }
     },
-    ID: (value: any) => value || '-',
+    ID: (value: any) => {
+      if (!value) return '-';
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono bg-slate-800/80 text-slate-300 border border-slate-700/50">
+          {value}
+        </span>
+      );
+    },
     Limite: (value: any) => {
       if (value === undefined || value === null || value === '') return '-';
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
           {value} Telas
+        </span>
+      );
+    },
+    AppId: (value: any) => {
+      if (!value) return '-';
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+          {value}
         </span>
       );
     },
