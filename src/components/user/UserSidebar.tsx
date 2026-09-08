@@ -128,6 +128,16 @@ const menuItems: MenuItem[] = [
     feature: 'status',
   },
   {
+    id: 'meus-app',
+    label: 'Meus App',
+    href: '/meus-apps',
+    icon: Smartphone,
+    category: 'main',
+    description: 'Métricas e usuários do seu app de streaming',
+    feature: 'meus-app',
+    badge: { type: 'new' }
+  },
+  {
     id: 'loja',
     label: 'Loja',
     href: '/produtos',

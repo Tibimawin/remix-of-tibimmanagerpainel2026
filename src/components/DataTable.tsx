@@ -344,8 +344,9 @@ export const DataTable: React.FC<DataTableProps & {
           baseDate = parsedDate;
         }
       }
-      baseDate.setDate(baseDate.getDate() + days);
-      const newVencimentoStr = baseDate.toISOString().split('.')[0] + 'Z';
+      const numDays = Math.max(1, Number(days) || 30);
+      const newExpiryDate = new Date(baseDate.getTime() + numDays * 24 * 60 * 60 * 1000);
+      const newVencimentoStr = newExpiryDate.toISOString().split('.')[0] + 'Z';
       
       // Mapear chaves de acordo com o casing da linha original
       const originalKeys = Object.keys(renewItem);
@@ -362,10 +363,10 @@ export const DataTable: React.FC<DataTableProps & {
       // Registrar log da renovação
       await addLog(
         'Registro renovado',
-        `Renovou usuário ${nome} por ${days} dias (até ${baseDate.toLocaleDateString('pt-BR')})`
+        `Renovou usuário ${nome} por ${numDays} dias (até ${newExpiryDate.toLocaleDateString('pt-BR')})`
       );
       
-      toast.success(`Usuário ${nome} renovado por ${days} dias até ${baseDate.toLocaleDateString('pt-BR')}!`);
+      toast.success(`Usuário ${nome} renovado por ${numDays} dias até ${newExpiryDate.toLocaleDateString('pt-BR')}!`);
       setRenewDialogOpen(false);
       loadData();
     } catch (error) {

@@ -15,6 +15,7 @@ export interface FirebaseUser {
   createdAt: string;
   createdBy: string;
   lastLogin?: string;
+  app_id?: string;
   deviceInfo?: {
     imei: string;
     dispositivo: string;
@@ -39,7 +40,8 @@ export const FirebaseUserService = {
         isActive: userData.isActive ?? true,
         totalLogins: userData.totalLogins || 0,
         createdAt: userData.createdAt || new Date().toISOString(),
-        createdBy: userData.createdBy || 'system'
+        createdBy: userData.createdBy || 'system',
+        app_id: userData.app_id ? userData.app_id.trim() : ''
       };
 
       // Salvar no Firestore
@@ -78,6 +80,7 @@ export const FirebaseUserService = {
     password: string;
     accessDays: number;
     startDate?: string;
+    app_id?: string;
   }): Promise<FirebaseUser> {
     try {
       console.log('Criando usuário no Firebase:', userData.email);
@@ -87,36 +90,25 @@ export const FirebaseUserService = {
       const firebaseUser = userCredential.user;
 
       // 2. Calcular data de expiração
-      const startDate = userData.startDate || new Date().toISOString();
-      const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + userData.accessDays);
+      const startObj = userData.startDate ? new Date(userData.startDate) : new Date();
+      const validStart = isNaN(startObj.getTime()) ? new Date() : startObj;
+      const startDate = validStart.toISOString();
+      const numDays = Math.max(1, Number(userData.accessDays) || 30);
+      const expiryDate = new Date(validStart.getTime() + numDays * 24 * 60 * 60 * 1000);
 
-      // 3. Criar dados do usuário para o Firestore
-      const userDoc: FirebaseUser = {
-        uid: firebaseUser.uid,
-        email: userData.email,
-        name: userData.name,
-        accessDays: userData.accessDays,
-        startDate: startDate,
-        expiryDate: expiryDate.toISOString(),
-        isActive: true,
-        totalLogins: 0,
-        createdAt: new Date().toISOString(),
-        createdBy: 'admin'
-      };
-
-      // 4. Salvar no Firestore usando o método unificado
+      // 3. Salvar no Firestore usando o método unificado
       const createdUser = await this.createUserRecord({
         uid: firebaseUser.uid,
         email: userData.email,
         name: userData.name,
-        accessDays: userData.accessDays,
+        accessDays: numDays,
         startDate: startDate,
         expiryDate: expiryDate.toISOString(),
         isActive: true,
         totalLogins: 0,
         createdAt: new Date().toISOString(),
-        createdBy: 'admin'
+        createdBy: 'admin',
+        app_id: userData.app_id ? userData.app_id.trim() : ''
       });
 
       console.log('Usuário criado com sucesso:', firebaseUser.uid);
@@ -208,6 +200,34 @@ export const FirebaseUserService = {
     }
   },
 
+  // Atualizar app_id do usuário e sincronizar
+  async updateUserAppId(uid: string, appId: string): Promise<void> {
+    try {
+      const cleanAppId = (appId || '').trim();
+      const userRef = doc(db, 'users', uid);
+      await updateDoc(userRef, {
+        app_id: cleanAppId
+      });
+
+      // Também sincronizar em userPermissions se existir
+      try {
+        const permDoc = await getDoc(doc(db, 'userPermissions', uid));
+        if (permDoc.exists()) {
+          await updateDoc(doc(db, 'userPermissions', uid), {
+            app_id: cleanAppId
+          });
+        }
+      } catch (pErr) {
+        console.warn('Aviso ao sincronizar app_id em userPermissions:', pErr);
+      }
+
+      console.log(`✅ AppId atualizado para usuário ${uid}: "${cleanAppId}"`);
+    } catch (error) {
+      console.error('Erro ao atualizar app_id do usuário:', error);
+      throw error;
+    }
+  },
+
   // Verificar se usuário está ativo (não expirado)
   async checkUserAccess(uid: string): Promise<boolean> {
     try {
@@ -272,8 +292,8 @@ export const FirebaseUserService = {
 
       // Se temos uma expiração futura válida, estender a partir dela. Caso contrário, a partir de hoje/pagamento.
       const baseDate = currentExpiry || subscriptionStart;
-      const newExpiry = new Date(baseDate);
-      newExpiry.setDate(baseDate.getDate() + additionalDays);
+      const safeDays = Math.max(1, Number(additionalDays) || 30);
+      const newExpiry = new Date(baseDate.getTime() + safeDays * 24 * 60 * 60 * 1000);
 
       // Trava de segurança: expiração nunca pode ultrapassar 400 dias a partir de agora
       const maxAllowed = new Date(now.getTime() + 400 * 24 * 60 * 60 * 1000);
@@ -281,9 +301,9 @@ export const FirebaseUserService = {
 
       // Cálculo de accessDays: se for renovação com reset, ou se o usuário estiver com anomalia (> 365 dias)
       // define os dias exatos do plano (ex: 30 dias).
-      let newAccessDays = additionalDays;
-      if (!options?.resetAccessDays && user.accessDays && user.accessDays > 0 && user.accessDays <= 365) {
-        newAccessDays = Math.min(365, additionalDays);
+      let newAccessDays = safeDays;
+      if (!options?.resetAccessDays && user.accessDays && Number(user.accessDays) > 0 && Number(user.accessDays) <= 365) {
+        newAccessDays = Math.min(365, safeDays);
       }
 
       const updates: any = {
@@ -387,8 +407,8 @@ export const FirebaseUserService = {
         }
       }
 
-      const expiryDateObj = new Date(startDateObj);
-      expiryDateObj.setDate(startDateObj.getDate() + planDays);
+      const safePlanDays = Math.max(1, Number(planDays) || 30);
+      const expiryDateObj = new Date(startDateObj.getTime() + safePlanDays * 24 * 60 * 60 * 1000);
 
       const safeStartDate = startDateObj.toISOString();
       const safeExpiryDate = expiryDateObj.toISOString();
@@ -398,7 +418,7 @@ export const FirebaseUserService = {
         startDate: safeStartDate,
         lastSubscriptionDate: safeStartDate,
         expiryDate: safeExpiryDate,
-        accessDays: planDays,
+        accessDays: safePlanDays,
         isActive: true
       } as any);
 

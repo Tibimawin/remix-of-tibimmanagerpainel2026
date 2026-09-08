@@ -121,25 +121,48 @@ export const PlanRequestService = {
         return;
       }
 
-      // Carregar planos disponíveis
+      // Carregar planos disponíveis (do Firebase e fallback localStorage)
+      const { PlansService } = await import('@/services/PlansService');
+      const allDbPlans = await PlansService.getAllPlans();
       const savedPlans = localStorage.getItem('admin-plans');
-      const plans = savedPlans ? JSON.parse(savedPlans) : [];
-      const selectedPlan = plans.find((p: any) => p.id === approvedRequest.planId);
+      const localPlans = savedPlans ? JSON.parse(savedPlans) : [];
+      const plans = [...allDbPlans, ...localPlans];
+      const selectedPlan = plans.find((p: any) => p.id === approvedRequest.planId || p.name === approvedRequest.planName);
       
-      if (!selectedPlan) {
-        console.error('Plano não encontrado:', approvedRequest.planId);
-        return;
+      const planPriceNum = parseFloat(String(approvedRequest.planPrice || '0').replace(/[^\d,.]/g, '').replace(',', '.')) || 30;
+      let accessDays = 30;
+      if (selectedPlan && (selectedPlan as any).durationDays) {
+        accessDays = Number((selectedPlan as any).durationDays) || 30;
+      } else if (planPriceNum >= 250 || approvedRequest.planName?.toLowerCase().includes('anual')) {
+        accessDays = 365;
+      } else if (planPriceNum >= 70 || approvedRequest.planName?.toLowerCase().includes('trimestral')) {
+        accessDays = 90;
       }
 
-      // Criar/atualizar permissões do usuário
+      // Ativar no Firebase/Firestore usando PaymentReconciliationService
+      const { PaymentReconciliationService } = await import('@/services/PaymentReconciliationService');
+      await PaymentReconciliationService.activatePaidPlanOrProduct(
+        approvedRequest.userId,
+        approvedRequest.userEmail,
+        approvedRequest.userName,
+        {
+          planName: selectedPlan?.name || approvedRequest.planName,
+          planPrice: planPriceNum,
+          accessDays,
+          isFeatureUnlockOnly: false
+        },
+        `plan_request_${requestId}`
+      );
+
+      // Criar/atualizar permissões locais para compatibilidade imediata
       const userPermissions: UserPermissions = {
         userId: approvedRequest.userId,
         userEmail: approvedRequest.userEmail,
         userName: approvedRequest.userName,
-        planId: selectedPlan.id,
-        planName: selectedPlan.name,
-        monthlyContentLimit: selectedPlan.monthlyContentLimit,
-        enabledFeatures: selectedPlan.features || [],
+        planId: selectedPlan?.id || approvedRequest.planId,
+        planName: selectedPlan?.name || approvedRequest.planName,
+        monthlyContentLimit: selectedPlan?.monthlyContentLimit ?? -1,
+        enabledFeatures: selectedPlan?.features || [],
         currentMonthUsage: 0,
         lastUpdated: new Date().toISOString()
       };
@@ -154,11 +177,11 @@ export const PlanRequestService = {
         timestamp: new Date().toLocaleString('pt-BR'),
         userEmail: 'admin',
         action: 'Plano ativado automaticamente',
-        details: `Plano ${selectedPlan.name} ativado para ${approvedRequest.userEmail} após aprovação da solicitação`
+        details: `Plano ${approvedRequest.planName} ativado para ${approvedRequest.userEmail} por ${accessDays} dias após aprovação da solicitação`
       });
       localStorage.setItem('system-logs', JSON.stringify(logs));
 
-      console.log('Plano ativado com sucesso para:', approvedRequest.userEmail);
+      console.log('Plano ativado com sucesso para:', approvedRequest.userEmail, 'Dias:', accessDays);
     } catch (error) {
       console.error('Erro ao ativar plano:', error);
     }

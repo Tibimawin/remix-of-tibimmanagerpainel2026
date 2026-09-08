@@ -211,6 +211,12 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
         // independentemente do que o admin habilitou no plano. Caso contrário,
         // libera as features presentes em `enabledFeatures`.
         if (isSubscriptionExpired) return isFreeFeatureWhenExpired(featureId);
+
+        // Se a feature for 'meus-app' e o usuário já tiver um app_id configurado, liberar
+        if (featureId === 'meus-app' && permissions?.app_id && permissions.app_id.trim() !== '') {
+            return true;
+        }
+
         return Array.isArray(permissions?.enabledFeatures)
             ? permissions!.enabledFeatures.includes(featureId)
             : false;

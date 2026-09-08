@@ -74,6 +74,7 @@ import CategoriaAnimes from "./pages/CategoriaAnimes";
 import CategoriaNovelas from "./pages/CategoriaNovelas";
 import Perfis from "./pages/Perfis";
 import MeusAplicativos from "./pages/MeusAplicativos";
+import MeusApp from "./pages/MeusApp";
 
 import RelatoriosVisualizacao from "./pages/RelatoriosVisualizacao";
 
@@ -401,6 +402,26 @@ const App = () => {
                                 <SimpleProtectedRoute>
                                   <Layout>
                                     <MeusAplicativos />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/meus-apps" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <PermissionGate feature="meus-app">
+                                      <MeusApp />
+                                    </PermissionGate>
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/meus-app" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <PermissionGate feature="meus-app">
+                                      <MeusApp />
+                                    </PermissionGate>
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />

@@ -114,8 +114,7 @@ export const useBaserowUserStatus = () => {
             const diffDays = Math.floor((Date.now() - pDate.getTime()) / (1000 * 60 * 60 * 24));
             daysRemaining = Math.max(0, totalDays - diffDays);
             
-            const exp = new Date(pDate);
-            exp.setDate(exp.getDate() + totalDays);
+            const exp = new Date(pDate.getTime() + (Number(totalDays) || 30) * 24 * 60 * 60 * 1000);
             expiryDate = exp.toISOString();
           }
         } else {

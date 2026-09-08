@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { UserPlus, User } from 'lucide-react';
+import { UserPlus, User, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { FirebaseUserService } from '@/services/FirebaseUserService';
 
@@ -17,7 +17,8 @@ const AdminUsers: React.FC<AdminUsersProps> = ({ onUserCreated }) => {
     email: '',
     senha: '',
     dias: '30',
-    pagamento: new Date().toISOString().split('T')[0]
+    pagamento: new Date().toISOString().split('T')[0],
+    app_id: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -53,7 +54,8 @@ const AdminUsers: React.FC<AdminUsersProps> = ({ onUserCreated }) => {
         email: formData.email,
         password: formData.senha,
         accessDays: dias,
-        startDate: new Date(formData.pagamento).toISOString()
+        startDate: new Date(formData.pagamento).toISOString(),
+        app_id: formData.app_id?.trim() || ''
       };
 
       console.log('Criando usuário no Firebase:', userData);
@@ -101,7 +103,8 @@ const AdminUsers: React.FC<AdminUsersProps> = ({ onUserCreated }) => {
       email: '',
       senha: '',
       dias: '30',
-      pagamento: new Date().toISOString().split('T')[0]
+      pagamento: new Date().toISOString().split('T')[0],
+      app_id: ''
     });
   };
 
@@ -192,6 +195,25 @@ const AdminUsers: React.FC<AdminUsersProps> = ({ onUserCreated }) => {
                   disabled={isSubmitting}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
+              <div className="flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-primary" />
+                <Label htmlFor="app_id" className="text-foreground font-medium">App ID do Streaming (Opcional)</Label>
+              </div>
+              <Input
+                id="app_id"
+                type="text"
+                value={formData.app_id}
+                onChange={(e) => setFormData({...formData, app_id: e.target.value})}
+                className="modern-input text-white"
+                placeholder="ex: millflix_app, supercine_app"
+                disabled={isSubmitting}
+              />
+              <p className="text-xs text-muted-foreground">
+                Identificador do app para carregar métricas de usuários online e pagantes no painel deste cliente.
+              </p>
             </div>
             
             <div className="flex space-x-2 pt-4">

@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { AlertCircle, Calendar, CalendarDays, Edit, Plus, Shield, ShieldOff, Users, Trash2 } from 'lucide-react';
+import { AlertCircle, Calendar, CalendarDays, Edit, Plus, Shield, ShieldOff, Users, Trash2, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -106,7 +106,8 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
     accessDays: user.accessDays || 0,
     startDate: toYMD(user.startDate),
     expiryDate: toYMD(user.expiryDate),
-    isActive: user.isActive ?? true
+    isActive: user.isActive ?? true,
+    app_id: user.app_id || ''
   });
 
   // Atualizar formData sempre que o modal abrir ou o usuário mudar
@@ -118,7 +119,8 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
         accessDays: user.accessDays || 0,
         startDate: toYMD(user.startDate),
         expiryDate: toYMD(user.expiryDate),
-        isActive: user.isActive ?? true
+        isActive: user.isActive ?? true,
+        app_id: user.app_id || ''
       });
       setLoading(false);
       setCustomDays('');
@@ -166,21 +168,22 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
 
   // Adiciona dias ao formulário e calcula nova expiração instantaneamente
   const handleAddDaysToForm = (days: number) => {
+    const numDays = Math.max(1, Number(days) || 30);
     const currentExpiryYMD = formData.expiryDate || toYMD(user.expiryDate);
     let baseDate = new Date();
     if (currentExpiryYMD) {
       const parsed = new Date(toSafeISO(currentExpiryYMD));
       // Se a data for válida, no futuro, e NÃO for anomalia de anos multiplicados
-      if (!isNaN(parsed.getTime()) && parsed > new Date() && parsed.getFullYear() <= 2028) {
+      if (!isNaN(parsed.getTime()) && parsed > new Date() && parsed.getFullYear() <= new Date().getFullYear() + 1) {
         baseDate = parsed;
       }
     }
-    baseDate.setDate(baseDate.getDate() + days);
-    const newExpiryYMD = toYMD(baseDate);
+    const newExpiry = new Date(baseDate.getTime() + numDays * 24 * 60 * 60 * 1000);
+    const newExpiryYMD = toYMD(newExpiry);
 
     // Se os dias atuais forem anormais (> 365), redefinir para a quantidade adicionada
     const currentDays = Number(formData.accessDays) || 0;
-    const newAccessDays = currentDays > 365 ? days : Math.max(0, currentDays + days);
+    const newAccessDays = currentDays > 365 ? numDays : Math.min(365, currentDays + numDays);
 
     setFormData(prev => ({
       ...prev,
@@ -189,7 +192,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
       isActive: true
     }));
 
-    toast.info(`+${days} dias adicionados ao formulário! Expiração: ${baseDate.toLocaleDateString('pt-BR')}. Clique em "Salvar Alterações" para sincronizar com o Baserow.`);
+    toast.info(`+${numDays} dias adicionados ao formulário! Expiração: ${newExpiry.toLocaleDateString('pt-BR')}. Clique em "Salvar Alterações" para sincronizar com o Baserow.`);
   };
 
   // Corrige cálculo defeituoso e redefine para 30 dias exatos
@@ -202,8 +205,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
         start = parsed;
       }
     }
-    const expiry = new Date(start);
-    expiry.setDate(start.getDate() + 30);
+    const expiry = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
 
     setFormData(prev => ({
       ...prev,
@@ -231,7 +233,8 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
         accessDays: Number(formData.accessDays) || 0,
         startDate: safeStartDate,
         expiryDate: safeExpiryDate,
-        isActive: Boolean(formData.isActive)
+        isActive: Boolean(formData.isActive),
+        app_id: formData.app_id?.trim() || ''
       };
 
       console.log('💾 [EditUserModal] Salvando atualizações no Firebase:', updates);
@@ -265,6 +268,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
           enabledFeatures: updatedFeatures,
           planId: selectedPlanId,
           planName: selectedPlan ? selectedPlan.name : (currentPermissions.planName || 'Básico'),
+          app_id: updates.app_id,
           lastUpdated: new Date().toISOString()
         }, { merge: true });
       } catch (permErr) {
@@ -327,15 +331,15 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
   const extendAccessDirectly = async (days: number) => {
     setLoading(true);
     try {
-      await FirebaseUserService.extendUserAccess(user.uid, days);
+      const numDays = Math.max(1, Number(days) || 30);
+      await FirebaseUserService.extendUserAccess(user.uid, numDays);
 
       // Calcular dados atualizados para sincronização no Baserow
       const now = new Date();
       const currentExpiry = user.expiryDate ? new Date(toSafeISO(user.expiryDate)) : null;
-      const baseDate = (currentExpiry && currentExpiry > now) ? currentExpiry : now;
-      const newExpiry = new Date(baseDate);
-      newExpiry.setDate(baseDate.getDate() + days);
-      const newAccessDays = (Number(user.accessDays) || 0) + days;
+      const baseDate = (currentExpiry && currentExpiry > now && currentExpiry.getFullYear() <= now.getFullYear() + 1) ? currentExpiry : now;
+      const newExpiry = new Date(baseDate.getTime() + numDays * 24 * 60 * 60 * 1000);
+      const newAccessDays = Math.min(365, (Number(user.accessDays) || 0) + numDays);
 
       // 🌐 Sincronizar com o Baserow
       let baserowResult: any = null;
@@ -609,6 +613,26 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isOpen, onClose, on
                   ⚠️ Usuário precisa estar ativo para usar automação
                 </span>
               )}
+            </p>
+          </div>
+
+          {/* Campo App ID do Aplicativo de Streaming */}
+          <div className="p-4 rounded-lg border border-blue-500/30 bg-blue-500/5 space-y-2">
+            <div className="flex items-center gap-2">
+              <Smartphone className="h-4 w-4 text-blue-500" />
+              <Label htmlFor="app_id" className="text-sm font-semibold text-blue-900 dark:text-blue-300">
+                Aplicativo Vinculado (App ID)
+              </Label>
+            </div>
+            <Input
+              id="app_id"
+              placeholder="ex: millflix_app, supercine_app"
+              value={formData.app_id}
+              onChange={(e) => setFormData({ ...formData, app_id: e.target.value })}
+              className="bg-background"
+            />
+            <p className="text-xs text-muted-foreground">
+              Define o identificador do aplicativo deste cliente. O painel do cliente exibirá métricas dos usuários deste App ID na tabela do Baserow.
             </p>
           </div>
 
@@ -894,7 +918,7 @@ export const AdminFirebaseUsers: React.FC = () => {
 
   // Detecta usuários com anomalia de cálculo (mais de 365 dias ou anos no futuro extremo)
   const anomalousUsers = users.filter(u =>
-    u.accessDays > 365 || (u.expiryDate && new Date(u.expiryDate).getFullYear() > 2028)
+    Number(u.accessDays) > 365 || (u.expiryDate && new Date(u.expiryDate).getFullYear() > new Date().getFullYear() + 1)
   );
 
   const handleNormalizeAllAnomalies = async () => {
@@ -1221,6 +1245,12 @@ export const AdminFirebaseUsers: React.FC = () => {
                       <p className="text-sm text-muted-foreground">{user.email}</p>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         {getStatusBadge(user)}
+                        {user.app_id ? (
+                          <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-[11px] font-mono">
+                            <Smartphone className="h-3 w-3 mr-1" />
+                            App: {user.app_id}
+                          </Badge>
+                        ) : null}
                         <Badge variant="outline">
                           <CalendarDays className="h-3 w-3 mr-1" />
                           {user.accessDays} dias totais

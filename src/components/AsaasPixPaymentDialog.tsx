@@ -135,8 +135,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
       try {
         const accessDays = isFeatureUnlockOnly || planPrice <= 25 ? 0 : (planPrice >= 250 ? 365 : (planPrice >= 70 ? 90 : 30));
         const startDate = new Date();
-        const endDate = new Date();
-        endDate.setDate(endDate.getDate() + (accessDays || 30));
+        const endDate = new Date(startDate.getTime() + (accessDays || 30) * 24 * 60 * 60 * 1000);
 
         await setDoc(doc(db, 'financialRecords', firstPaymentId), {
           userId: userInfo?.id || 'unknown',
@@ -173,8 +172,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
             const isUnlock = isFeatureUnlockOnly || planPrice <= 25;
             const accessDays = isUnlock ? 0 : (planPrice >= 250 ? 365 : (planPrice >= 70 ? 90 : 30));
             const startDate = new Date();
-            const endDate = new Date();
-            endDate.setDate(endDate.getDate() + (accessDays || 30));
+            const endDate = new Date(startDate.getTime() + (accessDays || 30) * 24 * 60 * 60 * 1000);
             setConfirmedDates({
               start: startDate.toLocaleDateString('pt-BR'),
               end: isUnlock ? 'Inalterada (Plano Atual Mantido)' : endDate.toLocaleDateString('pt-BR')

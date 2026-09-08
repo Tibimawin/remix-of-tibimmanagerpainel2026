@@ -384,15 +384,16 @@ export const PaymentReconciliationService = {
 
     // Determinar dias com precisão absoluta:
     // Se o plano é de R$ 35 (mensal), DEVEM ser exatamente 30 dias!
-    let accessDays = planInfo.accessDays;
-    if (!accessDays || accessDays <= 0) {
+    let rawDays = planInfo.accessDays;
+    let accessDays = Number(rawDays);
+    if (!accessDays || isNaN(accessDays) || accessDays <= 0) {
       if (matchedPlan) {
-        const customDuration = (matchedPlan as any).durationDays;
-        if (typeof customDuration === 'number' && customDuration > 0) {
+        const customDuration = Number((matchedPlan as any).durationDays);
+        if (!isNaN(customDuration) && customDuration > 0) {
           accessDays = customDuration;
         }
       }
-      if (!accessDays) {
+      if (!accessDays || isNaN(accessDays) || accessDays <= 0) {
         if (price >= 250 || normalizedName.includes('anual') || normalizedName.includes('ano')) {
           accessDays = 365;
         } else if (price >= 130 || normalizedName.includes('semestral')) {
@@ -408,6 +409,7 @@ export const PaymentReconciliationService = {
         }
       }
     }
+    accessDays = Math.max(1, Number(accessDays) || 30);
 
     // Data de início da assinatura: a data que ele assinou recentemente (ex: dia 28)
     const now = new Date();
@@ -430,14 +432,13 @@ export const PaymentReconciliationService = {
     if (existingUser?.expiryDate) {
       const currentExpiry = new Date(existingUser.expiryDate);
       const diffDays = (currentExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-      const maxAllowedCarryover = accessDays <= 31 ? 35 : (accessDays * 1.2);
-      if (currentExpiry > now && diffDays <= maxAllowedCarryover) {
+      const maxAllowedCarryover = accessDays <= 35 ? 35 : (accessDays * 1.2);
+      if (!isNaN(currentExpiry.getTime()) && currentExpiry > now && diffDays <= maxAllowedCarryover && currentExpiry.getFullYear() <= now.getFullYear() + 1) {
         baseExpiryDate = currentExpiry;
       }
     }
 
-    const calculatedEndDate = new Date(baseExpiryDate);
-    calculatedEndDate.setDate(baseExpiryDate.getDate() + accessDays);
+    const calculatedEndDate = new Date(baseExpiryDate.getTime() + accessDays * 24 * 60 * 60 * 1000);
 
     // Trava de segurança rigorosa contra multiplicação indevida de anos:
     // Uma assinatura mensal NUNCA pode ter validade maior que now + 65 dias!

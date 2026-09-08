@@ -11,6 +11,7 @@ export interface UserPermissions {
   lastUpdated: string;
   expiryDate?: string;
   isActive?: boolean;
+  app_id?: string;
 }
 
 export interface FeatureAccess {
@@ -35,6 +36,7 @@ export interface Plan {
 export const AVAILABLE_FEATURES: FeatureAccess[] = [
   // Principal
   { id: 'dashboard', name: 'Dashboard', description: 'Acesso ao painel principal' },
+  { id: 'meus-app', name: 'Meus App', description: 'Métricas e usuários do seu app de streaming' },
 
   // Conteúdo
   { id: 'conteudos', name: 'Gerenciar Conteúdos', description: 'Visualizar e editar conteúdos' },

@@ -54,6 +54,7 @@ const AdminCloakLinks = lazy(() => import('@/components/AdminCloakLinks'));
 const AdminCloakDashboard = lazy(() => import('@/components/AdminCloakDashboard'));
 const AdminPushCenter = lazy(() => import('@/components/AdminPushCenter'));
 const AdminJogosDiaConfig = lazy(() => import('@/components/AdminJogosDiaConfig'));
+const AdminTodosApps = lazy(() => import('@/components/admin/AdminTodosApps'));
 const DateRangeFilter = lazy(() => import('@/components/DateRangeFilter'));
 
 const AdminViewSkeleton = () => (
@@ -465,6 +466,8 @@ const AdminDashboard = () => {
         return <AdminNotifications />;
       case 'user-management':
         return <AdminUsers onUserCreated={refreshData} />;
+      case 'todos-apps':
+        return <AdminTodosApps />;
       case 'firebase-users':
         return <AdminFirebaseUsers />;
       case 'registration-control':
