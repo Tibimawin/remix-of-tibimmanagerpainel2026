@@ -60,6 +60,7 @@ export const MeusApp: React.FC = () => {
   // Dados dos Conteúdos Mais Assistidos (Top 10 / Top 20)
   const [topContentsMetrics, setTopContentsMetrics] = useState<TopContentMetrics | null>(null);
   const [loadingTopContents, setLoadingTopContents] = useState(false);
+  const [errorTopContents, setErrorTopContents] = useState<string | null>(null);
 
   // Filtros da tabela de usuários
   const [searchTerm, setSearchTerm] = useState('');
@@ -124,27 +125,31 @@ export const MeusApp: React.FC = () => {
   const fetchTopContents = useCallback(async () => {
     if (!conteudosTableId) {
       setTopContentsMetrics(null);
+      setErrorTopContents(null);
       return;
     }
 
     setLoadingTopContents(true);
+    setErrorTopContents(null);
     try {
       let rawItems: any[] = [];
       if (config.apiToken && config.baseUrl) {
-        const response = await baserowService.getAllTableData(conteudosTableId, undefined, 300);
+        // Carrega 1 página rápida de 100 conteúdos de forma atômica para evitar timeouts e sobrecarga no Baserow
+        const response = await baserowService.getTableData(conteudosTableId, 1, 100);
         rawItems = Array.isArray(response?.results) ? response.results : [];
       } else if (config.apiToken) {
         rawItems = await TopContentService.fetchConteudosFromBaserow(
           conteudosTableId,
           config.apiToken,
           config.baseUrl || 'https://api.baserow.io',
-          300
+          100
         );
       }
       const processed = TopContentService.processTopContents(rawItems, appId, 20);
       setTopContentsMetrics(processed);
     } catch (err: any) {
-      console.error('Erro ao carregar conteúdos mais assistidos do app:', err);
+      console.warn('⚠️ Não foi possível carregar os conteúdos mais assistidos:', err?.message || err);
+      setErrorTopContents(err?.message || 'Servidor de conteúdos temporariamente inacessível.');
     } finally {
       setLoadingTopContents(false);
     }
@@ -547,6 +552,7 @@ export const MeusApp: React.FC = () => {
         isTableConfigured={Boolean(conteudosTableId && config.apiToken)}
         tableId={conteudosTableId}
         appId={appId}
+        error={errorTopContents}
       />
 
       {/* Lista de Usuários do App */}

@@ -29,6 +29,7 @@ interface TopWatchedContentsProps {
   isTableConfigured: boolean;
   tableId?: string;
   appId?: string;
+  error?: string | null;
 }
 
 export const TopWatchedContents: React.FC<TopWatchedContentsProps> = ({
@@ -37,7 +38,8 @@ export const TopWatchedContents: React.FC<TopWatchedContentsProps> = ({
   onRefresh,
   isTableConfigured,
   tableId,
-  appId
+  appId,
+  error
 }) => {
   // Limite de exibição: Top 10 ou Top 20
   const [limit, setLimit] = useState<10 | 20>(20);
@@ -180,8 +182,27 @@ export const TopWatchedContents: React.FC<TopWatchedContentsProps> = ({
           </div>
         )}
 
+        {/* Caso 2.5: Erro de conexão com o Baserow */}
+        {!loading && error && displayedItems.length === 0 && (
+          <div className="p-6 border border-amber-500/30 rounded-xl text-center space-y-3 bg-amber-500/5">
+            <div className="h-10 w-10 mx-auto rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
+              <AlertCircle className="h-5 w-5" />
+            </div>
+            <div className="max-w-md mx-auto space-y-1">
+              <h4 className="text-sm font-semibold text-foreground">Instabilidade momentânea no servidor de conteúdos</h4>
+              <p className="text-xs text-muted-foreground">
+                {error}
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={onRefresh} className="gap-2">
+              <RefreshCw className="h-3.5 w-3.5" />
+              Tentar Novamente
+            </Button>
+          </div>
+        )}
+
         {/* Caso 3: Tabela configurada mas sem dados */}
-        {!loading && isTableConfigured && displayedItems.length === 0 && (
+        {!loading && !error && isTableConfigured && displayedItems.length === 0 && (
           <div className="py-12 text-center text-muted-foreground space-y-2">
             <Film className="h-10 w-10 mx-auto opacity-30" />
             <h4 className="text-sm font-semibold text-foreground">Nenhum conteúdo encontrado</h4>

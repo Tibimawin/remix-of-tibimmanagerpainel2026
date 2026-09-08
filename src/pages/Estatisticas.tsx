@@ -16,13 +16,13 @@ const Estatisticas = () => {
   // Buscar dados das tabelas
   const { data: conteudos, isLoading: loadingConteudos } = useQuery({
     queryKey: ['estatisticas-conteudos', config.tableIds.conteudos],
-    queryFn: () => baserowService.getAllTableData(config.tableIds.conteudos),
+    queryFn: () => baserowService.getAllTableData(config.tableIds.conteudos, undefined, 500),
     enabled: !!config.tableIds.conteudos && !!config.apiToken && !!config.baseUrl,
   });
 
   const { data: usuarios, isLoading: loadingUsuarios } = useQuery({
     queryKey: ['estatisticas-usuarios', config.tableIds.usuarios],
-    queryFn: () => baserowService.getAllTableData(config.tableIds.usuarios),
+    queryFn: () => baserowService.getAllTableData(config.tableIds.usuarios, undefined, 500),
     enabled: !!config.tableIds.usuarios && !!config.apiToken && !!config.baseUrl,
   });
 

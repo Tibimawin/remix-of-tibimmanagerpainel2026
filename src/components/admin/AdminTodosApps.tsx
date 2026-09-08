@@ -59,6 +59,7 @@ export const AdminTodosApps: React.FC = () => {
   const [previewMetrics, setPreviewMetrics] = useState<StreamingAppMetrics | null>(null);
   const [previewTopContents, setPreviewTopContents] = useState<TopContentMetrics | null>(null);
   const [loadingPreviewTopContents, setLoadingPreviewTopContents] = useState(false);
+  const [errorPreviewTopContents, setErrorPreviewTopContents] = useState<string | null>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
   const conteudosTableId = useMemo(() => {
@@ -68,26 +69,30 @@ export const AdminTodosApps: React.FC = () => {
   const loadPreviewTopContents = async (appId: string) => {
     if (!conteudosTableId) {
       setPreviewTopContents(null);
+      setErrorPreviewTopContents(null);
       return;
     }
     setLoadingPreviewTopContents(true);
+    setErrorPreviewTopContents(null);
     try {
       let rawItems: any[] = [];
       if (config.apiToken && config.baseUrl) {
-        const res = await baserowService.getAllTableData(conteudosTableId, undefined, 300);
+        // Carrega 1 página rápida de 100 conteúdos de forma atômica
+        const res = await baserowService.getTableData(conteudosTableId, 1, 100);
         rawItems = Array.isArray(res?.results) ? res.results : [];
       } else if (config.apiToken) {
         rawItems = await TopContentService.fetchConteudosFromBaserow(
           conteudosTableId,
           config.apiToken,
           config.baseUrl || 'https://api.baserow.io',
-          300
+          100
         );
       }
       const processed = TopContentService.processTopContents(rawItems, appId, 20);
       setPreviewTopContents(processed);
-    } catch (err) {
-      console.error('Erro ao buscar conteúdos do app no preview:', err);
+    } catch (err: any) {
+      console.warn('Aviso ao buscar conteúdos do app no preview:', err?.message || err);
+      setErrorPreviewTopContents(err?.message || 'Servidor de conteúdos temporariamente indisponível.');
     } finally {
       setLoadingPreviewTopContents(false);
     }
@@ -795,6 +800,7 @@ export const AdminTodosApps: React.FC = () => {
                 isTableConfigured={Boolean(conteudosTableId && config.apiToken)}
                 tableId={conteudosTableId}
                 appId={previewAppId || undefined}
+                error={errorPreviewTopContents}
               />
 
               {/* Tabela de Usuários do App */}

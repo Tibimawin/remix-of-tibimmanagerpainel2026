@@ -56,7 +56,7 @@ export class BaserowService {
       });
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000); 
+      const timeoutId = setTimeout(() => controller.abort(), 35000); 
 
       try {
         const headers: Record<string, string> = {
@@ -78,7 +78,7 @@ export class BaserowService {
       } catch (err: any) {
         clearTimeout(timeoutId);
         if (err.name === 'AbortError') {
-          console.error('❌ [BaserowService] TIMEOUT na requisição ao Proxy');
+          console.error('❌ [BaserowService] TIMEOUT na requisição ao Proxy (35s)');
           throw new Error('A requisição ao servidor demorou muito (Timeout). Tente novamente em instantes.');
         }
         throw err;
@@ -180,6 +180,10 @@ export class BaserowService {
   }
 
   async getAllTableData(tableId: string, searchTerm?: string, maxRecords?: number) {
+    if (!tableId || !tableId.trim()) {
+      return { results: [], count: 0 };
+    }
+
     try {
       console.log('=== getAllTableData INICIADO ===');
       console.log('Parâmetros:', { tableId, searchTerm, maxRecords });
@@ -190,65 +194,97 @@ export class BaserowService {
       let page = 1;
       let hasMore = true;
       const batchSize = 100;
+      // Limite seguro padrão de 1500 registros se maxRecords não for especificado para evitar sobrecarga do servidor
+      const effectiveMax = maxRecords && maxRecords > 0 ? maxRecords : 1500;
 
-      logger.debug('Carregando dados paginados da tabela', { maxRecords });
+      logger.debug('Carregando dados paginados da tabela', { effectiveMax });
 
-      while (hasMore && (!maxRecords || allResults.length < maxRecords)) {
+      while (hasMore && allResults.length < effectiveMax) {
         const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
         const endpoint = `/api/database/rows/table/${tableId}/?user_field_names=true&page=${page}&size=${batchSize}${searchParam}`;
 
-        const response = await this.makeRequest(endpoint);
-        if (!response.ok) {
-          const errorText = await response.text();
+        let pageResponse: Response | null = null;
+        let lastError: any = null;
+
+        // Tentativa de carregar a página com 1 retry em caso de falha de conexão ou 502
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const resp = await this.makeRequest(endpoint);
+            if (resp.ok) {
+              pageResponse = resp;
+              break;
+            } else if (resp.status === 502 || resp.status === 500) {
+              lastError = new Error(`Status ${resp.status}`);
+              if (attempt === 1) {
+                await new Promise(r => setTimeout(r, 800));
+                continue;
+              }
+            } else {
+              pageResponse = resp;
+              break;
+            }
+          } catch (err: any) {
+            lastError = err;
+            if (attempt === 1) {
+              await new Promise(r => setTimeout(r, 1000));
+              continue;
+            }
+          }
+        }
+
+        // Se após retries não obtivemos resposta válida
+        if (!pageResponse || !pageResponse.ok) {
+          // Se já temos registros coletados de páginas anteriores, não quebramos a aplicação!
+          if (allResults.length > 0) {
+            logger.warn(`⚠️ Erro ao carregar página ${page} da tabela ${tableId}. Retornando ${allResults.length} registros já carregados para garantir estabilidade da tela.`);
+            break;
+          }
+
+          // Se a página 1 falhou e não temos nenhum registro:
+          const status = pageResponse ? pageResponse.status : 502;
+          const errorText = pageResponse ? await pageResponse.text().catch(() => '') : (lastError?.message || '');
+
           console.error('❌ [BaserowService] Erro na requisição:', {
-            status: response.status,
-            statusText: response.statusText,
+            status,
             errorText: errorText.substring(0, 300),
             endpoint
           });
           
-          if (response.status === 401) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(`Erro de Autorização (401): ${errorData.message || 'Seu Token do Baserow está inválido ou ausente. Verifique se o seu navegador não está bloqueando o Firestore (AdBlock) e salve as configurações novamente.'}`);
+          if (status === 401) {
+            throw new Error('Erro de Autorização (401): Seu Token do Baserow está inválido ou ausente. Verifique suas credenciais nas Configurações.');
           }
 
-          if (response.status === 400 && errorText.includes('ERROR_USER_NOT_IN_GROUP')) {
+          if (status === 404) {
+            throw new Error(`Erro 404: Tabela ${tableId} não encontrada no Baserow. Verifique se o ID está correto nas Configurações.`);
+          }
+
+          if (status === 400 && errorText.includes('ERROR_USER_NOT_IN_GROUP')) {
             logger.warn('Sem permissão para acessar tabela no Baserow. Verifique se o token tem acesso ao grupo/workspace.');
             return { results: [], count: 0 };
           }
           
-          // Se for erro 502 do proxy, tentar extrair a mensagem
-          if (response.status === 502) {
-            try {
-              const errorData = JSON.parse(errorText);
-              throw new Error(`Proxy Error: ${errorData.error}. ${errorData.details || ''}`);
-            } catch {
-              throw new Error(`Erro ${response.status}: Proxy falhou ao conectar ao Baserow`);
-            }
+          if (status === 502 || status === 500) {
+            throw new Error('Erro 502: O servidor Baserow retornou erro temporário ou está sobrecarregado. Tente novamente em instantes.');
           }
           
-          throw new Error(`Erro ${response.status}: ${response.statusText}`);
+          const statusMsg = pageResponse?.statusText || errorText || 'Erro na comunicação com o servidor';
+          throw new Error(`Erro ${status}: ${statusMsg}`);
         }
 
-        const contentType = response.headers.get('content-type') || '';
+        const contentType = pageResponse.headers.get('content-type') || '';
         if (!contentType.toLowerCase().includes('application/json')) {
-          const errorPreview = (await response.text()).slice(0, 500);
-          console.error('❌ [BaserowService] Resposta não JSON:', {
-            status: response.status,
-            statusText: response.statusText,
-            contentType,
-            url: `${this.baseUrl}${endpoint}`,
-            preview: errorPreview,
-            needsProxy: this.needsProxy(),
-            proxyUrl: this.proxyUrl
-          });
-          throw new Error(`Resposta inválida do Baserow (não JSON). Status: ${response.status}. Preview: ${errorPreview.substring(0, 100)}`);
+          if (allResults.length > 0) {
+            logger.warn(`⚠️ Resposta não-JSON na página ${page}. Retornando ${allResults.length} registros obtidos.`);
+            break;
+          }
+          const errorPreview = (await pageResponse.text()).slice(0, 500);
+          throw new Error(`Resposta inválida do Baserow (não JSON). Status: ${pageResponse.status}. Preview: ${errorPreview.substring(0, 100)}`);
         }
 
-        const data = await response.json();
+        const data = await pageResponse.json();
 
         if (data.results?.length) {
-          const remaining = maxRecords ? maxRecords - allResults.length : data.results.length;
+          const remaining = effectiveMax - allResults.length;
           allResults = allResults.concat(data.results.slice(0, remaining));
           page++;
         } else {
@@ -256,7 +292,8 @@ export class BaserowService {
         }
 
         if (!data.next) hasMore = false;
-        await new Promise(r => setTimeout(r, 50));
+        // Intervalo de 120ms entre páginas para não sobrecarregar a instância do Baserow
+        await new Promise(r => setTimeout(r, 120));
       }
 
       logger.debug('Dados carregados', { totalRecords: allResults.length });
@@ -270,21 +307,45 @@ export class BaserowService {
   }
 
   async getTableData(tableId: string, page = 1, size = 100, searchTerm?: string, order?: string, extraParams?: string) {
+    if (!tableId || !tableId.trim()) {
+      return { results: [], count: 0, next: null };
+    }
+
     try {
       const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
       const orderParam = order ? `&order=${encodeURIComponent(order)}` : '';
       const extra = extraParams ? `&${extraParams.replace(/^&/, '')}` : '';
       const endpoint = `/api/database/rows/table/${tableId}/?user_field_names=true&page=${page}&size=${size}${searchParam}${orderParam}${extra}`;
 
-      const response = await this.makeRequest(endpoint);
+      let response = await this.makeRequest(endpoint);
+
+      // 1 retry rápido se receber 502
+      if (!response.ok && (response.status === 502 || response.status === 500)) {
+        await new Promise(r => setTimeout(r, 800));
+        try {
+          const retryResp = await this.makeRequest(endpoint);
+          if (retryResp.ok) {
+            response = retryResp;
+          }
+        } catch {
+          // Mantém a resposta original
+        }
+      }
 
       if (!response.ok) {
-        const errorText = await response.text();
+        const errorText = await response.text().catch(() => '');
         if (response.status === 400 && errorText.includes('ERROR_USER_NOT_IN_GROUP')) {
           console.warn(`⚠️ Sem permissão para acessar tabela ${tableId}. Ignorando...`);
           return { results: [], count: 0, next: null };
         }
-        throw new Error(`Erro ${response.status}: ${response.statusText}`);
+        if (response.status === 404) {
+          throw new Error(`Erro 404: Tabela ${tableId} não encontrada no Baserow. Verifique se o ID está correto nas Configurações.`);
+        }
+        if (response.status === 502 || response.status === 500) {
+          throw new Error('Erro 502: O servidor Baserow retornou erro temporário ou está sobrecarregado. Tente novamente em instantes.');
+        }
+        const statusMsg = response.statusText || errorText || 'Erro na comunicação';
+        throw new Error(`Erro ${response.status}: ${statusMsg}`);
       }
 
       return await response.json();
