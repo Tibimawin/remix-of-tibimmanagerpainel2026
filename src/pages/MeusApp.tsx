@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
+import { useConfig } from '@/contexts/ConfigContext';
+import { useBaserowService } from '@/services/BaserowService';
 import { FirebaseUserService, FirebaseUser } from '@/services/FirebaseUserService';
 import {
   StreamingAppService,
@@ -9,6 +11,8 @@ import {
   isUserOnlineToday,
   isUserPaidVip
 } from '@/services/StreamingAppService';
+import { TopContentService, TopContentMetrics } from '@/services/TopContentService';
+import { TopWatchedContents } from '@/components/app/TopWatchedContents';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,6 +44,8 @@ import { toast } from 'sonner';
 
 export const MeusApp: React.FC = () => {
   const { userInfo } = useSimpleAuth();
+  const { config } = useConfig();
+  const baserowService = useBaserowService();
   
   // Dados do usuário logado no Firestore
   const [currentUserData, setCurrentUserData] = useState<FirebaseUser | null>(null);
@@ -50,6 +56,10 @@ export const MeusApp: React.FC = () => {
   const [loadingMetrics, setLoadingMetrics] = useState(false);
   const [errorMetrics, setErrorMetrics] = useState<string | null>(null);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
+
+  // Dados dos Conteúdos Mais Assistidos (Top 10 / Top 20)
+  const [topContentsMetrics, setTopContentsMetrics] = useState<TopContentMetrics | null>(null);
+  const [loadingTopContents, setLoadingTopContents] = useState(false);
 
   // Filtros da tabela de usuários
   const [searchTerm, setSearchTerm] = useState('');
@@ -81,6 +91,10 @@ export const MeusApp: React.FC = () => {
     return (currentUserData?.app_id || '').trim();
   }, [currentUserData?.app_id]);
 
+  const conteudosTableId = useMemo(() => {
+    return (config?.tableIds?.conteudos || config?.conteudosTableId || '').trim();
+  }, [config?.tableIds?.conteudos, config?.conteudosTableId]);
+
   // 2. Carregar e calcular métricas do Baserow filtrando por AppId
   const loadAppMetrics = useCallback(async () => {
     if (!appId) {
@@ -106,11 +120,54 @@ export const MeusApp: React.FC = () => {
     }
   }, [appId]);
 
+  // 3. Carregar conteúdos mais assistidos do app (Top 10 / Top 20)
+  const fetchTopContents = useCallback(async () => {
+    if (!conteudosTableId) {
+      setTopContentsMetrics(null);
+      return;
+    }
+
+    setLoadingTopContents(true);
+    try {
+      let rawItems: any[] = [];
+      if (config.apiToken && config.baseUrl) {
+        const response = await baserowService.getAllTableData(conteudosTableId, undefined, 300);
+        rawItems = Array.isArray(response?.results) ? response.results : [];
+      } else if (config.apiToken) {
+        rawItems = await TopContentService.fetchConteudosFromBaserow(
+          conteudosTableId,
+          config.apiToken,
+          config.baseUrl || 'https://api.baserow.io',
+          300
+        );
+      }
+      const processed = TopContentService.processTopContents(rawItems, appId, 20);
+      setTopContentsMetrics(processed);
+    } catch (err: any) {
+      console.error('Erro ao carregar conteúdos mais assistidos do app:', err);
+    } finally {
+      setLoadingTopContents(false);
+    }
+  }, [conteudosTableId, config.apiToken, config.baseUrl, baserowService, appId]);
+
   useEffect(() => {
     if (appId) {
       loadAppMetrics();
     }
   }, [appId, loadAppMetrics]);
+
+  useEffect(() => {
+    if (conteudosTableId) {
+      fetchTopContents();
+    }
+  }, [conteudosTableId, fetchTopContents]);
+
+  const handleRefreshAll = () => {
+    loadAppMetrics();
+    if (conteudosTableId) {
+      fetchTopContents();
+    }
+  };
 
   // Auto-refresh opcional a cada 60 segundos se houver app vinculado
   useEffect(() => {
@@ -251,11 +308,11 @@ export const MeusApp: React.FC = () => {
           <Button
             size="sm"
             variant="outline"
-            onClick={loadAppMetrics}
-            disabled={loadingMetrics}
+            onClick={handleRefreshAll}
+            disabled={loadingMetrics || loadingTopContents}
             className="border-border/60 hover:bg-muted/50 text-xs shadow-sm"
           >
-            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loadingMetrics ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loadingMetrics || loadingTopContents ? 'animate-spin' : ''}`} />
             Atualizar Métricas
           </Button>
         </div>
@@ -481,6 +538,16 @@ export const MeusApp: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* 4. Conteúdos Mais Assistidos do App (Top 10 / Top 20) */}
+      <TopWatchedContents
+        metrics={topContentsMetrics}
+        loading={loadingTopContents}
+        onRefresh={fetchTopContents}
+        isTableConfigured={Boolean(conteudosTableId && config.apiToken)}
+        tableId={conteudosTableId}
+        appId={appId}
+      />
 
       {/* Lista de Usuários do App */}
       <Card className="border-border/40">

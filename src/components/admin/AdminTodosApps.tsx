@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '@/config/firebase';
+import { useConfig } from '@/contexts/ConfigContext';
+import { useBaserowService } from '@/services/BaserowService';
 import { FirebaseUser, FirebaseUserService } from '@/services/FirebaseUserService';
 import { StreamingAppService, BaserowAppUser, StreamingAppMetrics, isUserOnline } from '@/services/StreamingAppService';
+import { TopContentService, TopContentMetrics } from '@/services/TopContentService';
+import { TopWatchedContents } from '@/components/app/TopWatchedContents';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,9 +53,45 @@ export const AdminTodosApps: React.FC = () => {
   const [savingAppId, setSavingAppId] = useState(false);
 
   // Modal para pré-visualizar métricas do App
+  const { config } = useConfig();
+  const baserowService = useBaserowService();
   const [previewAppId, setPreviewAppId] = useState<string | null>(null);
   const [previewMetrics, setPreviewMetrics] = useState<StreamingAppMetrics | null>(null);
+  const [previewTopContents, setPreviewTopContents] = useState<TopContentMetrics | null>(null);
+  const [loadingPreviewTopContents, setLoadingPreviewTopContents] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+
+  const conteudosTableId = useMemo(() => {
+    return (config?.tableIds?.conteudos || config?.conteudosTableId || '').trim();
+  }, [config?.tableIds?.conteudos, config?.conteudosTableId]);
+
+  const loadPreviewTopContents = async (appId: string) => {
+    if (!conteudosTableId) {
+      setPreviewTopContents(null);
+      return;
+    }
+    setLoadingPreviewTopContents(true);
+    try {
+      let rawItems: any[] = [];
+      if (config.apiToken && config.baseUrl) {
+        const res = await baserowService.getAllTableData(conteudosTableId, undefined, 300);
+        rawItems = Array.isArray(res?.results) ? res.results : [];
+      } else if (config.apiToken) {
+        rawItems = await TopContentService.fetchConteudosFromBaserow(
+          conteudosTableId,
+          config.apiToken,
+          config.baseUrl || 'https://api.baserow.io',
+          300
+        );
+      }
+      const processed = TopContentService.processTopContents(rawItems, appId, 20);
+      setPreviewTopContents(processed);
+    } catch (err) {
+      console.error('Erro ao buscar conteúdos do app no preview:', err);
+    } finally {
+      setLoadingPreviewTopContents(false);
+    }
+  };
 
   // Carregar usuários do Firebase
   useEffect(() => {
@@ -209,6 +249,7 @@ export const AdminTodosApps: React.FC = () => {
     );
     const metrics = StreamingAppService.calculateMetrics(matching);
     setPreviewMetrics(metrics);
+    loadPreviewTopContents(appId);
     setIsPreviewModalOpen(true);
   };
 
@@ -745,6 +786,16 @@ export const AdminTodosApps: React.FC = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Top Conteúdos Mais Assistidos */}
+              <TopWatchedContents
+                metrics={previewTopContents}
+                loading={loadingPreviewTopContents}
+                onRefresh={() => previewAppId && loadPreviewTopContents(previewAppId)}
+                isTableConfigured={Boolean(conteudosTableId && config.apiToken)}
+                tableId={conteudosTableId}
+                appId={previewAppId || undefined}
+              />
 
               {/* Tabela de Usuários do App */}
               <Card className="border-border/40">
