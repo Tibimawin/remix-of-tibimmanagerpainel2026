@@ -23,6 +23,7 @@ export interface BaserowAppUser {
 export interface StreamingAppMetrics {
   totalUsers: number;
   onlineUsers: number;
+  onlineTodayUsers: number;
   paidUsers: number;
   freeUsers: number;
   weeklyAccess: {
@@ -90,6 +91,20 @@ export function isUserOnline(lastAccessStr: string | null | undefined, reference
   const diffMs = referenceTime.getTime() - accessDate.getTime();
   // Até 5 minutos atrás (com tolerância de 1 minuto para relógios dessincronizados)
   return diffMs >= -60000 && diffMs <= 5 * 60 * 1000;
+}
+
+/**
+ * Verifica se o usuário acessou hoje (mesmo ano, mês e dia da data de referência)
+ */
+export function isUserOnlineToday(lastAccessStr: string | null | undefined, referenceTime: Date = new Date()): boolean {
+  const accessDate = parseBaserowDate(lastAccessStr);
+  if (!accessDate) return false;
+
+  return (
+    accessDate.getFullYear() === referenceTime.getFullYear() &&
+    accessDate.getMonth() === referenceTime.getMonth() &&
+    accessDate.getDate() === referenceTime.getDate()
+  );
 }
 
 /**
@@ -201,12 +216,16 @@ export const StreamingAppService = {
     const now = new Date();
 
     let onlineCount = 0;
+    let onlineTodayCount = 0;
     let paidCount = 0;
     let freeCount = 0;
 
     users.forEach(user => {
       const online = isUserOnline(user.UltimoAcesso, now);
       if (online) onlineCount++;
+
+      const onlineToday = isUserOnlineToday(user.UltimoAcesso, now);
+      if (onlineToday) onlineTodayCount++;
 
       const isPaid = isUserPaidVip(user.Status, user.Vencimento, now);
       if (isPaid) {
@@ -221,6 +240,7 @@ export const StreamingAppService = {
     return {
       totalUsers: users.length,
       onlineUsers: onlineCount,
+      onlineTodayUsers: onlineTodayCount,
       paidUsers: paidCount,
       freeUsers: freeCount,
       weeklyAccess,

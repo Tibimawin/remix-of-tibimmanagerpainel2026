@@ -6,6 +6,7 @@ import {
   BaserowAppUser,
   StreamingAppMetrics,
   isUserOnline,
+  isUserOnlineToday,
   isUserPaidVip
 } from '@/services/StreamingAppService';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +28,12 @@ import {
   Clock,
   Sparkles,
   ArrowUpRight,
-  Filter
+  Filter,
+  Radio,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { toast } from 'sonner';
@@ -47,7 +53,11 @@ export const MeusApp: React.FC = () => {
 
   // Filtros da tabela de usuários
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'online' | 'vip' | 'free'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'online' | 'online_today' | 'vip' | 'free'>('all');
+
+  // Paginação: 10 usuários por página
+  const ITEMS_PER_PAGE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
 
   // 1. Carregar o registro do usuário logado para obter seu app_id
   const fetchCurrentUserRecord = useCallback(async () => {
@@ -111,6 +121,11 @@ export const MeusApp: React.FC = () => {
     return () => clearInterval(interval);
   }, [appId, loadAppMetrics]);
 
+  // Resetar página sempre que termo de busca ou filtro mudar
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
   // Filtragem da lista de usuários
   const filteredUsers = useMemo(() => {
     if (!metrics?.users) return [];
@@ -126,14 +141,25 @@ export const MeusApp: React.FC = () => {
       if (!matchesSearch) return false;
 
       const online = isUserOnline(user.UltimoAcesso, now);
+      const onlineToday = isUserOnlineToday(user.UltimoAcesso, now);
       const isPaid = isUserPaidVip(user.Status, user.Vencimento, now);
 
       if (statusFilter === 'online') return online;
+      if (statusFilter === 'online_today') return onlineToday;
       if (statusFilter === 'vip') return isPaid;
       if (statusFilter === 'free') return !isPaid;
       return true;
     });
   }, [metrics?.users, searchTerm, statusFilter]);
+
+  // Cálculo da paginação (10 por página)
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+    return filteredUsers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredUsers, safeCurrentPage]);
 
   // Loading do perfil
   if (loadingUserData) {
@@ -248,15 +274,15 @@ export const MeusApp: React.FC = () => {
         </div>
       )}
 
-      {/* Grid de 4 Cards de Métricas Principais */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Grid de 5 Cards de Métricas Principais */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {/* 1. Usuários Online Agora */}
         <Card className="border-border/40 bg-card/70 backdrop-blur-sm relative overflow-hidden group hover:border-emerald-500/40 transition-colors">
           <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Usuários Online
+                Online Agora
               </span>
               <span className="relative flex h-3 w-3" title="Online nos últimos 5 minutos">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -273,12 +299,39 @@ export const MeusApp: React.FC = () => {
 
             <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
               <Activity className="h-3 w-3 text-emerald-500" />
-              Acessaram nos últimos 5 minutos
+              Últimos 5 minutos
             </p>
           </CardContent>
         </Card>
 
-        {/* 2. Assinantes Pagos / VIP */}
+        {/* 2. Usuários Online Hoje */}
+        <Card className="border-border/40 bg-card/70 backdrop-blur-sm relative overflow-hidden group hover:border-cyan-500/40 transition-colors">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-cyan-500" />
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Online Hoje
+              </span>
+              <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-500">
+                <Radio className="h-4 w-4" />
+              </div>
+            </div>
+
+            <div className="flex items-baseline gap-2 mt-2">
+              <h3 className="text-3xl font-black tracking-tight text-cyan-500">
+                {metrics ? metrics.onlineTodayUsers : '—'}
+              </h3>
+              <span className="text-xs text-muted-foreground">hoje</span>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+              <Clock className="h-3 w-3 text-cyan-500" />
+              Acessaram no dia de hoje
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* 3. Assinantes Pagos / VIP */}
         <Card className="border-border/40 bg-card/70 backdrop-blur-sm relative overflow-hidden group hover:border-amber-500/40 transition-colors">
           <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
           <CardContent className="p-5">
@@ -300,12 +353,12 @@ export const MeusApp: React.FC = () => {
 
             <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
               <CheckCircle2 className="h-3 w-3 text-amber-500" />
-              Status pago e vencimento válido
+              Status pago e válido
             </p>
           </CardContent>
         </Card>
 
-        {/* 3. Usuários Grátis */}
+        {/* 4. Usuários Grátis */}
         <Card className="border-border/40 bg-card/70 backdrop-blur-sm relative overflow-hidden group hover:border-purple-500/40 transition-colors">
           <div className="absolute top-0 left-0 right-0 h-1 bg-purple-500" />
           <CardContent className="p-5">
@@ -326,12 +379,12 @@ export const MeusApp: React.FC = () => {
             </div>
 
             <p className="text-[11px] text-muted-foreground mt-1">
-              Acesso padrão ou não pagantes
+              Acesso padrão ou gratuito
             </p>
           </CardContent>
         </Card>
 
-        {/* 4. Total de Usuários do App */}
+        {/* 5. Total de Usuários do App */}
         <Card className="border-border/40 bg-card/70 backdrop-blur-sm relative overflow-hidden group hover:border-blue-500/40 transition-colors">
           <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500" />
           <CardContent className="p-5">
@@ -351,8 +404,8 @@ export const MeusApp: React.FC = () => {
               <span className="text-xs text-muted-foreground">cadastrados</span>
             </div>
 
-            <p className="text-[11px] text-muted-foreground mt-1">
-              Com AppId: <span className="font-mono">{appId}</span>
+            <p className="text-[11px] text-muted-foreground mt-1 truncate">
+              Com AppId: <span className="font-mono font-semibold">{appId}</span>
             </p>
           </CardContent>
         </Card>
@@ -455,7 +508,7 @@ export const MeusApp: React.FC = () => {
                 />
               </div>
 
-              <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border/40 text-xs">
+              <div className="flex flex-wrap items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border/40 text-xs">
                 <Button
                   size="sm"
                   variant={statusFilter === 'all' ? 'default' : 'ghost'}
@@ -467,15 +520,23 @@ export const MeusApp: React.FC = () => {
                 <Button
                   size="sm"
                   variant={statusFilter === 'online' ? 'default' : 'ghost'}
-                  className="h-7 text-xs px-2.5 text-emerald-500"
+                  className="h-7 text-xs px-2.5 text-emerald-500 hover:text-emerald-600"
                   onClick={() => setStatusFilter('online')}
                 >
-                  Online ({metrics?.onlineUsers || 0})
+                  Online Agora ({metrics?.onlineUsers || 0})
+                </Button>
+                <Button
+                  size="sm"
+                  variant={statusFilter === 'online_today' ? 'default' : 'ghost'}
+                  className="h-7 text-xs px-2.5 text-cyan-500 hover:text-cyan-600"
+                  onClick={() => setStatusFilter('online_today')}
+                >
+                  Online Hoje ({metrics?.onlineTodayUsers || 0})
                 </Button>
                 <Button
                   size="sm"
                   variant={statusFilter === 'vip' ? 'default' : 'ghost'}
-                  className="h-7 text-xs px-2.5 text-amber-500"
+                  className="h-7 text-xs px-2.5 text-amber-500 hover:text-amber-600"
                   onClick={() => setStatusFilter('vip')}
                 >
                   VIP ({metrics?.paidUsers || 0})
@@ -483,7 +544,7 @@ export const MeusApp: React.FC = () => {
                 <Button
                   size="sm"
                   variant={statusFilter === 'free' ? 'default' : 'ghost'}
-                  className="h-7 text-xs px-2.5 text-purple-500"
+                  className="h-7 text-xs px-2.5 text-purple-500 hover:text-purple-600"
                   onClick={() => setStatusFilter('free')}
                 >
                   Grátis ({metrics?.freeUsers || 0})
@@ -493,7 +554,7 @@ export const MeusApp: React.FC = () => {
           </div>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="space-y-4">
           {loadingMetrics && !metrics ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
               <RefreshCw className="h-5 w-5 animate-spin mr-2" />
@@ -510,87 +571,194 @@ export const MeusApp: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-border/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    <th className="py-3 px-4">Usuário</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4">Vencimento</th>
-                    <th className="py-3 px-4">Último Acesso</th>
-                    <th className="py-3 px-4 text-right">Situação</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/20">
-                  {filteredUsers.map((user) => {
-                    const online = isUserOnline(user.UltimoAcesso);
-                    const isPaid = isUserPaidVip(user.Status, user.Vencimento);
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-border/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <th className="py-3 px-4">Usuário</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4">Vencimento</th>
+                      <th className="py-3 px-4">Último Acesso</th>
+                      <th className="py-3 px-4 text-right">Situação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/20">
+                    {paginatedUsers.map((user) => {
+                      const onlineNow = isUserOnline(user.UltimoAcesso);
+                      const onlineToday = isUserOnlineToday(user.UltimoAcesso);
+                      const isPaid = isUserPaidVip(user.Status, user.Vencimento);
 
-                    return (
-                      <tr key={user.id} className="hover:bg-muted/20 transition-colors">
-                        <td className="py-3 px-4">
-                          <div className="font-medium text-foreground flex items-center gap-2">
-                            <span>{user.Nome || 'Sem Nome'}</span>
-                            {online && (
-                              <span
-                                className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"
-                                title="Usuário online agora"
-                              />
+                      return (
+                        <tr key={user.id} className="hover:bg-muted/20 transition-colors">
+                          <td className="py-3 px-4">
+                            <div className="font-medium text-foreground flex items-center gap-2">
+                              <span>{user.Nome || 'Sem Nome'}</span>
+                              {onlineNow ? (
+                                <span
+                                  className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"
+                                  title="Online agora (últimos 5 min)"
+                                />
+                              ) : onlineToday ? (
+                                <span
+                                  className="inline-flex h-2 w-2 rounded-full bg-cyan-500"
+                                  title="Esteve online hoje"
+                                />
+                              ) : null}
+                            </div>
+                            <div className="text-xs text-muted-foreground font-mono">{user.Email}</div>
+                          </td>
+
+                          <td className="py-3 px-4">
+                            {isPaid ? (
+                              <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-xs font-semibold">
+                                <Crown className="h-3 w-3 mr-1" />
+                                {user.Status || 'VIP'}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs text-muted-foreground">
+                                {user.Status || 'Grátis'}
+                              </Badge>
                             )}
-                          </div>
-                          <div className="text-xs text-muted-foreground font-mono">{user.Email}</div>
-                        </td>
+                          </td>
 
-                        <td className="py-3 px-4">
-                          {isPaid ? (
-                            <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-xs font-semibold">
-                              <Crown className="h-3 w-3 mr-1" />
-                              {user.Status || 'VIP'}
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-xs text-muted-foreground">
-                              {user.Status || 'Grátis'}
-                            </Badge>
-                          )}
-                        </td>
+                          <td className="py-3 px-4 text-xs text-muted-foreground">
+                            {user.Vencimento ? (
+                              <span className="flex items-center gap-1 font-mono">
+                                <Calendar className="h-3.5 w-3.5 opacity-60" />
+                                {user.Vencimento}
+                              </span>
+                            ) : (
+                              <span className="italic opacity-60">Sem vencimento</span>
+                            )}
+                          </td>
 
-                        <td className="py-3 px-4 text-xs text-muted-foreground">
-                          {user.Vencimento ? (
-                            <span className="flex items-center gap-1 font-mono">
-                              <Calendar className="h-3.5 w-3.5 opacity-60" />
-                              {user.Vencimento}
-                            </span>
-                          ) : (
-                            <span className="italic opacity-60">Sem vencimento</span>
-                          )}
-                        </td>
+                          <td className="py-3 px-4 text-xs text-muted-foreground">
+                            {user.UltimoAcesso ? (
+                              <span className="font-mono flex items-center gap-1">
+                                <Clock className="h-3.5 w-3.5 opacity-60" />
+                                {user.UltimoAcesso}
+                              </span>
+                            ) : (
+                              <span className="italic opacity-50">Nunca acessou</span>
+                            )}
+                          </td>
 
-                        <td className="py-3 px-4 text-xs text-muted-foreground">
-                          {user.UltimoAcesso ? (
-                            <span className="font-mono flex items-center gap-1">
-                              <Clock className="h-3.5 w-3.5 opacity-60" />
-                              {user.UltimoAcesso}
-                            </span>
-                          ) : (
-                            <span className="italic opacity-50">Nunca acessou</span>
-                          )}
-                        </td>
+                          <td className="py-3 px-4 text-right">
+                            {onlineNow ? (
+                              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-xs font-medium">
+                                Online Agora
+                              </Badge>
+                            ) : onlineToday ? (
+                              <Badge variant="outline" className="bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20 text-xs font-medium">
+                                Online Hoje
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Offline</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-                        <td className="py-3 px-4 text-right">
-                          {online ? (
-                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-xs font-medium">
-                              Online Agora
-                            </Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">Offline</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+              {/* Controles de Paginação (10 itens por página) */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border/30 text-xs text-muted-foreground">
+                <div>
+                  Mostrando <span className="font-semibold text-foreground">{(safeCurrentPage - 1) * ITEMS_PER_PAGE + 1}</span> a{' '}
+                  <span className="font-semibold text-foreground">
+                    {Math.min(safeCurrentPage * ITEMS_PER_PAGE, filteredUsers.length)}
+                  </span>{' '}
+                  de <span className="font-semibold text-foreground">{filteredUsers.length}</span> usuários
+                  {filteredUsers.length !== (metrics?.users.length || 0) && (
+                    <span className="ml-1 opacity-75">(filtrados de {metrics?.users.length})</span>
+                  )}
+                </div>
+
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setCurrentPage(1)}
+                      disabled={safeCurrentPage === 1}
+                      title="Primeira Página"
+                    >
+                      <ChevronsLeft className="h-4 w-4" />
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5 text-xs gap-1"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={safeCurrentPage === 1}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                      Anterior
+                    </Button>
+
+                    <div className="flex items-center gap-1 px-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter((pageNum) => {
+                          return (
+                            pageNum === 1 ||
+                            pageNum === totalPages ||
+                            Math.abs(pageNum - safeCurrentPage) <= 1
+                          );
+                        })
+                        .map((pageNum, idx, arr) => {
+                          const prevPageNum = arr[idx - 1];
+                          const showEllipsisBefore = prevPageNum && pageNum - prevPageNum > 1;
+
+                          return (
+                            <React.Fragment key={pageNum}>
+                              {showEllipsisBefore && (
+                                <span className="px-1 text-muted-foreground select-none">...</span>
+                              )}
+                              <Button
+                                variant={safeCurrentPage === pageNum ? 'default' : 'outline'}
+                                size="sm"
+                                className={`h-8 min-w-[2rem] px-2 text-xs ${
+                                  safeCurrentPage === pageNum ? 'font-bold' : ''
+                                }`}
+                                onClick={() => setCurrentPage(pageNum)}
+                              >
+                                {pageNum}
+                              </Button>
+                            </React.Fragment>
+                          );
+                        })}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5 text-xs gap-1"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={safeCurrentPage === totalPages}
+                    >
+                      Próximo
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={safeCurrentPage === totalPages}
+                      title="Última Página"
+                    >
+                      <ChevronsRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

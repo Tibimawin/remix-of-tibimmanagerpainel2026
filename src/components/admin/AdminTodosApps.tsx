@@ -650,7 +650,7 @@ export const AdminTodosApps: React.FC = () => {
           {previewMetrics && (
             <div className="space-y-6 py-2">
               {/* Cards de Métricas */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 <Card className="border-border/40 bg-emerald-500/5">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
@@ -664,6 +664,19 @@ export const AdminTodosApps: React.FC = () => {
                       {previewMetrics.onlineUsers}
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-0.5">Últimos 5 min</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border/40 bg-cyan-500/5">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-cyan-600 dark:text-cyan-400">Online Hoje</span>
+                      <Radio className="h-3.5 w-3.5 text-cyan-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400 mt-1">
+                      {previewMetrics.onlineTodayUsers}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Acessaram hoje</p>
                   </CardContent>
                 </Card>
 
