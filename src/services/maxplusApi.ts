@@ -1,10 +1,10 @@
 /**
  * Serviço de integração com a API MaxPlus
- * API Base: https://api-anyflix.vercel.app/api/maxv3
+ * API Base: https://api-tibimmanagerpainel.vercel.app/api/maxplus
  * Catálogo Base: http://apps.zynner.site/
  */
 
-export const MAXPLUS_API_BASE = 'https://api-anyflix.vercel.app/api/maxv3';
+export const MAXPLUS_API_BASE = 'https://api-tibimmanagerpainel.vercel.app/api/maxplus';
 export const MAXPLUS_CATALOG_BASE = 'http://apps.zynner.site/';
 
 export interface MaxPlusCatalogItem {
@@ -68,7 +68,7 @@ export const MAXPLUS_CATEGORIES: MaxPlusCategory[] = [
 
 /**
  * 1. fetchCatalog: busca lista de itens por categoria ou url
- * GET https://api-anyflix.vercel.app/api/maxv3?url=${encodeURIComponent(categoryUrl)}
+ * GET https://api-tibimmanagerpainel.vercel.app/api/maxplus?url=${encodeURIComponent(categoryUrl)}
  */
 export async function fetchCatalog(categoryUrl: string): Promise<MaxPlusCatalogItem[]> {
   try {
@@ -100,7 +100,7 @@ export async function fetchCatalog(categoryUrl: string): Promise<MaxPlusCatalogI
 
 /**
  * 2. fetchDetails: busca detalhes completos do conteúdo (filme ou série)
- * GET https://api-anyflix.vercel.app/api/maxv3?id=${encodeURIComponent(contentUrl)}
+ * GET https://api-tibimmanagerpainel.vercel.app/api/maxplus?id=${encodeURIComponent(contentUrl)}
  */
 export async function fetchDetails(contentUrl: string): Promise<MaxPlusContentDetails> {
   try {
@@ -127,7 +127,7 @@ export async function fetchDetails(contentUrl: string): Promise<MaxPlusContentDe
 
 /**
  * 3. fetchEpisode: busca o link direto de vídeo MP4 do episódio
- * GET https://api-anyflix.vercel.app/api/maxv3?ep=${encodeURIComponent(episodeUrl)}
+ * GET https://api-tibimmanagerpainel.vercel.app/api/maxplus?ep=${encodeURIComponent(episodeUrl)}
  */
 export async function fetchEpisode(episodeUrl: string): Promise<MaxPlusEpisodeResult> {
   try {
@@ -154,7 +154,7 @@ export async function fetchEpisode(episodeUrl: string): Promise<MaxPlusEpisodeRe
 
 /**
  * Helper para buscar por termo de pesquisa
- * GET https://api-anyflix.vercel.app/api/maxv3?url=${encodeURIComponent('http://apps.zynner.site/pesquisar-2/?q=' + termo)}
+ * GET https://api-tibimmanagerpainel.vercel.app/api/maxplus?url=${encodeURIComponent('http://apps.zynner.site/pesquisar-2/?q=' + termo)}
  */
 export async function searchMaxPlus(term: string): Promise<MaxPlusCatalogItem[]> {
   const searchUrl = `http://apps.zynner.site/pesquisar-2/?q=${encodeURIComponent(term)}`;
