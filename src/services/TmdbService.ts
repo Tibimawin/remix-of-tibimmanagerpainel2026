@@ -204,6 +204,156 @@ class TmdbService {
   formatVoteAverage(vote: number): string {
     return vote.toFixed(1);
   }
+
+  /**
+   * Enriquecimento completo de metadados para gravação no Baserow:
+   * TMDB ID, Trailer, Ano, Data de Lançamento, Capa de fundo, Imdb
+   */
+  async getEnrichedDataForContent(
+    title: string,
+    type: 'movie' | 'tv' = 'movie',
+    hintUrlOrText?: string
+  ): Promise<TmdbEnrichedData | null> {
+    try {
+      let matchedId: number | null = null;
+      let matchedType: 'movie' | 'tv' = type;
+      let imdbId: string = '';
+
+      // 1. Tenta extrair IMDb ID (ex: tt36647890) de URLs ou textos fornecidos
+      const textToScan = `${title} ${hintUrlOrText || ''}`;
+      const imdbMatch = textToScan.match(/(tt\d{6,10})/i);
+      if (imdbMatch && imdbMatch[1]) {
+        imdbId = imdbMatch[1].toLowerCase();
+        try {
+          const findData = await this.makeRequest<{
+            movie_results?: Array<{ id: number }>;
+            tv_results?: Array<{ id: number }>;
+          }>(`/find/${imdbId}?external_source=imdb_id&language=pt-BR`);
+          if (findData.movie_results && findData.movie_results.length > 0) {
+            matchedId = findData.movie_results[0].id;
+            matchedType = 'movie';
+          } else if (findData.tv_results && findData.tv_results.length > 0) {
+            matchedId = findData.tv_results[0].id;
+            matchedType = 'tv';
+          }
+        } catch (findErr) {
+          console.warn(`[TMDB] Falha no find por IMDb ${imdbId}:`, findErr);
+        }
+      }
+
+      // 2. Se não achou por IMDb, busca por título limpo
+      if (!matchedId) {
+        const cleanTitle = title
+          .replace(/\((19|20)\d{2}\)/g, '')
+          .replace(/\[.*?\]/g, '')
+          .replace(/\b(dublado|legendado|completo|hd|fhd|4k|filme|serie|série|temporada)\b/gi, '')
+          .trim();
+
+        const searchUrl = `/search/${matchedType}?query=${encodeURIComponent(cleanTitle || title)}&language=pt-BR&page=1`;
+        const searchResults = await this.makeRequest<{ results: Array<{ id: number }> }>(searchUrl);
+
+        if (searchResults.results && searchResults.results.length > 0) {
+          matchedId = searchResults.results[0].id;
+        } else {
+          // Tenta multi-search sem language se nada foi retornado
+          const multi = await this.makeRequest<{ results: Array<{ id: number; media_type?: string }> }>(
+            `/search/multi?query=${encodeURIComponent(cleanTitle || title)}&page=1`
+          );
+          const firstValid = (multi.results || []).find(
+            (r) => r.media_type === 'movie' || r.media_type === 'tv'
+          );
+          if (firstValid) {
+            matchedId = firstValid.id;
+            matchedType = firstValid.media_type as 'movie' | 'tv';
+          }
+        }
+      }
+
+      if (!matchedId) {
+        console.warn(`[TMDB] Nenhum resultado encontrado para "${title}"`);
+        return null;
+      }
+
+      // 3. Obter detalhes completos com vídeos e external_ids
+      const details = await this.makeRequest<{
+        id: number;
+        release_date?: string;
+        first_air_date?: string;
+        backdrop_path?: string;
+        poster_path?: string;
+        overview?: string;
+        imdb_id?: string;
+        external_ids?: { imdb_id?: string };
+        videos?: { results?: Array<{ site?: string; type?: string; key?: string }> };
+      }>(
+        `/${matchedType}/${matchedId}?language=pt-BR&append_to_response=external_ids,videos`
+      );
+
+      // Extrai data e ano
+      const dataDeLancamento = details.release_date || details.first_air_date || '';
+      const ano = dataDeLancamento ? dataDeLancamento.slice(0, 4) : '';
+
+      // Extrai Capa de fundo (Backdrop)
+      const capaDeFundo = details.backdrop_path 
+        ? `https://image.tmdb.org/t/p/original${details.backdrop_path}` 
+        : '';
+
+      // Extrai IMDb
+      const finalImdb = details.external_ids?.imdb_id || details.imdb_id || imdbId || '';
+
+      // Extrai Trailer (procura trailer no YouTube)
+      let trailerUrl = '';
+      let videosList = details.videos?.results || [];
+
+      // Se não encontrou vídeos em pt-BR, busca em en-US
+      if (videosList.length === 0) {
+        try {
+          const fallbackVideos = await this.makeRequest<{ results: Array<{ site?: string; type?: string; key?: string }> }>(
+            `/${matchedType}/${matchedId}/videos?language=en-US`
+          );
+          videosList = fallbackVideos.results || [];
+        } catch {
+          // ignora
+        }
+      }
+
+      if (videosList.length > 0) {
+        const ytTrailer = 
+          videosList.find((v) => v.site === 'YouTube' && v.type === 'Trailer') ||
+          videosList.find((v) => v.site === 'YouTube' && v.type === 'Teaser') ||
+          videosList.find((v) => v.site === 'YouTube');
+
+        if (ytTrailer?.key) {
+          trailerUrl = `https://www.youtube.com/watch?v=${ytTrailer.key}`;
+        }
+      }
+
+      return {
+        tmdbId: String(details.id),
+        trailer: trailerUrl,
+        ano,
+        dataDeLancamento,
+        capaDeFundo,
+        imdb: finalImdb,
+        poster: details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : undefined,
+        sinopse: details.overview || undefined,
+      };
+    } catch (err) {
+      console.error(`[TMDB] Erro ao obter metadados enriquecidos para "${title}":`, err);
+      return null;
+    }
+  }
+}
+
+export interface TmdbEnrichedData {
+  tmdbId: string;
+  trailer: string;
+  ano: string;
+  dataDeLancamento: string;
+  capaDeFundo: string;
+  imdb: string;
+  poster?: string;
+  sinopse?: string;
 }
 
 export const tmdbService = new TmdbService();

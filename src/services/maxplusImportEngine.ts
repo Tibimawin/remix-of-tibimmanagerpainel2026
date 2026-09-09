@@ -11,6 +11,7 @@ import {
   MaxPlusEpisodeDetail
 } from '@/services/maxplusApi';
 import { mapToDatabaseKeys } from '@/utils/baserowHelpers';
+import { tmdbService } from '@/services/TmdbService';
 
 export interface ImportProgress {
   active: boolean;
@@ -82,14 +83,32 @@ export class MaxPlusImportEngine {
     const idioma = isLegendado ? 'Legendado' : 'Dublado';
     const categoria = data.generos || fallbackCategory || 'Filmes';
 
+    // 🎬 Enriquecimento automático com TMDb: TMDB ID, Trailer, Ano, Data de Lançamento, Capa de fundo, Imdb
+    let tmdbData = null;
+    try {
+      const hintText = [data.video, data.link, data.imagem].filter(Boolean).join(' ');
+      tmdbData = await tmdbService.getEnrichedDataForContent(data.nome, 'movie', hintText);
+      if (tmdbData) {
+        console.log(`🎬 [MaxPlus] Metadados TMDb obtidos com sucesso para "${data.nome}":`, tmdbData);
+      }
+    } catch (tmdbErr) {
+      console.warn(`[MaxPlus] Aviso ao consultar TMDb para "${data.nome}":`, tmdbErr);
+    }
+
     const rawPayload = {
       Nome: data.nome,
-      Capa: data.imagem,
-      Sinopse: data.sinopse || '',
+      Capa: data.imagem || tmdbData?.poster || '',
+      Sinopse: data.sinopse || tmdbData?.sinopse || '',
       Categoria: categoria,
       Link: videoUrl,
       Tipo: 'Filme',
       Idioma: idioma,
+      'TMDB ID': tmdbData?.tmdbId || '',
+      'Trailer': tmdbData?.trailer || '',
+      'Ano': tmdbData?.ano || '',
+      'Data de Lançamento': tmdbData?.dataDeLancamento || '',
+      'Capa de fundo': tmdbData?.capaDeFundo || '',
+      'Imdb': tmdbData?.imdb || '',
     };
 
     const tableKeys = await this.getConteudosKeys();
@@ -116,14 +135,32 @@ export class MaxPlusImportEngine {
       throw new Error('ID da tabela de episódios não configurado.');
     }
 
+    // 📺 Enriquecimento automático com TMDb para Série: TMDB ID, Trailer, Ano, Data de Lançamento, Capa de fundo, Imdb
+    let tmdbData = null;
+    try {
+      const hintText = [data.link, data.imagem].filter(Boolean).join(' ');
+      tmdbData = await tmdbService.getEnrichedDataForContent(data.nome, 'tv', hintText);
+      if (tmdbData) {
+        console.log(`📺 [MaxPlus] Metadados TMDb obtidos com sucesso para série "${data.nome}":`, tmdbData);
+      }
+    } catch (tmdbErr) {
+      console.warn(`[MaxPlus] Aviso ao consultar TMDb para série "${data.nome}":`, tmdbErr);
+    }
+
     // 1. Cria a linha principal da série na tabela de conteúdos
     const categoria = data.generos || fallbackCategory || 'Séries';
     const rawSeriePayload = {
       Nome: data.nome,
-      Capa: data.imagem,
-      Sinopse: data.sinopse || '',
+      Capa: data.imagem || tmdbData?.poster || '',
+      Sinopse: data.sinopse || tmdbData?.sinopse || '',
       Categoria: categoria,
       Tipo: 'Série',
+      'TMDB ID': tmdbData?.tmdbId || '',
+      'Trailer': tmdbData?.trailer || '',
+      'Ano': tmdbData?.ano || '',
+      'Data de Lançamento': tmdbData?.dataDeLancamento || '',
+      'Capa de fundo': tmdbData?.capaDeFundo || '',
+      'Imdb': tmdbData?.imdb || '',
     };
 
     const conteudosKeys = await this.getConteudosKeys();

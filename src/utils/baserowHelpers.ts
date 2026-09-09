@@ -27,7 +27,14 @@ const COLUMN_ALIASES: Record<string, string[]> = {
   idioma: ['idioma', 'language', 'audio', 'áudio', 'legenda', 'dublado_legendado'],
   // Campos de Episódios
   temporada: ['temporada', 'season', 'temp', 'numero_temporada', 'temporada_num', 'season_number'],
-  episodio: ['episodio', 'episódio', 'episode', 'ep', 'numero_episodio', 'episodio_num', 'episode_number']
+  episodio: ['episodio', 'episódio', 'episode', 'ep', 'numero_episodio', 'episodio_num', 'episode_number'],
+  // Campos Enriquecidos TMDb / Metadados
+  tmdbid: ['tmdbid', 'tmdb id', 'tmdb_id', 'id tmdb', 'id_tmdb', 'tmdb', 'id_themoviedb'],
+  trailer: ['trailer', 'trailerurl', 'traileryoutube', 'youtube_trailer', 'trailer_url', 'link trailer', 'link_trailer', 'trailer_link'],
+  ano: ['ano', 'year', 'anolancamento', 'ano de lancamento', 'ano de lançamento', 'anodelancamento'],
+  datadelancamento: ['datadelancamento', 'data de lancamento', 'data de lançamento', 'datalancamento', 'data lançamento', 'release_date', 'releasedate', 'first_air_date', 'data_lancamento'],
+  capadefundo: ['capadefundo', 'capa de fundo', 'backdrop', 'fundo', 'background', 'wallpaper', 'capafundo', 'imagem_fundo', 'imagem de fundo', 'backdrop_path', 'capa_fundo'],
+  imdb: ['imdb', 'imdbid', 'imdb id', 'imdb_id', 'id imdb', 'id_imdb']
 };
 
 /**

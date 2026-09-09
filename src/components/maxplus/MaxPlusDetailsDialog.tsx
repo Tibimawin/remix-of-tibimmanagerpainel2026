@@ -137,18 +137,18 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={(val) => !isImporting && !val && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-[#0b0c10] border-[#232738] text-slate-100 p-0 rounded-2xl shadow-2xl">
+      <DialogContent className={`max-w-2xl bg-[#0b0c10] border-[#232738] text-slate-100 p-0 rounded-2xl shadow-2xl ${isSeries ? 'max-h-[90vh] overflow-y-auto' : 'overflow-hidden'}`}>
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 space-y-4">
-            <Loader2 className="w-10 h-10 animate-spin text-[#00d2ff]" />
-            <p className="text-sm font-medium text-slate-400">Carregando detalhes do título via MaxPlus...</p>
+          <div className="flex flex-col items-center justify-center py-16 space-y-3">
+            <Loader2 className="w-8 h-8 animate-spin text-[#00d2ff]" />
+            <p className="text-xs font-medium text-slate-400">Carregando detalhes do título via MaxPlus...</p>
           </div>
         ) : details ? (
           <div>
-            {/* Header com Banner / Poster e Informações */}
-            <div className="relative p-6 bg-[#151722] border-b border-[#232738] flex flex-col sm:flex-row gap-6">
-              {/* Capa */}
-              <div className="w-36 sm:w-44 flex-shrink-0 aspect-[2/3] rounded-xl overflow-hidden shadow-2xl border border-[#232738] bg-slate-900 mx-auto sm:mx-0">
+            {/* Header com Banner / Poster Compacto e Informações sem Scroll */}
+            <div className={`relative p-4 sm:p-5 bg-[#151722] flex flex-col sm:flex-row gap-3.5 sm:gap-4 items-start ${isSeries ? 'border-b border-[#232738]' : ''}`}>
+              {/* Capa / Poster Reduzido */}
+              <div className="w-24 sm:w-28 flex-shrink-0 aspect-[2/3] rounded-lg overflow-hidden shadow-lg border border-[#232738] bg-slate-900 mx-auto sm:mx-0">
                 {details.imagem ? (
                   <img
                     src={details.imagem}
@@ -157,73 +157,73 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-slate-600">
-                    <Film className="w-12 h-12" />
+                    <Film className="w-8 h-8" />
                   </div>
                 )}
               </div>
 
-              {/* Informações Principais */}
-              <div className="flex-1 flex flex-col justify-between">
+              {/* Informações Principais Otimizadas */}
+              <div className="flex-1 flex flex-col justify-between w-full min-w-0">
                 <div>
-                  <div className="flex items-center gap-2 flex-wrap mb-2">
-                    <Badge className={isSeries ? 'bg-[#6366f1] text-white font-bold' : 'bg-[#00d2ff] text-slate-950 font-bold'}>
-                      {isSeries ? <Tv className="w-3 h-3 mr-1" /> : <Film className="w-3 h-3 mr-1" />}
+                  <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                    <Badge className={isSeries ? 'bg-[#6366f1] text-white font-bold text-[10px] h-5 px-1.5' : 'bg-[#00d2ff] text-slate-950 font-bold text-[10px] h-5 px-1.5'}>
+                      {isSeries ? <Tv className="w-2.5 h-2.5 mr-1" /> : <Film className="w-2.5 h-2.5 mr-1" />}
                       {isSeries ? 'Série' : 'Filme'}
                     </Badge>
 
                     {details.estrelas && (
-                      <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-300 font-bold flex items-center gap-1">
-                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                      <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-300 font-bold text-[10px] h-5 px-1.5 flex items-center gap-1">
+                        <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
                         {details.estrelas} / 10
                       </Badge>
                     )}
 
                     {details.server_used && (
-                      <Badge variant="outline" className="border-[#232738] text-slate-400 text-xs">
+                      <Badge variant="outline" className="border-[#232738] text-slate-400 text-[10px] h-5 px-1.5">
                         Servidor: {details.server_used}
                       </Badge>
                     )}
                   </div>
 
-                  <h2 className="text-2xl font-black text-slate-100 tracking-tight mb-2">
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-100 tracking-tight leading-snug line-clamp-1 mb-1">
                     {details.nome}
                   </h2>
 
                   {/* Gêneros */}
                   {details.generos && (
-                    <p className="text-xs text-[#00d2ff] font-medium mb-3">
+                    <p className="text-[11px] text-[#00d2ff] font-medium mb-1.5 line-clamp-1">
                       {details.generos}
                     </p>
                   )}
 
-                  {/* Sinopse */}
-                  <div className="text-sm text-slate-300/90 leading-relaxed max-h-32 overflow-y-auto pr-2 scrollbar-thin">
+                  {/* Sinopse Reduzida com line-clamp */}
+                  <div className="text-xs text-slate-300/90 leading-snug line-clamp-3 sm:line-clamp-3">
                     {details.sinopse || 'Sinopse não informada para este título.'}
                   </div>
                 </div>
 
-                {/* Se for Filme: Exibe link do MP4 e botão de importar filme */}
+                {/* Se for Filme: Exibe link do MP4 compacto e botão de importar filme */}
                 {!isSeries && (
-                  <div className="mt-4 pt-4 border-t border-[#232738]/80 flex flex-col gap-3">
+                  <div className="mt-3 pt-2.5 border-t border-[#232738]/80 flex flex-col gap-2.5">
                     {details.video ? (
-                      <div className="flex items-center gap-2 bg-[#0b0c10] border border-[#232738] rounded-xl p-2.5">
-                        <Play className="w-4 h-4 text-[#00d2ff] flex-shrink-0" />
-                        <span className="text-xs font-mono text-slate-300 truncate flex-1">
+                      <div className="flex items-center gap-2 bg-[#0b0c10] border border-[#232738] rounded-lg p-1.5 px-2.5">
+                        <Play className="w-3.5 h-3.5 text-[#00d2ff] flex-shrink-0" />
+                        <span className="text-[11px] font-mono text-slate-300 truncate flex-1">
                           {details.video}
                         </span>
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => handleCopy(details.video!)}
-                          className="h-7 px-2 text-xs text-slate-400 hover:text-white"
+                          className="h-6 px-1.5 text-xs text-slate-400 hover:text-white"
                           title="Copiar Link MP4"
                         >
-                          {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          {copiedLink ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                         </Button>
                       </div>
                     ) : (
-                      <p className="text-xs text-amber-400/80 flex items-center gap-1.5">
-                        <AlertCircle className="w-3.5 h-3.5" />
+                      <p className="text-[11px] text-amber-400/80 flex items-center gap-1.5">
+                        <AlertCircle className="w-3 h-3" />
                         Link de streaming direto não detectado nesta fonte.
                       </p>
                     )}
@@ -231,16 +231,16 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
                     <Button
                       disabled={isImporting}
                       onClick={() => onImportMovie(details, fallbackCategory)}
-                      className="bg-gradient-to-r from-[#00d2ff] to-[#00a3cc] hover:from-[#00b8e6] hover:to-[#008fb3] text-slate-950 font-bold shadow-lg shadow-[#00d2ff]/20 h-10 gap-2 w-full sm:w-auto"
+                      className="bg-gradient-to-r from-[#00d2ff] to-[#00a3cc] hover:from-[#00b8e6] hover:to-[#008fb3] text-slate-950 font-bold shadow-md shadow-[#00d2ff]/20 h-9 px-4 text-xs sm:text-sm gap-2 w-full"
                     >
                       {isImporting ? (
                         <>
-                          <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-950" />
                           Salvando no Baserow...
                         </>
                       ) : (
                         <>
-                          <Download className="w-4 h-4 text-slate-950" />
+                          <Download className="w-3.5 h-3.5 text-slate-950" />
                           Salvar Filme no Baserow
                         </>
                       )}
@@ -252,7 +252,7 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
 
             {/* Seção Exclusiva de Séries */}
             {isSeries && (
-              <div className="p-6 space-y-5">
+              <div className="p-4 sm:p-5 space-y-4">
                 {/* Abas das Temporadas */}
                 <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-[#232738]">
                   <div className="flex items-center gap-2">
@@ -293,7 +293,7 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
                       </button>
                     </div>
 
-                    <div className="max-h-64 overflow-y-auto space-y-1.5 pr-2 border border-[#232738] rounded-xl p-2 bg-[#151722]/50 scrollbar-thin">
+                    <div className="max-h-48 overflow-y-auto space-y-1 pr-1.5 border border-[#232738] rounded-xl p-1.5 bg-[#151722]/50 scrollbar-thin">
                       {currentSeason.episodes && currentSeason.episodes.length > 0 ? (
                         currentSeason.episodes.map((ep) => {
                           const isSel = !!selectedEpisodes[`${currentSeason.number}_${ep.number}`];
@@ -301,19 +301,19 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
                             <div
                               key={ep.number}
                               onClick={() => toggleEpisode(currentSeason.number, ep.number)}
-                              className={`flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer ${
+                              className={`flex items-center justify-between p-2 rounded-lg border transition-all cursor-pointer ${
                                 isSel 
                                   ? 'bg-[#6366f1]/15 border-[#6366f1]/50 text-white' 
                                   : 'bg-[#0b0c10] border-[#232738] hover:border-slate-700 text-slate-300'
                               }`}
                             >
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2.5">
                                 <Checkbox
                                   checked={isSel}
                                   onCheckedChange={() => toggleEpisode(currentSeason.number, ep.number)}
                                   className="data-[state=checked]:bg-[#6366f1] data-[state=checked]:border-[#6366f1] border-slate-600"
                                 />
-                                <span className="font-mono text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                                <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
                                   EP {ep.number}
                                 </span>
                                 <span className="text-xs font-medium line-clamp-1">
@@ -328,7 +328,7 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
                           );
                         })
                       ) : (
-                        <p className="text-center py-6 text-xs text-slate-500">
+                        <p className="text-center py-4 text-xs text-slate-500">
                           Nenhum episódio listado para esta temporada.
                         </p>
                       )}
@@ -338,7 +338,7 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
 
                 {/* Barra de Progresso durante a Importação */}
                 {importProgress.active && (
-                  <div className="p-4 rounded-xl bg-[#151722] border border-[#6366f1]/40 space-y-2.5 animate-pulse">
+                  <div className="p-3 rounded-xl bg-[#151722] border border-[#6366f1]/40 space-y-2 animate-pulse">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-semibold text-white flex items-center gap-1.5">
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-[#00d2ff]" />
@@ -350,30 +350,30 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
                     </div>
                     <Progress
                       value={(importProgress.current / Math.max(1, importProgress.total)) * 100}
-                      className="h-2 bg-[#0b0c10]"
+                      className="h-1.5 bg-[#0b0c10]"
                     />
-                    <p className="text-[11px] text-slate-400 truncate">
+                    <p className="text-[10px] text-slate-400 truncate">
                       {importProgress.currentTitle}
                     </p>
                   </div>
                 )}
 
                 {/* Botões de Ação para Séries */}
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
                   <Button
                     disabled={isImporting}
                     onClick={handleImportAllSeries}
-                    className="flex-1 bg-gradient-to-r from-[#6366f1] to-[#818cf8] hover:from-[#4f46e5] hover:to-[#6366f1] text-white font-bold h-11 rounded-xl shadow-lg shadow-[#6366f1]/25 gap-2"
+                    className="flex-1 bg-gradient-to-r from-[#6366f1] to-[#818cf8] hover:from-[#4f46e5] hover:to-[#6366f1] text-white font-bold h-9 sm:h-10 text-xs sm:text-sm rounded-xl shadow-md shadow-[#6366f1]/25 gap-2"
                   >
                     {isImporting ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         Importando Série e Episódios...
                       </>
                     ) : (
                       <>
-                        <Sparkles className="w-4 h-4" />
-                        Importar Série Completa (Todas as Temporadas)
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Importar Série Completa
                       </>
                     )}
                   </Button>
@@ -383,9 +383,9 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
                       variant="outline"
                       disabled={isImporting}
                       onClick={handleImportSelectedEpisodesOnly}
-                      className="border-[#00d2ff]/40 bg-[#00d2ff]/10 hover:bg-[#00d2ff]/20 text-[#00d2ff] font-bold h-11 rounded-xl"
+                      className="border-[#00d2ff]/40 bg-[#00d2ff]/10 hover:bg-[#00d2ff]/20 text-[#00d2ff] font-bold h-9 sm:h-10 text-xs sm:text-sm rounded-xl"
                     >
-                      Importar {totalSelectedCount} Episódios Selecionados
+                      Importar {totalSelectedCount} Selecionados
                     </Button>
                   )}
                 </div>
