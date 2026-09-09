@@ -12,7 +12,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { Search, X, FileText, Users, Settings, BarChart3 } from 'lucide-react';
+import { Search, X, FileText, Users, Settings, BarChart3, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface SearchResult {
@@ -80,6 +80,14 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ isOpen, onClose }) => {
       description: 'Gerenciar episódios das séries',
       path: '/episodios',
       icon: <FileText className="h-4 w-4" />,
+      category: 'Conteúdo'
+    },
+    {
+      id: 'maxplus',
+      title: 'MaxPlus',
+      description: 'Puxador automático de conteúdos e importador para Baserow',
+      path: '/maxplus',
+      icon: <Sparkles className="h-4 w-4" />,
       category: 'Conteúdo'
     },
     {

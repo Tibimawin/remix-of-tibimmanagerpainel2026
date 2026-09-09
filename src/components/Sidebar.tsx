@@ -53,6 +53,7 @@ const navigation: NavItem[] = [
   { name: 'Gerador de Banners', href: '/gerador-banner', icon: LayoutIcon },
   { name: 'Conteúdos', href: '/conteudos', icon: LayoutGrid },
   { name: 'Episódios', href: '/episodios', icon: List },
+  { name: 'MaxPlus', href: '/maxplus', icon: Sparkles },
   
   { name: 'Banners', href: '/banners', icon: Eye },
   { name: 'Categorias', href: '/categorias', icon: Edit },
@@ -69,7 +70,6 @@ const navigation: NavItem[] = [
   
   { name: 'Recursos', href: '/recursos', icon: Zap },
   { name: 'Limpeza de Dados', href: '/limpeza-dados', icon: DatabaseZap },
-  { name: 'MaxPlus Importação', href: '/maxplus-import', icon: Film },
   { name: 'Preços', href: '/precos-interno', icon: CreditCard },
   { name: 'Sistema de Indicação', href: '/sistema-indicacao', icon: TrendingUp },
   { name: 'Planos', href: '/planos', icon: CreditCard },
@@ -165,7 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                 
                 let requiredFeature = '';
                 if (item.href === '/limpeza-dados') requiredFeature = 'clean-data';
-                else if (item.href === '/maxplus-import') requiredFeature = 'maxplus-import';
+                else if (item.href === '/maxplus' || item.href === '/maxplus-import') requiredFeature = 'maxplus';
                 else if (item.href === '/gerador-post') requiredFeature = 'gerador-post';
                 else if (item.href === '/gerador-banner') requiredFeature = 'gerador-banner';
                 

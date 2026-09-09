@@ -185,6 +185,16 @@ const menuItems: MenuItem[] = [
     feature: 'episodios'
   },
   {
+    id: 'maxplus',
+    label: 'MaxPlus',
+    href: '/maxplus',
+    icon: Sparkles,
+    category: 'content',
+    description: 'Puxador automático e importador MaxPlus',
+    feature: 'maxplus',
+    badge: { type: 'new' }
+  },
+  {
     id: 'banners',
     label: 'Banners',
     href: '/banners',

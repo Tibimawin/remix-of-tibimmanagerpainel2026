@@ -60,6 +60,16 @@ const routeTitles: Record<string, { title: string; subtitle: string; icon?: Reac
     subtitle: 'Gerenciar episódios',
     icon: Menu
   },
+  '/maxplus': { 
+    title: 'MaxPlus', 
+    subtitle: 'Puxador automático de conteúdos e importador para Baserow',
+    icon: Sparkles
+  },
+  '/maxplus-import': { 
+    title: 'MaxPlus', 
+    subtitle: 'Puxador automático de conteúdos e importador para Baserow',
+    icon: Sparkles
+  },
   '/banners': { 
     title: 'Banners', 
     subtitle: 'Gerenciar banners do sistema',

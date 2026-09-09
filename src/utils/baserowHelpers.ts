@@ -17,7 +17,17 @@ const COLUMN_ALIASES: Record<string, string[]> = {
   logins: ['logins', 'totallogins', 'login_count'],
   totaldedias: ['totaldedias', 'total de dias', 'dias', 'totaldias', 'accessdays', 'periodo'],
   favoritos: ['favoritos', 'favorites', 'favs'],
-  historico: ['historico', 'histórico', 'history']
+  historico: ['historico', 'histórico', 'history'],
+  // Campos de Conteúdos e Mídias
+  capa: ['capa', 'poster', 'imagem', 'thumbnail', 'foto', 'image', 'banner', 'cover'],
+  sinopse: ['sinopse', 'synopsis', 'descricao', 'descrição', 'description', 'resumo', 'overview'],
+  categoria: ['categoria', 'category', 'genero', 'gênero', 'genres', 'generos'],
+  link: ['link', 'url', 'video', 'stream', 'player', 'arquivo', 'source', 'videourl'],
+  tipo: ['tipo', 'type', 'format', 'formato', 'conteudo_tipo'],
+  idioma: ['idioma', 'language', 'audio', 'áudio', 'legenda', 'dublado_legendado'],
+  // Campos de Episódios
+  temporada: ['temporada', 'season', 'temp', 'numero_temporada', 'temporada_num', 'season_number'],
+  episodio: ['episodio', 'episódio', 'episode', 'ep', 'numero_episodio', 'episodio_num', 'episode_number']
 };
 
 /**

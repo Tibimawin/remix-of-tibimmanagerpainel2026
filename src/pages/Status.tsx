@@ -251,7 +251,7 @@ export const Status: React.FC = () => {
   const getFeatureCategory = (id: string): string => {
     if (['dashboard', 'status'].includes(id)) return 'Principal';
     if (['conteudos', 'episodios', 'lista-m3u', 'banners', 'gerador-post', 'gerador-banner', 'categorias', 'categorias-tv', 'categorias-anime', 'adicionar-conteudo', 'miniseries'].includes(id)) return 'Conteúdo';
-    if (['duplicados', 'duplicados-episodios', 'duplicados-episodios-otimizado', 'ferramentas-ia', 'importacao-automatica', 'automacao', 'substituicao-urls', 'importar-m3u', 'importar-canais-tv', 'atualizacao-series', 'maxplus-import', 'clean-data', 'jogos-dia'].includes(id)) return 'Ferramentas & Automação';
+    if (['duplicados', 'duplicados-episodios', 'duplicados-episodios-otimizado', 'ferramentas-ia', 'importacao-automatica', 'automacao', 'substituicao-urls', 'importar-m3u', 'importar-canais-tv', 'atualizacao-series', 'maxplus', 'maxplus-import', 'clean-data', 'jogos-dia'].includes(id)) return 'Ferramentas & Automação';
     if (['usuarios', 'sessoes', 'plataformas', 'produtos', 'gestao-dispositivos'].includes(id)) return 'Gerenciamento';
     if (['estatisticas', 'relatorios-visualizacao', 'metricas-engajamento'].includes(id)) return 'Análises';
     if (['recursos', 'precos-interno', 'configuracoes', 'perfil', 'historico-acoes', 'planos', 'minha-api'].includes(id)) return 'Configurações & API';

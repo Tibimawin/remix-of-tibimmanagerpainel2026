@@ -82,6 +82,7 @@ import ImportarCanaisTV from "./pages/ImportarCanaisTV";
 import Ofertas from "./pages/Ofertas";
 import LimpezaDados from "./pages/LimpezaDados";
 import MaxPlusImport from "./pages/MaxPlusImport";
+import MaxPlus from "./pages/MaxPlus";
 import SistemaIndicacao from "./pages/SistemaIndicacao";
 import ConfiguracoesAPIs from "./pages/ConfiguracoesAPIs";
 import ConfiguracoesSeguranca from "./pages/ConfiguracoesSeguranca";
@@ -692,11 +693,21 @@ const App = () => {
                                 </SimpleProtectedRoute>
                               } />
 
+                              <Route path="/maxplus" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <PermissionGate feature="maxplus">
+                                      <MaxPlus />
+                                    </PermissionGate>
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
                               <Route path="/maxplus-import" element={
                                 <SimpleProtectedRoute>
                                   <Layout>
-                                    <PermissionGate feature="maxplus-import">
-                                      <MaxPlusImport />
+                                    <PermissionGate feature="maxplus">
+                                      <MaxPlus />
                                     </PermissionGate>
                                   </Layout>
                                 </SimpleProtectedRoute>

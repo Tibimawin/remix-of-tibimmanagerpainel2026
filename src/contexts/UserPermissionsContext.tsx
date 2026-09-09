@@ -217,6 +217,13 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
             return true;
         }
 
+        // Equivalência entre 'maxplus' e 'maxplus-import'
+        if (featureId === 'maxplus' || featureId === 'maxplus-import') {
+            if (permissions?.enabledFeatures?.includes('maxplus') || permissions?.enabledFeatures?.includes('maxplus-import')) {
+                return true;
+            }
+        }
+
         return Array.isArray(permissions?.enabledFeatures)
             ? permissions!.enabledFeatures.includes(featureId)
             : false;
