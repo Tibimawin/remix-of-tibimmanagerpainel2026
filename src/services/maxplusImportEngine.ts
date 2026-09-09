@@ -68,12 +68,69 @@ export class MaxPlusImportEngine {
   }
 
   /**
-   * Importa um Filme diretamente para a tabela de conteúdos
+   * Helper para mesclar campos novos mantendo os antigos se o novo for vazio (idêntico ao AutoImportService)
+   */
+  private pick(novo: unknown, antigo: unknown): unknown {
+    return (novo !== undefined && novo !== null && String(novo).trim() !== '') ? novo : (antigo ?? '');
+  }
+
+  /**
+   * Busca se o conteúdo já existe na tabela pelo Título / Nome (idêntico ao AutoImportService)
+   */
+  async findContentByName(titulo: string, tableId: string): Promise<Record<string, unknown> | null> {
+    if (!titulo || typeof titulo !== 'string' || titulo.trim() === '') return null;
+    try {
+      const cleanTitle = titulo.toLowerCase().trim();
+      const data = await this.baserowService.getTableData(tableId, 1, 200, titulo.trim());
+      if (!data || !data.results || data.results.length === 0) return null;
+
+      const match = data.results.find((item: Record<string, unknown>) => {
+        const itemTitle = (String(item.Nome || item.Titulo || '')).toLowerCase().trim();
+        return itemTitle === cleanTitle;
+      });
+      return match || null;
+    } catch (err) {
+      console.warn(`[MaxPlus] Erro ao buscar conteúdo existente "${titulo}":`, err);
+      return null;
+    }
+  }
+
+  /**
+   * Busca se o episódio já existe na tabela de episódios por Série + Temporada + Episódio
+   */
+  async findEpisodeByIdentifiers(
+    serieName: string,
+    season: number,
+    episode: number,
+    tableId: string
+  ): Promise<Record<string, unknown> | null> {
+    try {
+      const cleanSerie = serieName.toLowerCase().trim();
+      const data = await this.baserowService.getTableData(tableId, 1, 200, serieName.trim());
+      if (!data || !data.results || data.results.length === 0) return null;
+
+      const match = data.results.find((item: Record<string, unknown>) => {
+        const itemSerie = (String(item.Nome || item.Serie || item.Titulo || '')).toLowerCase().trim();
+        const itemTemp = String(item.Temporada || '');
+        const itemEp = String(item['Episódio'] || item.Episodio || item.Numero || '');
+        return (itemSerie === cleanSerie || itemSerie.includes(cleanSerie)) &&
+          itemTemp === String(season) &&
+          itemEp === String(episode);
+      });
+      return match || null;
+    } catch (err) {
+      console.warn(`[MaxPlus] Erro ao buscar episódio existente S${season}E${episode}:`, err);
+      return null;
+    }
+  }
+
+  /**
+   * Importa um Filme diretamente para a tabela de conteúdos (com Upsert se já existir)
    */
   async importMovie(
     data: MaxPlusContentDetails, 
     fallbackCategory?: string
-  ): Promise<{ success: boolean; id?: string; error?: string }> {
+  ): Promise<{ success: boolean; id?: string; error?: string; updated?: boolean }> {
     if (!this.conteudosTableId) {
       throw new Error('ID da tabela de conteúdos não configurado nas Configurações.');
     }
@@ -95,6 +152,38 @@ export class MaxPlusImportEngine {
       console.warn(`[MaxPlus] Aviso ao consultar TMDb para "${data.nome}":`, tmdbErr);
     }
 
+    // Avaliação numérica do filme para a coluna Imdb (ex: "7.5" ou "5.0")
+    const avaliacaoImdb = tmdbData?.imdb || (data.estrelas ? String(data.estrelas) : '');
+
+    const tableKeys = await this.getConteudosKeys();
+
+    // 🔍 Estratégia de Upsert: verificar se o conteúdo já foi importado
+    const existingContent = await this.findContentByName(data.nome, this.conteudosTableId);
+
+    if (existingContent) {
+      console.log(`🔄 [MaxPlus] Filme já existe no Baserow (ID: ${existingContent.id}), atualizando dados...`);
+      const rawUpdatePayload = {
+        Nome: data.nome,
+        Capa: this.pick(data.imagem || tmdbData?.poster, existingContent.Capa || existingContent.Poster),
+        Sinopse: this.pick(data.sinopse || tmdbData?.sinopse, existingContent.Sinopse),
+        Categoria: this.pick(categoria, existingContent.Categoria),
+        Link: this.pick(videoUrl, existingContent.Link),
+        Tipo: 'Filme',
+        Idioma: this.pick(idioma, existingContent.Idioma),
+        'TMDB ID': this.pick(tmdbData?.tmdbId, existingContent['TMDB ID'] || existingContent.tmdb_id),
+        'Trailer': this.pick(tmdbData?.trailer, existingContent.Trailer || existingContent.trailer),
+        'Ano': this.pick(tmdbData?.ano, existingContent.Ano || existingContent.ano),
+        'Data de Lançamento': this.pick(tmdbData?.dataDeLancamento, existingContent['Data de Lançamento'] || existingContent.data_lancamento),
+        'Capa de fundo': this.pick(tmdbData?.capaDeFundo, existingContent['Capa de fundo'] || existingContent.capa_de_fundo),
+        'Imdb': this.pick(avaliacaoImdb, existingContent.Imdb || existingContent.imdb),
+      };
+
+      const mappedUpdatePayload = tableKeys.length > 0 ? mapToDatabaseKeys(rawUpdatePayload, tableKeys) : rawUpdatePayload;
+      await this.baserowService.updateRow(this.conteudosTableId, String(existingContent.id), mappedUpdatePayload);
+      return { success: true, id: String(existingContent.id), updated: true };
+    }
+
+    // Se não existir, cria um novo registro
     const rawPayload = {
       Nome: data.nome,
       Capa: data.imagem || tmdbData?.poster || '',
@@ -108,26 +197,25 @@ export class MaxPlusImportEngine {
       'Ano': tmdbData?.ano || '',
       'Data de Lançamento': tmdbData?.dataDeLancamento || '',
       'Capa de fundo': tmdbData?.capaDeFundo || '',
-      'Imdb': tmdbData?.imdb || '',
+      'Imdb': avaliacaoImdb,
     };
 
-    const tableKeys = await this.getConteudosKeys();
     const mappedPayload = tableKeys.length > 0 ? mapToDatabaseKeys(rawPayload, tableKeys) : rawPayload;
 
-    console.log('🎬 [MaxPlus] Importando filme no Baserow:', mappedPayload);
+    console.log('🎬 [MaxPlus] Importando novo filme no Baserow:', mappedPayload);
     const result = await this.baserowService.createRow(this.conteudosTableId, mappedPayload);
-    return { success: true, id: result.id };
+    return { success: true, id: String(result.id) };
   }
 
   /**
-   * Importa uma Série e todos os seus episódios com resolução assíncrona de URLs MP4
+   * Importa uma Série e todos os seus episódios com resolução assíncrona de URLs MP4 (com Upsert)
    */
   async importSeries(
     data: MaxPlusContentDetails,
     fallbackCategory: string | undefined,
     onProgress?: (progress: ImportProgress) => void,
     selectedSeasonsOrEpisodes?: { seasonNum: number; episodeNum: number }[]
-  ): Promise<{ success: boolean; serieId?: string; totalEpisodesImported: number }> {
+  ): Promise<{ success: boolean; serieId?: string; totalEpisodesImported: number; updated?: boolean }> {
     if (!this.conteudosTableId) {
       throw new Error('ID da tabela de conteúdos não configurado.');
     }
@@ -147,28 +235,55 @@ export class MaxPlusImportEngine {
       console.warn(`[MaxPlus] Aviso ao consultar TMDb para série "${data.nome}":`, tmdbErr);
     }
 
-    // 1. Cria a linha principal da série na tabela de conteúdos
+    const avaliacaoImdb = tmdbData?.imdb || (data.estrelas ? String(data.estrelas) : '');
     const categoria = data.generos || fallbackCategory || 'Séries';
-    const rawSeriePayload = {
-      Nome: data.nome,
-      Capa: data.imagem || tmdbData?.poster || '',
-      Sinopse: data.sinopse || tmdbData?.sinopse || '',
-      Categoria: categoria,
-      Tipo: 'Série',
-      'TMDB ID': tmdbData?.tmdbId || '',
-      'Trailer': tmdbData?.trailer || '',
-      'Ano': tmdbData?.ano || '',
-      'Data de Lançamento': tmdbData?.dataDeLancamento || '',
-      'Capa de fundo': tmdbData?.capaDeFundo || '',
-      'Imdb': tmdbData?.imdb || '',
-    };
-
     const conteudosKeys = await this.getConteudosKeys();
-    const mappedSeriePayload = conteudosKeys.length > 0 ? mapToDatabaseKeys(rawSeriePayload, conteudosKeys) : rawSeriePayload;
 
-    console.log('📺 [MaxPlus] Criando registro da Série no Baserow:', mappedSeriePayload);
-    const serieResult = await this.baserowService.createRow(this.conteudosTableId, mappedSeriePayload);
-    const serieId = serieResult?.id;
+    // 1. Verifica se a Série já existe na tabela de conteúdos (Upsert)
+    const existingSerie = await this.findContentByName(data.nome, this.conteudosTableId);
+    let serieId = '';
+    let isSerieUpdated = false;
+
+    if (existingSerie) {
+      console.log(`🔄 [MaxPlus] Série já existe no Baserow (ID: ${existingSerie.id}), atualizando registro...`);
+      const rawSerieUpdate = {
+        Nome: data.nome,
+        Capa: this.pick(data.imagem || tmdbData?.poster, existingSerie.Capa || existingSerie.Poster),
+        Sinopse: this.pick(data.sinopse || tmdbData?.sinopse, existingSerie.Sinopse),
+        Categoria: this.pick(categoria, existingSerie.Categoria),
+        Tipo: 'Série',
+        'TMDB ID': this.pick(tmdbData?.tmdbId, existingSerie['TMDB ID'] || existingSerie.tmdb_id),
+        'Trailer': this.pick(tmdbData?.trailer, existingSerie.Trailer || existingSerie.trailer),
+        'Ano': this.pick(tmdbData?.ano, existingSerie.Ano || existingSerie.ano),
+        'Data de Lançamento': this.pick(tmdbData?.dataDeLancamento, existingSerie['Data de Lançamento'] || existingSerie.data_lancamento),
+        'Capa de fundo': this.pick(tmdbData?.capaDeFundo, existingSerie['Capa de fundo'] || existingSerie.capa_de_fundo),
+        'Imdb': this.pick(avaliacaoImdb, existingSerie.Imdb || existingSerie.imdb),
+      };
+
+      const mappedSerieUpdate = conteudosKeys.length > 0 ? mapToDatabaseKeys(rawSerieUpdate, conteudosKeys) : rawSerieUpdate;
+      await this.baserowService.updateRow(this.conteudosTableId, String(existingSerie.id), mappedSerieUpdate);
+      serieId = String(existingSerie.id);
+      isSerieUpdated = true;
+    } else {
+      const rawSeriePayload = {
+        Nome: data.nome,
+        Capa: data.imagem || tmdbData?.poster || '',
+        Sinopse: data.sinopse || tmdbData?.sinopse || '',
+        Categoria: categoria,
+        Tipo: 'Série',
+        'TMDB ID': tmdbData?.tmdbId || '',
+        'Trailer': tmdbData?.trailer || '',
+        'Ano': tmdbData?.ano || '',
+        'Data de Lançamento': tmdbData?.dataDeLancamento || '',
+        'Capa de fundo': tmdbData?.capaDeFundo || '',
+        'Imdb': avaliacaoImdb,
+      };
+
+      const mappedSeriePayload = conteudosKeys.length > 0 ? mapToDatabaseKeys(rawSeriePayload, conteudosKeys) : rawSeriePayload;
+      console.log('📺 [MaxPlus] Criando novo registro da Série no Baserow:', mappedSeriePayload);
+      const serieResult = await this.baserowService.createRow(this.conteudosTableId, mappedSeriePayload);
+      serieId = String(serieResult?.id);
+    }
 
     // 2. Coletar todos os episódios a serem importados
     const seasons = data.seasons_details || [];
@@ -201,7 +316,7 @@ export class MaxPlusImportEngine {
       });
     }
 
-    // 3. Loop assíncrono para resolver links de episódios e criar rows
+    // 3. Loop assíncrono para resolver links de episódios e fazer Upsert (atualizar se já existe)
     for (let i = 0; i < totalEpisodes; i++) {
       const item = allEpisodesToImport[i];
       const epNum = item.episode.number;
@@ -214,7 +329,7 @@ export class MaxPlusImportEngine {
           total: totalEpisodes,
           current: i + 1,
           currentTitle: `${data.nome} - T${seasonNum}E${epNum}: ${epTitle}`,
-          stage: `Resolvendo vídeo e salvando episódio (${i + 1}/${totalEpisodes})...`,
+          stage: `Processando episódio (${i + 1}/${totalEpisodes})...`,
         });
       }
 
@@ -233,19 +348,55 @@ export class MaxPlusImportEngine {
           }
         }
 
-        const rawEpPayload = {
-          Nome: data.nome,
-          Temporada: seasonNum,
-          Episódio: epNum,
-          Link: videoUrl,
-          Idioma: isLeg ? 'Legendado' : 'Dublado',
-        };
+        // Verifica se o episódio já existe na tabela de episódios
+        const existingEp = await this.findEpisodeByIdentifiers(data.nome, seasonNum, epNum, this.episodiosTableId);
 
-        const mappedEpPayload = episodiosKeys.length > 0 
-          ? mapToDatabaseKeys(rawEpPayload, episodiosKeys) 
-          : rawEpPayload;
+        if (existingEp) {
+          console.log(`🔄 [MaxPlus] Episódio T${seasonNum}E${epNum} já existe (ID: ${existingEp.id}), atualizando...`);
+          const rawEpUpdate: Record<string, unknown> = {
+            Nome: data.nome,
+            Serie: data.nome,
+            Temporada: seasonNum,
+            'Episódio': epNum,
+            Link: this.pick(videoUrl, existingEp.Link),
+            Idioma: this.pick(isLeg ? 'Legendado' : 'Dublado', existingEp.Idioma),
+            Sinopse: this.pick(epTitle, existingEp.Sinopse),
+          };
 
-        await this.baserowService.createRow(this.episodiosTableId, mappedEpPayload);
+          // Preencher vínculo Conteudo se estiver vazio
+          const conteudoLink = existingEp.Conteudo;
+          const linkVazio = !conteudoLink || (Array.isArray(conteudoLink) && conteudoLink.length === 0);
+          if (linkVazio && serieId) {
+            rawEpUpdate.Conteudo = [serieId];
+          }
+
+          const mappedEpUpdate = episodiosKeys.length > 0 
+            ? mapToDatabaseKeys(rawEpUpdate, episodiosKeys) 
+            : rawEpUpdate;
+
+          await this.baserowService.updateRow(this.episodiosTableId, String(existingEp.id), mappedEpUpdate);
+        } else {
+          const rawEpPayload: Record<string, unknown> = {
+            Nome: data.nome,
+            Serie: data.nome,
+            Temporada: seasonNum,
+            'Episódio': epNum,
+            Link: videoUrl,
+            Idioma: isLeg ? 'Legendado' : 'Dublado',
+            Sinopse: epTitle,
+          };
+
+          if (serieId) {
+            rawEpPayload.Conteudo = [serieId];
+          }
+
+          const mappedEpPayload = episodiosKeys.length > 0 
+            ? mapToDatabaseKeys(rawEpPayload, episodiosKeys) 
+            : rawEpPayload;
+
+          await this.baserowService.createRow(this.episodiosTableId, mappedEpPayload);
+        }
+
         importedCount++;
 
         // Pequena pausa para estabilidade de rede
@@ -259,6 +410,7 @@ export class MaxPlusImportEngine {
       success: true,
       serieId,
       totalEpisodesImported: importedCount,
+      updated: isSerieUpdated,
     };
   }
 

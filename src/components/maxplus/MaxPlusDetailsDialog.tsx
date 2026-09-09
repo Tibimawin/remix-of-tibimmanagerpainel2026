@@ -137,7 +137,7 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={(val) => !isImporting && !val && onClose()}>
-      <DialogContent className={`max-w-2xl bg-[#0b0c10] border-[#232738] text-slate-100 p-0 rounded-2xl shadow-2xl ${isSeries ? 'max-h-[90vh] overflow-y-auto' : 'overflow-hidden'}`}>
+      <DialogContent className={`max-w-xl sm:max-w-2xl w-[95vw] sm:w-full bg-[#0b0c10] border-[#232738] text-slate-100 p-0 rounded-2xl shadow-2xl ${isSeries ? 'max-h-[90vh] overflow-y-auto' : ''}`}>
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 space-y-3">
             <Loader2 className="w-8 h-8 animate-spin text-[#00d2ff]" />
@@ -146,9 +146,9 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
         ) : details ? (
           <div>
             {/* Header com Banner / Poster Compacto e Informações sem Scroll */}
-            <div className={`relative p-4 sm:p-5 bg-[#151722] flex flex-col sm:flex-row gap-3.5 sm:gap-4 items-start ${isSeries ? 'border-b border-[#232738]' : ''}`}>
+            <div className={`relative p-4 sm:p-5 pb-5 sm:pb-6 bg-[#151722] flex flex-col sm:flex-row gap-3.5 sm:gap-4 items-start ${isSeries ? 'border-b border-[#232738]' : ''}`}>
               {/* Capa / Poster Reduzido */}
-              <div className="w-24 sm:w-28 flex-shrink-0 aspect-[2/3] rounded-lg overflow-hidden shadow-lg border border-[#232738] bg-slate-900 mx-auto sm:mx-0">
+              <div className="w-24 sm:w-28 shrink-0 aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-[#232738] bg-slate-900 mx-auto sm:mx-0">
                 {details.imagem ? (
                   <img
                     src={details.imagem}
@@ -163,7 +163,7 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
               </div>
 
               {/* Informações Principais Otimizadas */}
-              <div className="flex-1 flex flex-col justify-between w-full min-w-0">
+              <div className="flex-1 flex flex-col justify-between w-full min-w-0 pr-6 sm:pr-7">
                 <div>
                   <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
                     <Badge className={isSeries ? 'bg-[#6366f1] text-white font-bold text-[10px] h-5 px-1.5' : 'bg-[#00d2ff] text-slate-950 font-bold text-[10px] h-5 px-1.5'}>
@@ -185,7 +185,7 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
                     )}
                   </div>
 
-                  <h2 className="text-lg sm:text-xl font-bold text-slate-100 tracking-tight leading-snug line-clamp-1 mb-1">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-100 tracking-tight leading-snug line-clamp-1 mb-0.5">
                     {details.nome}
                   </h2>
 
@@ -196,29 +196,39 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
                     </p>
                   )}
 
-                  {/* Sinopse Reduzida com line-clamp */}
-                  <div className="text-xs text-slate-300/90 leading-snug line-clamp-3 sm:line-clamp-3">
+                  {/* Sinopse Reduzida com line-clamp para economizar altura */}
+                  <div className="text-xs text-slate-300/90 leading-relaxed line-clamp-2 mb-1.5">
                     {details.sinopse || 'Sinopse não informada para este título.'}
                   </div>
                 </div>
 
                 {/* Se for Filme: Exibe link do MP4 compacto e botão de importar filme */}
                 {!isSeries && (
-                  <div className="mt-3 pt-2.5 border-t border-[#232738]/80 flex flex-col gap-2.5">
+                  <div className="mt-2.5 pt-2.5 border-t border-[#232738]/80 flex flex-col gap-2.5 w-full">
                     {details.video ? (
-                      <div className="flex items-center gap-2 bg-[#0b0c10] border border-[#232738] rounded-lg p-1.5 px-2.5">
-                        <Play className="w-3.5 h-3.5 text-[#00d2ff] flex-shrink-0" />
-                        <span className="text-[11px] font-mono text-slate-300 truncate flex-1">
+                      <div className="flex items-center gap-2 bg-[#0b0c10] border border-[#232738] rounded-xl p-1.5 px-2.5 w-full min-w-0">
+                        <Play className="w-3.5 h-3.5 text-[#00d2ff] shrink-0" />
+                        <span className="text-[11px] font-mono text-slate-300 truncate min-w-0 flex-1 select-all" title={details.video}>
                           {details.video}
                         </span>
                         <Button
+                          type="button"
                           size="sm"
-                          variant="ghost"
                           onClick={() => handleCopy(details.video!)}
-                          className="h-6 px-1.5 text-xs text-slate-400 hover:text-white"
+                          className="h-7 px-2.5 shrink-0 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
                           title="Copiar Link MP4"
                         >
-                          {copiedLink ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          {copiedLink ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-400" />
+                              <span className="text-[11px] text-emerald-400 font-medium">Copiado</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3 text-slate-300" />
+                              <span className="text-[11px]">Copiar</span>
+                            </>
+                          )}
                         </Button>
                       </div>
                     ) : (
@@ -231,16 +241,16 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
                     <Button
                       disabled={isImporting}
                       onClick={() => onImportMovie(details, fallbackCategory)}
-                      className="bg-gradient-to-r from-[#00d2ff] to-[#00a3cc] hover:from-[#00b8e6] hover:to-[#008fb3] text-slate-950 font-bold shadow-md shadow-[#00d2ff]/20 h-9 px-4 text-xs sm:text-sm gap-2 w-full"
+                      className="bg-gradient-to-r from-[#00d2ff] to-[#00a3cc] hover:from-[#00b8e6] hover:to-[#008fb3] text-slate-950 font-bold shadow-lg shadow-[#00d2ff]/20 h-10 px-4 text-xs sm:text-sm gap-2 w-full rounded-xl cursor-pointer"
                     >
                       {isImporting ? (
                         <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-950" />
+                          <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
                           Salvando no Baserow...
                         </>
                       ) : (
                         <>
-                          <Download className="w-3.5 h-3.5 text-slate-950" />
+                          <Download className="w-4 h-4 text-slate-950" />
                           Salvar Filme no Baserow
                         </>
                       )}

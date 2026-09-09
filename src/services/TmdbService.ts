@@ -283,6 +283,7 @@ class TmdbService {
         poster_path?: string;
         overview?: string;
         imdb_id?: string;
+        vote_average?: number;
         external_ids?: { imdb_id?: string };
         videos?: { results?: Array<{ site?: string; type?: string; key?: string }> };
       }>(
@@ -298,8 +299,11 @@ class TmdbService {
         ? `https://image.tmdb.org/t/p/original${details.backdrop_path}` 
         : '';
 
-      // Extrai IMDb
-      const finalImdb = details.external_ids?.imdb_id || details.imdb_id || imdbId || '';
+      // Extrai Avaliação (Nota numérica, ex: "7.5" ou "8.0") para a coluna Imdb
+      let avaliacaoNota = '';
+      if (typeof details.vote_average === 'number' && details.vote_average > 0) {
+        avaliacaoNota = details.vote_average.toFixed(1);
+      }
 
       // Extrai Trailer (procura trailer no YouTube)
       let trailerUrl = '';
@@ -334,7 +338,7 @@ class TmdbService {
         ano,
         dataDeLancamento,
         capaDeFundo,
-        imdb: finalImdb,
+        imdb: avaliacaoNota,
         poster: details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : undefined,
         sinopse: details.overview || undefined,
       };

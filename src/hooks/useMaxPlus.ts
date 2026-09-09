@@ -157,9 +157,13 @@ export function useMaxPlus() {
       setIsImporting(true);
       toast.loading(`Importando filme "${details.nome}"...`, { id: 'import-movie' });
 
-      await engine.importMovie(details, fallbackCat);
+      const res = await engine.importMovie(details, fallbackCat);
 
-      toast.success(`Filme "${details.nome}" importado com sucesso!`, { id: 'import-movie' });
+      if (res?.updated) {
+        toast.success(`Filme "${details.nome}" atualizado no Baserow com sucesso!`, { id: 'import-movie' });
+      } else {
+        toast.success(`Filme "${details.nome}" importado com sucesso!`, { id: 'import-movie' });
+      }
     } catch (err: any) {
       console.error('Erro ao importar filme:', err);
       toast.error(`Falha ao importar filme: ${err?.message || 'Erro desconhecido'}`, { id: 'import-movie' });
@@ -190,8 +194,9 @@ export function useMaxPlus() {
         selectedEps
       );
 
+      const actionMsg = result.updated ? 'atualizada' : 'importada';
       toast.success(
-        `Série "${details.nome}" importada com sucesso! Total de ${result.totalEpisodesImported} episódios cadastrados.`, 
+        `Série "${details.nome}" ${actionMsg} com sucesso! Total de ${result.totalEpisodesImported} episódios processados.`, 
         { id: 'import-series', duration: 5000 }
       );
     } catch (err: any) {
