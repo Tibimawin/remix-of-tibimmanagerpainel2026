@@ -28,6 +28,7 @@ import {
 } from '@/config/importacaoZynner';
 import { BaserowService } from '@/services/BaserowService';
 import { toast } from 'sonner';
+import { normalizeCategories } from '@/utils/categoryNormalizer';
 
 export function useImportacaoZynner() {
     // 🔧 Usar configuração dedicada do Zynner
@@ -369,7 +370,14 @@ export function useImportacaoZynner() {
 
         const tmdb = conteudo.tmdbData;
         const generos = tmdbService.getGenres(tmdb.genres);
-        const categoria = `${generos}${generos ? ', ' : ''}${conteudo.categoriaPrincipal}`;
+        const rawCategoria = `${generos}${generos ? ', ' : ''}${conteudo.categoriaPrincipal}`;
+        const categoria = normalizeCategories({
+            tipo: conteudo.tipo,
+            categorias: rawCategoria,
+            ano: tmdb.release_date?.substring(0, 4) || tmdb.first_air_date?.substring(0, 4),
+            dataDeLancamento: tmdb.release_date || tmdb.first_air_date,
+            titulo: tmdb.title || tmdb.name || conteudo.titulo,
+        });
 
         // Se for série, gerar episódios
         let episodios: Episodio[] = [];
@@ -411,7 +419,14 @@ export function useImportacaoZynner() {
 
                 const tmdb = conteudo.tmdbData;
                 const generos = tmdbService.getGenres(tmdb.genres);
-                const categoria = `${generos}${generos ? ', ' : ''}${conteudo.categoriaPrincipal}`;
+                const rawCategoria = `${generos}${generos ? ', ' : ''}${conteudo.categoriaPrincipal}`;
+                const categoria = normalizeCategories({
+                    tipo: conteudo.tipo,
+                    categorias: rawCategoria,
+                    ano: tmdb.release_date?.substring(0, 4) || tmdb.first_air_date?.substring(0, 4),
+                    dataDeLancamento: tmdb.release_date || tmdb.first_air_date,
+                    titulo: tmdb.title || tmdb.name || conteudo.titulo,
+                });
 
                 const dataConteudo: Conteudo = {
                     Nome: tmdb.title || tmdb.name || conteudo.titulo,

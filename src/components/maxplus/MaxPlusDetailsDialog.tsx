@@ -16,6 +16,7 @@ import {
   MaxPlusEpisodeDetail 
 } from '@/services/maxplusApi';
 import { ImportProgress } from '@/services/maxplusImportEngine';
+import { normalizeCategories } from '@/utils/categoryNormalizer';
 import { 
   Film, 
   Tv, 
@@ -67,6 +68,16 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
     return (details.total_seasons !== undefined && details.total_seasons > 0) ||
            (details.seasons_details !== undefined && details.seasons_details.length > 0);
   }, [details]);
+
+  // Categorias que serão salvas no Baserow (com 'Filmes'/'Series', Ano e regra de 'Lançamentos')
+  const previewCategorias = useMemo(() => {
+    if (!details) return '';
+    return normalizeCategories({
+      tipo: isSeries ? 'Serie' : 'Filme',
+      categorias: details.generos || fallbackCategory,
+      titulo: details.nome,
+    });
+  }, [details, isSeries, fallbackCategory]);
 
   // Temporadas disponíveis
   const seasons: MaxPlusSeasonDetail[] = useMemo(() => {
@@ -189,11 +200,12 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
                     {details.nome}
                   </h2>
 
-                  {/* Gêneros */}
-                  {details.generos && (
-                    <p className="text-[11px] text-[#00d2ff] font-medium mb-1.5 line-clamp-1">
-                      {details.generos}
-                    </p>
+                  {/* Gêneros / Categorias Normalizadas */}
+                  {(previewCategorias || details.generos) && (
+                    <div className="flex items-center gap-1.5 text-[11px] font-medium mb-1.5 line-clamp-1" title={previewCategorias || details.generos}>
+                      <span className="text-slate-400 font-normal shrink-0">Categorias:</span>
+                      <span className="text-[#00d2ff] truncate">{previewCategorias || details.generos}</span>
+                    </div>
                   )}
 
                   {/* Sinopse Reduzida com line-clamp para economizar altura */}

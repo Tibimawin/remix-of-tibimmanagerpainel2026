@@ -12,6 +12,7 @@ import {
 } from '@/services/maxplusApi';
 import { mapToDatabaseKeys } from '@/utils/baserowHelpers';
 import { tmdbService } from '@/services/TmdbService';
+import { normalizeCategories } from '@/utils/categoryNormalizer';
 
 export interface ImportProgress {
   active: boolean;
@@ -138,7 +139,6 @@ export class MaxPlusImportEngine {
     const videoUrl = data.video || '';
     const isLegendado = videoUrl.toLowerCase().includes('leg.mp4') || videoUrl.toLowerCase().includes('_leg');
     const idioma = isLegendado ? 'Legendado' : 'Dublado';
-    const categoria = data.generos || fallbackCategory || 'Filmes';
 
     // 🎬 Enriquecimento automático com TMDb: TMDB ID, Trailer, Ano, Data de Lançamento, Capa de fundo, Imdb
     let tmdbData = null;
@@ -151,6 +151,18 @@ export class MaxPlusImportEngine {
     } catch (tmdbErr) {
       console.warn(`[MaxPlus] Aviso ao consultar TMDb para "${data.nome}":`, tmdbErr);
     }
+
+    // 🏷️ Normalização e padronização das Categorias:
+    // - Filmes SEMPRE contêm 'Filmes'
+    // - Contém SEMPRE o ano (ex: 2026 ou 2023)
+    // - 'Lançamentos' apenas se for do ano atual (2026) / mês atual
+    const categoriaNormalizada = normalizeCategories({
+      tipo: 'Filme',
+      categorias: data.generos || fallbackCategory,
+      ano: tmdbData?.ano,
+      dataDeLancamento: tmdbData?.dataDeLancamento,
+      titulo: data.nome,
+    });
 
     // Avaliação numérica do filme para a coluna Imdb (ex: "7.5" ou "5.0")
     const avaliacaoImdb = tmdbData?.imdb || (data.estrelas ? String(data.estrelas) : '');
@@ -166,7 +178,13 @@ export class MaxPlusImportEngine {
         Nome: data.nome,
         Capa: this.pick(data.imagem || tmdbData?.poster, existingContent.Capa || existingContent.Poster),
         Sinopse: this.pick(data.sinopse || tmdbData?.sinopse, existingContent.Sinopse),
-        Categoria: this.pick(categoria, existingContent.Categoria),
+        Categoria: normalizeCategories({
+          tipo: 'Filme',
+          categorias: this.pick(categoriaNormalizada, existingContent.Categoria),
+          ano: tmdbData?.ano || (existingContent.Ano as string) || (existingContent.ano as string),
+          dataDeLancamento: tmdbData?.dataDeLancamento || (existingContent['Data de Lançamento'] as string) || (existingContent.data_lancamento as string),
+          titulo: data.nome,
+        }),
         Link: this.pick(videoUrl, existingContent.Link),
         Tipo: 'Filme',
         Idioma: this.pick(idioma, existingContent.Idioma),
@@ -188,7 +206,7 @@ export class MaxPlusImportEngine {
       Nome: data.nome,
       Capa: data.imagem || tmdbData?.poster || '',
       Sinopse: data.sinopse || tmdbData?.sinopse || '',
-      Categoria: categoria,
+      Categoria: categoriaNormalizada,
       Link: videoUrl,
       Tipo: 'Filme',
       Idioma: idioma,
@@ -236,7 +254,19 @@ export class MaxPlusImportEngine {
     }
 
     const avaliacaoImdb = tmdbData?.imdb || (data.estrelas ? String(data.estrelas) : '');
-    const categoria = data.generos || fallbackCategory || 'Séries';
+
+    // 🏷️ Normalização e padronização das Categorias:
+    // - Séries SEMPRE contêm 'Series'
+    // - Contém SEMPRE o ano (ex: 2026 ou 2023)
+    // - 'Lançamentos' apenas se for do ano atual (2026) / mês atual
+    const categoriaNormalizada = normalizeCategories({
+      tipo: 'Serie',
+      categorias: data.generos || fallbackCategory,
+      ano: tmdbData?.ano,
+      dataDeLancamento: tmdbData?.dataDeLancamento,
+      titulo: data.nome,
+    });
+
     const conteudosKeys = await this.getConteudosKeys();
 
     // 1. Verifica se a Série já existe na tabela de conteúdos (Upsert)
@@ -250,7 +280,13 @@ export class MaxPlusImportEngine {
         Nome: data.nome,
         Capa: this.pick(data.imagem || tmdbData?.poster, existingSerie.Capa || existingSerie.Poster),
         Sinopse: this.pick(data.sinopse || tmdbData?.sinopse, existingSerie.Sinopse),
-        Categoria: this.pick(categoria, existingSerie.Categoria),
+        Categoria: normalizeCategories({
+          tipo: 'Serie',
+          categorias: this.pick(categoriaNormalizada, existingSerie.Categoria),
+          ano: tmdbData?.ano || (existingSerie.Ano as string) || (existingSerie.ano as string),
+          dataDeLancamento: tmdbData?.dataDeLancamento || (existingSerie['Data de Lançamento'] as string) || (existingSerie.data_lancamento as string),
+          titulo: data.nome,
+        }),
         Tipo: 'Série',
         'TMDB ID': this.pick(tmdbData?.tmdbId, existingSerie['TMDB ID'] || existingSerie.tmdb_id),
         'Trailer': this.pick(tmdbData?.trailer, existingSerie.Trailer || existingSerie.trailer),
@@ -269,7 +305,7 @@ export class MaxPlusImportEngine {
         Nome: data.nome,
         Capa: data.imagem || tmdbData?.poster || '',
         Sinopse: data.sinopse || tmdbData?.sinopse || '',
-        Categoria: categoria,
+        Categoria: categoriaNormalizada,
         Tipo: 'Série',
         'TMDB ID': tmdbData?.tmdbId || '',
         'Trailer': tmdbData?.trailer || '',

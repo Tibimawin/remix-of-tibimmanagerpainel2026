@@ -2,6 +2,7 @@ import { useBaserowService } from './BaserowService';
 import { makeProxyRequest } from '@/utils/proxyRequest';
 import { tmdbService } from './TmdbService';
 import { getColumnMap, TypeMode } from '@/config/columnMappings';
+import { normalizeCategories } from '@/utils/categoryNormalizer';
 
 export interface ImportContent {
   id: string;
@@ -1184,8 +1185,15 @@ export class AutoImportService {
               }
             }
 
+            const effectiveTipo = content.Tipo || existingContent.Tipo;
             const updateData: any = {
-              Categoria: pick(content.Categoria, existingContent.Categoria),
+              Categoria: normalizeCategories({
+                tipo: effectiveTipo,
+                categorias: pick(content.Categoria, existingContent.Categoria),
+                ano: content.Ano || existingContent.Ano || existingContent.ano,
+                dataDeLancamento: pick(content['Data de Lançamento'], existingContent['Data de Lançamento']),
+                titulo: titulo,
+              }),
               Sinopse: pick(content.Sinopse, existingContent.Sinopse),
               Capa: pick(content.Poster || content.Capa, existingContent.Capa),
               Link: this.cloak(pick(content.Link, existingContent.Link), content.Titulo, 'content'),
@@ -1238,7 +1246,13 @@ export class AutoImportService {
             const contentData: Record<string, any> = {
               Nome: titulo,
               [colMap.tipo]: normalizeTypeForMode(content.Tipo),
-              [colMap.categoria]: content.Categoria || '',
+              [colMap.categoria]: normalizeCategories({
+                tipo: content.Tipo,
+                categorias: content.Categoria,
+                ano: content.Ano,
+                dataDeLancamento: content['Data de Lançamento'],
+                titulo: titulo,
+              }),
               [colMap.sinopse]: content.Sinopse || '',
               [colMap.capa]: content.Poster || content.Capa || '',
               [colMap.link]: content.Link || '',
