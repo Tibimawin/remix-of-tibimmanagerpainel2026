@@ -23,6 +23,7 @@ import {
 const MaxPlus: React.FC = () => {
   const {
     items,
+    filteredItems,
     loading,
     error,
     selectedCategoryUrl,
@@ -32,8 +33,15 @@ const MaxPlus: React.FC = () => {
     detailsModalOpen,
     detailsLoading,
     currentDetails,
+    selectedCatalogItem,
     importProgress,
     isImporting,
+    importedTitles,
+    loadingImportedCheck,
+    isItemImported,
+    filterMode,
+    setFilterMode,
+    importedCountOnScreen,
     loadCategory,
     handleSearch,
     openDetails,
@@ -60,6 +68,7 @@ const MaxPlus: React.FC = () => {
   };
 
   const activeCategory = MAXPLUS_CATEGORIES.find(c => c.url === selectedCategoryUrl);
+  const pendingCountOnScreen = Math.max(0, items.length - importedCountOnScreen);
 
   return (
     <div className="min-h-screen bg-[#0b0c10] text-slate-100 p-4 sm:p-6 lg:p-8 space-y-6 pb-28">
@@ -130,23 +139,82 @@ const MaxPlus: React.FC = () => {
         })}
       </div>
 
-      {/* Indicador de Categoria Atual ou Termo Buscado */}
-      <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-slate-400 pt-1">
-        <div className="flex items-center gap-2">
+      {/* Indicador de Status & Filtros de Conteúdos Importados */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-400 pt-1 pb-1 border-b border-[#232738]/60">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <span className="font-semibold text-slate-200">
-            {activeCategory ? `Catálogo: ${activeCategory.name}` : searchQuery ? `Pesquisa por: "${searchQuery}"` : 'Resultados'}
+            {activeCategory ? `Catálogo: ${activeCategory.name}` : searchQuery ? `Pesquisa: "${searchQuery}"` : 'Resultados'}
           </span>
           <span>•</span>
           <span>{items.length} títulos carregados</span>
+          
+          {items.length > 0 && (
+            <>
+              <span>•</span>
+              <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {importedCountOnScreen} no banco
+              </span>
+              <span>•</span>
+              <span className="text-slate-400 font-medium">
+                {pendingCountOnScreen} pendentes
+              </span>
+            </>
+          )}
+
+          {loadingImportedCheck && (
+            <span className="text-[11px] text-[#00d2ff] animate-pulse">
+              (Verificando banco...)
+            </span>
+          )}
         </div>
 
+        {/* Abas / Filtros Rápidos (Todos / No Banco / Pendentes) */}
         {items.length > 0 && (
-          <button
-            onClick={toggleSelectAll}
-            className="text-[#00d2ff] hover:underline font-medium cursor-pointer"
-          >
-            {selectedItems.length === items.length ? 'Desmarcar Todos' : 'Selecionar Todos na Tela'}
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex bg-[#151722] p-1 rounded-xl border border-[#232738]">
+              <button
+                onClick={() => setFilterMode('all')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                  filterMode === 'all'
+                    ? 'bg-[#00d2ff] text-slate-950 font-bold shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Todos ({items.length})
+              </button>
+              <button
+                onClick={() => setFilterMode('imported')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 ${
+                  filterMode === 'imported'
+                    ? 'bg-emerald-500 text-white font-bold shadow-sm'
+                    : 'text-slate-400 hover:text-emerald-300'
+                }`}
+              >
+                <CheckCircle2 className="w-3 h-3" />
+                No Banco ({importedCountOnScreen})
+              </button>
+              <button
+                onClick={() => setFilterMode('pending')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                  filterMode === 'pending'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+                    : 'text-slate-400 hover:text-amber-300'
+                }`}
+              >
+                Pendentes ({pendingCountOnScreen})
+              </button>
+            </div>
+
+            <button
+              onClick={toggleSelectAll}
+              className="text-[#00d2ff] hover:underline font-medium text-xs whitespace-nowrap ml-2 cursor-pointer"
+            >
+              {selectedItems.length === filteredItems.length && filteredItems.length > 0
+                ? 'Desmarcar Todos' 
+                : 'Selecionar na Tela'}
+            </button>
+          </div>
         )}
       </div>
 
@@ -172,21 +240,23 @@ const MaxPlus: React.FC = () => {
           </div>
           <Button
             onClick={() => loadCategory(selectedCategoryUrl || MAXPLUS_CATEGORIES[0].url)}
-            className="bg-[#00d2ff] text-slate-950 font-bold gap-2"
+            className="bg-[#00d2ff] text-slate-950 font-bold gap-2 cursor-pointer"
           >
             <RefreshCw className="w-4 h-4" />
             Tentar Novamente
           </Button>
         </div>
-      ) : items.length > 0 ? (
+      ) : filteredItems.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5">
-          {items.map((item, index) => {
+          {filteredItems.map((item, index) => {
             const isSelected = selectedItems.some(i => i.link === item.link);
+            const isAlreadyImported = isItemImported(item.nome);
             return (
               <MaxPlusCard
                 key={`${item.link}-${index}`}
                 item={item}
                 isSelected={isSelected}
+                isAlreadyImported={isAlreadyImported}
                 onToggleSelect={toggleSelectItem}
                 onOpenDetails={openDetails}
                 onQuickImport={(i) => openDetails(i)}
@@ -198,9 +268,17 @@ const MaxPlus: React.FC = () => {
       ) : (
         <div className="flex flex-col items-center justify-center py-20 bg-[#151722]/60 border border-[#232738] rounded-2xl text-center space-y-3">
           <Film className="w-12 h-12 text-slate-600" />
-          <h3 className="font-bold text-base text-slate-200">Nenhum conteúdo encontrado</h3>
+          <h3 className="font-bold text-base text-slate-200">
+            {filterMode === 'imported' 
+              ? 'Nenhum título desta tela foi importado para o banco ainda'
+              : filterMode === 'pending'
+              ? 'Todos os títulos desta tela já foram importados para o banco!'
+              : 'Nenhum conteúdo encontrado'}
+          </h3>
           <p className="text-xs text-slate-400 max-w-sm">
-            Tente buscar por outro termo ou selecione uma das categorias acima para visualizar o catálogo.
+            {filterMode !== 'all' 
+              ? 'Alterne o filtro acima para "Todos" para ver o catálogo completo.'
+              : 'Tente buscar por outro termo ou selecione uma das categorias acima para visualizar o catálogo.'}
           </p>
         </div>
       )}
@@ -215,14 +293,15 @@ const MaxPlus: React.FC = () => {
         onImportSeries={importSeries}
         importProgress={importProgress}
         isImporting={isImporting}
+        isAlreadyImported={isItemImported(currentDetails?.nome || selectedCatalogItem?.nome)}
         fallbackCategory={activeCategory?.name}
       />
 
       {/* Barra Flutuante de Ação em Lote */}
       <MaxPlusBatchBar
         selectedCount={selectedItems.length}
-        totalVisibleCount={items.length}
-        isAllSelected={selectedItems.length > 0 && selectedItems.length === items.length}
+        totalVisibleCount={filteredItems.length}
+        isAllSelected={selectedItems.length > 0 && selectedItems.length === filteredItems.length}
         onToggleSelectAll={toggleSelectAll}
         onImportBatch={importSelectedBatch}
         onClearSelection={() => {}}

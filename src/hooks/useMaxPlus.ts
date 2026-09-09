@@ -42,12 +42,73 @@ export function useMaxPlus() {
   });
   const [isImporting, setIsImporting] = useState<boolean>(false);
 
+  // Detecção de Conteúdos já importados no Baserow
+  const [importedTitles, setImportedTitles] = useState<Set<string>>(new Set());
+  const [loadingImportedCheck, setLoadingImportedCheck] = useState<boolean>(false);
+  const [filterMode, setFilterMode] = useState<'all' | 'imported' | 'pending'>('all');
+
+  // Normalizador de texto idêntico ao da Importação Automática
+  const normalizeText = useCallback((value?: string | null) => {
+    return (value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  }, []);
+
   // Instância do motor de importação
   const engine = useMemo(() => {
     const conteudosId = config.tableIds?.conteudos || config.conteudosTableId || '';
     const episodiosId = config.tableIds?.episodios || config.episodiosTableId || '';
     return new MaxPlusImportEngine(baserowService, conteudosId, episodiosId);
   }, [config, baserowService]);
+
+  // Checar quais conteúdos da lista já existem no Baserow (mesma lógica da Importação Automática)
+  const checkImportedStatus = useCallback(async (catalogItems?: MaxPlusCatalogItem[]) => {
+    const list = catalogItems || items;
+    if (!list || list.length === 0 || !isConfigured) return;
+
+    try {
+      setLoadingImportedCheck(true);
+      const names = list.map(i => i.nome).filter(Boolean);
+      const detected = await engine.findExistingContentsByTitles(names);
+      
+      setImportedTitles(prev => {
+        const next = new Set(prev);
+        detected.forEach(t => next.add(t));
+        return next;
+      });
+    } catch (err) {
+      console.warn('[MaxPlus] Erro ao verificar conteúdos importados no Baserow:', err);
+    } finally {
+      setLoadingImportedCheck(false);
+    }
+  }, [items, isConfigured, engine]);
+
+  // Verificar se um item específico já foi importado
+  const isItemImported = useCallback((title?: string | null): boolean => {
+    if (!title) return false;
+    const norm = normalizeText(title);
+    return importedTitles.has(norm);
+  }, [importedTitles, normalizeText]);
+
+  // Itens filtrados de acordo com filterMode
+  const filteredItems = useMemo(() => {
+    if (filterMode === 'all') return items;
+    if (filterMode === 'imported') {
+      return items.filter(item => isItemImported(item.nome));
+    }
+    if (filterMode === 'pending') {
+      return items.filter(item => !isItemImported(item.nome));
+    }
+    return items;
+  }, [items, filterMode, isItemImported]);
+
+  // Quantidade de itens na tela que já estão no banco
+  const importedCountOnScreen = useMemo(() => {
+    return items.filter(item => isItemImported(item.nome)).length;
+  }, [items, isItemImported]);
 
   // Carregar catálogo de uma categoria
   const loadCategory = useCallback(async (categoryUrl: string) => {
@@ -146,6 +207,13 @@ export function useMaxPlus() {
     });
   }, [items]);
 
+  // Dispara a verificação de conteúdos importados quando os itens mudam
+  useEffect(() => {
+    if (items.length > 0 && isConfigured) {
+      checkImportedStatus(items);
+    }
+  }, [items, isConfigured, checkImportedStatus]);
+
   // Importar Filme único
   const importMovie = useCallback(async (details: MaxPlusContentDetails, fallbackCat?: string) => {
     if (!isConfigured) {
@@ -159,18 +227,27 @@ export function useMaxPlus() {
 
       const res = await engine.importMovie(details, fallbackCat);
 
+      // Marca o título imediatamente como importado no estado local
+      const norm = normalizeText(details.nome);
+      if (norm) {
+        setImportedTitles(prev => new Set(prev).add(norm));
+      }
+
       if (res?.updated) {
         toast.success(`Filme "${details.nome}" atualizado no Baserow com sucesso!`, { id: 'import-movie' });
       } else {
         toast.success(`Filme "${details.nome}" importado com sucesso!`, { id: 'import-movie' });
       }
+
+      // Re-sincroniza em background
+      checkImportedStatus();
     } catch (err: any) {
       console.error('Erro ao importar filme:', err);
       toast.error(`Falha ao importar filme: ${err?.message || 'Erro desconhecido'}`, { id: 'import-movie' });
     } finally {
       setIsImporting(false);
     }
-  }, [engine, isConfigured]);
+  }, [engine, isConfigured, normalizeText, checkImportedStatus]);
 
   // Importar Série única (com episódios)
   const importSeries = useCallback(async (
@@ -194,11 +271,29 @@ export function useMaxPlus() {
         selectedEps
       );
 
+      // Marca o título imediatamente como importado no estado local
+      const norm = normalizeText(details.nome);
+      if (norm) {
+        setImportedTitles(prev => new Set(prev).add(norm));
+      }
+
       const actionMsg = result.updated ? 'atualizada' : 'importada';
+      let epDetail = `${result.totalEpisodesImported} episódios processados`;
+      if (result.createdEpisodesCount > 0 && result.updatedEpisodesCount > 0) {
+        epDetail = `${result.createdEpisodesCount} novos episódios criados, ${result.updatedEpisodesCount} atualizados`;
+      } else if (result.updatedEpisodesCount > 0) {
+        epDetail = `${result.updatedEpisodesCount} episódios atualizados`;
+      } else if (result.createdEpisodesCount > 0) {
+        epDetail = `${result.createdEpisodesCount} episódios criados`;
+      }
+
       toast.success(
-        `Série "${details.nome}" ${actionMsg} com sucesso! Total de ${result.totalEpisodesImported} episódios processados.`, 
-        { id: 'import-series', duration: 5000 }
+        `Série "${details.nome}" ${actionMsg} com sucesso! (${epDetail})`, 
+        { id: 'import-series', duration: 5500 }
       );
+
+      // Re-sincroniza em background
+      checkImportedStatus();
     } catch (err: any) {
       console.error('Erro ao importar série:', err);
       toast.error(`Falha ao importar série: ${err?.message || 'Erro desconhecido'}`, { id: 'import-series' });
@@ -206,7 +301,7 @@ export function useMaxPlus() {
       setIsImporting(false);
       setImportProgress({ active: false, total: 0, current: 0, currentTitle: '', stage: '' });
     }
-  }, [engine, isConfigured]);
+  }, [engine, isConfigured, normalizeText, checkImportedStatus]);
 
   // Importar itens selecionados em Lote (Batch)
   const importSelectedBatch = useCallback(async () => {
@@ -232,6 +327,9 @@ export function useMaxPlus() {
         { id: 'import-batch', duration: 6000 }
       );
       setSelectedItems([]);
+
+      // Re-sincroniza os itens importados após conclusão do lote
+      checkImportedStatus();
     } catch (err: any) {
       console.error('Erro na importação em lote:', err);
       toast.error(`Falha no lote: ${err?.message || 'Erro desconhecido'}`, { id: 'import-batch' });
@@ -239,7 +337,7 @@ export function useMaxPlus() {
       setIsImporting(false);
       setImportProgress({ active: false, total: 0, current: 0, currentTitle: '', stage: '' });
     }
-  }, [selectedItems, engine, isConfigured]);
+  }, [selectedItems, engine, isConfigured, checkImportedStatus]);
 
   // Carrega categoria inicial ao montar
   useEffect(() => {
@@ -248,6 +346,7 @@ export function useMaxPlus() {
 
   return {
     items,
+    filteredItems,
     loading,
     error,
     selectedCategoryUrl,
@@ -260,6 +359,13 @@ export function useMaxPlus() {
     selectedCatalogItem,
     importProgress,
     isImporting,
+    importedTitles,
+    loadingImportedCheck,
+    isItemImported,
+    filterMode,
+    setFilterMode,
+    importedCountOnScreen,
+    checkImportedStatus,
     loadCategory,
     handleSearch,
     openDetails,

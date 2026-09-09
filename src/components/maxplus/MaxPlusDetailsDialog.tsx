@@ -28,7 +28,9 @@ import {
   Loader2, 
   Sparkles, 
   Layers, 
-  AlertCircle 
+  AlertCircle,
+  CheckCircle2,
+  RefreshCw 
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -46,6 +48,7 @@ interface MaxPlusDetailsDialogProps {
   importProgress: ImportProgress;
   isImporting: boolean;
   fallbackCategory?: string;
+  isAlreadyImported?: boolean;
 }
 
 export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
@@ -58,6 +61,7 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
   importProgress,
   isImporting,
   fallbackCategory,
+  isAlreadyImported = false,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<number>(1);
@@ -212,6 +216,14 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
                   <div className="text-xs text-slate-300/90 leading-relaxed line-clamp-2 mb-1.5">
                     {details.sinopse || 'Sinopse não informada para este título.'}
                   </div>
+
+                  {/* Banner discreto quando já cadastrado no Baserow */}
+                  {isAlreadyImported && (
+                    <div className="flex items-center gap-2 p-2 px-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs font-medium mb-1">
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                      <span className="truncate">Conteúdo já cadastrado no Baserow. Ao salvar, será atualizado sem duplicar.</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Se for Filme: Exibe link do MP4 compacto e botão de importar filme */}
@@ -253,12 +265,21 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
                     <Button
                       disabled={isImporting}
                       onClick={() => onImportMovie(details, fallbackCategory)}
-                      className="bg-gradient-to-r from-[#00d2ff] to-[#00a3cc] hover:from-[#00b8e6] hover:to-[#008fb3] text-slate-950 font-bold shadow-lg shadow-[#00d2ff]/20 h-10 px-4 text-xs sm:text-sm gap-2 w-full rounded-xl cursor-pointer"
+                      className={`font-bold shadow-lg h-10 px-4 text-xs sm:text-sm gap-2 w-full rounded-xl cursor-pointer ${
+                        isAlreadyImported
+                          ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-emerald-500/20'
+                          : 'bg-gradient-to-r from-[#00d2ff] to-[#00a3cc] hover:from-[#00b8e6] hover:to-[#008fb3] text-slate-950 shadow-[#00d2ff]/20'
+                      }`}
                     >
                       {isImporting ? (
                         <>
-                          <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                          <Loader2 className="w-4 h-4 animate-spin text-current" />
                           Salvando no Baserow...
+                        </>
+                      ) : isAlreadyImported ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 text-white" />
+                          Atualizar Filme no Baserow
                         </>
                       ) : (
                         <>
@@ -385,12 +406,17 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
                   <Button
                     disabled={isImporting}
                     onClick={handleImportAllSeries}
-                    className="flex-1 bg-gradient-to-r from-[#6366f1] to-[#818cf8] hover:from-[#4f46e5] hover:to-[#6366f1] text-white font-bold h-9 sm:h-10 text-xs sm:text-sm rounded-xl shadow-md shadow-[#6366f1]/25 gap-2"
+                    className="flex-1 bg-gradient-to-r from-[#6366f1] to-[#818cf8] hover:from-[#4f46e5] hover:to-[#6366f1] text-white font-bold h-9 sm:h-10 text-xs sm:text-sm rounded-xl shadow-md shadow-[#6366f1]/25 gap-2 cursor-pointer"
                   >
                     {isImporting ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        Importando Série e Episódios...
+                        {isAlreadyImported ? 'Atualizando Série e Episódios...' : 'Importando Série e Episódios...'}
+                      </>
+                    ) : isAlreadyImported ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        Atualizar Série e Episódios
                       </>
                     ) : (
                       <>

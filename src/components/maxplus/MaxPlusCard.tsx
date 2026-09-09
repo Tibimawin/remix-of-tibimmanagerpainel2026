@@ -2,7 +2,7 @@ import React from 'react';
 import { MaxPlusCatalogItem } from '@/services/maxplusApi';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { Download, Film, Tv, Sparkles } from 'lucide-react';
+import { Download, Film, Tv, Sparkles, Check, RefreshCw } from 'lucide-react';
 
 interface MaxPlusCardProps {
   item: MaxPlusCatalogItem;
@@ -11,6 +11,7 @@ interface MaxPlusCardProps {
   onOpenDetails: (item: MaxPlusCatalogItem) => void;
   onQuickImport?: (item: MaxPlusCatalogItem) => void;
   isImporting?: boolean;
+  isAlreadyImported?: boolean;
 }
 
 export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
@@ -20,6 +21,7 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
   onOpenDetails,
   onQuickImport,
   isImporting = false,
+  isAlreadyImported = false,
 }) => {
   const isSeries = item.link?.includes('/tvshows/') || 
                    item.genres?.toLowerCase().includes('série') || 
@@ -28,7 +30,11 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
   return (
     <div
       className={`group relative flex flex-col rounded-xl overflow-hidden transition-all duration-300 border bg-[#151722] hover:shadow-2xl hover:shadow-[#00d2ff]/10 hover:border-[#00d2ff]/50 ${
-        isSelected ? 'border-[#00d2ff] ring-2 ring-[#00d2ff]/40 shadow-lg shadow-[#00d2ff]/20' : 'border-[#232738]'
+        isSelected 
+          ? 'border-[#00d2ff] ring-2 ring-[#00d2ff]/40 shadow-lg shadow-[#00d2ff]/20' 
+          : isAlreadyImported
+          ? 'border-emerald-500/30 hover:border-emerald-400/60'
+          : 'border-[#232738]'
       }`}
     >
       {/* Checkbox de seleção em lote */}
@@ -44,6 +50,16 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
           />
         </div>
       </div>
+
+      {/* Badge de "Já no Banco" (quando já importado) */}
+      {isAlreadyImported && (
+        <div className="absolute top-2.5 left-11 z-20 pointer-events-none">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wider uppercase backdrop-blur-md shadow-lg bg-emerald-500/90 text-white border border-emerald-400/60">
+            <Check className="w-3 h-3 text-white" />
+            No Banco
+          </span>
+        </div>
+      )}
 
       {/* Badge de Tipo (Filme / Série) */}
       <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none">
@@ -122,7 +138,7 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
           )}
         </div>
 
-        {/* Botão rápido "Importar" */}
+        {/* Botão rápido "Importar" ou "Atualizar" */}
         <Button
           variant="outline"
           size="sm"
@@ -134,10 +150,23 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
               onOpenDetails(item);
             }
           }}
-          className="w-full text-xs h-7 gap-1.5 bg-[#0b0c10]/60 border-[#232738] hover:bg-[#00d2ff]/10 hover:border-[#00d2ff]/60 hover:text-[#00d2ff] text-slate-300 transition-all"
+          className={`w-full text-xs h-7 gap-1.5 transition-all ${
+            isAlreadyImported
+              ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-400 hover:text-emerald-200'
+              : 'bg-[#0b0c10]/60 border-[#232738] hover:bg-[#00d2ff]/10 hover:border-[#00d2ff]/60 hover:text-[#00d2ff] text-slate-300'
+          }`}
         >
-          <Download className="w-3.5 h-3.5 text-[#00d2ff]" />
-          Importar
+          {isAlreadyImported ? (
+            <>
+              <RefreshCw className="w-3 h-3 text-emerald-400" />
+              Atualizar
+            </>
+          ) : (
+            <>
+              <Download className="w-3.5 h-3.5 text-[#00d2ff]" />
+              Importar
+            </>
+          )}
         </Button>
       </div>
     </div>
