@@ -518,7 +518,7 @@ export const PaymentReconciliationService = {
         'duplicados', 'duplicados-episodios', 'importacao-automatica', 'automacao',
         'substituicao-urls', 'importar-m3u', 'adicionar-conteudo', 'usuarios',
         'sessoes', 'plataformas', 'produtos', 'estatisticas', 'relatorios-visualizacao',
-        'recursos', 'clean-data', 'maxplus-import', 'precos-interno', 'configuracoes',
+        'recursos', 'clean-data', 'maxplus', 'maxplus-import', 'precos-interno', 'configuracoes',
         'perfil', 'suporte-ao-vivo', 'priority-support', 'export', 'logs', 'planos'
       ];
       finalPlanName = targetPlanName || (price >= 250 ? 'Plano Anual' : 'Plano Mensal');
