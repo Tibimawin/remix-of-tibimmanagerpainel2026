@@ -308,8 +308,13 @@ export class MaxPlusImportEngine {
     }
 
     const videoUrl = data.video || '';
-    const isLegendado = videoUrl.toLowerCase().includes('leg.mp4') || videoUrl.toLowerCase().includes('_leg');
-    const idioma = isLegendado ? 'Legendado' : 'Dublado';
+    // Regra de Idioma obrigatório: data.idioma || (data.video && data.video.includes('LEG') ? 'Legendado' : 'Dublado')
+    // Padrão 'Dublado', nunca vazio.
+    const isLegendado = Boolean(
+      (data.video && data.video.includes('LEG')) ||
+      (videoUrl && (videoUrl.toLowerCase().includes('leg.mp4') || videoUrl.toLowerCase().includes('_leg')))
+    );
+    const idioma = data.idioma || (data.video && isLegendado ? 'Legendado' : 'Dublado') || 'Dublado';
 
     // 🎬 Enriquecimento automático com TMDb: TMDB ID, Trailer, Ano, Data de Lançamento, Capa de fundo, Imdb
     let tmdbData = null;
@@ -360,7 +365,7 @@ export class MaxPlusImportEngine {
         }),
         Link: this.pick(videoUrl, existingContent.Link),
         Tipo: 'Filme',
-        Idioma: this.pick(idioma, existingContent.Idioma),
+        Idioma: this.pick(idioma, existingContent.Idioma || existingContent.idioma) || idioma || 'Dublado',
         'TMDB ID': this.pick(tmdbData?.tmdbId, existingContent['TMDB ID'] || existingContent.tmdb_id),
         'Trailer': this.pick(tmdbData?.trailer, existingContent.Trailer || existingContent.trailer),
         'Ano': this.pick(tmdbData?.ano, existingContent.Ano || existingContent.ano),
@@ -383,7 +388,7 @@ export class MaxPlusImportEngine {
       Categoria: categoriaNormalizada,
       Link: videoUrl,
       Tipo: 'Filme',
-      Idioma: idioma,
+      Idioma: idioma || 'Dublado',
       'TMDB ID': tmdbData?.tmdbId || '',
       'Trailer': tmdbData?.trailer || '',
       'Ano': tmdbData?.ano || '',
@@ -432,6 +437,15 @@ export class MaxPlusImportEngine {
 
     const avaliacaoImdb = tmdbData?.imdb || (data.estrelas ? String(data.estrelas) : '');
 
+    // Regra de Idioma obrigatório para Série:
+    // data.idioma || (data.video && data.video.includes('LEG') ? 'Legendado' : 'Dublado')
+    // Se por qualquer motivo não for detectado, utilize "Dublado" como padrão. Nunca deixe vazio.
+    const isSerieLegendado = Boolean(
+      (data.video && data.video.includes('LEG')) ||
+      (data.video && (data.video.toLowerCase().includes('leg.mp4') || data.video.toLowerCase().includes('_leg')))
+    );
+    const serieIdioma = data.idioma || (data.video && isSerieLegendado ? 'Legendado' : 'Dublado') || 'Dublado';
+
     // 🏷️ Normalização e padronização das Categorias:
     // - Séries SEMPRE contêm 'Series'
     // - Contém SEMPRE o ano (ex: 2026 ou 2023)
@@ -465,6 +479,7 @@ export class MaxPlusImportEngine {
           titulo: data.nome,
         }),
         Tipo: 'Serie',
+        Idioma: this.pick(serieIdioma, existingSerie.Idioma || existingSerie.idioma) || serieIdioma || 'Dublado',
         'TMDB ID': this.pick(tmdbData?.tmdbId, existingSerie['TMDB ID'] || existingSerie.tmdb_id),
         'Trailer': this.pick(tmdbData?.trailer, existingSerie.Trailer || existingSerie.trailer),
         'Ano': this.pick(tmdbData?.ano, existingSerie.Ano || existingSerie.ano),
@@ -485,6 +500,7 @@ export class MaxPlusImportEngine {
         Sinopse: data.sinopse || tmdbData?.sinopse || '',
         Categoria: categoriaNormalizada,
         Tipo: 'Serie',
+        Idioma: serieIdioma || 'Dublado',
         'TMDB ID': tmdbData?.tmdbId || '',
         'Trailer': tmdbData?.trailer || '',
         'Ano': tmdbData?.ano || '',
@@ -568,20 +584,29 @@ export class MaxPlusImportEngine {
 
         try {
           let videoUrl = '';
-          let isLeg = false;
+          let epData: MaxPlusEpisodeResult | null = null;
 
           // Buscar link direto do MP4 via fetchEpisode com timeout de 6s
           if (item.episode.link) {
             try {
               const fetchPromise = fetchEpisode(item.episode.link);
               const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000));
-              const epResult = await Promise.race([fetchPromise, timeoutPromise]);
-              videoUrl = epResult?.video || '';
-              isLeg = videoUrl.toLowerCase().includes('leg.mp4') || videoUrl.toLowerCase().includes('_leg');
+              epData = await Promise.race([fetchPromise, timeoutPromise]);
+              videoUrl = epData?.video || '';
             } catch (epErr) {
               console.warn(`Aviso ao obter link do episódio T${seasonNum}E${epNum}:`, epErr);
             }
           }
+
+          // Regra de Idioma obrigatório do episódio:
+          // epData.idioma || (epData.video && epData.video.includes('LEG') ? 'Legendado' : 'Dublado')
+          // Se por qualquer motivo não for detectado, utilize "Dublado" como padrão. Nunca deixe vazio.
+          const epVideo = epData?.video || videoUrl || '';
+          const isEpLegendado = Boolean(
+            (epVideo && epVideo.includes('LEG')) ||
+            (epVideo && (epVideo.toLowerCase().includes('leg.mp4') || epVideo.toLowerCase().includes('_leg')))
+          );
+          const epIdioma = epData?.idioma || (epVideo && isEpLegendado ? 'Legendado' : 'Dublado') || 'Dublado';
 
           // Verifica se o episódio já existe na tabela de episódios pelo mapa pré-carregado
           const epKey = `${seasonNum}_${epNum}`;
@@ -595,7 +620,7 @@ export class MaxPlusImportEngine {
               Temporada: seasonNum,
               'Episódio': epNum,
               Link: this.pick(videoUrl, existingEp.Link || existingEp.link),
-              Idioma: this.pick(isLeg ? 'Legendado' : 'Dublado', existingEp.Idioma || existingEp.idioma),
+              Idioma: this.pick(epIdioma, existingEp.Idioma || existingEp.idioma) || epIdioma || 'Dublado',
               Sinopse: this.pick(epTitle, existingEp.Sinopse || existingEp.sinopse),
             };
 
@@ -620,7 +645,7 @@ export class MaxPlusImportEngine {
               Temporada: seasonNum,
               'Episódio': epNum,
               Link: videoUrl,
-              Idioma: isLeg ? 'Legendado' : 'Dublado',
+              Idioma: epIdioma || 'Dublado',
               Sinopse: epTitle,
             };
 

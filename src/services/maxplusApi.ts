@@ -38,12 +38,14 @@ export interface MaxPlusContentDetails {
   estrelas?: string;
   total_seasons?: number;
   seasons_details?: MaxPlusSeasonDetail[];
+  idioma?: string | null;
 }
 
 export interface MaxPlusEpisodeResult {
   video: string;
   server_used?: string;
   player_url?: string;
+  idioma?: string | null;
 }
 
 export interface MaxPlusCategory {

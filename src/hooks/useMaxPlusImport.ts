@@ -72,6 +72,12 @@ export const useMaxPlusImport = () => {
     }
 
     try {
+      const isLeg = Boolean(
+        (content.link && content.link.includes('LEG')) ||
+        (content.link && (content.link.toLowerCase().includes('leg.mp4') || content.link.toLowerCase().includes('_leg')))
+      );
+      const idioma = (content as any).idioma || (content.link && isLeg ? 'Legendado' : 'Dublado') || 'Dublado';
+
       const payload = {
         Nome: content.title,
         Link: content.link || '',
@@ -79,7 +85,7 @@ export const useMaxPlusImport = () => {
         Sinopse: content.synopsis,
         Categoria: content.category,
         Capa: content.poster,
-        Idioma: 'Português',
+        Idioma: idioma,
         Views: '0',
       };
 
@@ -100,6 +106,12 @@ export const useMaxPlusImport = () => {
     }
 
     try {
+      const isLeg = Boolean(
+        (content.link && content.link.includes('LEG')) ||
+        (content.poster && content.poster.includes('LEG'))
+      );
+      const idioma = (content as any).idioma || (content.link && isLeg ? 'Legendado' : 'Dublado') || 'Dublado';
+
       const payload = {
         Nome: content.title,
         Link: content.poster,
@@ -107,7 +119,7 @@ export const useMaxPlusImport = () => {
         Sinopse: content.synopsis,
         Categoria: content.category,
         Capa: content.poster,
-        Idioma: 'Português',
+        Idioma: idioma,
         Views: '0',
         Temporadas: content.seasons?.length.toString() || '1',
       };
@@ -148,12 +160,18 @@ export const useMaxPlusImport = () => {
           batch.map(async (episode) => {
             try {
               const link = await maxPlusImportService.getEpisodeLink(episode.id);
+              const isLeg = Boolean(
+                (link && link.includes('LEG')) ||
+                (link && (link.toLowerCase().includes('leg.mp4') || link.toLowerCase().includes('_leg')))
+              );
+              const epIdioma = (episode as any).idioma || (link && isLeg ? 'Legendado' : 'Dublado') || 'Dublado';
               
               const payload = {
                 Nome: episode.title,
                 Temporada: episode.season.toString(),
-                Episódio: episode.episode.toString(),
+                'Episódio': episode.episode.toString(),
                 Link: link,
+                Idioma: epIdioma,
                 Conteudo: [contentId],
               };
 
