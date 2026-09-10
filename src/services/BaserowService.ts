@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useConfig } from '../contexts/ConfigContext';
 import { logger } from '@/utils/logger';
 import BASEROW_PROXY_CONFIG from '@/config/proxyConfig';
@@ -445,5 +446,8 @@ export class BaserowService {
 
 export const useBaserowService = () => {
   const { config } = useConfig();
-  return new BaserowService(config.apiToken, config.baseUrl);
+  return useMemo(
+    () => new BaserowService(config.apiToken, config.baseUrl),
+    [config.apiToken, config.baseUrl]
+  );
 };

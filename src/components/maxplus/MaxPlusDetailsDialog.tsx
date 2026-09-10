@@ -195,6 +195,7 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
                   <img
                     src={details.imagem}
                     alt={details.nome}
+                    referrerPolicy="no-referrer"
                     className="w-full h-full object-cover"
                   />
                 ) : (

@@ -85,6 +85,7 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
             src={item.imagem}
             alt={item.nome}
             loading="lazy"
+            referrerPolicy="no-referrer"
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108 group-hover:brightness-105"
             onError={(e) => {
               (e.target as HTMLElement).style.display = 'none';

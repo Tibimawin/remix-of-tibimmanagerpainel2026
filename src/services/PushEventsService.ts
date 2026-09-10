@@ -6,17 +6,23 @@ import { auth } from '@/config/firebase';
  * edge function `push`, que envia via FCM HTTP v1 com service account.
  */
 class PushEventsService {
+  private static edgeFunctionUnavailable = false;
+
   private async call(action: string, payload: Record<string, unknown> = {}) {
+    if (PushEventsService.edgeFunctionUnavailable) return null;
     try {
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) return null;
       const { data, error } = await supabase.functions.invoke('push', {
         body: { action, idToken, ...payload },
       });
-      if (error) throw error;
+      if (error) {
+        PushEventsService.edgeFunctionUnavailable = true;
+        return null;
+      }
       return data;
-    } catch (err) {
-      console.warn(`[push] falha ao disparar "${action}":`, err);
+    } catch {
+      PushEventsService.edgeFunctionUnavailable = true;
       return null;
     }
   }
@@ -64,13 +70,23 @@ class PushEventsService {
 
   /** Diagnóstico: verifica se o backend de push está pronto */
   async status() {
-    const { data } = await supabase.functions.invoke('push', { body: { action: 'status' } });
-    return data as {
-      ready: boolean;
-      hasServiceAccount: boolean;
-      hasVapidPublicKey: boolean;
-      activeTokens: number;
-    } | null;
+    if (PushEventsService.edgeFunctionUnavailable) return null;
+    try {
+      const { data, error } = await supabase.functions.invoke('push', { body: { action: 'status' } });
+      if (error) {
+        PushEventsService.edgeFunctionUnavailable = true;
+        return null;
+      }
+      return data as {
+        ready: boolean;
+        hasServiceAccount: boolean;
+        hasVapidPublicKey: boolean;
+        activeTokens: number;
+      } | null;
+    } catch {
+      PushEventsService.edgeFunctionUnavailable = true;
+      return null;
+    }
   }
 }
 

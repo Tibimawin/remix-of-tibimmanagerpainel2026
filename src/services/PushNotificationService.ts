@@ -19,6 +19,7 @@ interface NotificationPayload {
 class PushNotificationService {
   private messaging: Messaging | null = null;
   private vapidKey: string | null = null;
+  private static edgeFunctionUnavailable = false;
 
 
   async initialize() {
@@ -92,14 +93,20 @@ class PushNotificationService {
       return this.vapidKey;
     }
 
+    if (PushNotificationService.edgeFunctionUnavailable) return null;
+
     try {
-      const { data } = await supabase.functions.invoke('push', { body: { action: 'vapid-key' } });
+      const { data, error } = await supabase.functions.invoke('push', { body: { action: 'vapid-key' } });
+      if (error) {
+        PushNotificationService.edgeFunctionUnavailable = true;
+        return null;
+      }
       if (data?.key) {
         this.vapidKey = data.key as string;
         return this.vapidKey;
       }
-    } catch (error) {
-      console.warn('Não foi possível obter a chave VAPID do backend:', error);
+    } catch {
+      PushNotificationService.edgeFunctionUnavailable = true;
     }
     return null;
   }
@@ -116,7 +123,6 @@ class PushNotificationService {
 
       const vapidKey = await this.getVapidKey();
       if (!vapidKey) {
-        console.warn('Chave VAPID não configurada — notificações push desativadas.');
         return null;
       }
 
@@ -131,18 +137,16 @@ class PushNotificationService {
         await this.registerTokenOnServer(token);
         return token;
       } else {
-        console.log('Não foi possível obter token FCM');
         return null;
       }
     } catch (error) {
-
-      console.error('Erro ao obter token FCM:', error);
       return null;
     }
   }
 
   /** Salva o token do dispositivo no backend para envios reais via FCM */
   async registerTokenOnServer(token: string): Promise<boolean> {
+    if (PushNotificationService.edgeFunctionUnavailable) return false;
     try {
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) return false;
@@ -158,11 +162,14 @@ class PushNotificationService {
           Authorization: `Bearer ${idToken}`
         }
       });
-      if (error || (data as any)?.error) throw error || new Error((data as any).error);
+      if (error || (data as any)?.error) {
+        PushNotificationService.edgeFunctionUnavailable = true;
+        return false;
+      }
       localStorage.setItem('fcm_token_registered', token);
       return true;
-    } catch (err) {
-      console.warn('Falha ao registrar token push no servidor:', err);
+    } catch {
+      PushNotificationService.edgeFunctionUnavailable = true;
       return false;
     }
   }
@@ -171,15 +178,16 @@ class PushNotificationService {
   async unregister(): Promise<void> {
     const token = localStorage.getItem('fcm_token');
     if (!token) return;
-    try {
-      await supabase.functions.invoke('push', { body: { action: 'unregister-token', token } });
-      if (this.messaging) await deleteToken(this.messaging).catch(() => {});
-    } catch (err) {
-      console.warn('Falha ao remover token push:', err);
-    } finally {
-      localStorage.removeItem('fcm_token');
-      localStorage.removeItem('fcm_token_registered');
+    if (!PushNotificationService.edgeFunctionUnavailable) {
+      try {
+        await supabase.functions.invoke('push', { body: { action: 'unregister-token', token } });
+      } catch {
+        PushNotificationService.edgeFunctionUnavailable = true;
+      }
     }
+    if (this.messaging) await deleteToken(this.messaging).catch(() => {});
+    localStorage.removeItem('fcm_token');
+    localStorage.removeItem('fcm_token_registered');
   }
 
   /** Garante que o usuário logado tenha o token registrado (chame após login) */

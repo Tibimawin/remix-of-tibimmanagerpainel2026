@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   fetchCatalog, 
   fetchDetails, 
@@ -64,37 +64,63 @@ export function useMaxPlus() {
     const conteudosId = config.tableIds?.conteudos || config.conteudosTableId || '';
     const episodiosId = config.tableIds?.episodios || config.episodiosTableId || '';
     return new MaxPlusImportEngine(baserowService, conteudosId, episodiosId);
-  }, [config, baserowService]);
+  }, [config.tableIds?.conteudos, config.conteudosTableId, config.tableIds?.episodios, config.episodiosTableId, baserowService]);
 
-  // Checar quais conteúdos da lista já existem no Baserow (com cache de alta performance)
-  const checkImportedStatus = useCallback(async (catalogItems?: MaxPlusCatalogItem[]) => {
+  const engineRef = useRef(engine);
+  engineRef.current = engine;
+
+  const isConfiguredRef = useRef(isConfigured);
+  isConfiguredRef.current = isConfigured;
+
+  const checkingRef = useRef(false);
+  const lastCheckedFingerprintRef = useRef<string>('');
+
+  // Checar quais conteúdos da lista já existem no Baserow (com cache de alta performance e proteção anti-loop)
+  const checkImportedStatus = useCallback(async (catalogItems?: MaxPlusCatalogItem[], force = false) => {
     const list = catalogItems || items;
-    if (!list || list.length === 0 || !isConfigured) return;
+    if (!list || list.length === 0 || !isConfiguredRef.current) return;
+
+    const names = list.map(i => i.nome).filter(Boolean);
+    if (names.length === 0) return;
+
+    const fingerprint = names.slice().sort().join('::');
+    if (!force && fingerprint === lastCheckedFingerprintRef.current) {
+      return;
+    }
+    if (checkingRef.current) return;
+
+    checkingRef.current = true;
+    lastCheckedFingerprintRef.current = fingerprint;
 
     try {
       setLoadingImportedCheck(true);
-      const names = list.map(i => i.nome).filter(Boolean);
-      const detected = await engine.findExistingContentsByTitles(names);
+      const detected = await engineRef.current.findExistingContentsByTitles(names);
       
-      setImportedTitles(prev => {
-        let hasNew = false;
-        for (const t of detected) {
-          if (!prev.has(t)) {
-            hasNew = true;
-            break;
+      if (detected.size > 0) {
+        setImportedTitles(prev => {
+          let hasNew = false;
+          for (const t of detected) {
+            if (!prev.has(t)) {
+              hasNew = true;
+              break;
+            }
           }
-        }
-        if (!hasNew) return prev;
-        const next = new Set(prev);
-        detected.forEach(t => next.add(t));
-        return next;
-      });
+          if (!hasNew) return prev;
+          const next = new Set(prev);
+          detected.forEach(t => next.add(t));
+          return next;
+        });
+      }
     } catch (err) {
       console.warn('[MaxPlus] Erro ao verificar conteúdos importados no Baserow:', err);
     } finally {
+      checkingRef.current = false;
       setLoadingImportedCheck(false);
     }
-  }, [items, isConfigured, engine]);
+  }, [items]);
+
+  const checkImportedStatusRef = useRef(checkImportedStatus);
+  checkImportedStatusRef.current = checkImportedStatus;
 
   // Verificar se um item específico já foi importado
   const isItemImported = useCallback((title?: string | null): boolean => {
@@ -143,7 +169,7 @@ export function useMaxPlus() {
 
       // Atualizar verificação de importados para a nova página
       if (Array.isArray(data) && data.length > 0) {
-        checkImportedStatus(data);
+        checkImportedStatusRef.current(data);
       }
     } catch (err: any) {
       console.error('Erro ao carregar categoria:', err);
@@ -154,7 +180,7 @@ export function useMaxPlus() {
     } finally {
       setLoading(false);
     }
-  }, [checkImportedStatus]);
+  }, []);
 
   // Navegar diretamente para uma página
   const goToPage = useCallback(async (page: number) => {
@@ -250,16 +276,9 @@ export function useMaxPlus() {
     });
   }, [items]);
 
-  // Dispara a verificação de conteúdos importados quando os itens mudam
-  useEffect(() => {
-    if (items.length > 0 && isConfigured) {
-      checkImportedStatus(items);
-    }
-  }, [items, isConfigured, checkImportedStatus]);
-
   // Importar Filme único
   const importMovie = useCallback(async (details: MaxPlusContentDetails, fallbackCat?: string) => {
-    if (!isConfigured) {
+    if (!isConfiguredRef.current) {
       toast.error('Configure as credenciais e tabelas do Baserow nas Configurações.');
       return;
     }
@@ -268,7 +287,7 @@ export function useMaxPlus() {
       setIsImporting(true);
       toast.loading(`Importando filme "${details.nome}"...`, { id: 'import-movie' });
 
-      const res = await engine.importMovie(details, fallbackCat);
+      const res = await engineRef.current.importMovie(details, fallbackCat);
 
       // Marca o título imediatamente como importado no estado local
       const norm = normalizeText(details.nome);
@@ -283,14 +302,15 @@ export function useMaxPlus() {
       }
 
       // Re-sincroniza em background
-      checkImportedStatus();
+      lastCheckedFingerprintRef.current = '';
+      checkImportedStatusRef.current(undefined, true);
     } catch (err: any) {
       console.error('Erro ao importar filme:', err);
       toast.error(`Falha ao importar filme: ${err?.message || 'Erro desconhecido'}`, { id: 'import-movie' });
     } finally {
       setIsImporting(false);
     }
-  }, [engine, isConfigured, normalizeText, checkImportedStatus]);
+  }, [normalizeText]);
 
   // Importar Série única (com episódios)
   const importSeries = useCallback(async (
@@ -298,7 +318,7 @@ export function useMaxPlus() {
     fallbackCat?: string,
     selectedEps?: { seasonNum: number; episodeNum: number }[]
   ) => {
-    if (!isConfigured) {
+    if (!isConfiguredRef.current) {
       toast.error('Configure as credenciais e tabelas do Baserow nas Configurações.');
       return;
     }
@@ -307,7 +327,7 @@ export function useMaxPlus() {
       setIsImporting(true);
       toast.loading(`Iniciando importação de "${details.nome}"...`, { id: 'import-series' });
 
-      const result = await engine.importSeries(
+      const result = await engineRef.current.importSeries(
         details, 
         fallbackCat, 
         (progress) => setImportProgress(progress),
@@ -336,7 +356,8 @@ export function useMaxPlus() {
       );
 
       // Re-sincroniza em background
-      checkImportedStatus();
+      lastCheckedFingerprintRef.current = '';
+      checkImportedStatusRef.current(undefined, true);
     } catch (err: any) {
       console.error('Erro ao importar série:', err);
       toast.error(`Falha ao importar série: ${err?.message || 'Erro desconhecido'}`, { id: 'import-series' });
@@ -344,7 +365,7 @@ export function useMaxPlus() {
       setIsImporting(false);
       setImportProgress({ active: false, total: 0, current: 0, currentTitle: '', stage: '' });
     }
-  }, [engine, isConfigured, normalizeText, checkImportedStatus]);
+  }, [normalizeText]);
 
   // Importar itens selecionados em Lote (Batch)
   const importSelectedBatch = useCallback(async () => {
@@ -352,7 +373,7 @@ export function useMaxPlus() {
       toast.info('Selecione pelo menos um item para importar.');
       return;
     }
-    if (!isConfigured) {
+    if (!isConfiguredRef.current) {
       toast.error('Configure as credenciais e tabelas do Baserow nas Configurações.');
       return;
     }
@@ -361,7 +382,7 @@ export function useMaxPlus() {
       setIsImporting(true);
       toast.loading(`Importando ${selectedItems.length} itens em lote...`, { id: 'import-batch' });
 
-      const result = await engine.importBatch(selectedItems, (progress) => {
+      const result = await engineRef.current.importBatch(selectedItems, (progress) => {
         setImportProgress(progress);
       });
 
@@ -372,7 +393,8 @@ export function useMaxPlus() {
       setSelectedItems([]);
 
       // Re-sincroniza os itens importados após conclusão do lote
-      checkImportedStatus();
+      lastCheckedFingerprintRef.current = '';
+      checkImportedStatusRef.current(undefined, true);
     } catch (err: any) {
       console.error('Erro na importação em lote:', err);
       toast.error(`Falha no lote: ${err?.message || 'Erro desconhecido'}`, { id: 'import-batch' });
@@ -380,11 +402,15 @@ export function useMaxPlus() {
       setIsImporting(false);
       setImportProgress({ active: false, total: 0, current: 0, currentTitle: '', stage: '' });
     }
-  }, [selectedItems, engine, isConfigured, checkImportedStatus]);
+  }, [selectedItems]);
 
-  // Carrega categoria inicial ao montar
+  // Carrega categoria inicial apenas uma vez ao montar
+  const mountedRef = useRef(false);
   useEffect(() => {
-    loadCategory(MAXPLUS_CATEGORIES[0].url);
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      loadCategory(MAXPLUS_CATEGORIES[0].url);
+    }
   }, [loadCategory]);
 
   return {
