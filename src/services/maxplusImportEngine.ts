@@ -29,6 +29,28 @@ export class MaxPlusImportEngine {
   private conteudosKeysCache: string[] | null = null;
   private episodiosKeysCache: string[] | null = null;
 
+  // Cache estático em memória por sessão para evitar re-consultar títulos no Baserow
+  private static verifiedImportedCache = new Set<string>();
+  private static verifiedMissingCache = new Set<string>();
+
+  public static markAsImported(title?: string | null): void {
+    if (!title) return;
+    const norm = (title || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+    if (norm) {
+      MaxPlusImportEngine.verifiedImportedCache.add(norm);
+      MaxPlusImportEngine.verifiedMissingCache.delete(norm);
+    }
+  }
+
+  public static getKnownImportedTitles(): Set<string> {
+    return new Set(MaxPlusImportEngine.verifiedImportedCache);
+  }
+
   constructor(
     baserowService: BaserowService,
     conteudosTableId: string,
@@ -97,11 +119,16 @@ export class MaxPlusImportEngine {
   }
 
   /**
-   * Busca conteúdos existentes por uma lista de títulos (mesma estratégia da Importação Automática)
+   * Busca conteúdos existentes por uma lista de títulos com cache em memória e execução paralela otimizada
    */
   async findExistingContentsByTitles(titles: string[]): Promise<Set<string>> {
     const existingSet = new Set<string>();
-    if (!this.conteudosTableId || !titles || titles.length === 0) return existingSet;
+    if (!this.conteudosTableId || !titles || titles.length === 0) {
+      for (const t of MaxPlusImportEngine.verifiedImportedCache) {
+        existingSet.add(t);
+      }
+      return existingSet;
+    }
 
     const normalizeText = (value?: string | null) =>
       (value || '')
@@ -115,17 +142,41 @@ export class MaxPlusImportEngine {
       const cleanTitles = Array.from(new Set(titles.map(t => t?.trim()).filter(Boolean)));
       if (cleanTitles.length === 0) return existingSet;
 
-      // Consulta em lotes de 25 títulos com filter_type=OR
-      const CHUNK_SIZE = 25;
-      for (let i = 0; i < cleanTitles.length; i += CHUNK_SIZE) {
-        const chunk = cleanTitles.slice(i, i + CHUNK_SIZE);
+      // 1. Preenche imediatamente os que já estão no cache em memória
+      const unverifiedTitles: string[] = [];
+      for (const rawTitle of cleanTitles) {
+        const norm = normalizeText(rawTitle);
+        if (!norm) continue;
+
+        if (MaxPlusImportEngine.verifiedImportedCache.has(norm)) {
+          existingSet.add(norm);
+        } else if (!MaxPlusImportEngine.verifiedMissingCache.has(norm)) {
+          unverifiedTitles.push(rawTitle);
+        }
+      }
+
+      // Se todos os títulos já foram checados nesta sessão, retorna instantaneamente (0ms)!
+      if (unverifiedTitles.length === 0) {
+        return existingSet;
+      }
+
+      // 2. Consulta títulos não verificados em lotes paralelos de até 35 com timeout de segurança de 4.5s
+      const CHUNK_SIZE = 35;
+      const chunks: string[][] = [];
+      for (let i = 0; i < unverifiedTitles.length; i += CHUNK_SIZE) {
+        chunks.push(unverifiedTitles.slice(i, i + CHUNK_SIZE));
+      }
+
+      const queryPromises = chunks.map(async (chunk) => {
         let filterParams = 'filter_type=OR';
         chunk.forEach(t => {
           filterParams += `&filter__Nome__equal=${encodeURIComponent(t)}`;
         });
 
+        const foundInChunk = new Set<string>();
+
         try {
-          const resp = await this.baserowService.getTableData(
+          const fetchPromise = this.baserowService.getTableData(
             this.conteudosTableId,
             1,
             200,
@@ -133,6 +184,8 @@ export class MaxPlusImportEngine {
             undefined,
             filterParams
           );
+          const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4500));
+          const resp = await Promise.race([fetchPromise, timeoutPromise]);
 
           if (resp?.results && Array.isArray(resp.results)) {
             resp.results.forEach((item: Record<string, unknown>) => {
@@ -140,27 +193,42 @@ export class MaxPlusImportEngine {
               const norm = normalizeText(name);
               if (norm) {
                 existingSet.add(norm);
+                foundInChunk.add(norm);
+                MaxPlusImportEngine.verifiedImportedCache.add(norm);
+                MaxPlusImportEngine.verifiedMissingCache.delete(norm);
               }
             });
           }
         } catch (filterErr) {
           console.warn('[MaxPlus] Filtro OR falhou, tentando fallback com busca direta:', filterErr);
-          // Fallback: tentar busca pelo primeiro lote na tabela
           try {
-            const fallbackResp = await this.baserowService.getTableData(this.conteudosTableId, 1, 200);
+            const fallbackResp = await this.baserowService.getTableData(this.conteudosTableId, 1, 100);
             if (fallbackResp?.results) {
               fallbackResp.results.forEach((item: Record<string, unknown>) => {
                 const name = (item.Nome || item.Titulo) as string;
                 const norm = normalizeText(name);
-                if (norm) existingSet.add(norm);
+                if (norm) {
+                  existingSet.add(norm);
+                  foundInChunk.add(norm);
+                  MaxPlusImportEngine.verifiedImportedCache.add(norm);
+                }
               });
             }
           } catch {
             // ignore
           }
-          break;
         }
-      }
+
+        // Marcar títulos não encontrados no cache para evitar buscas repetidas
+        chunk.forEach(t => {
+          const norm = normalizeText(t);
+          if (norm && !foundInChunk.has(norm) && !MaxPlusImportEngine.verifiedImportedCache.has(norm)) {
+            MaxPlusImportEngine.verifiedMissingCache.add(norm);
+          }
+        });
+      });
+
+      await Promise.all(queryPromises);
     } catch (err) {
       console.warn('[MaxPlus] Erro ao buscar conteúdos já importados:', err);
     }
@@ -177,7 +245,9 @@ export class MaxPlusImportEngine {
   ): Promise<Record<string, unknown>[]> {
     if (!serieName || !tableId) return [];
     try {
-      const data = await this.baserowService.getTableData(tableId, 1, 200, serieName.trim());
+      const fetchPromise = this.baserowService.getTableData(tableId, 1, 200, serieName.trim());
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
+      const data = await Promise.race([fetchPromise, timeoutPromise]);
       if (!data || !data.results) return [];
 
       const cleanSerie = serieName.toLowerCase().trim();
@@ -245,7 +315,9 @@ export class MaxPlusImportEngine {
     let tmdbData = null;
     try {
       const hintText = [data.video, data.link, data.imagem].filter(Boolean).join(' ');
-      tmdbData = await tmdbService.getEnrichedDataForContent(data.nome, 'movie', hintText);
+      const fetchTmdb = tmdbService.getEnrichedDataForContent(data.nome, 'movie', hintText);
+      const tmdbTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3500));
+      tmdbData = await Promise.race([fetchTmdb, tmdbTimeout]);
       if (tmdbData) {
         console.log(`🎬 [MaxPlus] Metadados TMDb obtidos com sucesso para "${data.nome}":`, tmdbData);
       }
@@ -299,6 +371,7 @@ export class MaxPlusImportEngine {
 
       const mappedUpdatePayload = tableKeys.length > 0 ? mapToDatabaseKeys(rawUpdatePayload, tableKeys) : rawUpdatePayload;
       await this.baserowService.updateRow(this.conteudosTableId, String(existingContent.id), mappedUpdatePayload);
+      MaxPlusImportEngine.markAsImported(data.nome);
       return { success: true, id: String(existingContent.id), updated: true };
     }
 
@@ -323,6 +396,7 @@ export class MaxPlusImportEngine {
 
     console.log('🎬 [MaxPlus] Importando novo filme no Baserow:', mappedPayload);
     const result = await this.baserowService.createRow(this.conteudosTableId, mappedPayload);
+    MaxPlusImportEngine.markAsImported(data.nome);
     return { success: true, id: String(result.id) };
   }
 
@@ -334,7 +408,7 @@ export class MaxPlusImportEngine {
     fallbackCategory: string | undefined,
     onProgress?: (progress: ImportProgress) => void,
     selectedSeasonsOrEpisodes?: { seasonNum: number; episodeNum: number }[]
-  ): Promise<{ success: boolean; serieId?: string; totalEpisodesImported: number; updated?: boolean }> {
+  ): Promise<{ success: boolean; serieId?: string; totalEpisodesImported: number; createdEpisodesCount: number; updatedEpisodesCount: number; updated?: boolean }> {
     if (!this.conteudosTableId) {
       throw new Error('ID da tabela de conteúdos não configurado.');
     }
@@ -346,7 +420,9 @@ export class MaxPlusImportEngine {
     let tmdbData = null;
     try {
       const hintText = [data.link, data.imagem].filter(Boolean).join(' ');
-      tmdbData = await tmdbService.getEnrichedDataForContent(data.nome, 'tv', hintText);
+      const fetchTmdb = tmdbService.getEnrichedDataForContent(data.nome, 'tv', hintText);
+      const tmdbTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3500));
+      tmdbData = await Promise.race([fetchTmdb, tmdbTimeout]);
       if (tmdbData) {
         console.log(`📺 [MaxPlus] Metadados TMDb obtidos com sucesso para série "${data.nome}":`, tmdbData);
       }
@@ -388,7 +464,7 @@ export class MaxPlusImportEngine {
           dataDeLancamento: tmdbData?.dataDeLancamento || (existingSerie['Data de Lançamento'] as string) || (existingSerie.data_lancamento as string),
           titulo: data.nome,
         }),
-        Tipo: 'Série',
+        Tipo: 'Serie',
         'TMDB ID': this.pick(tmdbData?.tmdbId, existingSerie['TMDB ID'] || existingSerie.tmdb_id),
         'Trailer': this.pick(tmdbData?.trailer, existingSerie.Trailer || existingSerie.trailer),
         'Ano': this.pick(tmdbData?.ano, existingSerie.Ano || existingSerie.ano),
@@ -401,13 +477,14 @@ export class MaxPlusImportEngine {
       await this.baserowService.updateRow(this.conteudosTableId, String(existingSerie.id), mappedSerieUpdate);
       serieId = String(existingSerie.id);
       isSerieUpdated = true;
+      MaxPlusImportEngine.markAsImported(data.nome);
     } else {
       const rawSeriePayload = {
         Nome: data.nome,
         Capa: data.imagem || tmdbData?.poster || '',
         Sinopse: data.sinopse || tmdbData?.sinopse || '',
         Categoria: categoriaNormalizada,
-        Tipo: 'Série',
+        Tipo: 'Serie',
         'TMDB ID': tmdbData?.tmdbId || '',
         'Trailer': tmdbData?.trailer || '',
         'Ano': tmdbData?.ano || '',
@@ -420,6 +497,7 @@ export class MaxPlusImportEngine {
       console.log('📺 [MaxPlus] Criando novo registro da Série no Baserow:', mappedSeriePayload);
       const serieResult = await this.baserowService.createRow(this.conteudosTableId, mappedSeriePayload);
       serieId = String(serieResult?.id);
+      MaxPlusImportEngine.markAsImported(data.nome);
     }
 
     // 2. Coletar todos os episódios a serem importados
@@ -455,7 +533,7 @@ export class MaxPlusImportEngine {
         existingEpisodesMap.set(`${s}_${e}`, ep);
       }
     }
-    console.log(`📋 [MaxPlus] ${existingEpisodesList.length} episódios existentes já encontrados para a série "${data.nome}"`);
+    console.log(`📋 [MaxPlus] ${existingEpisodesList.length} episódios existentes já mapeados para "${data.nome}"`);
 
     if (totalEpisodes > 0 && onProgress) {
       onProgress({
@@ -467,104 +545,108 @@ export class MaxPlusImportEngine {
       });
     }
 
-    // 3. Loop assíncrono para resolver links de episódios e fazer Upsert (atualizar se já existe)
-    for (let i = 0; i < totalEpisodes; i++) {
-      const item = allEpisodesToImport[i];
-      const epNum = item.episode.number;
-      const seasonNum = item.seasonNum;
-      const epTitle = item.episode.title || `Episódio ${epNum}`;
+    // 3. Processamento concorrente de episódios em lotes de 3 (alto desempenho sem travar o Baserow)
+    const CONCURRENCY = 3;
+    for (let i = 0; i < totalEpisodes; i += CONCURRENCY) {
+      const batch = allEpisodesToImport.slice(i, i + CONCURRENCY);
 
-      if (onProgress) {
-        onProgress({
-          active: true,
-          total: totalEpisodes,
-          current: i + 1,
-          currentTitle: `${data.nome} - T${seasonNum}E${epNum}: ${epTitle}`,
-          stage: `Processando episódio (${i + 1}/${totalEpisodes})...`,
-        });
-      }
+      await Promise.all(batch.map(async (item, batchIdx) => {
+        const itemIndex = i + batchIdx;
+        const epNum = item.episode.number;
+        const seasonNum = item.seasonNum;
+        const epTitle = item.episode.title || `Episódio ${epNum}`;
 
-      try {
-        let videoUrl = '';
-        let isLeg = false;
-
-        // Buscar link direto do MP4 via fetchEpisode
-        if (item.episode.link) {
-          try {
-            const epResult = await fetchEpisode(item.episode.link);
-            videoUrl = epResult?.video || '';
-            isLeg = videoUrl.toLowerCase().includes('leg.mp4') || videoUrl.toLowerCase().includes('_leg');
-          } catch (epErr) {
-            console.warn(`Aviso ao obter link do episódio T${seasonNum}E${epNum}:`, epErr);
-          }
+        if (onProgress) {
+          onProgress({
+            active: true,
+            total: totalEpisodes,
+            current: Math.min(itemIndex + 1, totalEpisodes),
+            currentTitle: `${data.nome} - T${seasonNum}E${epNum}: ${epTitle}`,
+            stage: `Processando episódio (${Math.min(itemIndex + 1, totalEpisodes)}/${totalEpisodes})...`,
+          });
         }
 
-        // Verifica se o episódio já existe na tabela de episódios (primeiro no mapa pré-carregado, fallback direto)
-        const epKey = `${seasonNum}_${epNum}`;
-        let existingEp = existingEpisodesMap.get(epKey) || null;
-        if (!existingEp) {
-          existingEp = await this.findEpisodeByIdentifiers(data.nome, seasonNum, epNum, this.episodiosTableId);
+        try {
+          let videoUrl = '';
+          let isLeg = false;
+
+          // Buscar link direto do MP4 via fetchEpisode com timeout de 6s
+          if (item.episode.link) {
+            try {
+              const fetchPromise = fetchEpisode(item.episode.link);
+              const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000));
+              const epResult = await Promise.race([fetchPromise, timeoutPromise]);
+              videoUrl = epResult?.video || '';
+              isLeg = videoUrl.toLowerCase().includes('leg.mp4') || videoUrl.toLowerCase().includes('_leg');
+            } catch (epErr) {
+              console.warn(`Aviso ao obter link do episódio T${seasonNum}E${epNum}:`, epErr);
+            }
+          }
+
+          // Verifica se o episódio já existe na tabela de episódios pelo mapa pré-carregado
+          const epKey = `${seasonNum}_${epNum}`;
+          const existingEp = existingEpisodesMap.get(epKey) || null;
+
+          if (existingEp) {
+            console.log(`🔄 [MaxPlus] Episódio T${seasonNum}E${epNum} já existe (ID: ${existingEp.id}), atualizando dados...`);
+            const rawEpUpdate: Record<string, unknown> = {
+              Nome: data.nome,
+              Serie: data.nome,
+              Temporada: seasonNum,
+              'Episódio': epNum,
+              Link: this.pick(videoUrl, existingEp.Link || existingEp.link),
+              Idioma: this.pick(isLeg ? 'Legendado' : 'Dublado', existingEp.Idioma || existingEp.idioma),
+              Sinopse: this.pick(epTitle, existingEp.Sinopse || existingEp.sinopse),
+            };
+
+            // Preencher vínculo Conteudo se estiver vazio
+            const conteudoLink = existingEp.Conteudo;
+            const linkVazio = !conteudoLink || (Array.isArray(conteudoLink) && conteudoLink.length === 0);
+            if (linkVazio && serieId) {
+              rawEpUpdate.Conteudo = [serieId];
+            }
+
+            const mappedEpUpdate = episodiosKeys.length > 0 
+              ? mapToDatabaseKeys(rawEpUpdate, episodiosKeys) 
+              : rawEpUpdate;
+
+            await this.baserowService.updateRow(this.episodiosTableId, String(existingEp.id), mappedEpUpdate);
+            updatedEpisodesCount++;
+          } else {
+            console.log(`➕ [MaxPlus] Criando novo episódio T${seasonNum}E${epNum}...`);
+            const rawEpPayload: Record<string, unknown> = {
+              Nome: data.nome,
+              Serie: data.nome,
+              Temporada: seasonNum,
+              'Episódio': epNum,
+              Link: videoUrl,
+              Idioma: isLeg ? 'Legendado' : 'Dublado',
+              Sinopse: epTitle,
+            };
+
+            if (serieId) {
+              rawEpPayload.Conteudo = [serieId];
+            }
+
+            const mappedEpPayload = episodiosKeys.length > 0 
+              ? mapToDatabaseKeys(rawEpPayload, episodiosKeys) 
+              : rawEpPayload;
+
+            const createdEp = await this.baserowService.createRow(this.episodiosTableId, mappedEpPayload);
+            if (createdEp) {
+              existingEpisodesMap.set(epKey, createdEp);
+            }
+            createdEpisodesCount++;
+          }
+
+          importedCount++;
+        } catch (err) {
+          console.error(`Erro ao importar episódio T${seasonNum}E${epNum}:`, err);
         }
+      }));
 
-        if (existingEp) {
-          console.log(`🔄 [MaxPlus] Episódio T${seasonNum}E${epNum} já existe (ID: ${existingEp.id}), atualizando dados...`);
-          const rawEpUpdate: Record<string, unknown> = {
-            Nome: data.nome,
-            Serie: data.nome,
-            Temporada: seasonNum,
-            'Episódio': epNum,
-            Link: this.pick(videoUrl, existingEp.Link || existingEp.link),
-            Idioma: this.pick(isLeg ? 'Legendado' : 'Dublado', existingEp.Idioma || existingEp.idioma),
-            Sinopse: this.pick(epTitle, existingEp.Sinopse || existingEp.sinopse),
-          };
-
-          // Preencher vínculo Conteudo se estiver vazio
-          const conteudoLink = existingEp.Conteudo;
-          const linkVazio = !conteudoLink || (Array.isArray(conteudoLink) && conteudoLink.length === 0);
-          if (linkVazio && serieId) {
-            rawEpUpdate.Conteudo = [serieId];
-          }
-
-          const mappedEpUpdate = episodiosKeys.length > 0 
-            ? mapToDatabaseKeys(rawEpUpdate, episodiosKeys) 
-            : rawEpUpdate;
-
-          await this.baserowService.updateRow(this.episodiosTableId, String(existingEp.id), mappedEpUpdate);
-          updatedEpisodesCount++;
-        } else {
-          console.log(`➕ [MaxPlus] Criando novo episódio T${seasonNum}E${epNum}...`);
-          const rawEpPayload: Record<string, unknown> = {
-            Nome: data.nome,
-            Serie: data.nome,
-            Temporada: seasonNum,
-            'Episódio': epNum,
-            Link: videoUrl,
-            Idioma: isLeg ? 'Legendado' : 'Dublado',
-            Sinopse: epTitle,
-          };
-
-          if (serieId) {
-            rawEpPayload.Conteudo = [serieId];
-          }
-
-          const mappedEpPayload = episodiosKeys.length > 0 
-            ? mapToDatabaseKeys(rawEpPayload, episodiosKeys) 
-            : rawEpPayload;
-
-          const createdEp = await this.baserowService.createRow(this.episodiosTableId, mappedEpPayload);
-          if (createdEp) {
-            existingEpisodesMap.set(epKey, createdEp);
-          }
-          createdEpisodesCount++;
-        }
-
-        importedCount++;
-
-        // Pequena pausa para estabilidade de rede
-        await new Promise(r => setTimeout(r, 120));
-      } catch (err) {
-        console.error(`Erro ao importar episódio T${seasonNum}E${epNum}:`, err);
-      }
+      // Pequena pausa entre lotes de episódios para não estressar a conexão
+      await new Promise(r => setTimeout(r, 60));
     }
 
     return {

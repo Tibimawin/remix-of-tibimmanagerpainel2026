@@ -43,7 +43,7 @@ export function useMaxPlus() {
   const [isImporting, setIsImporting] = useState<boolean>(false);
 
   // Detecção de Conteúdos já importados no Baserow
-  const [importedTitles, setImportedTitles] = useState<Set<string>>(new Set());
+  const [importedTitles, setImportedTitles] = useState<Set<string>>(() => MaxPlusImportEngine.getKnownImportedTitles());
   const [loadingImportedCheck, setLoadingImportedCheck] = useState<boolean>(false);
   const [filterMode, setFilterMode] = useState<'all' | 'imported' | 'pending'>('all');
 
@@ -64,7 +64,7 @@ export function useMaxPlus() {
     return new MaxPlusImportEngine(baserowService, conteudosId, episodiosId);
   }, [config, baserowService]);
 
-  // Checar quais conteúdos da lista já existem no Baserow (mesma lógica da Importação Automática)
+  // Checar quais conteúdos da lista já existem no Baserow (com cache de alta performance)
   const checkImportedStatus = useCallback(async (catalogItems?: MaxPlusCatalogItem[]) => {
     const list = catalogItems || items;
     if (!list || list.length === 0 || !isConfigured) return;
@@ -75,6 +75,14 @@ export function useMaxPlus() {
       const detected = await engine.findExistingContentsByTitles(names);
       
       setImportedTitles(prev => {
+        let hasNew = false;
+        for (const t of detected) {
+          if (!prev.has(t)) {
+            hasNew = true;
+            break;
+          }
+        }
+        if (!hasNew) return prev;
         const next = new Set(prev);
         detected.forEach(t => next.add(t));
         return next;

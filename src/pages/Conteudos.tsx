@@ -124,7 +124,7 @@ const Conteudos = () => {
     Tipo: (value: any) => value || '-',
     Idioma: (value: any) => value || '-',
     Ações: (value: any, item: any) => {
-      if (item?.Tipo === 'Série') {
+      if (item?.Tipo === 'Série' || item?.Tipo === 'Serie') {
         return (
           <Button
             variant="outline"
@@ -154,7 +154,7 @@ const Conteudos = () => {
   };
 
   const handleUpdateSeries = async (item: any) => {
-    if (item.Tipo !== 'Série') {
+    if (item.Tipo !== 'Série' && item.Tipo !== 'Serie') {
       toast.error('Esta funcionalidade é apenas para séries');
       return;
     }
