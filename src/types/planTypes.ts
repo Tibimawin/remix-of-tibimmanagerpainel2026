@@ -15,8 +15,14 @@ export interface UserPermissions {
   accessDays?: number;
   durationDays?: number;
   isActive?: boolean;
+  maxplusTrialStartedAt?: string;
   app_id?: string;
 }
+
+export const MAXPLUS_TRIAL_DURATION_MS = 24 * 60 * 60 * 1000; // 24 horas (86.400.000 ms)
+export const MAXPLUS_COMBO_PLAN_NAME = 'Painel + Baserow + Miniseries + Jodo do Dia';
+export const MAXPLUS_COMBO_PLAN_PRICE = 44.90;
+export const MAXPLUS_UNLOCK_PRICE = 20.00;
 
 export interface FeatureAccess {
   id: string;

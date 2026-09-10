@@ -18,6 +18,9 @@ import {
   CreditCard,
   RefreshCw,
   Zap,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import { Plan, AVAILABLE_FEATURES } from '@/types/planTypes';
 import AsaasPixPaymentDialog from './AsaasPixPaymentDialog';
@@ -42,6 +45,8 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
   const [showUpgradePayment, setShowUpgradePayment] = useState(false);
   const [showPlanPayment, setShowPlanPayment] = useState(false);
   const [showFeatureUnlockPayment, setShowFeatureUnlockPayment] = useState(false);
+  const [showMaxPlus20Dialog, setShowMaxPlus20Dialog] = useState(false);
+  const [showMaxPlus44Dialog, setShowMaxPlus44Dialog] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<
     | {
@@ -95,11 +100,291 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
     const hasActivePlan = !!(permissions?.planName && permissions?.isActive && permissions?.expiryDate);
     const isSubscriptionExpired = permissions?.isActive === false || !permissions?.expiryDate || new Date(permissions.expiryDate) < new Date();
     
+    // Cálculo exato de dias restantes no painel
+    let remainingDays = 0;
+    if (permissions?.expiryDate) {
+      const diffMs = new Date(permissions.expiryDate).getTime() - Date.now();
+      remainingDays = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+    }
+    const hasActiveDays = hasActivePlan && !isSubscriptionExpired && remainingDays > 0;
+    const isMaxPlus = feature === 'maxplus' || feature === 'maxplus-import';
+
     // "Liberar Recurso (R$ 15)" pode ser contratado por qualquer usuário com conta ativa
     const canUnlockIndividual = hasActivePlan && !isSubscriptionExpired;
     
     if (fallback) {
       return <>{fallback}</>;
+    }
+
+    // =========================================================================
+    // BLOQUEIO ESPECÍFICO DO MAXPLUS APÓS O TESTE DE 24H:
+    // 1. Se tem plano ativo com dias no painel -> pode desbloquear por R$ 20,00
+    // 2. Se NÃO tem plano ativo -> deve assinar o plano completo de R$ 44,90
+    // =========================================================================
+    if (isMaxPlus) {
+      return (
+        <div className="permission-gate-container max-w-5xl mx-auto py-8 px-4 sm:px-6">
+          <div className="space-y-6">
+            {/* Header MaxPlus */}
+            <div className="bg-[#151722] border border-[#232738] rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-[#00d2ff]/10 via-[#6366f1]/10 to-transparent rounded-full -mr-20 -mt-20 blur-3xl pointer-events-none" />
+              
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#232738]">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#00d2ff]/20 via-[#6366f1]/20 to-[#00d2ff]/10 border border-[#00d2ff]/30 flex items-center justify-center shadow-lg shadow-[#00d2ff]/10">
+                    <Sparkles className="w-7 h-7 text-[#00d2ff]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2">
+                        MaxPlus
+                      </h2>
+                      <Badge className="bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold text-xs px-2.5 py-0.5">
+                        <Lock className="w-3 h-3 mr-1" />
+                        Teste de 24h Concluído
+                      </Badge>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                      O período de teste gratuito de 24 horas do MaxPlus expirou. Escolha abaixo a opção ideal para a sua conta.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleVerifyPayment}
+                    disabled={isVerifying}
+                    className="text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 font-semibold gap-1.5 h-9 rounded-xl px-3.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isVerifying ? 'animate-spin' : ''}`} />
+                    Já Paguei? Verificar Acesso
+                  </Button>
+                </div>
+              </div>
+
+              {/* Status do Usuário */}
+              <div className="mt-5 flex flex-wrap items-center gap-2.5 text-xs text-slate-300">
+                <span className="text-slate-500">Status atual da conta:</span>
+                {hasActiveDays ? (
+                  <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 px-3 py-1 font-semibold">
+                    <Check className="w-3.5 h-3.5 mr-1" />
+                    Plano Ativo: {permissions?.planName || 'Assinante'} ({remainingDays} {remainingDays === 1 ? 'dia restante' : 'dias restantes'})
+                  </Badge>
+                ) : (
+                  <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 px-3 py-1 font-semibold">
+                    <AlertCircle className="w-3.5 h-3.5 mr-1" />
+                    Sem plano com dias ativos no painel
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Alerta explicativo se não tiver plano com dias ativos */}
+            {!hasActiveDays && (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs sm:text-sm flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-400" />
+                <div>
+                  <p className="font-bold text-amber-200">Atenção sobre o desbloqueio avulso de R$ 20,00:</p>
+                  <p className="mt-0.5 text-amber-300/90 leading-relaxed">
+                    O desbloqueio avulso por R$ 20,00 é um benefício exclusivo para clientes que já possuem um plano com dias ativos no painel. Como sua conta não possui dias ativos no momento, para liberar o MaxPlus você deve assinar o plano completo <strong>Painel + Baserow + Miniseries + Jodo do Dia</strong> de <strong>R$ 44,90/mês</strong>, liberando 30 dias de acesso completo a todos os benefícios.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Grid de Opções de Liberação */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Opção 1: Desbloqueio Avulso R$ 20 (Disponível apenas para quem tem plano ativo com dias) */}
+              <div className={`rounded-3xl border p-6 flex flex-col justify-between transition-all relative ${
+                hasActiveDays 
+                  ? 'bg-[#151722] border-[#00d2ff]/40 shadow-xl shadow-[#00d2ff]/5 ring-1 ring-[#00d2ff]/20'
+                  : 'bg-[#151722]/40 border-[#232738] opacity-50'
+              }`}>
+                {hasActiveDays && (
+                  <div className="absolute -top-3 left-6">
+                    <Badge className="bg-[#00d2ff] text-slate-950 font-black text-xs px-3 py-0.5 shadow-md">
+                      Disponível para Você
+                    </Badge>
+                  </div>
+                )}
+
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="w-10 h-10 rounded-xl bg-[#00d2ff]/10 border border-[#00d2ff]/20 flex items-center justify-center">
+                      <Zap className="w-5 h-5 text-[#00d2ff]" />
+                    </div>
+                    <Badge variant="outline" className="text-xs font-bold border-[#00d2ff]/30 text-[#00d2ff]">
+                      Recurso Avulso
+                    </Badge>
+                  </div>
+
+                  <h3 className="text-xl font-bold text-white mt-4">
+                    Desbloqueio MaxPlus
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Exclusivo para quem já possui um plano ativo com dias restantes no painel.
+                  </p>
+
+                  <div className="mt-5 flex items-baseline gap-1">
+                    <span className="text-xs text-slate-400">R$</span>
+                    <span className="text-4xl font-black text-[#00d2ff]">20,00</span>
+                    <span className="text-xs text-slate-400">/taxa única</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {hasActiveDays 
+                      ? `Válido durante a vigência do seu plano atual (${remainingDays} dias restantes)`
+                      : 'Requer assinatura com dias ativos no painel'}
+                  </p>
+
+                  <div className="mt-6 space-y-2.5 text-xs text-slate-300">
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-[#00d2ff] shrink-0" />
+                      <span>Puxador automático MaxPlus desbloqueado</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-[#00d2ff] shrink-0" />
+                      <span>Importação em lote de filmes, séries e doramas</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-[#00d2ff] shrink-0" />
+                      <span>Seu plano atual e vencimento permanecem intactos</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8">
+                  {hasActiveDays ? (
+                    <Button
+                      onClick={() => setShowMaxPlus20Dialog(true)}
+                      className="w-full bg-[#00d2ff] hover:bg-[#00b8e6] text-slate-950 font-black h-11 rounded-xl text-sm shadow-lg shadow-[#00d2ff]/20"
+                    >
+                      <Zap className="w-4 h-4 mr-2" />
+                      Desbloquear MaxPlus por R$ 20,00
+                    </Button>
+                  ) : (
+                    <Button disabled className="w-full opacity-40 cursor-not-allowed">
+                      Bloqueado (Requer Plano com Dias Ativos)
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Opção 2: Plano Completo R$ 44,90 ("Painel + Baserow + Miniseries + Jodo do Dia") */}
+              <div className={`rounded-3xl border p-6 flex flex-col justify-between transition-all relative ${
+                !hasActiveDays 
+                  ? 'bg-gradient-to-b from-[#151722] to-[#121c24] border-emerald-500/60 shadow-2xl ring-2 ring-emerald-500/30'
+                  : 'bg-[#151722] border-[#232738] hover:border-emerald-500/30'
+              }`}>
+                {!hasActiveDays ? (
+                  <div className="absolute -top-3 left-6">
+                    <Badge className="bg-emerald-500 text-slate-950 font-black text-xs px-3 py-0.5 shadow-md">
+                      Plano Obrigatório Sem Assinatura Ativa
+                    </Badge>
+                  </div>
+                ) : (
+                  <div className="absolute -top-3 left-6">
+                    <Badge className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-bold text-xs px-3 py-0.5 shadow-md">
+                      Upgrade Completo
+                    </Badge>
+                  </div>
+                )}
+
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                      <Crown className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <Badge variant="outline" className="text-xs font-bold border-emerald-500/30 text-emerald-400">
+                      Plano Oficial
+                    </Badge>
+                  </div>
+
+                  <h3 className="text-xl font-bold text-white mt-4">
+                    Painel + Baserow + Miniseries + Jodo do Dia
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Plano completo com 30 dias de acesso e todos os benefícios e ferramentas inclusas.
+                  </p>
+
+                  <div className="mt-5 flex items-baseline gap-1">
+                    <span className="text-xs text-slate-400">R$</span>
+                    <span className="text-4xl font-black text-emerald-400">44,90</span>
+                    <span className="text-xs text-slate-400">/mês (30 dias)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Acesso integral imediato por 30 dias
+                  </p>
+
+                  <div className="mt-6 space-y-2.5 text-xs text-slate-300">
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span className="font-semibold text-white">MaxPlus liberado completo</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Painel administrativo com 30 dias de validade</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Integração e banco Baserow</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Catálogo completo de Minisséries</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Jogos do Dia e Banners Esportivos</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8">
+                  <Button
+                    onClick={() => setShowMaxPlus44Dialog(true)}
+                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black h-11 rounded-xl text-sm shadow-lg shadow-emerald-500/20"
+                  >
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Assinar Plano Completo (R$ 44,90 via PIX)
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Diálogos de Pagamento do MaxPlus */}
+          <AsaasPixPaymentDialog
+            isOpen={showMaxPlus20Dialog}
+            onOpenChange={setShowMaxPlus20Dialog}
+            planName="Desbloqueio: MaxPlus"
+            planPrice={20}
+            planDescription="Desbloqueio da funcionalidade MaxPlus para usuário com plano ativo no painel."
+            isFeatureUnlockOnly={true}
+            requiredFeature="maxplus"
+          />
+
+          <AsaasPixPaymentDialog
+            isOpen={showMaxPlus44Dialog}
+            onOpenChange={setShowMaxPlus44Dialog}
+            planName="Painel + Baserow + Miniseries + Jodo do Dia"
+            planPrice={44.90}
+            durationDays={30}
+            planDescription="Plano completo com Painel, Baserow, Minisséries, Jogos do Dia e MaxPlus liberado por 30 dias."
+            planFeatures={[
+              'dashboard', 'conteudos', 'episodios', 'categorias', 'banners',
+              'duplicados', 'duplicados-episodios', 'importacao-automatica', 'automacao',
+              'substituicao-urls', 'importar-m3u', 'adicionar-conteudo', 'usuarios',
+              'sessoes', 'plataformas', 'produtos', 'estatisticas', 'relatorios-visualizacao',
+              'recursos', 'clean-data', 'maxplus', 'maxplus-import', 'precos-interno', 'configuracoes',
+              'perfil', 'suporte-ao-vivo', 'priority-support', 'export', 'logs',
+              'miniseries', 'jogos-dia', 'planos'
+            ]}
+            isFeatureUnlockOnly={false}
+          />
+        </div>
+      );
     }
 
     // Check if this is the API feature and user already has an active plan

@@ -122,9 +122,13 @@ export const PaymentReconciliationService = {
                             (userData?.expiryDate && new Date(userData.expiryDate).getTime() > Date.now());
 
       // 4. Adicionar apenas o novo recurso à lista de 'features' permitidas sem duplicatas
+      const extraFeaturesToAdd = [targetFeatureId];
+      if (targetFeatureId === 'maxplus' || targetFeatureId === 'maxplus-import') {
+        extraFeaturesToAdd.push('maxplus', 'maxplus-import');
+      }
       const mergedFeatures = Array.from(new Set([
         ...currentFeatures,
-        targetFeatureId,
+        ...extraFeaturesToAdd,
         'planos'
       ]));
 
@@ -577,14 +581,14 @@ export const PaymentReconciliationService = {
       featuresSet.add('minha-api');
     }
 
-    // Se o plano menciona "painel" ou se a lista de features ficou vazia, libera recursos do painel:
+    // Se o plano menciona "painel" ou se a lista de features ficou vazia, libera recursos padrão do painel:
     if (planNameNorm.includes('painel') || featuresSet.size === 0) {
       const standardPanelFeatures = [
         'dashboard', 'conteudos', 'episodios', 'categorias', 'banners',
         'duplicados', 'duplicados-episodios', 'importacao-automatica', 'automacao',
         'substituicao-urls', 'importar-m3u', 'adicionar-conteudo', 'usuarios',
         'sessoes', 'plataformas', 'produtos', 'estatisticas', 'relatorios-visualizacao',
-        'recursos', 'clean-data', 'maxplus', 'maxplus-import', 'precos-interno', 'configuracoes',
+        'recursos', 'clean-data', 'precos-interno', 'configuracoes',
         'perfil', 'suporte-ao-vivo', 'priority-support', 'export', 'logs'
       ];
       standardPanelFeatures.forEach(f => featuresSet.add(f));
@@ -593,9 +597,25 @@ export const PaymentReconciliationService = {
     // Se o plano menciona "baserow"
     if (planNameNorm.includes('baserow')) {
       featuresSet.add('clean-data');
+      featuresSet.add('export');
+    }
+
+    // Regra Estrita MaxPlus:
+    // A liberação do MaxPlus só ocorre no plano completo ("Painel + Baserow + Miniseries + Jodo do Dia" / R$ 44,90)
+    // ou em planos explicitamente dedicados ao MaxPlus
+    const isMaxPlusComboPlan = 
+      (planNameNorm.includes('miniseries') && (planNameNorm.includes('jodo') || planNameNorm.includes('jogo'))) ||
+      (planNameNorm.includes('baserow') && (planNameNorm.includes('jodo') || planNameNorm.includes('jogo'))) ||
+      planNameNorm.includes('maxplus') ||
+      Math.abs(targetPrice - 44.90) <= 2;
+
+    if (isMaxPlusComboPlan) {
       featuresSet.add('maxplus');
       featuresSet.add('maxplus-import');
-      featuresSet.add('export');
+      featuresSet.add('miniseries');
+      featuresSet.add('jogos-dia');
+      featuresSet.add('jogos');
+      featuresSet.add('clean-data');
     }
 
     // Se o plano menciona "miniseries"
@@ -604,7 +624,7 @@ export const PaymentReconciliationService = {
     }
 
     // Se o plano menciona "jogo" ou "jodo" (ex: "Jodo do Dia" ou "Jogo do Dia")
-    if (planNameNorm.includes('jogo') || planNameNorm.includes('jogos') || planNameNorm.includes('jogos-dia')) {
+    if (planNameNorm.includes('jogo') || planNameNorm.includes('jodo') || planNameNorm.includes('jogos') || planNameNorm.includes('jogos-dia')) {
       featuresSet.add('jogos-dia');
     }
 

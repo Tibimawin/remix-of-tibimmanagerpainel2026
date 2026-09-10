@@ -5,6 +5,7 @@ import { db } from '@/config/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { FirebaseUserService } from '@/services/FirebaseUserService';
 import { isFreeFeatureWhenExpired } from '@/config/freeFeatures';
+import { MaxPlusTrialService } from '@/services/MaxPlusTrialService';
 
 interface UserPermissionsContextType {
     permissions: UserPermissions | null;
@@ -206,6 +207,25 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
     }, [userInfo?.id, userInfo?.email, refreshTrigger]);
 
     const hasFeature = (featureId: string): boolean => {
+        // Regra Especial MaxPlus:
+        // O MaxPlus possui teste liberado de 24h para todo mundo do painel sem assinatura!
+        // 1. Se o usuário tem o recurso no plano ativo (e assinatura não expirada), liberado permanente
+        // 2. Se está dentro do período de teste gratuito de 24h (mesmo sem assinatura), liberado
+        // 3. Se o teste de 24h expirou e ele não tem plano/desbloqueio pago, bloqueia
+        if (featureId === 'maxplus' || featureId === 'maxplus-import') {
+            const hasPurchasedAccess = !isSubscriptionExpired && (
+                permissions?.enabledFeatures?.includes('maxplus') ||
+                permissions?.enabledFeatures?.includes('maxplus-import')
+            );
+            if (hasPurchasedAccess) return true;
+
+            // Teste de 24 horas liberado para todos sem assinatura
+            if (MaxPlusTrialService.isTrialActive(userInfo?.id, permissions?.maxplusTrialStartedAt)) {
+                return true;
+            }
+            return false;
+        }
+
         // Regra: expiração tem prioridade. Se a assinatura está expirada,
         // apenas features de FREE_FEATURES_WHEN_EXPIRED ficam disponíveis,
         // independentemente do que o admin habilitou no plano. Caso contrário,
@@ -215,13 +235,6 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
         // Se a feature for 'meus-app' e o usuário já tiver um app_id configurado, liberar
         if (featureId === 'meus-app' && permissions?.app_id && permissions.app_id.trim() !== '') {
             return true;
-        }
-
-        // Equivalência entre 'maxplus' e 'maxplus-import'
-        if (featureId === 'maxplus' || featureId === 'maxplus-import') {
-            if (permissions?.enabledFeatures?.includes('maxplus') || permissions?.enabledFeatures?.includes('maxplus-import')) {
-                return true;
-            }
         }
 
         // Equivalência para jogos do dia

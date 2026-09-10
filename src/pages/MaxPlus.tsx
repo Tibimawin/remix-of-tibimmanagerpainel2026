@@ -23,8 +23,17 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Filter,
-  Compass
+  Compass,
+  Clock,
+  Zap,
+  Lock,
+  Crown,
+  CreditCard
 } from 'lucide-react';
+import { useMaxPlusTrial } from '@/hooks/useMaxPlusTrial';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
+import AsaasPixPaymentDialog from '@/components/AsaasPixPaymentDialog';
+import { PermissionGate } from '@/components/PermissionGate';
 
 const MaxPlus: React.FC = () => {
   const {
@@ -64,6 +73,22 @@ const MaxPlus: React.FC = () => {
 
   const [inputSearchTerm, setInputSearchTerm] = useState('');
   const [jumpPageInput, setJumpPageInput] = useState('');
+
+  // Gerenciador do Teste de 24 Horas do MaxPlus
+  const { isTrialActive, isTrialExpired, hasPermanentAccess, formattedRemaining } = useMaxPlusTrial();
+  const { permissions, isSubscriptionExpired } = useUserPermissions();
+
+  const [showMaxPlus20Dialog, setShowMaxPlus20Dialog] = useState(false);
+  const [showMaxPlus44Dialog, setShowMaxPlus44Dialog] = useState(false);
+
+  // Verificação de dias ativos no painel
+  const hasActivePlan = !!(permissions?.planName && permissions?.isActive && permissions?.expiryDate);
+  let remainingDays = 0;
+  if (permissions?.expiryDate) {
+    const diffMs = new Date(permissions.expiryDate).getTime() - Date.now();
+    remainingDays = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  }
+  const hasActiveDays = hasActivePlan && !isSubscriptionExpired && remainingDays > 0;
 
   // Paginação e Filtro das Categorias
   const [categorySearch, setCategorySearch] = useState('');
@@ -150,6 +175,17 @@ const MaxPlus: React.FC = () => {
     return pages;
   }, [currentPage]);
 
+  // Se o teste de 24h já expirou e não possui acesso permanente pago, renderiza o bloqueio com as 2 opções
+  if (isTrialExpired && !hasPermanentAccess) {
+    return (
+      <div className="min-h-screen bg-[#0b0c10] text-slate-100 p-4 sm:p-6 lg:p-8">
+        <PermissionGate feature="maxplus">
+          <div />
+        </PermissionGate>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0b0c10] text-slate-100 p-4 sm:p-6 lg:p-8 space-y-6 pb-28">
       {/* Barra Superior de Título */}
@@ -194,6 +230,79 @@ const MaxPlus: React.FC = () => {
           </Button>
         </form>
       </div>
+
+      {/* Banner de Teste Gratuito de 24 Horas com Contador Regressivo */}
+      {isTrialActive && !hasPermanentAccess && (
+        <div className="bg-gradient-to-r from-[#151722] via-[#161c2e] to-[#151722] border border-[#00d2ff]/30 rounded-2xl p-4 sm:p-5 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-[#00d2ff]/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-[#00d2ff]/15 border border-[#00d2ff]/30 flex items-center justify-center shrink-0 shadow-lg shadow-[#00d2ff]/10">
+                <Clock className="w-5 h-5 text-[#00d2ff] animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-white">
+                    Teste Gratuito de 24 Horas Liberado
+                  </span>
+                  <Badge className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase tracking-wider px-2 py-0.5">
+                    Sem Assinatura
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5 max-w-xl leading-relaxed">
+                  Você tem acesso livre por 24 horas para testar todas as funcionalidades do MaxPlus. Ao término desse período, o acesso será bloqueado.
+                </p>
+              </div>
+            </div>
+
+            {/* Contador Digital e Ação */}
+            <div className="flex items-center gap-3 self-end sm:self-auto">
+              <div className="flex items-center gap-1.5 bg-[#0b0c10]/90 border border-[#00d2ff]/40 px-3.5 py-1.5 rounded-xl shadow-inner">
+                <div className="text-center min-w-[32px]">
+                  <span className="text-xl font-black font-mono text-[#00d2ff] tracking-tight">
+                    {formattedRemaining.hours}
+                  </span>
+                  <span className="block text-[8px] text-slate-400 -mt-1 font-bold">HORAS</span>
+                </div>
+                <span className="text-base font-black text-slate-600">:</span>
+                <div className="text-center min-w-[32px]">
+                  <span className="text-xl font-black font-mono text-[#00d2ff] tracking-tight">
+                    {formattedRemaining.minutes}
+                  </span>
+                  <span className="block text-[8px] text-slate-400 -mt-1 font-bold">MIN</span>
+                </div>
+                <span className="text-base font-black text-slate-600">:</span>
+                <div className="text-center min-w-[32px]">
+                  <span className="text-xl font-black font-mono text-emerald-400 tracking-tight">
+                    {formattedRemaining.seconds}
+                  </span>
+                  <span className="block text-[8px] text-slate-400 -mt-1 font-bold">SEG</span>
+                </div>
+              </div>
+
+              {hasActiveDays ? (
+                <Button
+                  size="sm"
+                  onClick={() => setShowMaxPlus20Dialog(true)}
+                  className="bg-[#00d2ff] hover:bg-[#00b8e6] text-slate-950 font-black text-xs h-10 rounded-xl px-3.5 shadow-md shadow-[#00d2ff]/20 shrink-0"
+                >
+                  <Zap className="w-3.5 h-3.5 mr-1" />
+                  Liberar por R$ 20,00
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => setShowMaxPlus44Dialog(true)}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs h-10 rounded-xl px-3.5 shadow-md shadow-emerald-500/20 shrink-0"
+                >
+                  <Crown className="w-3.5 h-3.5 mr-1" />
+                  Plano Completo (R$ 44,90)
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Seção de Categorias com Paginação e Filtro Rápido */}
       <div className="space-y-2.5 bg-[#151722]/50 border border-[#232738] rounded-2xl p-3 sm:p-3.5">
@@ -615,6 +724,36 @@ const MaxPlus: React.FC = () => {
         onClearSelection={() => {}}
         isImporting={isImporting}
         importProgress={importProgress}
+      />
+
+      {/* Diálogos de Pagamento do MaxPlus */}
+      <AsaasPixPaymentDialog
+        isOpen={showMaxPlus20Dialog}
+        onOpenChange={setShowMaxPlus20Dialog}
+        planName="Desbloqueio: MaxPlus"
+        planPrice={20}
+        planDescription="Desbloqueio definitivo da funcionalidade MaxPlus para assinante com dias ativos no painel."
+        isFeatureUnlockOnly={true}
+        requiredFeature="maxplus"
+      />
+
+      <AsaasPixPaymentDialog
+        isOpen={showMaxPlus44Dialog}
+        onOpenChange={setShowMaxPlus44Dialog}
+        planName="Painel + Baserow + Miniseries + Jodo do Dia"
+        planPrice={44.90}
+        durationDays={30}
+        planDescription="Plano completo com Painel, Baserow, Minisséries, Jogos do Dia e MaxPlus liberado por 30 dias."
+        planFeatures={[
+          'dashboard', 'conteudos', 'episodios', 'categorias', 'banners',
+          'duplicados', 'duplicados-episodios', 'importacao-automatica', 'automacao',
+          'substituicao-urls', 'importar-m3u', 'adicionar-conteudo', 'usuarios',
+          'sessoes', 'plataformas', 'produtos', 'estatisticas', 'relatorios-visualizacao',
+          'recursos', 'clean-data', 'maxplus', 'maxplus-import', 'precos-interno', 'configuracoes',
+          'perfil', 'suporte-ao-vivo', 'priority-support', 'export', 'logs',
+          'miniseries', 'jogos-dia', 'planos'
+        ]}
+        isFeatureUnlockOnly={false}
       />
     </div>
   );

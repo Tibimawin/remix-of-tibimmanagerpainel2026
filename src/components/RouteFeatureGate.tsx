@@ -40,6 +40,7 @@ const routeFeatures: Record<string, string> = {
   '/ofertas': 'ofertas',
   '/limpeza-dados': 'clean-data',
   '/minha-api': 'minha-api',
+  '/maxplus': 'maxplus',
   '/maxplus-import': 'maxplus-import',
   '/carrosseu': 'carrosseu',
   '/versao': 'versao',
