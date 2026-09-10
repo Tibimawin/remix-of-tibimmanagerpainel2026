@@ -332,11 +332,12 @@ export class MaxPlusImportEngine {
 
     // 🏷️ Normalização e padronização das Categorias:
     // - Filmes SEMPRE contêm 'Filmes'
+    // - Se for Dorama, SEMPRE contém 'Doramas'
     // - Contém SEMPRE o ano (ex: 2026 ou 2023)
     // - 'Lançamentos' apenas se for do ano atual (2026) / mês atual
     const categoriaNormalizada = normalizeCategories({
       tipo: 'Filme',
-      categorias: data.generos || fallbackCategory,
+      categorias: [data.generos, fallbackCategory].filter(Boolean).join(', '),
       ano: tmdbData?.ano,
       dataDeLancamento: tmdbData?.dataDeLancamento,
       titulo: data.nome,
@@ -448,11 +449,12 @@ export class MaxPlusImportEngine {
 
     // 🏷️ Normalização e padronização das Categorias:
     // - Séries SEMPRE contêm 'Series'
+    // - Se for Dorama, SEMPRE contém 'Doramas'
     // - Contém SEMPRE o ano (ex: 2026 ou 2023)
     // - 'Lançamentos' apenas se for do ano atual (2026) / mês atual
     const categoriaNormalizada = normalizeCategories({
       tipo: 'Serie',
-      categorias: data.generos || fallbackCategory,
+      categorias: [data.generos, fallbackCategory].filter(Boolean).join(', '),
       ano: tmdbData?.ano,
       dataDeLancamento: tmdbData?.dataDeLancamento,
       titulo: data.nome,
@@ -533,6 +535,17 @@ export class MaxPlusImportEngine {
       }
     }
 
+    // 🔢 Ordenação estrita garantida: Temporada crescente (1, 2, 3...) e Episódio crescente (1, 2, 3, 4, 5...)
+    allEpisodesToImport.sort((a, b) => {
+      const sA = Number(a.seasonNum) || 0;
+      const sB = Number(b.seasonNum) || 0;
+      if (sA !== sB) return sA - sB;
+
+      const eA = Number(a.episode.number) || 0;
+      const eB = Number(b.episode.number) || 0;
+      return eA - eB;
+    });
+
     const totalEpisodes = allEpisodesToImport.length;
     let importedCount = 0;
     let createdEpisodesCount = 0;
@@ -561,16 +574,57 @@ export class MaxPlusImportEngine {
       });
     }
 
-    // 3. Processamento concorrente de episódios em lotes de 3 (alto desempenho sem travar o Baserow)
-    const CONCURRENCY = 3;
+    // 3. Processamento de episódios:
+    // Passo A: Obter links dos vídeos em lote paralelo (rapidez no scraping)
+    // Passo B: Gravação sequencial no Baserow para manter a ordem estrita (1, 2, 3, 4, 5...)
+    const CONCURRENCY = 4;
     for (let i = 0; i < totalEpisodes; i += CONCURRENCY) {
       const batch = allEpisodesToImport.slice(i, i + CONCURRENCY);
 
-      await Promise.all(batch.map(async (item, batchIdx) => {
+      // Obtenção dos links em paralelo respeitando a ordem do array
+      const preparedBatch = await Promise.all(batch.map(async (item, batchIdx) => {
         const itemIndex = i + batchIdx;
         const epNum = item.episode.number;
         const seasonNum = item.seasonNum;
         const epTitle = item.episode.title || `Episódio ${epNum}`;
+
+        let videoUrl = '';
+        let epData: MaxPlusEpisodeResult | null = null;
+
+        // Buscar link direto do MP4 via fetchEpisode com timeout de 6s
+        if (item.episode.link) {
+          try {
+            const fetchPromise = fetchEpisode(item.episode.link);
+            const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000));
+            epData = await Promise.race([fetchPromise, timeoutPromise]);
+            videoUrl = epData?.video || '';
+          } catch (epErr) {
+            console.warn(`Aviso ao obter link do episódio T${seasonNum}E${epNum}:`, epErr);
+          }
+        }
+
+        // Regra de Idioma obrigatório do episódio:
+        const epVideo = epData?.video || videoUrl || '';
+        const isEpLegendado = Boolean(
+          (epVideo && epVideo.includes('LEG')) ||
+          (epVideo && (epVideo.toLowerCase().includes('leg.mp4') || epVideo.toLowerCase().includes('_leg')))
+        );
+        const epIdioma = epData?.idioma || (epVideo && isEpLegendado ? 'Legendado' : 'Dublado') || 'Dublado';
+
+        return {
+          item,
+          itemIndex,
+          epNum,
+          seasonNum,
+          epTitle,
+          videoUrl,
+          epIdioma,
+        };
+      }));
+
+      // Inserção / Atualização sequencial no Baserow garantindo ordem estrita 1, 2, 3, 4, 5...
+      for (const prep of preparedBatch) {
+        const { itemIndex, epNum, seasonNum, epTitle, videoUrl, epIdioma } = prep;
 
         if (onProgress) {
           onProgress({
@@ -578,36 +632,11 @@ export class MaxPlusImportEngine {
             total: totalEpisodes,
             current: Math.min(itemIndex + 1, totalEpisodes),
             currentTitle: `${data.nome} - T${seasonNum}E${epNum}: ${epTitle}`,
-            stage: `Processando episódio (${Math.min(itemIndex + 1, totalEpisodes)}/${totalEpisodes})...`,
+            stage: `Salvando episódio ${epNum} (T${seasonNum}) no Baserow (${Math.min(itemIndex + 1, totalEpisodes)}/${totalEpisodes})...`,
           });
         }
 
         try {
-          let videoUrl = '';
-          let epData: MaxPlusEpisodeResult | null = null;
-
-          // Buscar link direto do MP4 via fetchEpisode com timeout de 6s
-          if (item.episode.link) {
-            try {
-              const fetchPromise = fetchEpisode(item.episode.link);
-              const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000));
-              epData = await Promise.race([fetchPromise, timeoutPromise]);
-              videoUrl = epData?.video || '';
-            } catch (epErr) {
-              console.warn(`Aviso ao obter link do episódio T${seasonNum}E${epNum}:`, epErr);
-            }
-          }
-
-          // Regra de Idioma obrigatório do episódio:
-          // epData.idioma || (epData.video && epData.video.includes('LEG') ? 'Legendado' : 'Dublado')
-          // Se por qualquer motivo não for detectado, utilize "Dublado" como padrão. Nunca deixe vazio.
-          const epVideo = epData?.video || videoUrl || '';
-          const isEpLegendado = Boolean(
-            (epVideo && epVideo.includes('LEG')) ||
-            (epVideo && (epVideo.toLowerCase().includes('leg.mp4') || epVideo.toLowerCase().includes('_leg')))
-          );
-          const epIdioma = epData?.idioma || (epVideo && isEpLegendado ? 'Legendado' : 'Dublado') || 'Dublado';
-
           // Verifica se o episódio já existe na tabela de episódios pelo mapa pré-carregado
           const epKey = `${seasonNum}_${epNum}`;
           const existingEp = existingEpisodesMap.get(epKey) || null;
@@ -666,9 +695,9 @@ export class MaxPlusImportEngine {
 
           importedCount++;
         } catch (err) {
-          console.error(`Erro ao importar episódio T${seasonNum}E${epNum}:`, err);
+          console.error(`Erro ao salvar episódio T${seasonNum}E${epNum}:`, err);
         }
-      }));
+      }
 
       // Pequena pausa entre lotes de episódios para não estressar a conexão
       await new Promise(r => setTimeout(r, 60));

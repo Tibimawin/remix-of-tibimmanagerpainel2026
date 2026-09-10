@@ -4,8 +4,9 @@
  * Regras aplicadas:
  * 1. Se for Filme, deve SEMPRE conter a categoria 'Filmes' no início.
  * 2. Se for Série, deve SEMPRE conter a categoria 'Series' no início.
- * 3. Deve SEMPRE conter o ano de lançamento (ex: '2026', '2023') nas categorias.
- * 4. A categoria 'Lançamentos' só pode existir para títulos do ano corrente (ex: 2026)
+ * 3. Se for Dorama (qualquer variação ou gênero contendo 'dorama'), deve SEMPRE conter a categoria 'Doramas'.
+ * 4. Deve SEMPRE conter o ano de lançamento (ex: '2026', '2023') nas categorias.
+ * 5. A categoria 'Lançamentos' só pode existir para títulos do ano corrente (ex: 2026)
  *    e preferencialmente lançados no mês corrente ou marcados originalmente como lançamento.
  *    Para filmes de anos anteriores (ex: 2025, 2024, etc.), a categoria 'Lançamentos' é removida.
  */
@@ -109,6 +110,17 @@ export function normalizeCategories(options: NormalizeCategoryOptions): string {
     return lower === 'lancamento' || lower === 'lancamentos';
   });
 
+  // Verifica se é Dorama (qualquer variação como Dorama, Doramas, Dorama Coreano, Dorama Chinês, etc.)
+  const isDoramaCategory = (val: string) => {
+    if (!val) return false;
+    const norm = val.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return norm.includes('dorama') || norm.includes('kdrama') || norm.includes('k-drama');
+  };
+
+  const isDorama = rawList.some(isDoramaCategory) || 
+    (typeof categorias === 'string' && isDoramaCategory(categorias)) ||
+    (titulo ? isDoramaCategory(titulo) : false);
+
   // Limpa categorias e filtra menções de Lançamentos antigas ou redundâncias
   const filteredList: string[] = [];
   for (const cat of rawList) {
@@ -116,6 +128,11 @@ export function normalizeCategories(options: NormalizeCategoryOptions): string {
     if (!trimmed) continue;
 
     const lowerNormalized = trimmed.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    // Se for menção a IMDb (ex: 'IMDb: 8.5'), ignorar
+    if (/^imdb/i.test(trimmed)) {
+      continue;
+    }
 
     // Se for palavra de lançamento
     if (lowerNormalized === 'lancamento' || lowerNormalized === 'lancamentos') {
@@ -130,12 +147,23 @@ export function normalizeCategories(options: NormalizeCategoryOptions): string {
       continue;
     }
 
+    // Se for palavra isolada 'dorama' ou 'doramas', tratamos na inserção obrigatória de 'Doramas'
+    if (lowerNormalized === 'dorama' || lowerNormalized === 'doramas') {
+      continue;
+    }
+
     // Se já for um ano de 4 dígitos antigo ou diferente, mantemos apenas se for o ano detectado
     if (/^\d{4}$/.test(trimmed)) {
       continue; // Trataremos o ano correto abaixo
     }
 
-    filteredList.push(trimmed);
+    // Limpeza de padrões colados da API MaxPlus (ex: 'DoramaDorama Chinês' -> 'Dorama Chinês')
+    let cleanedCat = trimmed;
+    if (cleanedCat.startsWith('DoramaDorama ')) {
+      cleanedCat = cleanedCat.replace('DoramaDorama ', 'Dorama ');
+    }
+
+    filteredList.push(cleanedCat);
   }
 
   const finalCategories: string[] = [];
@@ -147,7 +175,14 @@ export function normalizeCategories(options: NormalizeCategoryOptions): string {
     finalCategories.push('Series');
   }
 
-  // 2. Adicionar as categorias intermediárias (gêneros, etc.)
+  // 1.1 Regra mandatória: ao importar Doramas, deve SEMPRE adicionar a categoria com o Nome "Doramas" em Categorias
+  if (isDorama) {
+    if (!finalCategories.some(c => c.toLowerCase() === 'doramas')) {
+      finalCategories.push('Doramas');
+    }
+  }
+
+  // 2. Adicionar as categorias intermediárias (gêneros, subcategorias como 'Dorama Chinês', etc.)
   for (const cat of filteredList) {
     const exists = finalCategories.some(c => c.toLowerCase() === cat.toLowerCase());
     if (!exists) {

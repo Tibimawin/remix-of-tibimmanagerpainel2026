@@ -167,20 +167,24 @@ export function useMaxPlus() {
     }
   }, []);
 
-  // Abrir modal de detalhes
+  // Abrir modal de detalhes limpo
   const openDetails = useCallback(async (item: MaxPlusCatalogItem) => {
-    try {
-      setSelectedCatalogItem(item);
-      setDetailsLoading(true);
-      setDetailsModalOpen(true);
-      setCurrentDetails(null);
+    // 🧹 Limpa imediatamente qualquer dado ou progresso residual anterior
+    setCurrentDetails(null);
+    setSelectedCatalogItem(item);
+    setImportProgress({ active: false, total: 0, current: 0, currentTitle: '', stage: '' });
+    setDetailsLoading(true);
+    setDetailsModalOpen(true);
 
+    try {
       const details = await fetchDetails(item.link);
       setCurrentDetails(details);
     } catch (err: any) {
       console.error('Erro ao carregar detalhes:', err);
       toast.error('Não foi possível carregar os detalhes deste título');
       setDetailsModalOpen(false);
+      setCurrentDetails(null);
+      setSelectedCatalogItem(null);
     } finally {
       setDetailsLoading(false);
     }
@@ -190,6 +194,8 @@ export function useMaxPlus() {
     setDetailsModalOpen(false);
     setCurrentDetails(null);
     setSelectedCatalogItem(null);
+    setDetailsLoading(false);
+    setImportProgress({ active: false, total: 0, current: 0, currentTitle: '', stage: '' });
   }, []);
 
   // Seleção individual em lote

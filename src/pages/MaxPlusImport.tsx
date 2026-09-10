@@ -143,6 +143,7 @@ const MaxPlusImport = () => {
 
       {/* Details Modal */}
       <MaxPlusDetailsModal
+        key={selectedContent?.id || 'no-content'}
         content={selectedContent}
         open={!!selectedContent && !detailsLoading}
         onClose={closeDetails}

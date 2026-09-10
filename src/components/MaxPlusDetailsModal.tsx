@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -35,6 +35,12 @@ export const MaxPlusDetailsModal = ({
   const [selectedSeasons, setSelectedSeasons] = useState<number[]>([]);
   const [importing, setImporting] = useState(false);
 
+  // 🧹 Limpar seleções ao mudar de conteúdo ou ao fechar o popup
+  useEffect(() => {
+    setSelectedSeasons([]);
+    setImporting(false);
+  }, [content?.id, open]);
+
   if (!content) return null;
 
   const isImporting = importProgress.total > 0;
@@ -53,6 +59,9 @@ export const MaxPlusDetailsModal = ({
           selectedSeasons.length > 0 ? selectedSeasons : undefined
         );
       }
+      onClose();
+    } catch (err) {
+      console.error('Erro na importação:', err);
     } finally {
       setImporting(false);
     }

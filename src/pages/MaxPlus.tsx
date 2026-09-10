@@ -285,6 +285,7 @@ const MaxPlus: React.FC = () => {
 
       {/* Modal de Detalhes & Pré-visualização */}
       <MaxPlusDetailsDialog
+        key={selectedCatalogItem?.link || 'no-item'}
         open={detailsModalOpen}
         onClose={closeDetails}
         details={currentDetails}

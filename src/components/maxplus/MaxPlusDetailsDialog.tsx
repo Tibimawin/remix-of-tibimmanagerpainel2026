@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Dialog, 
   DialogContent, 
@@ -67,18 +67,25 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
   const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<number>(1);
   const [selectedEpisodes, setSelectedEpisodes] = useState<Record<string, boolean>>({});
 
+  // 🧹 Limpar imediatamente todos os estados internos sempre que o conteúdo mudar ou o popup abrir/fechar
+  useEffect(() => {
+    setSelectedEpisodes({});
+    setSelectedSeasonNumber(1);
+    setCopiedLink(false);
+  }, [details?.link, details?.nome, open]);
+
   const isSeries = useMemo(() => {
     if (!details) return false;
     return (details.total_seasons !== undefined && details.total_seasons > 0) ||
            (details.seasons_details !== undefined && details.seasons_details.length > 0);
   }, [details]);
 
-  // Categorias que serão salvas no Baserow (com 'Filmes'/'Series', Ano e regra de 'Lançamentos')
+  // Categorias que serão salvas no Baserow (com 'Filmes'/'Series', 'Doramas', Ano e regra de 'Lançamentos')
   const previewCategorias = useMemo(() => {
     if (!details) return '';
     return normalizeCategories({
       tipo: isSeries ? 'Serie' : 'Filme',
-      categorias: details.generos || fallbackCategory,
+      categorias: [details.generos, fallbackCategory].filter(Boolean).join(', '),
       titulo: details.nome,
     });
   }, [details, isSeries, fallbackCategory]);
@@ -127,6 +134,16 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  const handleImportMovieClick = async () => {
+    if (!details) return;
+    try {
+      await onImportMovie(details, fallbackCategory);
+      onClose();
+    } catch (err) {
+      console.error('Erro ao importar filme:', err);
+    }
+  };
+
   const handleImportSelectedEpisodesOnly = async () => {
     if (!details) return;
     const selectedList: { seasonNum: number; episodeNum: number }[] = [];
@@ -142,12 +159,22 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
       return;
     }
 
-    await onImportSeries(details, fallbackCategory, selectedList);
+    try {
+      await onImportSeries(details, fallbackCategory, selectedList);
+      onClose();
+    } catch (err) {
+      console.error('Erro ao importar episódios selecionados:', err);
+    }
   };
 
   const handleImportAllSeries = async () => {
     if (!details) return;
-    await onImportSeries(details, fallbackCategory);
+    try {
+      await onImportSeries(details, fallbackCategory);
+      onClose();
+    } catch (err) {
+      console.error('Erro ao importar série completa:', err);
+    }
   };
 
   return (
@@ -264,7 +291,7 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
 
                     <Button
                       disabled={isImporting}
-                      onClick={() => onImportMovie(details, fallbackCategory)}
+                      onClick={handleImportMovieClick}
                       className={`font-bold shadow-lg h-10 px-4 text-xs sm:text-sm gap-2 w-full rounded-xl cursor-pointer ${
                         isAlreadyImported
                           ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-emerald-500/20'

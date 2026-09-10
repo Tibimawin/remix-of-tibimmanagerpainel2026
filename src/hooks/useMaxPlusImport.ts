@@ -4,6 +4,7 @@ import { maxPlusImportService, MaxPlusContent, MaxPlusDetails, MaxPlusEpisode } 
 import { useBaserowService } from '@/services/BaserowService';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useSystemLogs } from '@/hooks/useSystemLogs';
+import { normalizeCategories } from '@/utils/categoryNormalizer';
 
 export const useMaxPlusImport = () => {
   const [contents, setContents] = useState<MaxPlusContent[]>([]);
@@ -53,6 +54,7 @@ export const useMaxPlusImport = () => {
   };
 
   const loadDetails = async (contentId: string) => {
+    setSelectedContent(null);
     setDetailsLoading(true);
     try {
       const details = await maxPlusImportService.getDetails(contentId);
@@ -60,6 +62,7 @@ export const useMaxPlusImport = () => {
     } catch (error) {
       toast.error('Erro ao carregar detalhes');
       console.error(error);
+      setSelectedContent(null);
     } finally {
       setDetailsLoading(false);
     }
@@ -83,7 +86,11 @@ export const useMaxPlusImport = () => {
         Link: content.link || '',
         Tipo: 'Filme',
         Sinopse: content.synopsis,
-        Categoria: content.category,
+        Categoria: normalizeCategories({
+          tipo: 'Filme',
+          categorias: [content.category, (content as any).genre].filter(Boolean).join(', '),
+          titulo: content.title,
+        }),
         Capa: content.poster,
         Idioma: idioma,
         Views: '0',
@@ -117,7 +124,11 @@ export const useMaxPlusImport = () => {
         Link: content.poster,
         Tipo: 'Serie',
         Sinopse: content.synopsis,
-        Categoria: content.category,
+        Categoria: normalizeCategories({
+          tipo: 'Serie',
+          categorias: [content.category, (content as any).genre].filter(Boolean).join(', '),
+          titulo: content.title,
+        }),
         Capa: content.poster,
         Idioma: idioma,
         Views: '0',
@@ -145,18 +156,25 @@ export const useMaxPlusImport = () => {
       return;
     }
 
-    const total = episodes.length;
+    // Garantir ordenação estrita crescente de temporada e episódio
+    const sortedEpisodes = [...episodes].sort((a, b) => {
+      const sA = Number(a.season) || 0;
+      const sB = Number(b.season) || 0;
+      if (sA !== sB) return sA - sB;
+      return (Number(a.episode) || 0) - (Number(b.episode) || 0);
+    });
+
+    const total = sortedEpisodes.length;
     setImportProgress({ current: 0, total });
     
-    // Aumentado para 30 para importação super rápida
-    const BATCH_SIZE = 30;
+    const BATCH_SIZE = 5;
 
     try {
-      for (let i = 0; i < episodes.length; i += BATCH_SIZE) {
-        const batch = episodes.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < sortedEpisodes.length; i += BATCH_SIZE) {
+        const batch = sortedEpisodes.slice(i, i + BATCH_SIZE);
         
-        // Processar todos do lote em paralelo
-        await Promise.allSettled(
+        // 1. Obter os links em paralelo preservando a ordem do lote
+        const preparedBatch = await Promise.all(
           batch.map(async (episode) => {
             try {
               const link = await maxPlusImportService.getEpisodeLink(episode.id);
@@ -165,23 +183,31 @@ export const useMaxPlusImport = () => {
                 (link && (link.toLowerCase().includes('leg.mp4') || link.toLowerCase().includes('_leg')))
               );
               const epIdioma = (episode as any).idioma || (link && isLeg ? 'Legendado' : 'Dublado') || 'Dublado';
-              
-              const payload = {
-                Nome: episode.title,
-                Temporada: episode.season.toString(),
-                'Episódio': episode.episode.toString(),
-                Link: link,
-                Idioma: epIdioma,
-                Conteudo: [contentId],
-              };
-
-              await baserowService.createRow(config.tableIds.episodios, payload);
-              setImportProgress(prev => ({ ...prev, current: prev.current + 1 }));
-            } catch (error) {
-              console.error(`Erro ao importar episódio ${episode.episode}:`, error);
+              return { episode, link, epIdioma };
+            } catch (err) {
+              return { episode, link: '', epIdioma: 'Dublado' };
             }
           })
         );
+
+        // 2. Inserir sequencialmente no Baserow para manter a ordem exata (1, 2, 3, 4, 5...)
+        for (const item of preparedBatch) {
+          try {
+            const payload = {
+              Nome: item.episode.title,
+              Temporada: item.episode.season.toString(),
+              'Episódio': item.episode.episode.toString(),
+              Link: item.link,
+              Idioma: item.epIdioma,
+              Conteudo: [contentId],
+            };
+
+            await baserowService.createRow(config.tableIds.episodios, payload);
+            setImportProgress(prev => ({ ...prev, current: prev.current + 1 }));
+          } catch (error) {
+            console.error(`Erro ao importar episódio ${item.episode.episode}:`, error);
+          }
+        }
       }
 
       toast.success(`${total} episódios importados!`);
@@ -211,6 +237,14 @@ export const useMaxPlusImport = () => {
         });
       }
 
+      // Ordenar episódios numericamente
+      allEpisodes.sort((a, b) => {
+        const sA = Number(a.season) || 0;
+        const sB = Number(b.season) || 0;
+        if (sA !== sB) return sA - sB;
+        return (Number(a.episode) || 0) - (Number(b.episode) || 0);
+      });
+
       if (allEpisodes.length > 0) {
         await importEpisodes(allEpisodes, createdContent.id, content.title);
       }
@@ -230,7 +264,10 @@ export const useMaxPlusImport = () => {
     loadCategory,
     searchContent,
     loadDetails,
-    closeDetails: () => setSelectedContent(null),
+    closeDetails: () => {
+      setSelectedContent(null);
+      setImportProgress({ current: 0, total: 0 });
+    },
     importMovie,
     importSeries,
     importEpisodes,
