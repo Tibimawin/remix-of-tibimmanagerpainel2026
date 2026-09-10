@@ -344,7 +344,11 @@ const Configuracoes = () => {
         return;
       }
 
-      await testService.getTableData(testTableId, 1, 1);
+      const testRes = await testService.getTableData(testTableId, 1, 1);
+      if ((testRes as any)?.notFound) {
+        toast.error(`❌ ID da tabela (${testTableId}) não encontrado no Baserow (404). Verifique se o ID está correto.`);
+        return;
+      }
       toast.success('✅ Conexão estabelecida com sucesso!');
     } catch (error: any) {
       console.error('Erro ao testar conexão:', error);

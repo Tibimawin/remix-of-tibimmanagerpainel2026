@@ -55,6 +55,31 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'URL é obrigatória' });
         }
 
+        // 🛡️ Proteção Anti-SSRF (Server-Side Request Forgery)
+        try {
+            const parsedUrl = new URL(url);
+            if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+                return res.status(400).json({ error: 'Protocolo inválido. Apenas HTTP/HTTPS são permitidos.' });
+            }
+
+            const hostname = parsedUrl.hostname.toLowerCase();
+            const isLocalOrPrivate = 
+                hostname === 'localhost' ||
+                hostname === '127.0.0.1' ||
+                hostname === '0.0.0.0' ||
+                hostname === '169.254.169.254' || // AWS/GCP Metadata service
+                hostname.startsWith('192.168.') ||
+                hostname.startsWith('10.') ||
+                /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
+
+            if (isLocalOrPrivate) {
+                console.warn('⛔ [SECURITY] Bloqueada tentativa de requisição para host interno ou restrito:', hostname);
+                return res.status(403).json({ error: 'Acesso Proibido: Host interno ou restrito.' });
+            }
+        } catch {
+            return res.status(400).json({ error: 'URL inválida fornecida.' });
+        }
+
         if (!token) {
             console.error('❌ [VERCEL PROXY] Erro: Token não fornecido no payload!', {
                 url,

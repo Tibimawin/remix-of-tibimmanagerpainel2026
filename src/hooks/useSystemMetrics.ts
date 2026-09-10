@@ -286,8 +286,7 @@ export const useSystemMetrics = () => {
         if (tableIds.conteudos && tableIds.conteudos.trim() !== '') {
           try {
             // Total geral
-            const totalData = await baserowService.getTableData(tableIds.conteudos, 1, 1);
-            newMetrics.totalConteudos = totalData.count || 0;
+            newMetrics.totalConteudos = await fetchCount(tableIds.conteudos);
 
             const countByTipo = async (valor: string): Promise<number> => {
               try {

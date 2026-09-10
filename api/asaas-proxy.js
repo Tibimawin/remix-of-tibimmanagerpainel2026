@@ -72,6 +72,21 @@ export default async function handler(req, res) {
             return sendJson(res, 400, { error: 'Endpoint inválido: deve começar com /' });
         }
 
+        // 🛡️ Proteção de Segurança: Whitelist de endpoints permitidos
+        // Bloqueia qualquer tentativa de transferências, consultas de saldo bancário, etc.
+        const ALLOWED_ENDPOINT_PREFIXES = ['/customers', '/payments', '/subscriptions'];
+        const isAllowedEndpoint = ALLOWED_ENDPOINT_PREFIXES.some(prefix => 
+            endpoint.startsWith(prefix)
+        );
+
+        if (!isAllowedEndpoint) {
+            console.warn('⛔ [SECURITY] Bloqueada tentativa de acesso a endpoint restrito no Asaas:', endpoint);
+            return sendJson(res, 403, { 
+                error: 'Acesso Negado (403)', 
+                message: 'Operação ou endpoint não autorizado por política de segurança da aplicação.' 
+            });
+        }
+
         if (!ALLOWED_METHODS.includes(normalizedMethod)) {
             return sendJson(res, 405, { error: `Método não permitido: ${normalizedMethod}` });
         }

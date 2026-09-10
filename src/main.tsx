@@ -1,6 +1,10 @@
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
+import { securityGuard } from './services/SecurityGuard'
+
+// Inicializar proteção de segurança do frontend (anti-inspeção, atalhos e clickjacking)
+securityGuard.init();
 
 // Desabilitar todos os logs do console em produção para segurança
 if (import.meta.env.PROD) {

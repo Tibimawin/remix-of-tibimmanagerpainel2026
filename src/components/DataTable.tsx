@@ -84,6 +84,7 @@ export const DataTable: React.FC<DataTableProps & {
   const [renewDialogOpen, setRenewDialogOpen] = useState(false);
   const [renewItem, setRenewItem] = useState<any>(null);
   const [renewDays, setRenewDays] = useState("30");
+  const [tableNotFound, setTableNotFound] = useState(false);
   const { config, isConfigured } = useConfig();
   const baserowService = useBaserowService();
   const { addLog } = useSystemLogs();
@@ -188,6 +189,15 @@ export const DataTable: React.FC<DataTableProps & {
       const response = await baserowService.getTableData(tableId, currentPage, itemsPerPage, search, orderParam);
       console.log('Dados paginados carregados:', response);
       
+      if ((response as any)?.notFound) {
+        setTableNotFound(true);
+        setData([]);
+        setTotalCount(0);
+        setTotalPages(1);
+        return;
+      }
+      
+      setTableNotFound(false);
       setData(response.results || []);
       setTotalCount(response.count || 0);
       setTotalPages(Math.ceil((response.count || 0) / itemsPerPage));
@@ -617,7 +627,26 @@ export const DataTable: React.FC<DataTableProps & {
             </div>
           )}
           
-          {currentData.length === 0 && !loading && !bulkLoading && !bulkError && (
+          {tableNotFound && !loading && (
+            <div className="text-center py-10 px-4 border border-amber-500/20 bg-amber-500/5 rounded-xl my-4">
+              <p className="font-semibold text-amber-500 mb-1">
+                Tabela {config.tableIds[tableKey as keyof typeof config.tableIds] || tableKey} não encontrada no Baserow (Erro 404)
+              </p>
+              <p className="text-xs text-muted-foreground mb-3 max-w-md mx-auto">
+                Verifique se o ID configurado nas Configurações para "{tableKey}" corresponde a uma tabela existente em seu Baserow.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = '/configuracoes'}
+                className="text-xs"
+              >
+                Ajustar nas Configurações
+              </Button>
+            </div>
+          )}
+
+          {currentData.length === 0 && !loading && !bulkLoading && !bulkError && !tableNotFound && (
             <div className="text-center py-8 no-arrows">
               <p className="text-muted-foreground no-arrows">
                 {searchTerm ? `Nenhum resultado encontrado para "${searchTerm}".` : 'Nenhum registro encontrado.'}

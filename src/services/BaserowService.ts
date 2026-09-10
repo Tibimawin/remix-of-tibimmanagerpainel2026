@@ -245,28 +245,29 @@ export class BaserowService {
           const status = pageResponse ? pageResponse.status : 502;
           const errorText = pageResponse ? await pageResponse.text().catch(() => '') : (lastError?.message || '');
 
-          console.error('❌ [BaserowService] Erro na requisição:', {
-            status,
-            errorText: errorText.substring(0, 300),
-            endpoint
-          });
-          
-          if (status === 401) {
-            throw new Error('Erro de Autorização (401): Seu Token do Baserow está inválido ou ausente. Verifique suas credenciais nas Configurações.');
-          }
-
           if (status === 404) {
-            throw new Error(`Erro 404: Tabela ${tableId} não encontrada no Baserow. Verifique se o ID está correto nas Configurações.`);
+            logger.warn(`⚠️ [BaserowService] Tabela ${tableId} não encontrada no Baserow (404).`);
+            return { results: [], count: 0, notFound: true };
           }
 
           if (status === 400 && errorText.includes('ERROR_USER_NOT_IN_GROUP')) {
             logger.warn('Sem permissão para acessar tabela no Baserow. Verifique se o token tem acesso ao grupo/workspace.');
             return { results: [], count: 0 };
           }
-          
+
+          if (status === 401) {
+            throw new Error('Erro de Autorização (401): Seu Token do Baserow está inválido ou ausente. Verifique suas credenciais nas Configurações.');
+          }
+
           if (status === 502 || status === 500) {
             throw new Error('Erro 502: O servidor Baserow retornou erro temporário ou está sobrecarregado. Tente novamente em instantes.');
           }
+
+          console.error('❌ [BaserowService] Erro na requisição:', {
+            status,
+            errorText: errorText.substring(0, 300),
+            endpoint
+          });
           
           const statusMsg = pageResponse?.statusText || errorText || 'Erro na comunicação com o servidor';
           throw new Error(`Erro ${status}: ${statusMsg}`);
@@ -301,8 +302,11 @@ export class BaserowService {
       allResults.sort((a: any, b: any) => Number(b.id) - Number(a.id));
 
       return { results: allResults, count: allResults.length };
-    } catch (error) {
-      logger.error('Erro ao buscar dados da tabela', error);
+    } catch (error: any) {
+      if (error?.notFound || error?.message?.includes('404')) {
+        return { results: [], count: 0, notFound: true };
+      }
+      logger.warn('Erro ao buscar dados da tabela:', error?.message || error);
       throw error;
     }
   }
@@ -340,7 +344,8 @@ export class BaserowService {
           return { results: [], count: 0, next: null };
         }
         if (response.status === 404) {
-          throw new Error(`Erro 404: Tabela ${tableId} não encontrada no Baserow. Verifique se o ID está correto nas Configurações.`);
+          console.warn(`⚠️ Tabela ${tableId} não encontrada no Baserow (404). Verifique se o ID está correto nas Configurações.`);
+          return { results: [], count: 0, next: null, notFound: true };
         }
         if (response.status === 502 || response.status === 500) {
           throw new Error('Erro 502: O servidor Baserow retornou erro temporário ou está sobrecarregado. Tente novamente em instantes.');
@@ -350,8 +355,11 @@ export class BaserowService {
       }
 
       return await response.json();
-    } catch (error) {
-      console.error('Erro ao buscar dados da tabela:', error);
+    } catch (error: any) {
+      if (error?.notFound || error?.message?.includes('404')) {
+        return { results: [], count: 0, next: null, notFound: true };
+      }
+      console.warn('Erro ao buscar dados da tabela:', error?.message || error);
       throw error;
     }
   }

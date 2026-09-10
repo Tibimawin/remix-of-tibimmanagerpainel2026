@@ -57,6 +57,9 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    sourcemap: false,
+    minify: "esbuild",
+    cssMinify: true,
     rollupOptions: {
       output: {
         entryFileNames: `assets/[name]-[hash].js`,
@@ -69,5 +72,9 @@ export default defineConfig(({ mode }) => ({
         },
       },
     },
+  },
+  esbuild: {
+    drop: mode === "production" ? ["debugger"] : [],
+    legalComments: "none",
   },
 }));
