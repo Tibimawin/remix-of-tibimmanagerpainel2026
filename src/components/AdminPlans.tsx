@@ -20,6 +20,7 @@ const AdminPlans = () => {
     name: '',
     price: '',
     description: '',
+    durationDays: 30,
     monthlyContentLimit: 0,
     features: [] as string[],
     blockingMessage: '',
@@ -30,10 +31,15 @@ const AdminPlans = () => {
   const handleOpenEditDialog = (plan?: Plan) => {
     if (plan) {
       setEditingPlan(plan);
+      const defaultDays = plan.durationDays || (
+        plan.name.toLowerCase().includes('anual') || plan.price.toLowerCase().includes('anual') ? 365 :
+        plan.name.toLowerCase().includes('trimestral') ? 90 : 30
+      );
       setFormData({
         name: plan.name,
         price: plan.price,
         description: plan.description,
+        durationDays: defaultDays,
         monthlyContentLimit: plan.monthlyContentLimit,
         features: plan.features,
         blockingMessage: plan.blockingMessage || '',
@@ -45,6 +51,7 @@ const AdminPlans = () => {
         name: '',
         price: '',
         description: '',
+        durationDays: 30,
         monthlyContentLimit: 0,
         features: [],
         blockingMessage: '',
@@ -118,13 +125,14 @@ const AdminPlans = () => {
             </DialogHeader>
             
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="name">Nome do Plano</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Ex: Painel + Baserow"
                   />
                 </div>
                 <div>
@@ -133,8 +141,22 @@ const AdminPlans = () => {
                     id="price"
                     value={formData.price}
                     onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
-                    placeholder="R$ 29,90/mês"
+                    placeholder="Ex: R$ 44,90/mês"
                   />
+                </div>
+                <div>
+                  <Label htmlFor="durationDays">Duração (em Dias)</Label>
+                  <Input
+                    id="durationDays"
+                    type="number"
+                    min="1"
+                    value={formData.durationDays}
+                    onChange={(e) => setFormData(prev => ({ ...prev, durationDays: Math.max(1, parseInt(e.target.value) || 30) }))}
+                    placeholder="30"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    1 mês = 30 dias | 1 ano = 365 dias
+                  </p>
                 </div>
               </div>
 
@@ -229,6 +251,7 @@ const AdminPlans = () => {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Preço</TableHead>
+                <TableHead>Duração</TableHead>
                 <TableHead>Limite/Mês</TableHead>
                 <TableHead>Funcionalidades</TableHead>
                 <TableHead>Status</TableHead>
@@ -236,7 +259,12 @@ const AdminPlans = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {plans.map((plan) => (
+              {plans.map((plan) => {
+                const days = plan.durationDays || (
+                  plan.name.toLowerCase().includes('anual') || plan.price.toLowerCase().includes('anual') ? 365 :
+                  plan.name.toLowerCase().includes('trimestral') ? 90 : 30
+                );
+                return (
                 <TableRow key={plan.id}>
                   <TableCell>
                     <div>
@@ -244,7 +272,12 @@ const AdminPlans = () => {
                       <div className="text-sm text-muted-foreground">{plan.description}</div>
                     </div>
                   </TableCell>
-                  <TableCell>{plan.price}</TableCell>
+                  <TableCell className="font-semibold">{plan.price}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 whitespace-nowrap">
+                      {days} dias
+                    </Badge>
+                  </TableCell>
                   <TableCell>
                     {plan.monthlyContentLimit === -1 ? 'Ilimitado' : 
                      plan.monthlyContentLimit === 0 ? 'Sem acesso' :
@@ -291,7 +324,8 @@ const AdminPlans = () => {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>

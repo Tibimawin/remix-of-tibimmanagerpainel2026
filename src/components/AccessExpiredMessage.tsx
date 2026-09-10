@@ -175,9 +175,12 @@ const AccessExpiredMessage: React.FC<AccessExpiredMessageProps> = ({ expiryDate 
         <AsaasPixPaymentDialog
           isOpen={showPixDialog}
           onOpenChange={setShowPixDialog}
+          planId={selectedPlan.id}
           planName={selectedPlan.name}
           planPrice={parsePrice(selectedPlan.price)}
           planDescription={selectedPlan.description || ''}
+          durationDays={selectedPlan.durationDays}
+          planFeatures={selectedPlan.features}
         />
       )}
     </div>

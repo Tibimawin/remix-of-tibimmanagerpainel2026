@@ -7,9 +7,25 @@ export const PlansService = {
   async createPlan(plan: Omit<Plan, 'id' | 'createdAt' | 'updatedAt'>) {
     try {
       console.log('Criando plano:', plan);
+
+      let durationDays = Number((plan as any).durationDays);
+      if (!durationDays || isNaN(durationDays) || durationDays <= 0) {
+        const n = (plan.name || '').toLowerCase();
+        const p = (plan.price || '').toLowerCase();
+        if (n.includes('anual') || p.includes('anual') || n.includes('ano')) {
+          durationDays = 365;
+        } else if (n.includes('semestral') || p.includes('semestral')) {
+          durationDays = 180;
+        } else if (n.includes('trimestral') || p.includes('trimestral')) {
+          durationDays = 90;
+        } else {
+          durationDays = 30; // Padrão: 30 dias para mensal
+        }
+      }
       
       const planData = {
         ...plan,
+        durationDays,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
@@ -29,22 +45,34 @@ export const PlansService = {
     try {
       console.log('Buscando todos os planos');
       
-      const q = query(
-        collection(db, 'plans'),
-        orderBy('createdAt', 'desc')
-      );
-      
-      const querySnapshot = await getDocs(q);
+      // Busca a coleção completa sem orderBy para não omitir documentos sem createdAt
+      const querySnapshot = await getDocs(collection(db, 'plans'));
       const plans: Plan[] = [];
       
       querySnapshot.forEach((doc) => {
         const data = doc.data();
+        const nameNorm = (data.name || '').toLowerCase();
+        const priceNorm = (data.price || '').toLowerCase();
+        const defaultDays = data.durationDays || (
+          nameNorm.includes('anual') || priceNorm.includes('anual') ? 365 :
+          nameNorm.includes('trimestral') || priceNorm.includes('trimestral') ? 90 :
+          nameNorm.includes('semestral') || priceNorm.includes('semestral') ? 180 : 30
+        );
+
         plans.push({
           id: doc.id,
           ...data,
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
-          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt
+          durationDays: Number(defaultDays) || 30,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || '',
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt || ''
         } as Plan);
+      });
+
+      // Ordenar com segurança em memória
+      plans.sort((a, b) => {
+        const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime() || 0;
+        const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime() || 0;
+        return timeB - timeA;
       });
       
       console.log('Planos encontrados:', plans.length);
@@ -60,10 +88,14 @@ export const PlansService = {
     try {
       console.log('Atualizando plano:', planId, updates);
       
-      const updateData = {
+      const updateData: any = {
         ...updates,
         updatedAt: serverTimestamp()
       };
+
+      if (updates.durationDays !== undefined) {
+        updateData.durationDays = Number(updates.durationDays) || 30;
+      }
 
       // Remove campos que não devem ser atualizados
       delete updateData.id;
@@ -110,23 +142,36 @@ export const PlansService = {
 
   // Listener em tempo real para planos
   onPlansChange(callback: (plans: Plan[]) => void) {
-    const q = query(
-      collection(db, 'plans'),
-      orderBy('createdAt', 'desc')
-    );
+    const plansRef = collection(db, 'plans');
 
     const unsubscribe = onSnapshot(
-      q,
+      plansRef,
       (querySnapshot) => {
         const plans: Plan[] = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
+          const nameNorm = (data.name || '').toLowerCase();
+          const priceNorm = (data.price || '').toLowerCase();
+          const defaultDays = data.durationDays || (
+            nameNorm.includes('anual') || priceNorm.includes('anual') ? 365 :
+            nameNorm.includes('trimestral') || priceNorm.includes('trimestral') ? 90 :
+            nameNorm.includes('semestral') || priceNorm.includes('semestral') ? 180 : 30
+          );
+
           plans.push({
             id: doc.id,
             ...data,
-            createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
-            updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt
+            durationDays: Number(defaultDays) || 30,
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || '',
+            updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt || ''
           } as Plan);
+        });
+
+        // Ordenação segura em memória
+        plans.sort((a, b) => {
+          const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime() || 0;
+          const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime() || 0;
+          return timeB - timeA;
         });
         
         console.log('Planos atualizados em tempo real:', plans.length);

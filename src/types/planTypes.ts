@@ -10,6 +10,10 @@ export interface UserPermissions {
   currentMonthUsage: number;
   lastUpdated: string;
   expiryDate?: string;
+  startDate?: string;
+  lastSubscriptionDate?: string;
+  accessDays?: number;
+  durationDays?: number;
   isActive?: boolean;
   app_id?: string;
 }
@@ -29,6 +33,7 @@ export interface Plan {
   features: string[];
   blockingMessage?: string;
   isActive: boolean;
+  durationDays?: number; // Duração do acesso em dias (ex: 30 para planos mensais, 365 para anuais)
   createdAt: string;
   updatedAt: string;
 }

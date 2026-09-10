@@ -285,15 +285,13 @@ export const PaymentReconciliationService = {
     // ─────────────────────────────────────────────────────────────
     const isFeatureUnlock = 
       planInfo.isFeatureUnlockOnly === true ||
-      !!planInfo.requiredFeature ||
       planInfo.source === 'feature_unlock' ||
-      (planInfo.planPrice !== undefined && planInfo.planPrice <= 25) ||
-      normalizedName.includes('desbloqueio') ||
-      normalizedName.includes('unlock') ||
-      normalizedName.includes('jogo ao dia') ||
-      normalizedName.includes('jogos do dia') ||
-      normalizedName.includes('jogos-dia') ||
-      normalizedName.includes('liberar recurso');
+      (planInfo.planPrice !== undefined && planInfo.planPrice <= 25 && (
+        normalizedName.includes('desbloqueio') ||
+        normalizedName.includes('unlock') ||
+        normalizedName.includes('avulso') ||
+        normalizedName.includes('liberar recurso')
+      ));
 
     if (isFeatureUnlock) {
       console.log(`🔓 [Reconciliation] Desbloqueio avulso de recurso para ${emailNorm} (Transação Firestore - Plano e Validade INALTERADOS)`);
@@ -332,81 +330,150 @@ export const PaymentReconciliationService = {
       console.warn('Não foi possível carregar planos:', e);
     }
 
-    const norm = (s: string) => (s || '').toLowerCase().trim();
-    const targetPlanName = planInfo.planName || '';
+    const cleanStr = (s: string) => (s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // remove acentos
+      .replace(/jodo/g, 'jogo') // tolera digitação comum "jodo do dia" -> "jogo do dia"
+      .replace(/\+/g, ' ')
+      .replace(/[^a-z0-9]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
-    // Encontrar o plano mais adequado de forma inteligente e segura
+    const extractPrice = (priceVal: any): number => {
+      if (typeof priceVal === 'number') return priceVal;
+      if (!priceVal) return 0;
+      const str = String(priceVal).replace(/[^\d,\.]/g, '').replace(',', '.');
+      const num = parseFloat(str);
+      return isNaN(num) ? 0 : num;
+    };
+
+    const targetPlanName = planInfo.planName || '';
+    const targetCleanName = cleanStr(targetPlanName);
+    const targetPrice = planInfo.planPrice || price;
+
+    // Encontrar o plano mais adequado de forma inteligente, segura e determinística
     let matchedPlan: Plan | undefined;
 
-    // 1. Match por nome exato
-    if (targetPlanName) {
-      matchedPlan = allPlans.find(p => norm(p.name) === norm(targetPlanName));
-      if (!matchedPlan) {
-        matchedPlan = allPlans.find(p => norm(p.name).includes(norm(targetPlanName)) || norm(targetPlanName).includes(norm(p.name)));
-      }
+    // 1. Match por ID direto se fornecido
+    if (planInfo.planId) {
+      matchedPlan = allPlans.find(p => p.id === planInfo.planId);
     }
 
-    // 2. Match por preço aproximado (+- R$ 3)
-    if (!matchedPlan && planInfo.planPrice) {
+    // 2. Match por nome exato limpo
+    if (!matchedPlan && targetCleanName) {
+      matchedPlan = allPlans.find(p => cleanStr(p.name) === targetCleanName);
+    }
+
+    // 3. Match por inclusão mútua de texto (ex: "Painel + Baserow + Miniseries + Jodo do Dia")
+    if (!matchedPlan && targetCleanName) {
       matchedPlan = allPlans.find(p => {
-        const pPrice = typeof p.price === 'number' ? p.price : parseFloat(String(p.price).replace(/[^\d,]/g, '').replace(',', '.'));
-        return Math.abs(pPrice - planInfo.planPrice!) < 3;
+        const pClean = cleanStr(p.name);
+        return pClean.includes(targetCleanName) || targetCleanName.includes(pClean);
       });
     }
 
-    // 3. Fallback inteligente POR FAIXA DE PREÇO (NUNCA atribuir plano Anual/Empresa para R$ 35!)
-    if (!matchedPlan) {
-      if (price <= 60) {
-        // Mensal (~R$ 35) -> 30 dias
-        matchedPlan = allPlans.find(p => norm(p.name).includes('mensal') || norm(p.name).includes('básico') || norm(p.name).includes('padrao')) ||
-                      allPlans.find(p => {
-                        const pPrice = typeof p.price === 'number' ? p.price : parseFloat(String(p.price).replace(/[^\d,]/g, '').replace(',', '.'));
-                        return pPrice <= 60;
-                      });
-      } else if (price > 60 && price < 200) {
-        // Trimestral / Semestral
-        matchedPlan = allPlans.find(p => norm(p.name).includes('trimestral') || norm(p.name).includes('intermediário'));
-      } else {
-        // Anual / Empresa
-        matchedPlan = allPlans.find(p => norm(p.name).includes('anual') || norm(p.name).includes('empresa'));
+    // 4. Match por contagem de tokens comuns (palavras-chave como "painel", "baserow", "miniseries", "jogo")
+    if (!matchedPlan && targetCleanName) {
+      const targetTokens = targetCleanName.split(' ').filter(t => t.length > 2 && t !== 'plano' && t !== 'assinatura');
+      let bestScore = 0;
+      let bestPlan: Plan | undefined;
+      for (const p of allPlans) {
+        const pClean = cleanStr(p.name);
+        const pTokens = pClean.split(' ').filter(t => t.length > 2);
+        let score = 0;
+        for (const token of targetTokens) {
+          if (pTokens.includes(token) || pClean.includes(token)) score++;
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestPlan = p;
+        }
+      }
+      if (bestScore >= 2) {
+        matchedPlan = bestPlan;
       }
     }
 
-    // 4. Último fallback se a lista de planos estiver vazia
+    // 5. Match por PREÇO MAIS PRÓXIMO (Diferença mínima)
+    // Se o cliente pagou R$ 44,90, procura o plano cadastrado com valor mais próximo
+    if (!matchedPlan && targetPrice > 0 && allPlans.length > 0) {
+      let closestPlan: Plan | undefined;
+      let minDiff = Infinity;
+
+      for (const p of allPlans) {
+        const pPriceNum = extractPrice(p.price);
+        if (pPriceNum > 0) {
+          const diff = Math.abs(pPriceNum - targetPrice);
+          if (diff < minDiff) {
+            minDiff = diff;
+            closestPlan = p;
+          }
+        }
+      }
+
+      // Se a diferença for de até R$ 5,00
+      if (closestPlan && minDiff <= 5) {
+        matchedPlan = closestPlan;
+        console.log(`🎯 Plano associado com precisão por proximidade de preço: "${closestPlan.name}" (R$ ${targetPrice})`);
+      }
+    }
+
+    // 6. Fallback estritamente por faixa de preço - NUNCA atribuir Anual/Empresa para valores baixos!
     if (!matchedPlan && allPlans.length > 0) {
-      const sortedByPrice = [...allPlans].sort((a, b) => {
-        const pa = typeof a.price === 'number' ? a.price : parseFloat(String(a.price).replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-        const pb = typeof b.price === 'number' ? b.price : parseFloat(String(b.price).replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-        return pa - pb;
-      });
-      matchedPlan = price <= 60 ? sortedByPrice[0] : sortedByPrice[sortedByPrice.length - 1];
+      if (targetPrice <= 65) {
+        matchedPlan = allPlans.find(p => {
+          const pPrice = extractPrice(p.price);
+          return pPrice > 0 && pPrice <= 65;
+        }) || allPlans.find(p => !cleanStr(p.name).includes('anual') && !cleanStr(p.name).includes('empresa'));
+      } else if (targetPrice > 65 && targetPrice < 200) {
+        matchedPlan = allPlans.find(p => {
+          const pPrice = extractPrice(p.price);
+          return pPrice > 65 && pPrice < 200;
+        }) || allPlans.find(p => cleanStr(p.name).includes('trimestral') || cleanStr(p.name).includes('semestral'));
+      } else {
+        matchedPlan = allPlans.find(p => {
+          const pPrice = extractPrice(p.price);
+          return pPrice >= 200;
+        }) || allPlans.find(p => cleanStr(p.name).includes('anual') || cleanStr(p.name).includes('empresa'));
+      }
     }
 
-    // Determinar dias com precisão absoluta:
-    // Se o plano é de R$ 35 (mensal), DEVEM ser exatamente 30 dias!
-    let rawDays = planInfo.accessDays;
-    let accessDays = Number(rawDays);
+    // ─────────────────────────────────────────────────────────────
+    // DETERMINAÇÃO PRECISA DOS DIAS DE ACESSO (MUDANÇA DE MÊS PARA DIAS)
+    // O sistema agora trabalha diretamente com DIAS:
+    // - Se há durationDays configurado no plano do Admin -> USA EXATAMENTE ELE
+    // - Se o plano diz "mês" ou custa <= 65 -> EXATAMENTE 30 DIAS
+    // - Se trimestral -> 90 DIAS
+    // - Se semestral -> 180 DIAS
+    // - Se anual -> 365 DIAS
+    // ─────────────────────────────────────────────────────────────
+    let accessDays = 0;
+
+    if (matchedPlan?.durationDays && Number(matchedPlan.durationDays) > 0) {
+      accessDays = Number(matchedPlan.durationDays);
+    } else if (planInfo.accessDays && Number(planInfo.accessDays) > 0) {
+      accessDays = Number(planInfo.accessDays);
+    }
+
     if (!accessDays || isNaN(accessDays) || accessDays <= 0) {
-      if (matchedPlan) {
-        const customDuration = Number((matchedPlan as any).durationDays);
-        if (!isNaN(customDuration) && customDuration > 0) {
-          accessDays = customDuration;
-        }
-      }
-      if (!accessDays || isNaN(accessDays) || accessDays <= 0) {
-        if (price >= 250 || normalizedName.includes('anual') || normalizedName.includes('ano')) {
-          accessDays = 365;
-        } else if (price >= 130 || normalizedName.includes('semestral')) {
-          accessDays = 180;
-        } else if (price >= 70 || normalizedName.includes('trimestral')) {
-          accessDays = 90;
-        } else if (normalizedName.includes('quinzenal')) {
-          accessDays = 15;
-        } else if (normalizedName.includes('semanal')) {
-          accessDays = 7;
-        } else {
-          accessDays = 30; // Padrão exato: 30 dias para assinaturas de R$ 35
-        }
+      const pNameNorm = cleanStr(matchedPlan?.name || targetPlanName);
+      const pPriceStr = (matchedPlan?.price || '').toLowerCase();
+      
+      if (pPriceStr.includes('mês') || pPriceStr.includes('mes') || pNameNorm.includes('mes') || pNameNorm.includes('mensal') || targetPrice <= 65) {
+        accessDays = 30; // 30 dias para mensal
+      } else if (pNameNorm.includes('anual') || pNameNorm.includes('ano') || pPriceStr.includes('anual') || targetPrice >= 200) {
+        accessDays = 365;
+      } else if (pNameNorm.includes('semestral') || pPriceStr.includes('semestral') || (targetPrice >= 130 && targetPrice < 200)) {
+        accessDays = 180;
+      } else if (pNameNorm.includes('trimestral') || pPriceStr.includes('trimestral') || (targetPrice >= 65 && targetPrice < 130)) {
+        accessDays = 90;
+      } else if (pNameNorm.includes('quinzenal')) {
+        accessDays = 15;
+      } else if (pNameNorm.includes('semanal')) {
+        accessDays = 7;
+      } else {
+        accessDays = 30; // Padrão absoluto: 30 dias
       }
     }
     accessDays = Math.max(1, Number(accessDays) || 30);
@@ -491,38 +558,60 @@ export const PaymentReconciliationService = {
     const existingFeatures = Array.isArray(currentPermissions.enabledFeatures) ? currentPermissions.enabledFeatures : [];
 
     let enabledFeatures: string[] = [];
-    let finalPlanName = targetPlanName || (matchedPlan ? matchedPlan.name : (price >= 250 ? 'Plano Anual' : 'Plano Mensal'));
-    let finalPlanId = matchedPlan?.id || (price >= 250 ? 'plano-anual' : 'plano-mensal');
+    let finalPlanName = matchedPlan?.name || targetPlanName || (targetPrice >= 200 ? 'Plano Anual' : 'Plano Painel');
+    let finalPlanId = matchedPlan?.id || (targetPrice >= 200 ? 'plano-anual' : 'plano-painel');
     let monthlyContentLimit = matchedPlan?.monthlyContentLimit ?? -1;
 
+    const planNameNorm = cleanStr(finalPlanName);
+    const featuresSet = new Set<string>();
+
+    // Se o plano tiver features configuradas no Admin, adiciona todas
+    if (matchedPlan && Array.isArray(matchedPlan.features) && matchedPlan.features.length > 0) {
+      matchedPlan.features.forEach(f => featuresSet.add(f));
+    }
+
+    // Se é um upgrade
     if (planInfo.isUpgrade) {
       finalPlanName = `${planInfo.upgradeFrom || 'Plano'} + API`;
-      enabledFeatures = Array.from(new Set([
-        ...existingFeatures, 
-        'minha-api', 
-        'planos', 
-        ...(matchedPlan?.features || [])
-      ]));
-    } else if (matchedPlan && Array.isArray(matchedPlan.features) && matchedPlan.features.length > 0) {
-      finalPlanName = matchedPlan.name;
-      finalPlanId = matchedPlan.id;
-      // Os benefícios são as permissões exatas daquele plano assinado (+ planos)
-      enabledFeatures = Array.from(new Set([
-        ...matchedPlan.features,
-        'planos'
-      ]));
-    } else {
-      // Super fallback padrão seguro para plano mensal
-      enabledFeatures = [
+      existingFeatures.forEach(f => featuresSet.add(f));
+      featuresSet.add('minha-api');
+    }
+
+    // Se o plano menciona "painel" ou se a lista de features ficou vazia, libera recursos do painel:
+    if (planNameNorm.includes('painel') || featuresSet.size === 0) {
+      const standardPanelFeatures = [
         'dashboard', 'conteudos', 'episodios', 'categorias', 'banners',
         'duplicados', 'duplicados-episodios', 'importacao-automatica', 'automacao',
         'substituicao-urls', 'importar-m3u', 'adicionar-conteudo', 'usuarios',
         'sessoes', 'plataformas', 'produtos', 'estatisticas', 'relatorios-visualizacao',
         'recursos', 'clean-data', 'maxplus', 'maxplus-import', 'precos-interno', 'configuracoes',
-        'perfil', 'suporte-ao-vivo', 'priority-support', 'export', 'logs', 'planos'
+        'perfil', 'suporte-ao-vivo', 'priority-support', 'export', 'logs'
       ];
-      finalPlanName = targetPlanName || (price >= 250 ? 'Plano Anual' : 'Plano Mensal');
+      standardPanelFeatures.forEach(f => featuresSet.add(f));
     }
+
+    // Se o plano menciona "baserow"
+    if (planNameNorm.includes('baserow')) {
+      featuresSet.add('clean-data');
+      featuresSet.add('maxplus');
+      featuresSet.add('maxplus-import');
+      featuresSet.add('export');
+    }
+
+    // Se o plano menciona "miniseries"
+    if (planNameNorm.includes('miniseries') || planNameNorm.includes('minisserie')) {
+      featuresSet.add('miniseries');
+    }
+
+    // Se o plano menciona "jogo" ou "jodo" (ex: "Jodo do Dia" ou "Jogo do Dia")
+    if (planNameNorm.includes('jogo') || planNameNorm.includes('jogos') || planNameNorm.includes('jogos-dia')) {
+      featuresSet.add('jogos-dia');
+    }
+
+    // Sempre incluir 'planos'
+    featuresSet.add('planos');
+
+    enabledFeatures = Array.from(featuresSet);
 
     const permUpdates: any = {
       userId,
@@ -534,6 +623,8 @@ export const PaymentReconciliationService = {
       enabledFeatures,
       currentMonthUsage: currentPermissions.currentMonthUsage || 0,
       lastUpdated: new Date().toISOString(),
+      accessDays,
+      durationDays: accessDays,
       startDate: safeStartDate,
       lastSubscriptionDate: safeStartDate,
       expiryDate: safeExpiryDate,
@@ -660,11 +751,13 @@ export const PaymentReconciliationService = {
           console.log(`Status Asaas para cobrança pendente ${paymentId}:`, asaasStatus?.status);
 
           if (asaasStatus?.status === 'RECEIVED' || asaasStatus?.status === 'CONFIRMED') {
-            const isFeatureUnlock = record.isFeatureUnlockOnly || 
-                                    (record.planPrice !== undefined && record.planPrice <= 25) || 
-                                    (record.planName?.toLowerCase().includes('desbloqueio')) ||
-                                    (record.planName?.toLowerCase().includes('unlock')) ||
-                                    (record.source === 'feature_unlock');
+            const isFeatureUnlock = record.isFeatureUnlockOnly === true || 
+                                    record.source === 'feature_unlock' ||
+                                    (record.planPrice !== undefined && record.planPrice <= 25 && (
+                                      record.planName?.toLowerCase().includes('desbloqueio') ||
+                                      record.planName?.toLowerCase().includes('unlock') ||
+                                      record.planName?.toLowerCase().includes('avulso')
+                                    ));
 
             const paymentDate = record.createdAt || asaasStatus.paymentDate || asaasStatus.clientPaymentDate;
 
@@ -673,14 +766,16 @@ export const PaymentReconciliationService = {
               emailNorm,
               userName || record.userName || '',
               {
+                planId: record.planId,
                 planName: record.planName,
                 planPrice: record.planPrice || asaasStatus.value,
-                accessDays: isFeatureUnlock ? 0 : record.accessDays,
+                accessDays: isFeatureUnlock ? 0 : (record.durationDays || record.accessDays),
+                durationDays: isFeatureUnlock ? 0 : (record.durationDays || record.accessDays),
                 isUpgrade: record.isUpgrade,
                 upgradeFrom: record.upgradeFrom,
                 source: record.source,
                 isFeatureUnlockOnly: isFeatureUnlock,
-                requiredFeature: record.requiredFeature || resolveFeatureId(record.planName || '') || undefined,
+                requiredFeature: isFeatureUnlock ? (record.requiredFeature || resolveFeatureId(record.planName || '') || undefined) : undefined,
                 items: record.items,
                 paymentDate
               },
@@ -692,7 +787,8 @@ export const PaymentReconciliationService = {
               status: 'confirmed',
               confirmedAt: new Date().toISOString(),
               asaasPaymentStatus: asaasStatus.status,
-              accessDays: isFeatureUnlock ? 0 : (record.accessDays || 30)
+              accessDays: isFeatureUnlock ? 0 : (accessDays || record.accessDays || 30),
+              durationDays: isFeatureUnlock ? 0 : (accessDays || record.durationDays || 30)
             }, { merge: true });
 
             processedSet.add(paymentId);
@@ -737,16 +833,18 @@ export const PaymentReconciliationService = {
               console.log(`⚡ Pagamento confirmado encontrado diretamente no Asaas que não estava no Firestore! ID: ${payment.id}`);
               
               const description = payment.description || '';
-              const isUnlock = payment.value <= 25 || 
-                               description.toLowerCase().includes('desbloqueio') || 
-                               description.toLowerCase().includes('unlock') ||
-                               description.toLowerCase().includes('jogo');
+              const descNorm = description.toLowerCase();
+              const isUnlock = payment.value <= 25 && (
+                descNorm.includes('desbloqueio') || 
+                descNorm.includes('unlock') ||
+                descNorm.includes('avulso')
+              );
               
-              const resolvedFeature = resolveFeatureId(description) || (isUnlock ? 'jogos-dia' : undefined);
+              const resolvedFeature = isUnlock ? (resolveFeatureId(description) || 'jogos-dia') : undefined;
 
               let calcDays = 0;
               if (!isUnlock) {
-                calcDays = payment.value >= 250 ? 365 : (payment.value >= 70 ? 90 : 30);
+                calcDays = payment.value >= 200 ? 365 : (payment.value >= 130 ? 180 : (payment.value >= 65 ? 90 : 30));
               }
 
               const { planName, accessDays } = await this.activatePaidPlanOrProduct(
@@ -757,6 +855,7 @@ export const PaymentReconciliationService = {
                   planName: description.replace('Assinatura ', '').trim() || (isUnlock ? 'Desbloqueio de Recurso' : 'Plano Painel'),
                   planPrice: payment.value,
                   accessDays: calcDays,
+                  durationDays: calcDays,
                   isFeatureUnlockOnly: isUnlock,
                   requiredFeature: resolvedFeature,
                   paymentDate
@@ -770,7 +869,8 @@ export const PaymentReconciliationService = {
                 userName: userName || emailNorm.split('@')[0],
                 planName,
                 planPrice: payment.value,
-                accessDays: isUnlock ? 0 : calcDays,
+                accessDays: isUnlock ? 0 : (accessDays || calcDays || 30),
+                durationDays: isUnlock ? 0 : (accessDays || calcDays || 30),
                 paymentMethod: payment.billingType || 'PIX',
                 paymentId: payment.id,
                 status: 'confirmed',

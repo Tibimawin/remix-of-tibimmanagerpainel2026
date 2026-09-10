@@ -24,7 +24,7 @@ export const PlansPopup: React.FC<PlansPopupProps> = ({ forceOpen, onClose }) =>
   const { activePlans, loading: plansLoading } = usePlans();
   const [autoOpen, setAutoOpen] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<{ name: string; price: number; description: string; isUpgrade?: boolean; upgradeFromPlan?: string; existingFeatures?: string[] } | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<{ id?: string; name: string; price: number; description: string; durationDays?: number; features?: string[]; isUpgrade?: boolean; upgradeFromPlan?: string; existingFeatures?: string[] } | null>(null);
 
   const isOpen = forceOpen !== undefined ? forceOpen : autoOpen;
 
@@ -71,15 +71,25 @@ export const PlansPopup: React.FC<PlansPopupProps> = ({ forceOpen, onClose }) =>
     if (canUpgrade) {
       const difference = numericPrice - currentPlanPrice;
       setSelectedPlan({
+        id: plan.id,
         name: plan.name,
         price: difference,
         description: `Upgrade de ${permissions?.planName} para ${plan.name}`,
+        durationDays: plan.durationDays,
+        features: plan.features,
         isUpgrade: true,
         upgradeFromPlan: permissions?.planName || '',
         existingFeatures: permissions?.enabledFeatures || []
       });
     } else {
-      setSelectedPlan({ name: plan.name, price: numericPrice, description: plan.description });
+      setSelectedPlan({
+        id: plan.id,
+        name: plan.name,
+        price: numericPrice,
+        description: plan.description,
+        durationDays: plan.durationDays,
+        features: plan.features
+      });
     }
     
     setAutoOpen(false);
@@ -210,9 +220,12 @@ export const PlansPopup: React.FC<PlansPopupProps> = ({ forceOpen, onClose }) =>
         <AsaasPixPaymentDialog
           isOpen={showPayment}
           onOpenChange={setShowPayment}
+          planId={selectedPlan.id}
           planName={selectedPlan.name}
           planPrice={selectedPlan.price}
           planDescription={selectedPlan.description}
+          durationDays={selectedPlan.durationDays}
+          planFeatures={selectedPlan.features}
           isUpgrade={selectedPlan.isUpgrade}
           upgradeFromPlan={selectedPlan.upgradeFromPlan}
           existingFeatures={selectedPlan.existingFeatures}

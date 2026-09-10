@@ -22,9 +22,12 @@ import { generateValidCPF, validateCPF } from '@/utils/cpfGenerator';
 interface AsaasPixPaymentDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  planId?: string;
   planName: string;
   planPrice: number;
   planDescription: string;
+  durationDays?: number;
+  planFeatures?: string[];
   isUpgrade?: boolean;
   upgradeFromPlan?: string;
   existingFeatures?: string[];
@@ -35,7 +38,8 @@ interface AsaasPixPaymentDialogProps {
 type Step = 'form' | 'processing' | 'pix' | 'confirmed' | 'error';
 
 const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
-  isOpen, onOpenChange, planName, planPrice, planDescription,
+  isOpen, onOpenChange, planId, planName, planPrice, planDescription,
+  durationDays, planFeatures,
   isUpgrade = false, upgradeFromPlan = '', existingFeatures = [], requiredFeature,
   isFeatureUnlockOnly = false
 }) => {
@@ -132,18 +136,35 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
       setStep('pix');
 
       // Registrar no controle financeiro como PENDENTE (reconciliação auto se a aba fechar)
+      const isUnlock = isFeatureUnlockOnly || (planPrice <= 25 && !planId);
+      let calculatedDays = 0;
+      if (!isUnlock) {
+        if (durationDays && Number(durationDays) > 0) {
+          calculatedDays = Number(durationDays);
+        } else if (planPrice >= 200) {
+          calculatedDays = 365;
+        } else if (planPrice >= 130) {
+          calculatedDays = 180;
+        } else if (planPrice >= 65) {
+          calculatedDays = 90;
+        } else {
+          calculatedDays = 30;
+        }
+      }
+
       try {
-        const accessDays = isFeatureUnlockOnly || planPrice <= 25 ? 0 : (planPrice >= 250 ? 365 : (planPrice >= 70 ? 90 : 30));
         const startDate = new Date();
-        const endDate = new Date(startDate.getTime() + (accessDays || 30) * 24 * 60 * 60 * 1000);
+        const endDate = new Date(startDate.getTime() + (calculatedDays || 30) * 24 * 60 * 60 * 1000);
 
         await setDoc(doc(db, 'financialRecords', firstPaymentId), {
           userId: userInfo?.id || 'unknown',
           userEmail: email,
           userName: name,
-          planName: isFeatureUnlockOnly ? `Desbloqueio: ${requiredFeature || planName}` : (isUpgrade ? `${upgradeFromPlan} + API` : planName),
+          planId: planId || undefined,
+          planName: isUnlock ? `Desbloqueio: ${requiredFeature || planName}` : (isUpgrade ? `${upgradeFromPlan} + API` : planName),
           planPrice,
-          accessDays: isFeatureUnlockOnly || planPrice <= 25 ? 0 : accessDays,
+          accessDays: isUnlock ? 0 : calculatedDays,
+          durationDays: isUnlock ? 0 : calculatedDays,
           paymentMethod: 'PIX',
           paymentId: firstPaymentId,
           status: 'pending',
@@ -151,13 +172,13 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
           endDate: endDate.toISOString(),
           confirmedAt: '',
           createdAt: new Date().toISOString(),
-          source: isUpgrade ? 'upgrade' : (isFeatureUnlockOnly ? 'feature_unlock' : 'panel'),
+          source: isUpgrade ? 'upgrade' : (isUnlock ? 'feature_unlock' : 'panel'),
           isUpgrade,
           upgradeFrom: isUpgrade ? upgradeFromPlan : undefined,
-          isFeatureUnlockOnly: isFeatureUnlockOnly || planPrice <= 25,
-          requiredFeature
+          isFeatureUnlockOnly: isUnlock,
+          requiredFeature: isUnlock ? requiredFeature : undefined
         });
-        console.log('💰 Registro financeiro pendente criado:', firstPaymentId);
+        console.log('💰 Registro financeiro pendente criado:', firstPaymentId, `${calculatedDays} dias`);
       } catch (finErr) {
         console.error('Erro ao salvar registro financeiro pendente:', finErr);
       }
@@ -169,10 +190,8 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
           if (status.status === 'RECEIVED' || status.status === 'CONFIRMED') {
             if (pollRef.current) clearInterval(pollRef.current);
             
-            const isUnlock = isFeatureUnlockOnly || planPrice <= 25;
-            const accessDays = isUnlock ? 0 : (planPrice >= 250 ? 365 : (planPrice >= 70 ? 90 : 30));
             const startDate = new Date();
-            const endDate = new Date(startDate.getTime() + (accessDays || 30) * 24 * 60 * 60 * 1000);
+            const endDate = new Date(startDate.getTime() + (calculatedDays || 30) * 24 * 60 * 60 * 1000);
             setConfirmedDates({
               start: startDate.toLocaleDateString('pt-BR'),
               end: isUnlock ? 'Inalterada (Plano Atual Mantido)' : endDate.toLocaleDateString('pt-BR')
@@ -185,13 +204,15 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                   userInfo.email || email,
                   name || userInfo.email?.split('@')[0] || 'Usuário',
                   {
+                    planId,
                     planName: isUnlock ? `Desbloqueio: ${requiredFeature || planName}` : planName,
                     planPrice,
-                    accessDays: isUnlock ? 0 : accessDays,
+                    accessDays: isUnlock ? 0 : calculatedDays,
+                    durationDays: isUnlock ? 0 : calculatedDays,
                     isUpgrade,
                     upgradeFrom: upgradeFromPlan,
                     isFeatureUnlockOnly: isUnlock,
-                    requiredFeature
+                    requiredFeature: isUnlock ? requiredFeature : undefined
                   },
                   firstPaymentId
                 );
@@ -201,9 +222,10 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                   await setDoc(doc(db, 'financialRecords', firstPaymentId), {
                     status: 'confirmed',
                     confirmedAt: new Date().toISOString(),
-                    accessDays: isUnlock ? 0 : accessDays
+                    accessDays: isUnlock ? 0 : calculatedDays,
+                    durationDays: isUnlock ? 0 : calculatedDays
                   }, { merge: true });
-                  console.log('💰 Registro financeiro confirmado atualizado');
+                  console.log('💰 Registro financeiro confirmado atualizado:', calculatedDays, 'dias');
                 } catch (finErr) {
                   console.error('Erro ao salvar registro financeiro confirmado:', finErr);
                 }
@@ -212,7 +234,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
                   ? `Recurso liberado com sucesso! Seu plano e validade foram mantidos intactos.`
                   : (isUpgrade 
                       ? `Upgrade confirmado! API liberada.` 
-                      : `Pagamento confirmado! Acesso estendido por ${accessDays} dias.`
+                      : `Pagamento confirmado! Acesso liberado por ${calculatedDays} dias.`
                     )
                 );
               } catch (extendError) {

@@ -45,9 +45,12 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
   const [isVerifying, setIsVerifying] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<
     | {
+        id?: string;
         name: string;
         price: number;
         description: string;
+        durationDays?: number;
+        features?: string[];
         isUpgrade?: boolean;
         upgradeFromPlan?: string;
         existingFeatures?: string[];
@@ -162,18 +165,24 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
       if (planUpgrade) {
         const difference = numericPrice - currentPlanPrice;
         setSelectedPlan({
+          id: plan.id,
           name: plan.name,
           price: difference,
           description: `Upgrade de ${permissions?.planName} para ${plan.name}`,
+          durationDays: plan.durationDays,
+          features: plan.features,
           isUpgrade: true,
           upgradeFromPlan: permissions?.planName || '',
           existingFeatures: permissions?.enabledFeatures || [],
         });
       } else {
         setSelectedPlan({
+          id: plan.id,
           name: plan.name,
           price: numericPrice,
           description: plan.description,
+          durationDays: plan.durationDays,
+          features: plan.features,
         });
       }
       setShowPlanPayment(true);
@@ -472,13 +481,16 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
           <AsaasPixPaymentDialog
             isOpen={showPlanPayment}
             onOpenChange={setShowPlanPayment}
+            planId={selectedPlan.id}
             planName={selectedPlan.name}
             planPrice={selectedPlan.price}
             planDescription={selectedPlan.description}
+            durationDays={selectedPlan.durationDays}
+            planFeatures={selectedPlan.features}
             isUpgrade={selectedPlan.isUpgrade}
             upgradeFromPlan={selectedPlan.upgradeFromPlan}
             existingFeatures={selectedPlan.existingFeatures}
-            requiredFeature={feature}
+            isFeatureUnlockOnly={false}
           />
         )}
 

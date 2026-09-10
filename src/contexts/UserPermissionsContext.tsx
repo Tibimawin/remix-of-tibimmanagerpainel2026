@@ -224,6 +224,29 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
             }
         }
 
+        // Equivalência para jogos do dia
+        if (featureId === 'jogos-dia' || featureId === 'jogos' || featureId === 'jogos-do-dia' || featureId === 'jogo-do-dia') {
+            if (
+                permissions?.enabledFeatures?.includes('jogos-dia') ||
+                permissions?.enabledFeatures?.includes('jogos') ||
+                permissions?.enabledFeatures?.includes('jogos-do-dia') ||
+                permissions?.enabledFeatures?.includes('jogo-do-dia')
+            ) {
+                return true;
+            }
+        }
+
+        // Equivalência para minisséries
+        if (featureId === 'miniseries' || featureId === 'minisseries' || featureId === 'mini-series') {
+            if (
+                permissions?.enabledFeatures?.includes('miniseries') ||
+                permissions?.enabledFeatures?.includes('minisseries') ||
+                permissions?.enabledFeatures?.includes('mini-series')
+            ) {
+                return true;
+            }
+        }
+
         return Array.isArray(permissions?.enabledFeatures)
             ? permissions!.enabledFeatures.includes(featureId)
             : false;

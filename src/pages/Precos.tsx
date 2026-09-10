@@ -17,12 +17,19 @@ const Precos = () => {
   const { hasActivePlan } = useActivePlan();
   const [showPayment, setShowPayment] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<{ name: string; price: number; description: string } | null>(null);
+  const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<{ id?: string; name: string; price: number; description: string; durationDays?: number; features?: string[] } | null>(null);
 
-  const handleRequestPlan = (planName: string, planPrice: string, planDescription: string) => {
+  const handleRequestPlan = (plan: any) => {
     // Extrair valor numérico do preço (ex: "R$ 30,00" -> 30)
-    const numericPrice = parseFloat(planPrice.replace(/[^\d,]/g, '').replace(',', '.')) || 30;
-    setSelectedPlanForPayment({ name: planName, price: numericPrice, description: planDescription });
+    const numericPrice = parseFloat(String(plan.price).replace(/[^\d,]/g, '').replace(',', '.')) || 30;
+    setSelectedPlanForPayment({
+      id: plan.id,
+      name: plan.name,
+      price: numericPrice,
+      description: plan.description,
+      durationDays: plan.durationDays,
+      features: plan.features
+    });
     setShowPayment(true);
   };
 
@@ -163,7 +170,7 @@ const Precos = () => {
                   </div>
 
                   <Button 
-                    onClick={() => handleRequestPlan(plan.name, plan.price, plan.description)}
+                    onClick={() => handleRequestPlan(plan)}
                     disabled={isCurrentPlan}
                     className={`w-full bg-${color}-600 hover:bg-${color}-700 text-white py-3 rounded-lg font-medium transition-colors ${isCurrentPlan ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
@@ -223,9 +230,12 @@ const Precos = () => {
           <AsaasPixPaymentDialog
             isOpen={showPayment}
             onOpenChange={setShowPayment}
+            planId={selectedPlanForPayment.id}
             planName={selectedPlanForPayment.name}
             planPrice={selectedPlanForPayment.price}
             planDescription={selectedPlanForPayment.description}
+            durationDays={selectedPlanForPayment.durationDays}
+            planFeatures={selectedPlanForPayment.features}
           />
         )}
       </div>

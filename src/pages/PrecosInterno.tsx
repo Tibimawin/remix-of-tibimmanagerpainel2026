@@ -25,7 +25,7 @@ const PrecosInterno = () => {
   const [requesting, setRequesting] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<{ name: string; price: number; description: string } | null>(null);
+  const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<{ id?: string; name: string; price: number; description: string; durationDays?: number; features?: string[] } | null>(null);
 
   const handleVerifyPayment = async () => {
     if (!userInfo?.id || !userInfo?.email) {
@@ -53,7 +53,14 @@ const PrecosInterno = () => {
 
   const handleChoosePlan = (plan: Plan) => {
     const numericPrice = parseFloat(plan.price.replace(/[^\d,]/g, '').replace(',', '.')) || 30;
-    setSelectedPlanForPayment({ name: plan.name, price: numericPrice, description: plan.description });
+    setSelectedPlanForPayment({
+      id: plan.id,
+      name: plan.name,
+      price: numericPrice,
+      description: plan.description,
+      durationDays: plan.durationDays,
+      features: plan.features
+    });
     setShowPayment(true);
   };
 
@@ -260,9 +267,12 @@ const PrecosInterno = () => {
           <AsaasPixPaymentDialog
             isOpen={showPayment}
             onOpenChange={setShowPayment}
+            planId={selectedPlanForPayment.id}
             planName={selectedPlanForPayment.name}
             planPrice={selectedPlanForPayment.price}
             planDescription={selectedPlanForPayment.description}
+            durationDays={selectedPlanForPayment.durationDays}
+            planFeatures={selectedPlanForPayment.features}
           />
         )}
       </div>
