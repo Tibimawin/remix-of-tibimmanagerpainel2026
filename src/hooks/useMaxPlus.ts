@@ -22,6 +22,8 @@ export function useMaxPlus() {
 
   const [selectedCategoryUrl, setSelectedCategoryUrl] = useState<string>(MAXPLUS_CATEGORIES[0].url);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [hasMorePages, setHasMorePages] = useState<boolean>(true);
 
   // Seleção em lote
   const [selectedItems, setSelectedItems] = useState<MaxPlusCatalogItem[]>([]);
@@ -118,26 +120,50 @@ export function useMaxPlus() {
     return items.filter(item => isItemImported(item.nome)).length;
   }, [items, isItemImported]);
 
-  // Carregar catálogo de uma categoria
-  const loadCategory = useCallback(async (categoryUrl: string) => {
+  // Carregar catálogo de uma categoria com suporte à paginação
+  const loadCategory = useCallback(async (categoryUrl: string, page: number = 1) => {
     try {
       setLoading(true);
       setError(null);
       setSelectedCategoryUrl(categoryUrl);
+      setCurrentPage(page);
       setSearchQuery('');
       setSelectedItems([]);
 
-      const data = await fetchCatalog(categoryUrl);
+      let targetUrl = categoryUrl;
+      // Destaques (home) não possui rota de páginas (/page/N/), as demais possuem
+      if (page > 1 && categoryUrl !== 'http://apps.zynner.site/') {
+        const clean = categoryUrl.replace(/\/$/, '');
+        targetUrl = `${clean}/page/${page}/`;
+      }
+
+      const data = await fetchCatalog(targetUrl);
       setItems(data);
+      setHasMorePages(Array.isArray(data) && data.length >= 10);
+
+      // Atualizar verificação de importados para a nova página
+      if (Array.isArray(data) && data.length > 0) {
+        checkImportedStatus(data);
+      }
     } catch (err: any) {
       console.error('Erro ao carregar categoria:', err);
       setError(err?.message || 'Falha ao carregar catálogo.');
       toast.error('Erro ao carregar catálogo do MaxPlus');
       setItems([]);
+      setHasMorePages(false);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [checkImportedStatus]);
+
+  // Navegar diretamente para uma página
+  const goToPage = useCallback(async (page: number) => {
+    if (page < 1) return;
+    if (selectedCategoryUrl) {
+      await loadCategory(selectedCategoryUrl, page);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [selectedCategoryUrl, loadCategory]);
 
   // Buscar conteúdos
   const handleSearch = useCallback(async (query: string) => {
@@ -148,6 +174,8 @@ export function useMaxPlus() {
       setLoading(true);
       setError(null);
       setSelectedCategoryUrl('');
+      setCurrentPage(1);
+      setHasMorePages(false);
       setSelectedItems([]);
 
       const data = await searchMaxPlus(term);
@@ -157,6 +185,7 @@ export function useMaxPlus() {
         toast.info(`Nenhum resultado encontrado para "${term}"`);
       } else {
         toast.success(`${data.length} títulos encontrados para "${term}"`);
+        checkImportedStatus(data);
       }
     } catch (err: any) {
       console.error('Erro na pesquisa:', err);
@@ -165,7 +194,7 @@ export function useMaxPlus() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [checkImportedStatus]);
 
   // Abrir modal de detalhes limpo
   const openDetails = useCallback(async (item: MaxPlusCatalogItem) => {
@@ -389,5 +418,9 @@ export function useMaxPlus() {
     importMovie,
     importSeries,
     importSelectedBatch,
+    currentPage,
+    setCurrentPage,
+    hasMorePages,
+    goToPage,
   };
 }

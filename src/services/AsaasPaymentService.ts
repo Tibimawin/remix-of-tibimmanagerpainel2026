@@ -10,22 +10,46 @@ const getProxyUrl = (): string => {
   return '/api/asaas-proxy';
 };
 
-interface AsaasCustomer {
+export interface AsaasCustomer {
   id: string;
   name: string;
   email: string;
   cpfCnpj: string;
+  phone?: string;
+  mobilePhone?: string;
+  postalCode?: string;
+  addressNumber?: string;
 }
 
-interface AsaasSubscription {
+export interface AsaasCreditCardData {
+  holderName: string;
+  number: string;
+  expiryMonth: string;
+  expiryYear: string;
+  ccv: string;
+}
+
+export interface AsaasCreditCardHolderInfo {
+  name: string;
+  email: string;
+  cpfCnpj: string;
+  postalCode: string;
+  addressNumber: string;
+  addressComplement?: string;
+  phone: string;
+  mobilePhone?: string;
+}
+
+export interface AsaasSubscription {
   id: string;
   customer: string;
   value: number;
   cycle: string;
   status: string;
+  billingType?: string;
 }
 
-interface AsaasPayment {
+export interface AsaasPayment {
   id: string;
   customer: string;
   value: number;
@@ -33,6 +57,7 @@ interface AsaasPayment {
   status: string;
   invoiceUrl?: string;
   bankSlipUrl?: string;
+  dueDate?: string;
 }
 
 const proxyFetch = async (endpoint: string, method = 'GET', body?: any) => {
@@ -50,30 +75,163 @@ const proxyFetch = async (endpoint: string, method = 'GET', body?: any) => {
 };
 
 export const AsaasPaymentService = {
-  async findOrCreateCustomer(name: string, email: string, cpfCnpj: string): Promise<AsaasCustomer> {
+  async findOrCreateCustomer(
+    name: string,
+    email: string,
+    cpfCnpj: string,
+    extra?: { phone?: string; postalCode?: string; addressNumber?: string }
+  ): Promise<AsaasCustomer> {
+    const cleanCpf = cpfCnpj.replace(/\D/g, '');
+    const cleanPhone = extra?.phone ? extra.phone.replace(/\D/g, '') : undefined;
+    const cleanPostal = extra?.postalCode ? extra.postalCode.replace(/\D/g, '') : undefined;
+
     // Buscar cliente existente
     const searchData = await proxyFetch(`/customers?email=${encodeURIComponent(email)}`);
     if (searchData.data && searchData.data.length > 0) {
-      console.log('Cliente Asaas encontrado:', searchData.data[0].id);
-      return searchData.data[0];
+      const existing = searchData.data[0];
+      console.log('Cliente Asaas encontrado:', existing.id);
+      if ((cleanPhone || cleanPostal) && (!existing.postalCode || !existing.phone)) {
+        try {
+          await proxyFetch(`/customers/${existing.id}`, 'POST', {
+            phone: cleanPhone || existing.phone,
+            mobilePhone: cleanPhone || existing.mobilePhone,
+            postalCode: cleanPostal || existing.postalCode,
+            addressNumber: extra?.addressNumber || existing.addressNumber,
+          });
+        } catch (e) {
+          console.warn('Aviso ao atualizar dados complementares do cliente:', e);
+        }
+      }
+      return existing;
     }
+
     // Criar novo
-    const customer = await proxyFetch('/customers', 'POST', { name, email, cpfCnpj });
+    const payload: any = {
+      name,
+      email,
+      cpfCnpj: cleanCpf,
+    };
+    if (cleanPhone) {
+      payload.phone = cleanPhone;
+      payload.mobilePhone = cleanPhone;
+    }
+    if (cleanPostal) {
+      payload.postalCode = cleanPostal;
+      payload.addressNumber = extra?.addressNumber || 'S/N';
+    }
+
+    const customer = await proxyFetch('/customers', 'POST', payload);
     console.log('Cliente Asaas criado:', customer.id);
     return customer;
   },
 
-  async createSubscription(customerId: string, value: number, description: string): Promise<AsaasSubscription> {
+  async createSubscription(
+    customerId: string,
+    value: number,
+    description: string,
+    cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUALLY' | 'YEARLY' = 'MONTHLY'
+  ): Promise<AsaasSubscription> {
     const subscription = await proxyFetch('/subscriptions', 'POST', {
       customer: customerId,
       billingType: 'PIX',
       value,
-      cycle: 'MONTHLY',
+      cycle,
       description,
       nextDueDate: new Date().toISOString().split('T')[0],
     });
-    console.log('Assinatura criada:', subscription.id);
+    console.log('Assinatura PIX criada:', subscription.id);
     return subscription;
+  },
+
+  async createCreditCardSubscription(
+    customerId: string,
+    value: number,
+    description: string,
+    creditCard: AsaasCreditCardData,
+    creditCardHolderInfo: AsaasCreditCardHolderInfo,
+    cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUALLY' | 'YEARLY' = 'MONTHLY'
+  ): Promise<AsaasSubscription> {
+    const today = new Date().toISOString().split('T')[0];
+    const subscription = await proxyFetch('/subscriptions', 'POST', {
+      customer: customerId,
+      billingType: 'CREDIT_CARD',
+      value,
+      nextDueDate: today,
+      cycle,
+      description,
+      creditCard: {
+        holderName: creditCard.holderName.trim().toUpperCase(),
+        number: creditCard.number.replace(/\D/g, ''),
+        expiryMonth: creditCard.expiryMonth.padStart(2, '0'),
+        expiryYear: creditCard.expiryYear.length === 2 ? `20${creditCard.expiryYear}` : creditCard.expiryYear,
+        ccv: creditCard.ccv.trim(),
+      },
+      creditCardHolderInfo: {
+        name: creditCardHolderInfo.name.trim(),
+        email: creditCardHolderInfo.email.trim(),
+        cpfCnpj: creditCardHolderInfo.cpfCnpj.replace(/\D/g, ''),
+        postalCode: creditCardHolderInfo.postalCode.replace(/\D/g, ''),
+        addressNumber: creditCardHolderInfo.addressNumber.trim(),
+        addressComplement: creditCardHolderInfo.addressComplement?.trim() || undefined,
+        phone: creditCardHolderInfo.phone.replace(/\D/g, ''),
+        mobilePhone: creditCardHolderInfo.phone.replace(/\D/g, ''),
+      },
+    });
+    console.log('Assinatura com Cartão criada:', subscription.id);
+    return subscription;
+  },
+
+  async createCreditCardPayment(
+    customerId: string,
+    value: number,
+    description: string,
+    creditCard: AsaasCreditCardData,
+    creditCardHolderInfo: AsaasCreditCardHolderInfo
+  ): Promise<AsaasPayment> {
+    const today = new Date().toISOString().split('T')[0];
+    const payment = await proxyFetch('/payments', 'POST', {
+      customer: customerId,
+      billingType: 'CREDIT_CARD',
+      value,
+      dueDate: today,
+      description,
+      creditCard: {
+        holderName: creditCard.holderName.trim().toUpperCase(),
+        number: creditCard.number.replace(/\D/g, ''),
+        expiryMonth: creditCard.expiryMonth.padStart(2, '0'),
+        expiryYear: creditCard.expiryYear.length === 2 ? `20${creditCard.expiryYear}` : creditCard.expiryYear,
+        ccv: creditCard.ccv.trim(),
+      },
+      creditCardHolderInfo: {
+        name: creditCardHolderInfo.name.trim(),
+        email: creditCardHolderInfo.email.trim(),
+        cpfCnpj: creditCardHolderInfo.cpfCnpj.replace(/\D/g, ''),
+        postalCode: creditCardHolderInfo.postalCode.replace(/\D/g, ''),
+        addressNumber: creditCardHolderInfo.addressNumber.trim(),
+        addressComplement: creditCardHolderInfo.addressComplement?.trim() || undefined,
+        phone: creditCardHolderInfo.phone.replace(/\D/g, ''),
+        mobilePhone: creditCardHolderInfo.phone.replace(/\D/g, ''),
+      },
+    });
+    console.log('Pagamento com Cartão criado:', payment.id);
+    return payment;
+  },
+
+  async createInvoiceCheckoutPayment(
+    customerId: string,
+    value: number,
+    description: string
+  ): Promise<AsaasPayment> {
+    const today = new Date().toISOString().split('T')[0];
+    const payment = await proxyFetch('/payments', 'POST', {
+      customer: customerId,
+      billingType: 'UNDEFINED', // Checkout Asaas com suporte a Cartão de Débito, Crédito e Pix
+      value,
+      dueDate: today,
+      description,
+    });
+    console.log('Fatura de Checkout/Débito criada:', payment.id, payment.invoiceUrl);
+    return payment;
   },
 
   async createOneTimePayment(customerId: string, value: number, description: string): Promise<AsaasPayment> {
