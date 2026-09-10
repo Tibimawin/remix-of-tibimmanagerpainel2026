@@ -94,6 +94,7 @@ export const useMaxPlusImport = () => {
         Capa: content.poster,
         Idioma: idioma,
         Views: '0',
+        Temporadas: '0',
       };
 
       await baserowService.createRow(config.tableIds.conteudos, payload);
@@ -118,6 +119,7 @@ export const useMaxPlusImport = () => {
         (content.poster && content.poster.includes('LEG'))
       );
       const idioma = (content as any).idioma || (content.link && isLeg ? 'Legendado' : 'Dublado') || 'Dublado';
+      const qtdTemporadas = String((content as any).total_seasons || (content as any).temporadas || (content.seasons ? content.seasons.length : 1));
 
       const payload = {
         Nome: content.title,
@@ -132,7 +134,7 @@ export const useMaxPlusImport = () => {
         Capa: content.poster,
         Idioma: idioma,
         Views: '0',
-        Temporadas: content.seasons?.length.toString() || '1',
+        Temporadas: qtdTemporadas,
       };
 
       const createdContent = await baserowService.createRow(config.tableIds.conteudos, payload);

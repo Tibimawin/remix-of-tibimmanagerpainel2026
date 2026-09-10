@@ -68,7 +68,7 @@ export const useMaxPlusImporter = () => {
         'Tipo': scrapedData.tipo,
         'Views': '0',
         'Idioma': scrapedData.idioma,
-        'Temporadas': scrapedData.temporadas,
+        'Temporadas': scrapedData.tipo === 'Filme' ? '0' : String(scrapedData.temporadas || '1'),
       };
       await baserowService.createRow(config.tableIds.conteudos, payload);
       toast.success('Conteúdo importado com sucesso!');
@@ -105,7 +105,7 @@ export const useMaxPlusImporter = () => {
             'Tipo': scrapedData.tipo,
             'Views': '0',
             'Idioma': scrapedData.idioma,
-            'Temporadas': scrapedData.temporadas,
+            'Temporadas': String(scrapedData.temporadas || '1'),
         };
         
         console.log('Criando conteúdo principal:', contentPayload);

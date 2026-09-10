@@ -373,6 +373,7 @@ export class MaxPlusImportEngine {
         'Data de Lançamento': this.pick(tmdbData?.dataDeLancamento, existingContent['Data de Lançamento'] || existingContent.data_lancamento),
         'Capa de fundo': this.pick(tmdbData?.capaDeFundo, existingContent['Capa de fundo'] || existingContent.capa_de_fundo),
         'Imdb': this.pick(avaliacaoImdb, existingContent.Imdb || existingContent.imdb),
+        Temporadas: '0',
       };
 
       const mappedUpdatePayload = tableKeys.length > 0 ? mapToDatabaseKeys(rawUpdatePayload, tableKeys) : rawUpdatePayload;
@@ -396,6 +397,7 @@ export class MaxPlusImportEngine {
       'Data de Lançamento': tmdbData?.dataDeLancamento || '',
       'Capa de fundo': tmdbData?.capaDeFundo || '',
       'Imdb': avaliacaoImdb,
+      Temporadas: '0',
     };
 
     const mappedPayload = tableKeys.length > 0 ? mapToDatabaseKeys(rawPayload, tableKeys) : rawPayload;
@@ -462,6 +464,9 @@ export class MaxPlusImportEngine {
 
     const conteudosKeys = await this.getConteudosKeys();
 
+    // 🔢 Obter o número total de temporadas da série como String
+    const qtdTemporadas = String(data.total_seasons || (data as any).temporadas || (data.seasons_details ? data.seasons_details.length : 1));
+
     // 1. Verifica se a Série já existe na tabela de conteúdos (Upsert)
     const existingSerie = await this.findContentByName(data.nome, this.conteudosTableId);
     let serieId = '';
@@ -488,6 +493,7 @@ export class MaxPlusImportEngine {
         'Data de Lançamento': this.pick(tmdbData?.dataDeLancamento, existingSerie['Data de Lançamento'] || existingSerie.data_lancamento),
         'Capa de fundo': this.pick(tmdbData?.capaDeFundo, existingSerie['Capa de fundo'] || existingSerie.capa_de_fundo),
         'Imdb': this.pick(avaliacaoImdb, existingSerie.Imdb || existingSerie.imdb),
+        Temporadas: qtdTemporadas,
       };
 
       const mappedSerieUpdate = conteudosKeys.length > 0 ? mapToDatabaseKeys(rawSerieUpdate, conteudosKeys) : rawSerieUpdate;
@@ -509,6 +515,7 @@ export class MaxPlusImportEngine {
         'Data de Lançamento': tmdbData?.dataDeLancamento || '',
         'Capa de fundo': tmdbData?.capaDeFundo || '',
         'Imdb': avaliacaoImdb,
+        Temporadas: qtdTemporadas,
       };
 
       const mappedSeriePayload = conteudosKeys.length > 0 ? mapToDatabaseKeys(rawSeriePayload, conteudosKeys) : rawSeriePayload;

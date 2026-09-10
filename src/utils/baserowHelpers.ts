@@ -26,6 +26,7 @@ const COLUMN_ALIASES: Record<string, string[]> = {
   tipo: ['tipo', 'type', 'format', 'formato', 'conteudo_tipo'],
   idioma: ['idioma', 'language', 'audio', 'áudio', 'legenda', 'dublado_legendado'],
   // Campos de Episódios
+  temporadas: ['temporadas', 'seasons', 'total_temporadas', 'qtd_temporadas', 'quantidade_temporadas', 'totalseasons'],
   temporada: ['temporada', 'season', 'temp', 'numero_temporada', 'temporada_num', 'season_number'],
   episodio: ['episodio', 'episódio', 'episode', 'ep', 'numero_episodio', 'episodio_num', 'episode_number'],
   // Campos Enriquecidos TMDb / Metadados
