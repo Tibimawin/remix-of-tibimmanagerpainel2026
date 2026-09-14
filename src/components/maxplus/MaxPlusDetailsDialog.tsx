@@ -17,6 +17,7 @@ import {
 } from '@/services/maxplusApi';
 import { ImportProgress } from '@/services/maxplusImportEngine';
 import { normalizeCategories } from '@/utils/categoryNormalizer';
+import { tmdbService } from '@/services/TmdbService';
 import { 
   Film, 
   Tv, 
@@ -66,12 +67,37 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
   const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<number>(1);
   const [selectedEpisodes, setSelectedEpisodes] = useState<Record<string, boolean>>({});
+  const [tmdbEnriched, setTmdbEnriched] = useState<{ streamingPlatform?: string; ano?: string; dataDeLancamento?: string } | null>(null);
 
   // 🧹 Limpar imediatamente todos os estados internos sempre que o conteúdo mudar ou o popup abrir/fechar
   useEffect(() => {
     setSelectedEpisodes({});
     setSelectedSeasonNumber(1);
     setCopiedLink(false);
+    setTmdbEnriched(null);
+
+    // Consulta assíncrona dos metadados enriquecidos do TMDB para exibir a plataforma de streaming e ano no preview
+    if (details?.nome && open) {
+      let isCancelled = false;
+      const contentType = ((details.total_seasons !== undefined && details.total_seasons > 0) ||
+        (details.seasons_details !== undefined && details.seasons_details.length > 0)) ? 'tv' : 'movie';
+
+      tmdbService.getEnrichedDataForContent(details.nome, contentType).then(data => {
+        if (!isCancelled && data) {
+          setTmdbEnriched({
+            streamingPlatform: data.streamingPlatform,
+            ano: data.ano,
+            dataDeLancamento: data.dataDeLancamento,
+          });
+        }
+      }).catch(() => {
+        // Silencioso se der erro ou sem conexão
+      });
+
+      return () => {
+        isCancelled = true;
+      };
+    }
   }, [details?.link, details?.nome, open]);
 
   const isSeries = useMemo(() => {
@@ -80,15 +106,18 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
            (details.seasons_details !== undefined && details.seasons_details.length > 0);
   }, [details]);
 
-  // Categorias que serão salvas no Baserow (com 'Filmes'/'Series', 'Doramas', Ano e regra de 'Lançamentos')
+  // Categorias que serão salvas no Baserow (com 'Filmes'/'Series', 'Doramas', Ano, Plataforma de Streaming e regra de 'Lançamentos')
   const previewCategorias = useMemo(() => {
     if (!details) return '';
     return normalizeCategories({
       tipo: isSeries ? 'Serie' : 'Filme',
       categorias: [details.generos, fallbackCategory].filter(Boolean).join(', '),
       titulo: details.nome,
+      ano: tmdbEnriched?.ano,
+      dataDeLancamento: tmdbEnriched?.dataDeLancamento,
+      streamingPlatform: tmdbEnriched?.streamingPlatform,
     });
-  }, [details, isSeries, fallbackCategory]);
+  }, [details, isSeries, fallbackCategory, tmdbEnriched]);
 
   // Temporadas disponíveis
   const seasons: MaxPlusSeasonDetail[] = useMemo(() => {

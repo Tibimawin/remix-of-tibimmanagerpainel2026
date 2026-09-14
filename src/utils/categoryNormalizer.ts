@@ -17,6 +17,7 @@ export interface NormalizeCategoryOptions {
   ano?: string | number | null;
   dataDeLancamento?: string | null;
   titulo?: string | null;
+  streamingPlatform?: string | null;
 }
 
 // Lista ordenada de categorias conhecidas (mais específicas/longas primeiro) para desmembramento
@@ -96,6 +97,15 @@ const KNOWN_CATEGORIES = [
   'Serie',
   'Nacional',
   'Nacionais',
+  // Plataformas de Streaming
+  'Prime Video',
+  'Netflix',
+  'Disney',
+  'Apple',
+  'HBO MAX',
+  'Paramount',
+  'Globo Play',
+  'Viki Rakuten',
 ];
 
 // Mapeamento canônico para acentuação e padronização visual no painel
@@ -167,6 +177,29 @@ const CANONICAL_NAMES: Record<string, string> = {
   'destaques': 'Destaques',
   'nacional': 'Nacional',
   'nacionais': 'Nacional',
+  // Plataformas de Streaming
+  'netflix': 'Netflix',
+  'prime video': 'Prime Video',
+  'amazon prime video': 'Prime Video',
+  'primevideo': 'Prime Video',
+  'amazon': 'Prime Video',
+  'disney': 'Disney',
+  'disney+': 'Disney',
+  'disney plus': 'Disney',
+  'apple': 'Apple',
+  'apple tv': 'Apple',
+  'apple tv+': 'Apple',
+  'hbo max': 'HBO MAX',
+  'hbo': 'HBO MAX',
+  'max': 'HBO MAX',
+  'paramount': 'Paramount',
+  'paramount+': 'Paramount',
+  'paramount plus': 'Paramount',
+  'globo play': 'Globo Play',
+  'globoplay': 'Globo Play',
+  'viki': 'Viki Rakuten',
+  'rakuten viki': 'Viki Rakuten',
+  'viki rakuten': 'Viki Rakuten',
 };
 
 /**
@@ -304,7 +337,7 @@ export function extractMonth(dataDeLancamento?: string | null): number | null {
  * Normaliza e enriquece a lista de categorias segundo as regras do sistema.
  */
 export function normalizeCategories(options: NormalizeCategoryOptions): string {
-  const { tipo, categorias, ano, dataDeLancamento, titulo } = options;
+  const { tipo, categorias, ano, dataDeLancamento, titulo, streamingPlatform } = options;
 
   const tipoStr = (tipo || '').toLowerCase().trim();
   const isFilme = tipoStr.includes('filme') || tipoStr.includes('movie');
@@ -428,6 +461,15 @@ export function normalizeCategories(options: NormalizeCategoryOptions): string {
     const yearStr = String(detectedYear);
     if (!finalCategories.includes(yearStr)) {
       finalCategories.push(yearStr);
+    }
+  }
+
+  // 5. Categoria de Plataforma de Streaming (ex: 'Prime Video', 'Netflix', 'Disney', 'Apple', etc.)
+  if (streamingPlatform && typeof streamingPlatform === 'string' && streamingPlatform.trim()) {
+    const platformTrimmed = streamingPlatform.trim();
+    const platformCanonical = CANONICAL_NAMES[platformTrimmed.toLowerCase()] || platformTrimmed;
+    if (!finalCategories.some(c => c.toLowerCase() === platformCanonical.toLowerCase())) {
+      finalCategories.push(platformCanonical);
     }
   }
 

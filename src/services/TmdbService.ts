@@ -7,6 +7,7 @@ export interface TmdbData {
   linkCapa?: string;
   sinopse?: string;
   categoria?: string;
+  streamingPlatform?: string;
   seasons?: { name: string; episode_count: number; season_number: number }[];
 }
 
@@ -45,6 +46,75 @@ class TmdbService {
     return data;
   }
 
+  /**
+   * Identifica e normaliza a plataforma de streaming (ex: 'Netflix', 'Prime Video', 'Apple', 'Disney')
+   */
+  private extractStreamingPlatform(details: any): string | undefined {
+    if (!details) return undefined;
+
+    const matchPlatformName = (name?: string): string | null => {
+      if (!name || typeof name !== 'string') return null;
+      const clean = name.replace(/\s*(Amazon Channel|Apple TV channel|Roku Premium Channel|Standard with Ads|with Ads|Premium|Essential)\s*/gi, '').trim();
+      const lower = clean.toLowerCase();
+
+      // 1. Netflix
+      if (lower.startsWith('netflix') || lower === 'netflix') return 'Netflix';
+
+      // 2. Disney+ / Disney
+      if (lower.startsWith('disney') || lower.includes('disney+')) return 'Disney';
+
+      // 3. Apple TV+ / Apple
+      if (lower.startsWith('apple tv') || lower === 'apple' || lower === 'apple tv+') return 'Apple';
+
+      // 4. Amazon Prime Video
+      if (lower.includes('prime video') || lower.includes('amazon prime') || lower === 'amazon' || lower === 'primevideo') return 'Prime Video';
+
+      // 5. HBO MAX / Warner
+      if (lower.startsWith('hbo max') || lower === 'hbo' || lower === 'max' || lower.startsWith('warner')) return 'HBO MAX';
+
+      // 6. Paramount+
+      if (lower.startsWith('paramount')) return 'Paramount';
+
+      // 7. Globoplay
+      if (lower.includes('globo') || lower.includes('globoplay')) return 'Globo Play';
+
+      // 8. Viki Rakuten
+      if (lower.includes('viki') || lower.includes('rakuten')) return 'Viki Rakuten';
+
+      return null;
+    };
+
+    // 1. Prioridade para Networks / Produtoras Originais (ex: Séries da Netflix, Apple TV, Prime Video)
+    if (Array.isArray(details.networks)) {
+      for (const net of details.networks) {
+        const matched = matchPlatformName(net?.name);
+        if (matched) return matched;
+      }
+    }
+
+    // 2. Provedores de streaming (watch/providers) - priorizando catálogo por assinatura no Brasil (BR)
+    const providers = details['watch/providers']?.results;
+    if (providers) {
+      const brFlatrate = providers.BR?.flatrate;
+      if (Array.isArray(brFlatrate)) {
+        for (const p of brFlatrate) {
+          const matched = matchPlatformName(p?.provider_name);
+          if (matched) return matched;
+        }
+      }
+
+      const usFlatrate = providers.US?.flatrate;
+      if (Array.isArray(usFlatrate)) {
+        for (const p of usFlatrate) {
+          const matched = matchPlatformName(p?.provider_name);
+          if (matched) return matched;
+        }
+      }
+    }
+
+    return undefined;
+  }
+
   async search(query: string, type: 'movie' | 'tv'): Promise<TmdbData | null> {
     try {
       console.log(`Searching TMDB for: "${query}" as ${type}`);
@@ -63,8 +133,10 @@ class TmdbService {
       const firstResult = searchResults.results[0];
       console.log('First result:', firstResult);
 
-      const details = await this.makeRequest<any>(`/${type}/${firstResult.id}?language=pt-BR`);
+      const details = await this.makeRequest<any>(`/${type}/${firstResult.id}?language=pt-BR&append_to_response=watch/providers,networks`);
       console.log('Details:', details);
+
+      const streamingPlatform = this.extractStreamingPlatform(details);
 
       const tmdbData: TmdbData = {
         id: details.id,
@@ -73,6 +145,7 @@ class TmdbService {
         linkCapa: details.poster_path ? `${IMAGE_BASE_URL}${details.poster_path}` : undefined,
         sinopse: details.overview || 'Sinopse não encontrada.',
         categoria: details.genres?.map((g: any) => g.name).join(', ') || '',
+        streamingPlatform,
         seasons: type === 'tv'
           ? details.seasons?.filter((s: any) => s.name !== 'Especiais' && s.episode_count > 0)
           : undefined,
@@ -274,7 +347,7 @@ class TmdbService {
         return null;
       }
 
-      // 3. Obter detalhes completos com vídeos e external_ids
+      // 3. Obter detalhes completos com vídeos, external_ids, watch/providers e networks
       const details = await this.makeRequest<{
         id: number;
         release_date?: string;
@@ -286,9 +359,19 @@ class TmdbService {
         vote_average?: number;
         external_ids?: { imdb_id?: string };
         videos?: { results?: Array<{ site?: string; type?: string; key?: string }> };
+        networks?: Array<{ id?: number; name?: string }>;
+        'watch/providers'?: {
+          results?: {
+            BR?: { flatrate?: Array<{ provider_id?: number; provider_name?: string }> };
+            US?: { flatrate?: Array<{ provider_id?: number; provider_name?: string }> };
+          };
+        };
       }>(
-        `/${matchedType}/${matchedId}?language=pt-BR&append_to_response=external_ids,videos`
+        `/${matchedType}/${matchedId}?language=pt-BR&append_to_response=external_ids,videos,watch/providers,networks`
       );
+
+      // Identifica plataforma de streaming (ex: 'Netflix', 'Prime Video', 'Apple', 'Disney')
+      const streamingPlatform = this.extractStreamingPlatform(details);
 
       // Extrai data e ano
       const dataDeLancamento = details.release_date || details.first_air_date || '';
@@ -339,6 +422,7 @@ class TmdbService {
         dataDeLancamento,
         capaDeFundo,
         imdb: avaliacaoNota,
+        streamingPlatform,
         poster: details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : undefined,
         sinopse: details.overview || undefined,
       };
@@ -356,6 +440,7 @@ export interface TmdbEnrichedData {
   dataDeLancamento: string;
   capaDeFundo: string;
   imdb: string;
+  streamingPlatform?: string;
   poster?: string;
   sinopse?: string;
 }

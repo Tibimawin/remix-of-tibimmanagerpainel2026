@@ -335,12 +335,14 @@ export class MaxPlusImportEngine {
     // - Se for Dorama, SEMPRE contém 'Doramas'
     // - Contém SEMPRE o ano (ex: 2026 ou 2023)
     // - 'Lançamentos' apenas se for do ano atual (2026) / mês atual
+    // - Plataforma de Streaming (ex: 'Prime Video', 'Netflix', 'Disney', 'Apple')
     const categoriaNormalizada = normalizeCategories({
       tipo: 'Filme',
       categorias: [data.generos, fallbackCategory].filter(Boolean).join(', '),
       ano: tmdbData?.ano,
       dataDeLancamento: tmdbData?.dataDeLancamento,
       titulo: data.nome,
+      streamingPlatform: tmdbData?.streamingPlatform,
     });
 
     // Avaliação numérica do filme para a coluna Imdb (ex: "7.5" ou "5.0")
@@ -363,6 +365,7 @@ export class MaxPlusImportEngine {
           ano: tmdbData?.ano || (existingContent.Ano as string) || (existingContent.ano as string),
           dataDeLancamento: tmdbData?.dataDeLancamento || (existingContent['Data de Lançamento'] as string) || (existingContent.data_lancamento as string),
           titulo: data.nome,
+          streamingPlatform: tmdbData?.streamingPlatform,
         }),
         Link: this.pick(videoUrl, existingContent.Link),
         Tipo: 'Filme',
@@ -454,12 +457,14 @@ export class MaxPlusImportEngine {
     // - Se for Dorama, SEMPRE contém 'Doramas'
     // - Contém SEMPRE o ano (ex: 2026 ou 2023)
     // - 'Lançamentos' apenas se for do ano atual (2026) / mês atual
+    // - Plataforma de Streaming (ex: 'Prime Video', 'Netflix', 'Disney', 'Apple')
     const categoriaNormalizada = normalizeCategories({
       tipo: 'Serie',
       categorias: [data.generos, fallbackCategory].filter(Boolean).join(', '),
       ano: tmdbData?.ano,
       dataDeLancamento: tmdbData?.dataDeLancamento,
       titulo: data.nome,
+      streamingPlatform: tmdbData?.streamingPlatform,
     });
 
     const conteudosKeys = await this.getConteudosKeys();
@@ -484,6 +489,7 @@ export class MaxPlusImportEngine {
           ano: tmdbData?.ano || (existingSerie.Ano as string) || (existingSerie.ano as string),
           dataDeLancamento: tmdbData?.dataDeLancamento || (existingSerie['Data de Lançamento'] as string) || (existingSerie.data_lancamento as string),
           titulo: data.nome,
+          streamingPlatform: tmdbData?.streamingPlatform,
         }),
         Tipo: 'Serie',
         Idioma: this.pick(serieIdioma, existingSerie.Idioma || existingSerie.idioma) || serieIdioma || 'Dublado',
