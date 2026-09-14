@@ -13,8 +13,8 @@ const Sessoes = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { config } = useConfig();
 
-  // Memoize baserowService for stability
-  const baserowService = useMemo(() => useBaserowService(), [config]);
+  // baserowService is internally memoized based on config
+  const baserowService = useBaserowService();
 
   const columns = ['Categoria', 'Tipo'];
 

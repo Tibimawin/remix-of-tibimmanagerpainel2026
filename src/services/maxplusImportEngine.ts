@@ -359,7 +359,7 @@ export class MaxPlusImportEngine {
         Sinopse: this.pick(data.sinopse || tmdbData?.sinopse, existingContent.Sinopse),
         Categoria: normalizeCategories({
           tipo: 'Filme',
-          categorias: this.pick(categoriaNormalizada, existingContent.Categoria),
+          categorias: [categoriaNormalizada, existingContent.Categoria as string].filter(Boolean).join(', '),
           ano: tmdbData?.ano || (existingContent.Ano as string) || (existingContent.ano as string),
           dataDeLancamento: tmdbData?.dataDeLancamento || (existingContent['Data de Lançamento'] as string) || (existingContent.data_lancamento as string),
           titulo: data.nome,
@@ -480,7 +480,7 @@ export class MaxPlusImportEngine {
         Sinopse: this.pick(data.sinopse || tmdbData?.sinopse, existingSerie.Sinopse),
         Categoria: normalizeCategories({
           tipo: 'Serie',
-          categorias: this.pick(categoriaNormalizada, existingSerie.Categoria),
+          categorias: [categoriaNormalizada, existingSerie.Categoria as string].filter(Boolean).join(', '),
           ano: tmdbData?.ano || (existingSerie.Ano as string) || (existingSerie.ano as string),
           dataDeLancamento: tmdbData?.dataDeLancamento || (existingSerie['Data de Lançamento'] as string) || (existingSerie.data_lancamento as string),
           titulo: data.nome,

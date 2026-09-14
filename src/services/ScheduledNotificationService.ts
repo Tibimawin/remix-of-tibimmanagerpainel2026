@@ -89,7 +89,7 @@ class ScheduledNotificationService {
         }
         break;
 
-      case 'weekly':
+      case 'weekly': {
         const targetDay = schedule.dayOfWeek ?? 0;
         const currentDay = next.getDay();
         let daysUntilTarget = targetDay - currentDay;
@@ -100,8 +100,9 @@ class ScheduledNotificationService {
         
         next.setDate(next.getDate() + daysUntilTarget);
         break;
+      }
 
-      case 'monthly':
+      case 'monthly': {
         const targetDate = schedule.dayOfMonth ?? 1;
         next.setDate(targetDate);
         
@@ -110,6 +111,7 @@ class ScheduledNotificationService {
           next.setMonth(next.getMonth() + 1);
         }
         break;
+      }
     }
 
     return next;

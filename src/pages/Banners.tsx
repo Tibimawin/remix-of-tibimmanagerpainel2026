@@ -14,8 +14,8 @@ const Banners = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { config } = useConfig();
   
-  // Memoize baserowService to prevent recreation on every render
-  const baserowService = useMemo(() => useBaserowService(), [config]);
+  // baserowService is internally memoized based on config
+  const baserowService = useBaserowService();
 
   const columns = ['Nome', 'Imagem', 'ID', 'Categoria', 'Link', 'Externo?', 'Ordem'];
 

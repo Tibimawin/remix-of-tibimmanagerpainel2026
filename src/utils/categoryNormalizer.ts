@@ -2,13 +2,13 @@
  * Utilitário para padronização e enriquecimento de categorias para conteúdos importados.
  *
  * Regras aplicadas:
- * 1. Se for Filme, deve SEMPRE conter a categoria 'Filmes' no início.
- * 2. Se for Série, deve SEMPRE conter a categoria 'Series' no início.
- * 3. Se for Dorama (qualquer variação ou gênero contendo 'dorama'), deve SEMPRE conter a categoria 'Doramas'.
- * 4. Deve SEMPRE conter o ano de lançamento (ex: '2026', '2023') nas categorias.
- * 5. A categoria 'Lançamentos' só pode existir para títulos do ano corrente (ex: 2026)
- *    e preferencialmente lançados no mês corrente ou marcados originalmente como lançamento.
- *    Para filmes de anos anteriores (ex: 2025, 2024, etc.), a categoria 'Lançamentos' é removida.
+ * 1. Separação automática de categorias aglutinadas/coladas (ex: 'ComédiaFamíliaLançamentos' -> 'Comédia, Família, Lançamentos').
+ * 2. Se for Filme, deve SEMPRE conter a categoria 'Filmes' no início.
+ * 3. Se for Série, deve SEMPRE conter a categoria 'Series' no início.
+ * 4. Se for Dorama (qualquer variação ou gênero contendo 'dorama'), deve SEMPRE conter a categoria 'Doramas'.
+ * 5. Remoção de dados espúrios de duração (ex: '107 min', '107 Minutos.') e menções a IMDb.
+ * 6. Deve SEMPRE conter o ano de lançamento (ex: '2026', '2025', '2023') nas categorias.
+ * 7. Preserva e padroniza a categoria 'Lançamentos' quando presente na origem ou para títulos recentes.
  */
 
 export interface NormalizeCategoryOptions {
@@ -17,6 +17,228 @@ export interface NormalizeCategoryOptions {
   ano?: string | number | null;
   dataDeLancamento?: string | null;
   titulo?: string | null;
+}
+
+// Lista ordenada de categorias conhecidas (mais específicas/longas primeiro) para desmembramento
+const KNOWN_CATEGORIES = [
+  'Dorama Singapurense',
+  'Dorama Tailandês',
+  'Dorama Tailandes',
+  'Dorama Taiwanês',
+  'Dorama Taiwanes',
+  'Dorama Japonês',
+  'Dorama Japones',
+  'Dorama Chinês',
+  'Dorama Chines',
+  'Dorama Coreano',
+  'Dorama Dublado',
+  'Doramas',
+  'Dorama',
+  'Novelas Mexicanas',
+  'Novelas Nacionais',
+  'Novelas Turcas',
+  'Novelas',
+  'Novela',
+  'Ficção Científica',
+  'Ficção científica',
+  'Ficcao Cientifica',
+  'Cinema TV',
+  'TV Movie',
+  'Ação e Aventura',
+  'Ação & Aventura',
+  'Sci-Fi & Fantasy',
+  'Em Alta',
+  'Destaques',
+  'Lançamentos',
+  'Lancamentos',
+  'Lançamento',
+  'Lancamento',
+  'Documentário',
+  'Documentario',
+  'Ação',
+  'Acao',
+  'Aventura',
+  'Animação',
+  'Animacao',
+  'Animes',
+  'Anime',
+  'Comédia',
+  'Comedia',
+  'Crime',
+  'Policial',
+  'Drama',
+  'Família',
+  'Familia',
+  'Fantasia',
+  'Faroeste',
+  'Western',
+  'Guerra',
+  'História',
+  'Historia',
+  'Kids',
+  'Infantil',
+  'Desenhos',
+  'Desenho',
+  'Mistério',
+  'Misterio',
+  'Música',
+  'Musica',
+  'Musical',
+  'Romance',
+  'Suspense',
+  'Terror',
+  'Thriller',
+  'Filmes',
+  'Filme',
+  'Séries',
+  'Series',
+  'Série',
+  'Serie',
+  'Nacional',
+  'Nacionais',
+];
+
+// Mapeamento canônico para acentuação e padronização visual no painel
+const CANONICAL_NAMES: Record<string, string> = {
+  'comedia': 'Comédia',
+  'comédia': 'Comédia',
+  'familia': 'Família',
+  'família': 'Família',
+  'lancamentos': 'Lançamentos',
+  'lançamentos': 'Lançamentos',
+  'lancamento': 'Lançamentos',
+  'lançamento': 'Lançamentos',
+  'acao': 'Ação',
+  'ação': 'Ação',
+  'aventura': 'Aventura',
+  'animacao': 'Animação',
+  'animação': 'Animação',
+  'animes': 'Animes',
+  'anime': 'Animes',
+  'crime': 'Crime',
+  'policial': 'Crime',
+  'documentario': 'Documentário',
+  'documentário': 'Documentário',
+  'drama': 'Drama',
+  'fantasia': 'Fantasia',
+  'faroeste': 'Faroeste',
+  'western': 'Faroeste',
+  'ficcao cientifica': 'Ficção Científica',
+  'ficção científica': 'Ficção Científica',
+  'ficção cientifica': 'Ficção Científica',
+  'sci-fi': 'Ficção Científica',
+  'guerra': 'Guerra',
+  'historia': 'História',
+  'história': 'História',
+  'kids': 'Kids',
+  'infantil': 'Kids',
+  'desenhos': 'Desenhos',
+  'desenho': 'Desenhos',
+  'misterio': 'Mistério',
+  'mistério': 'Mistério',
+  'musica': 'Música',
+  'música': 'Música',
+  'musical': 'Música',
+  'romance': 'Romance',
+  'suspense': 'Suspense',
+  'terror': 'Terror',
+  'thriller': 'Suspense',
+  'cinema tv': 'Cinema TV',
+  'tv movie': 'Cinema TV',
+  'dorama': 'Doramas',
+  'doramas': 'Doramas',
+  'dorama chines': 'Dorama Chinês',
+  'dorama chinês': 'Dorama Chinês',
+  'dorama coreano': 'Dorama Coreano',
+  'dorama dublado': 'Dorama Dublado',
+  'dorama japones': 'Dorama Japonês',
+  'dorama japonês': 'Dorama Japonês',
+  'dorama tailandes': 'Dorama Tailandês',
+  'dorama tailandês': 'Dorama Tailandês',
+  'dorama taiwanes': 'Dorama Taiwanês',
+  'dorama taiwanês': 'Dorama Taiwanês',
+  'dorama singapurense': 'Dorama Singapurense',
+  'novelas': 'Novelas',
+  'novela': 'Novelas',
+  'novelas mexicanas': 'Novelas Mexicanas',
+  'novelas nacionais': 'Novelas Nacionais',
+  'novelas turcas': 'Novelas Turcas',
+  'em alta': 'Em Alta',
+  'destaques': 'Destaques',
+  'nacional': 'Nacional',
+  'nacionais': 'Nacional',
+};
+
+/**
+ * Descola categorias que foram concatenadas sem separador (ex: 'ComédiaFamíliaLançamentos' -> ['Comédia', 'Família', 'Lançamentos']).
+ */
+export function splitGluedCategories(rawInput?: string | string[] | null): string[] {
+  if (!rawInput) return [];
+
+  let raw = '';
+  if (Array.isArray(rawInput)) {
+    raw = rawInput.filter(Boolean).map(c => String(c).trim()).join(', ');
+  } else if (typeof rawInput === 'string') {
+    raw = rawInput;
+  }
+
+  if (!raw.trim()) return [];
+
+  // 1. Limpeza de prefixos colados de scraping do MaxPlus (ex: 'DoramaDorama Chinês' -> 'Dorama Chinês')
+  raw = raw.replace(/DoramaDorama\s*/gi, 'Dorama ');
+
+  // 2. Descolar maiúsculas que sucedem minúsculas ou dígitos com regex Unicode (ex: 'ComédiaFamíliaLançamentos' -> 'Comédia, Família, Lançamentos')
+  raw = raw.replace(/(\p{Ll}|\d)(?=\p{Lu})/gu, '$1, ');
+
+  // 3. Descolar siglas seguidas de palavras (ex: 'Cinema TVTerror' -> 'Cinema TV, Terror')
+  raw = raw.replace(/\b(TV|HD|FHD|4K)(?=[A-ZÀ-ÖØ-ß][a-zà-öø-ÿ])/gu, '$1, ');
+
+  // 4. Quebrar por vírgulas, barras, ponto-e-vírgula, pipes e quebras de linha
+  const initialTokens = raw.split(/[,;\n\r/|]+/).map(t => t.trim()).filter(Boolean);
+
+  const tokens: string[] = [];
+
+  for (const token of initialTokens) {
+    // Descartar menções de duração de filmes/episódios (ex: '107 min', '107 Minutos.', '90m', '2h 15m')
+    if (
+      /^\d+\s*(?:min|minutos|minuto|m)\.?$/i.test(token) ||
+      /^\d+\s*h(\s*\d+\s*(?:min|m))?\.?$/i.test(token)
+    ) {
+      continue;
+    }
+
+    // Descartar menções a IMDb (ex: 'IMDb: 8.5')
+    if (/^imdb/i.test(token)) {
+      continue;
+    }
+
+    // Se o token ainda contiver categorias conhecidas aglutinadas mesmo em minúsculas
+    let remaining = token;
+    const extracted: string[] = [];
+
+    while (remaining.length > 0) {
+      const match = KNOWN_CATEGORIES.find(k => {
+        const normK = k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const normRem = remaining.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return normRem.startsWith(normK);
+      });
+
+      if (match) {
+        extracted.push(match);
+        remaining = remaining.slice(match.length).trim();
+      } else {
+        break;
+      }
+    }
+
+    if (extracted.length > 1 && remaining.length === 0) {
+      tokens.push(...extracted);
+    } else {
+      tokens.push(token);
+    }
+  }
+
+  return tokens;
 }
 
 /**
@@ -88,14 +310,8 @@ export function normalizeCategories(options: NormalizeCategoryOptions): string {
   const isFilme = tipoStr.includes('filme') || tipoStr.includes('movie');
   const isSerie = tipoStr.includes('serie') || tipoStr.includes('tv');
 
-  // Separar categorias existentes
-  const rawList: string[] = [];
-  if (Array.isArray(categorias)) {
-    rawList.push(...categorias.map(c => String(c).trim()));
-  } else if (typeof categorias === 'string' && categorias.trim() !== '') {
-    // Quebra por vírgula, barra ou ponto-e-vírgula
-    rawList.push(...categorias.split(/[,;/]+/).map(c => c.trim()));
-  }
+  // 1. Separar e descolar categorias existentes (ex: 'ComédiaFamíliaLançamentos' -> ['Comédia', 'Família', 'Lançamentos'])
+  const rawList = splitGluedCategories(categorias);
 
   const detectedYear = extractYear(ano, dataDeLancamento, titulo);
   const detectedMonth = extractMonth(dataDeLancamento);
@@ -104,7 +320,7 @@ export function normalizeCategories(options: NormalizeCategoryOptions): string {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1; // 1 a 12
 
-  // Verifica se o título original trazia menção a Lançamento
+  // Verifica se o título original trazia menção a Lançamento (incluindo categorias coladas)
   const hadLancamento = rawList.some(cat => {
     const lower = cat.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     return lower === 'lancamento' || lower === 'lancamentos';
@@ -134,9 +350,17 @@ export function normalizeCategories(options: NormalizeCategoryOptions): string {
       continue;
     }
 
-    // Se for palavra de lançamento
+    // Se for menção de duração (ex: '107 min', '107 Minutos.', '90m'), ignorar
+    if (
+      /^\d+\s*(?:min|minutos|minuto|m)\.?$/i.test(trimmed) ||
+      /^\d+\s*h(\s*\d+\s*(?:min|m))?\.?$/i.test(trimmed)
+    ) {
+      continue;
+    }
+
+    // Se for palavra de lançamento, trataremos na regra de Lançamentos
     if (lowerNormalized === 'lancamento' || lowerNormalized === 'lancamentos') {
-      continue; // Avaliaremos separadamente abaixo
+      continue;
     }
 
     // Se for variação isolada de Filme/Filmes ou Serie/Series, trataremos na inserção da categoria base
@@ -157,13 +381,12 @@ export function normalizeCategories(options: NormalizeCategoryOptions): string {
       continue; // Trataremos o ano correto abaixo
     }
 
-    // Limpeza de padrões colados da API MaxPlus (ex: 'DoramaDorama Chinês' -> 'Dorama Chinês')
-    let cleanedCat = trimmed;
-    if (cleanedCat.startsWith('DoramaDorama ')) {
-      cleanedCat = cleanedCat.replace('DoramaDorama ', 'Dorama ');
-    }
+    // Mapear para nome canônico padronizado se conhecido
+    const canonical = CANONICAL_NAMES[lowerNormalized] || trimmed;
 
-    filteredList.push(cleanedCat);
+    if (!filteredList.some(c => c.toLowerCase() === canonical.toLowerCase())) {
+      filteredList.push(canonical);
+    }
   }
 
   const finalCategories: string[] = [];
@@ -190,28 +413,21 @@ export function normalizeCategories(options: NormalizeCategoryOptions): string {
     }
   }
 
-  // 3. Categoria Ano (ex: '2026', '2023', etc.)
+  // 3. Regra de Lançamentos:
+  // Se a origem continha 'Lançamentos' (inclusive se vinha colado como em 'ComédiaFamíliaLançamentos'), preserva.
+  // Também adiciona se for título recente do ano corrente.
+  const isRecentInYear = detectedYear === currentYear && (detectedMonth ? Math.abs(currentMonth - detectedMonth) <= 1 : true);
+  if (hadLancamento || isRecentInYear) {
+    if (!finalCategories.some(c => c.toLowerCase() === 'lançamentos' || c.toLowerCase() === 'lancamentos')) {
+      finalCategories.push('Lançamentos');
+    }
+  }
+
+  // 4. Categoria Ano (ex: '2026', '2025', etc.)
   if (detectedYear) {
     const yearStr = String(detectedYear);
     if (!finalCategories.includes(yearStr)) {
       finalCategories.push(yearStr);
-    }
-  }
-
-  // 4. Regra de Lançamentos:
-  // Apenas títulos do ano corrente podem ser considerados lançamentos.
-  // Se for do ano corrente (ex: 2026), ganha/mantém "Lançamentos" se:
-  // a) For lançado no mês atual (ex: mês 9), OU
-  // b) Tinha a categoria Lançamentos na origem e é do ano atual, OU
-  // c) Não temos o mês informado, mas é do ano atual e o usuário importou com flag de lançamento
-  if (detectedYear === currentYear) {
-    const isSameMonth = detectedMonth ? detectedMonth === currentMonth : false;
-    const isRecentInYear = detectedMonth ? Math.abs(currentMonth - detectedMonth) <= 1 : true;
-
-    if (isSameMonth || (hadLancamento && isRecentInYear)) {
-      if (!finalCategories.some(c => c.toLowerCase() === 'lançamentos' || c.toLowerCase() === 'lancamentos')) {
-        finalCategories.push('Lançamentos');
-      }
     }
   }
 

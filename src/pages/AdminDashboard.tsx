@@ -449,7 +449,7 @@ const AdminDashboard = () => {
 
       case 'date-logs':
         return <DateRangeFilter logs={logs} />;
-      case 'metrics':
+      case 'metrics': {
         // Converter FirebaseUser para User para o dashboard
         const convertedUsers = users.map(user => ({
           id: user.uid,
@@ -460,6 +460,7 @@ const AdminDashboard = () => {
           Pagamento: user.isActive ? 'Ativo' : 'Expirado'
         }));
         return <VisualMetricsDashboard users={convertedUsers} logs={logs} />;
+      }
       case 'products':
         return <AdminProducts />;
       case 'notifications':

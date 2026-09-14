@@ -8,14 +8,15 @@ export const ActionHistoryContext = createContext<{
 
 export const useActionHistory = () => {
   const context = useContext(ActionHistoryContext);
-  if (!context) {
-    // Fallback para usar diretamente o hook se não houver contexto
-    const { addAction } = useUserActionHistory();
-    return {
-      logAction: (action: string, details: string, category: 'content' | 'config' | 'import' | 'export' | 'other' = 'other', canUndo = false, undoData?: any) => {
-        addAction(action, details, category, canUndo, undoData);
-      }
-    };
+  const { addAction } = useUserActionHistory();
+
+  if (context) {
+    return context;
   }
-  return context;
+
+  return {
+    logAction: (action: string, details: string, category: 'content' | 'config' | 'import' | 'export' | 'other' = 'other', canUndo = false, undoData?: any) => {
+      addAction(action, details, category, canUndo, undoData);
+    }
+  };
 };
