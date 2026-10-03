@@ -4,6 +4,8 @@ import { useConfig } from '@/contexts/ConfigContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
 
 const METRICS_CACHE_KEY = 'dashboard:system-metrics-cache';
+const METRICS_TTL_MS = 3 * 60 * 1000; // 3 minutos de cache em memória
+let memoryCache: { metrics: SystemMetrics; signature: string; timestamp: number } | null = null;
 
 interface SystemMetrics {
   totalFilmes: number;
@@ -99,7 +101,17 @@ export const useSystemMetrics = () => {
   const lastLoadedSignatureRef = useRef<string | null>(null);
 
   const fetchMetrics = useCallback(async (force = false) => {
-    if (inFlightRef.current || (!force && lastLoadedSignatureRef.current === configSignature)) return;
+    if (inFlightRef.current) return;
+
+    const now = Date.now();
+    // Se temos cache em memória válido e não é forçado, reutilizar imediatamente sem requisição de rede
+    if (!force && memoryCache && memoryCache.signature === configSignature && (now - memoryCache.timestamp < METRICS_TTL_MS)) {
+      setMetrics(memoryCache.metrics);
+      setLoading(false);
+      return;
+    }
+
+    if (!force && lastLoadedSignatureRef.current === configSignature) return;
 
     // Se não há configuração de Baserow válida, usar métricas padrão
     if (!config?.tableIds || !config.apiToken || !config.baseUrl) {
@@ -324,6 +336,11 @@ export const useSystemMetrics = () => {
       console.log('✅ Métricas carregadas:', newMetrics);
       console.timeEnd('⏱️ Métricas carregadas em');
       setMetrics(newMetrics);
+      memoryCache = {
+        metrics: newMetrics,
+        signature: configSignature,
+        timestamp: Date.now(),
+      };
       try {
         sessionStorage.setItem(METRICS_CACHE_KEY, JSON.stringify(newMetrics));
       } catch {

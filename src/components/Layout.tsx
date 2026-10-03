@@ -1,22 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { UserSidebar } from './user/UserSidebar';
 import { UserHeader } from './user/UserHeader';
 import { UserMobileNav } from './user/UserMobileNav';
 import { SuportePrioritario } from './SuportePrioritario';
-import FloatingChat from './FloatingChat';
 import { OnboardingTour } from './OnboardingTour';
 import { ErrorBoundary } from './ErrorBoundary';
 import ExpirationWarningBanner from './ExpirationWarningBanner';
 import SubscriptionExpiredBanner from './SubscriptionExpiredBanner';
 import { RouteFeatureGate } from './RouteFeatureGate';
-import { AIAssistant } from './AIAssistant';
 import { SeasonalThemeBanner, SeasonalThemeEffects } from './seasonal/SeasonalThemeWrapper';
 import { PlansPopup } from './PlansPopup';
 import { M3UProgressBar } from './M3UProgressBar';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useEnhancedActionHistory } from '@/hooks/useEnhancedActionHistory';
 import { useActionNotifier } from '@/hooks/useActionNotifier';
-import { useExpirationMonitor } from '@/hooks/useExpirationMonitor';
 import { useAITracking } from '@/hooks/useAITracking';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { Button } from '@/components/ui/button';
@@ -25,6 +22,9 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useZoom } from '@/contexts/ZoomContext';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+
+const FloatingChat = lazy(() => import('./FloatingChat'));
+const AIAssistant = lazy(() => import('./AIAssistant').then(m => ({ default: m.AIAssistant })));
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -44,9 +44,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { zoom } = useZoom();
 
   const hasNoFeatures = !permLoading && (!permissions?.enabledFeatures || permissions.enabledFeatures.length === 0);
-
-  // Hook para monitorar expirações e enviar notificações (apenas se usuário logado)
-  useExpirationMonitor();
 
   // Hook para rastrear ações do usuário para a IA
   useAITracking();
@@ -206,11 +203,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </main>
         </div>
 
-        {/* Chat Flutuante */}
-        <FloatingChat />
-
-        {/* Assistente IA */}
-        <AIAssistant />
+        {/* Chat Flutuante e Assistente IA com carregamento dinâmico */}
+        <Suspense fallback={null}>
+          <FloatingChat />
+          <AIAssistant />
+        </Suspense>
 
         {/* 🎨 Efeitos do Tema Sazonal (partículas e decorações) */}
         <SeasonalThemeEffects />
@@ -218,10 +215,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         {/* Tutorial de Onboarding */}
         <OnboardingTour />
 
-        {/* Popup de Planos - auto-open para novos usuários */}
-        <PlansPopup />
-        {/* Popup de Planos - aberto pelo banner */}
-        <PlansPopup forceOpen={showPlansPopup} onClose={() => setShowPlansPopup(false)} />
+        {/* Popup de Planos - instância única */}
+        <PlansPopup forceOpen={showPlansPopup ? true : undefined} onClose={() => setShowPlansPopup(false)} />
 
         {/* 📊 Barra de progresso persistente de importação M3U */}
         <M3UProgressBar />

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -21,85 +22,103 @@ import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { SimpleProtectedRoute } from "./components/SimpleProtectedRoute";
 import { AdminProtectedRoute } from "./components/AdminProtectedRoute";
 import { Layout } from "./components/Layout";
-import Apresentacao from "./pages/Apresentacao";
-import PrecosPublico from "./pages/PrecosPublico";
-import Dashboard from "./pages/Dashboard";
-import Conteudos from "./pages/Conteudos";
-import Episodios from "./pages/Episodios";
-import Banners from "./pages/Banners";
-import Categorias from "./pages/Categorias";
-import CategoriasTV from "./pages/CategoriasTV";
-import CategoriasAnime from "./pages/CategoriasAnime";
-import Duplicados from "./pages/Duplicados";
-import DuplicadosEpisodios from "./pages/DuplicadosEpisodios";
-import DuplicadosEpisodiosOtimizado from "./pages/DuplicadosEpisodiosOtimizado";
-import FerramentasIA from "./pages/FerramentasIA";
-import Usuarios from "./pages/Usuarios";
-import Sessoes from "./pages/Sessoes";
-import Plataformas from "./pages/Plataformas";
-import Configuracoes from "./pages/Configuracoes";
-import Recursos from "./pages/Recursos";
-import ImportarM3U from "./pages/ImportarM3U";
-import ImportacaoAutomatica from "./pages/ImportacaoAutomatica";
-import Miniseries from "./pages/Miniseries";
-import AtualizacaoSeries from "./pages/AtualizacaoSeries";
-import JogosDia from "./pages/JogosDia";
-import Perfil from "./pages/Perfil";
-import HistoricoAcoes from "./pages/HistoricoAcoes";
-import Login from "./pages/Login";
-import Cadastro from "./pages/Cadastro";
-import AdminLogin from "./pages/AdminLogin";
-import AdminDashboard from "./pages/AdminDashboard";
-import AdminPlanosSolicitados from "./pages/AdminPlanosSolicitados";
-import NotFound from "./pages/NotFound";
-import Estatisticas from "./pages/Estatisticas";
-import AdicionarConteudo from "./pages/AdicionarConteudo";
-import Produtos from "./pages/Produtos";
-import ProdutoDetalhes from "./pages/ProdutoDetalhes";
-import SuporteAoVivo from "./pages/SuporteAoVivo";
-import Precos from "./pages/Precos";
-import PrecosInterno from "./pages/PrecosInterno";
-import Carrinho from "./pages/Carrinho";
-import Checkout from "./pages/Checkout";
-import SubstituicaoURLs from "./pages/SubstituicaoURLs";
-import Plano2 from "./pages/Plano2";
-import Carrosseu from "./pages/Carrosseu";
-import Versao from "./pages/Versao";
-import Pedido from "./pages/Pedido";
-import Avaliacao from "./pages/Avaliacao";
-import CategoriaFilmes from "./pages/CategoriaFilmes";
-import CategoriaSeries from "./pages/CategoriaSeries";
-import CategoriaDorama from "./pages/CategoriaDorama";
-import CategoriaAnimes from "./pages/CategoriaAnimes";
-import CategoriaNovelas from "./pages/CategoriaNovelas";
-import Perfis from "./pages/Perfis";
-import MeusAplicativos from "./pages/MeusAplicativos";
-import MeusApp from "./pages/MeusApp";
-
-import RelatoriosVisualizacao from "./pages/RelatoriosVisualizacao";
-
-import ImportarCanaisTV from "./pages/ImportarCanaisTV";
-import Ofertas from "./pages/Ofertas";
-import LimpezaDados from "./pages/LimpezaDados";
-import MaxPlusImport from "./pages/MaxPlusImport";
-import MaxPlus from "./pages/MaxPlus";
-import SistemaIndicacao from "./pages/SistemaIndicacao";
-import ConfiguracoesAPIs from "./pages/ConfiguracoesAPIs";
-import ConfiguracoesSeguranca from "./pages/ConfiguracoesSeguranca";
-import ImportarConteudo from "./pages/ImportarConteudo";
-import OfertaDetalhes from "./pages/OfertaDetalhes";
-import ConfiguracoesAutoImport from "./pages/ConfiguracoesAutoImport";
-import GestaoDispositivos from "./pages/GestaoDispositivos";
-import Planos from "./pages/Planos";
-import MinhaApi from "./pages/MinhaApi";
-import ApiDocs from "./pages/ApiDocs";
-import GeradorPost from "./pages/GeradorPost";
-import Status from "./pages/Status";
 import { UpdateNotificationModal } from "./components/UpdateNotificationModal";
 import { M3UImportProvider } from "./contexts/M3UImportContext";
 
+// 🚀 OTIMIZAÇÃO: Lazy Loading de todas as páginas para dividir o bundle de 5.2MB em micro-chunks
+const Apresentacao = lazy(() => import("./pages/Apresentacao"));
+const PrecosPublico = lazy(() => import("./pages/PrecosPublico"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Conteudos = lazy(() => import("./pages/Conteudos"));
+const Episodios = lazy(() => import("./pages/Episodios"));
+const Banners = lazy(() => import("./pages/Banners"));
+const Categorias = lazy(() => import("./pages/Categorias"));
+const CategoriasTV = lazy(() => import("./pages/CategoriasTV"));
+const CategoriasAnime = lazy(() => import("./pages/CategoriasAnime"));
+const Duplicados = lazy(() => import("./pages/Duplicados"));
+const DuplicadosEpisodios = lazy(() => import("./pages/DuplicadosEpisodios"));
+const DuplicadosEpisodiosOtimizado = lazy(() => import("./pages/DuplicadosEpisodiosOtimizado"));
+const FerramentasIA = lazy(() => import("./pages/FerramentasIA"));
+const Usuarios = lazy(() => import("./pages/Usuarios"));
+const Sessoes = lazy(() => import("./pages/Sessoes"));
+const Plataformas = lazy(() => import("./pages/Plataformas"));
+const Configuracoes = lazy(() => import("./pages/Configuracoes"));
+const Recursos = lazy(() => import("./pages/Recursos"));
+const ImportarM3U = lazy(() => import("./pages/ImportarM3U"));
+const ImportacaoAutomatica = lazy(() => import("./pages/ImportacaoAutomatica"));
+const Miniseries = lazy(() => import("./pages/Miniseries"));
+const AtualizacaoSeries = lazy(() => import("./pages/AtualizacaoSeries"));
+const JogosDia = lazy(() => import("./pages/JogosDia"));
+const Perfil = lazy(() => import("./pages/Perfil"));
+const HistoricoAcoes = lazy(() => import("./pages/HistoricoAcoes"));
+const Login = lazy(() => import("./pages/Login"));
+const Cadastro = lazy(() => import("./pages/Cadastro"));
+const AdminLogin = lazy(() => import("./pages/AdminLogin"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminPlanosSolicitados = lazy(() => import("./pages/AdminPlanosSolicitados"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Estatisticas = lazy(() => import("./pages/Estatisticas"));
+const AdicionarConteudo = lazy(() => import("./pages/AdicionarConteudo"));
+const Produtos = lazy(() => import("./pages/Produtos"));
+const ProdutoDetalhes = lazy(() => import("./pages/ProdutoDetalhes"));
+const SuporteAoVivo = lazy(() => import("./pages/SuporteAoVivo"));
+const Precos = lazy(() => import("./pages/Precos"));
+const PrecosInterno = lazy(() => import("./pages/PrecosInterno"));
+const Carrinho = lazy(() => import("./pages/Carrinho"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const SubstituicaoURLs = lazy(() => import("./pages/SubstituicaoURLs"));
+const Plano2 = lazy(() => import("./pages/Plano2"));
+const Carrosseu = lazy(() => import("./pages/Carrosseu"));
+const Versao = lazy(() => import("./pages/Versao"));
+const Pedido = lazy(() => import("./pages/Pedido"));
+const Avaliacao = lazy(() => import("./pages/Avaliacao"));
+const CategoriaFilmes = lazy(() => import("./pages/CategoriaFilmes"));
+const CategoriaSeries = lazy(() => import("./pages/CategoriaSeries"));
+const CategoriaDorama = lazy(() => import("./pages/CategoriaDorama"));
+const CategoriaAnimes = lazy(() => import("./pages/CategoriaAnimes"));
+const CategoriaNovelas = lazy(() => import("./pages/CategoriaNovelas"));
+const Perfis = lazy(() => import("./pages/Perfis"));
+const MeusAplicativos = lazy(() => import("./pages/MeusAplicativos"));
+const MeusApp = lazy(() => import("./pages/MeusApp"));
+const RelatoriosVisualizacao = lazy(() => import("./pages/RelatoriosVisualizacao"));
+const ImportarCanaisTV = lazy(() => import("./pages/ImportarCanaisTV"));
+const Ofertas = lazy(() => import("./pages/Ofertas"));
+const LimpezaDados = lazy(() => import("./pages/LimpezaDados"));
+const MaxPlusImport = lazy(() => import("./pages/MaxPlusImport"));
+const MaxPlus = lazy(() => import("./pages/MaxPlus"));
+const SistemaIndicacao = lazy(() => import("./pages/SistemaIndicacao"));
+const ConfiguracoesAPIs = lazy(() => import("./pages/ConfiguracoesAPIs"));
+const ConfiguracoesSeguranca = lazy(() => import("./pages/ConfiguracoesSeguranca"));
+const ImportarConteudo = lazy(() => import("./pages/ImportarConteudo"));
+const OfertaDetalhes = lazy(() => import("./pages/OfertaDetalhes"));
+const ConfiguracoesAutoImport = lazy(() => import("./pages/ConfiguracoesAutoImport"));
+const GestaoDispositivos = lazy(() => import("./pages/GestaoDispositivos"));
+const Planos = lazy(() => import("./pages/Planos"));
+const MinhaApi = lazy(() => import("./pages/MinhaApi"));
+const ApiDocs = lazy(() => import("./pages/ApiDocs"));
+const GeradorPost = lazy(() => import("./pages/GeradorPost"));
+const Status = lazy(() => import("./pages/Status"));
 
-const queryClient = new QueryClient();
+// ⚡ Fallback elegante e ultraleve durante transições de rota
+const PageLoadingFallback = () => (
+  <div className="flex items-center justify-center min-h-[50vh] w-full" aria-busy="true">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+      <span className="text-xs text-muted-foreground font-medium animate-pulse">Carregando painel...</span>
+    </div>
+  </div>
+);
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutos de cache em memória
+      gcTime: 1000 * 60 * 15,   // 15 minutos em garbage collection
+      refetchOnWindowFocus: false, // Não re-disparar todas as requisições ao focar na janela
+      retry: 1,
+    },
+  },
+});
 
 const AppWithMonitor = () => {
   useExpirationMonitor();
@@ -131,7 +150,8 @@ const App = () => {
                           <UpdateNotificationModal />
                           <Sonner />
                           <BrowserRouter>
-                            <Routes>
+                            <Suspense fallback={<PageLoadingFallback />}>
+                              <Routes>
                               {/* Rota inicial - página de apresentação */}
                               <Route path="/" element={<Apresentacao />} />
 
@@ -716,7 +736,8 @@ const App = () => {
                               {/* Rota 404 - deve ser a última */}
                               <Route path="*" element={<NotFound />} />
                             </Routes>
-                          </BrowserRouter>
+                          </Suspense>
+                        </BrowserRouter>
                           </M3UImportProvider>
                           </ZoomProvider>
                           </CustomizationProvider>

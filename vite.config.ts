@@ -28,6 +28,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "0.0.0.0",
     port: 3000,
+    allowedHosts: true,
     proxy: {
       "/api": {
         target: "https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app",
@@ -60,6 +61,7 @@ export default defineConfig(({ mode }) => ({
     sourcemap: false,
     minify: "esbuild",
     cssMinify: true,
+    chunkSizeWarningLimit: 1200,
     rollupOptions: {
       output: {
         entryFileNames: `assets/[name]-[hash].js`,
@@ -69,6 +71,37 @@ export default defineConfig(({ mode }) => ({
             return `assets/[name]-v${BUILD_ID.slice(-6)}-[hash][extname]`;
           }
           return `assets/[name]-[hash][extname]`;
+        },
+        manualChunks: (id) => {
+          if (id.includes('node_modules')) {
+            if (id.includes('react-dom') || id.includes('react/') || id.includes('react-router-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('@radix-ui') || id.includes('tailwind-merge') || id.includes('class-variance-authority') || id.includes('clsx')) {
+              return 'vendor-ui';
+            }
+            if (id.includes('firebase')) {
+              return 'vendor-firebase';
+            }
+            if (id.includes('@supabase')) {
+              return 'vendor-supabase';
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+            if (id.includes('recharts') || id.includes('d3-')) {
+              return 'vendor-charts';
+            }
+            if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('html-to-image')) {
+              return 'vendor-export';
+            }
+            if (id.includes('framer-motion')) {
+              return 'vendor-framer';
+            }
+            if (id.includes('@tanstack')) {
+              return 'vendor-query';
+            }
+          }
         },
       },
     },

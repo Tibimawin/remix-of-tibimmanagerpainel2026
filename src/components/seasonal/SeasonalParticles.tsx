@@ -22,26 +22,28 @@ export const SeasonalParticles: React.FC<SeasonalParticlesProps> = ({ config }) 
   }, [config.customTheme?.particleEmoji]);
 
   useEffect(() => {
-    const newParticles: Particle[] = Array.from({ length: 40 }, (_, i) => ({
+    if (!config.effects.particles) return;
+
+    const newParticles: Particle[] = Array.from({ length: 14 }, (_, i) => ({
       id: i,
       left: Math.random() * 100,
-      animationDuration: Math.random() * 4 + 3,
-      opacity: Math.random() * 0.5 + 0.5,
-      size: Math.random() * 16 + 12,
+      animationDuration: Math.random() * 4 + 4,
+      opacity: Math.random() * 0.4 + 0.4,
+      size: Math.random() * 12 + 10,
       delay: Math.random() * 3
     }));
 
     setParticles(newParticles);
-  }, []);
+  }, [config.effects.particles]);
 
   if (!config.effects.particles) return null;
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
+    <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden" aria-hidden="true">
       {particles.map((particle) => (
         <div
           key={particle.id}
-          className="absolute animate-seasonal-fall"
+          className="absolute animate-seasonal-fall will-change-transform select-none"
           style={{
             left: `${particle.left}%`,
             top: '-30px',

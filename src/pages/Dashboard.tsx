@@ -6,12 +6,8 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { PermissionGate } from '@/components/PermissionGate';
 import ExpirationWarningBanner from '@/components/ExpirationWarningBanner';
 import UserAnnouncementsBanner from '@/components/UserAnnouncementsBanner';
-import NewContentBanner from '@/components/NewContentBanner';
-import NewContentDialog from '@/components/NewContentDialog';
-import NewContentList from '@/components/NewContentList';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { useNewContentNotifications } from '@/hooks/useNewContentNotifications';
 import { CreditCard, X, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -21,50 +17,6 @@ const Dashboard = () => {
   const [showPaymentBanner, setShowPaymentBanner] = React.useState(() => {
     return localStorage.getItem('dismiss-payment-banner') !== 'true';
   });
-  const {
-    newItems,
-    newCount,
-    hasNewContent,
-    shouldShowPopup,
-    markAllAsSeen,
-    dismissPopup,
-  } = useNewContentNotifications();
-  const [isNewContentDialogOpen, setIsNewContentDialogOpen] = React.useState(false);
-
-  React.useEffect(() => {
-    if (shouldShowPopup && hasNewContent) {
-      setIsNewContentDialogOpen(true);
-    }
-  }, [hasNewContent, shouldShowPopup]);
-
-  const handleViewNewContent = React.useCallback(() => {
-    dismissPopup();
-    setIsNewContentDialogOpen(false);
-
-    window.setTimeout(() => {
-      document.getElementById('novidades-conteudos')?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    }, 50);
-  }, [dismissPopup]);
-
-  const handleImportNewContent = React.useCallback(() => {
-    dismissPopup();
-    setIsNewContentDialogOpen(false);
-    navigate('/importacao-automatica', {
-      state: {
-        autoImportContents: newItems.map((item) => item.raw),
-      },
-    });
-  }, [dismissPopup, navigate, newItems]);
-
-  const handleDialogOpenChange = React.useCallback((open: boolean) => {
-    setIsNewContentDialogOpen(open);
-    if (!open) {
-      dismissPopup();
-    }
-  }, [dismissPopup]);
 
   if (loading) {
     return (
@@ -87,25 +39,6 @@ const Dashboard = () => {
         <ExpirationWarningBanner
           onRenewClick={() => {
             window.location.href = '/precos';
-          }}
-        />
-
-        <NewContentBanner
-          count={newCount}
-          onView={handleViewNewContent}
-          onImport={handleImportNewContent}
-          onMarkAllAsSeen={markAllAsSeen}
-        />
-
-        <NewContentDialog
-          open={isNewContentDialogOpen}
-          items={newItems}
-          onOpenChange={handleDialogOpenChange}
-          onView={handleViewNewContent}
-          onImport={handleImportNewContent}
-          onMarkAllAsSeen={() => {
-            markAllAsSeen();
-            setIsNewContentDialogOpen(false);
           }}
         />
 
@@ -162,14 +95,6 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-
-        {hasNewContent && (
-          <NewContentList
-            items={newItems}
-            onImport={handleImportNewContent}
-            onMarkAllAsSeen={markAllAsSeen}
-          />
-        )}
 
         <div className="space-y-4 sm:space-y-6">
           <div className="modern-card p-3.5 sm:p-5 md:p-6 backdrop-blur-sm">

@@ -142,6 +142,9 @@
     font-family: 'Outfit', 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
@@ -242,14 +245,15 @@
     position: relative;
   }
 
-  /* Decoração de Natal na sidebar */
+  /* Decoração sutil na sidebar */
   .modern-sidebar::before {
     content: '🎄';
     position: absolute;
     top: 10px;
     right: 10px;
-    font-size: 24px;
-    animation: christmas-sparkle 2s ease-in-out infinite;
+    font-size: 20px;
+    opacity: 0.5;
+    pointer-events: none;
   }
 
   .modern-button {
