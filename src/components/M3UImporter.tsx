@@ -322,45 +322,72 @@ const M3UImporter = () => {
         
         // Extrair group-title (Tipo | Categoria)
         const groupMatch = line.match(/group-title="([^"]*)"/i);
-        const groupTitleFull = groupMatch?.[1] || '';
-        const [typeRaw, categoryRaw] = groupTitleFull.split('|').map(s => s.trim());
+        const groupTitleFull = (groupMatch?.[1] || '').trim();
+        const hasPipe = groupTitleFull.includes('|');
+        const [typeRaw, categoryRaw] = hasPipe ? groupTitleFull.split('|').map(s => s.trim()) : ['', groupTitleFull];
         
-        const category = categoryRaw || groupTitleFull; // Fallback se não tiver |
-        
-        // Detectar tipo base
-        let type: 'Filme' | 'Serie' | 'TV' | 'Episódio' = 'Filme';
-        if (typeRaw) {
-           const typeUpper = typeRaw.toUpperCase();
-           if (typeUpper.includes('FILME')) type = 'Filme';
-           else if (typeUpper.includes('SERIE') || typeUpper.includes('SÉRIE') || typeUpper.includes('SERIES')) type = 'Serie';
-           else if (typeUpper.includes('TV') || typeUpper.includes('CANAL') || typeUpper.includes('CANAIS')) type = 'TV';
-        }
-        // Fallback: se a URL contém /series/, forçar tipo Serie
-        if (type === 'Filme' && url.includes('/series/')) {
-          type = 'Serie';
-        }
+        let category = categoryRaw || groupTitleFull || 'Geral';
 
-        // Detectar Episódio (Sxx Eyy)
-        // Regex para capturar Nome da Série, Temporada e Episódio
-        // Ex: "Big Mouth S01 E01" -> Name: "Big Mouth", S: 01, E: 01
-        const episodeMatch = name.match(/(.*?)\s+S(\d+)\s*E(\d+)/i);
+        // Análise ultra-robusta de rota de URL e padrões de IPTV
+        const urlLower = url.toLowerCase();
+        const lineUpper = line.toUpperCase();
+        const groupUpper = groupTitleFull.toUpperCase();
+
+        const isLiveUrl = urlLower.includes('/live/') || urlLower.includes('/live.php') || urlLower.includes(':8080/live/');
+        const isMovieUrl = urlLower.includes('/movie/') || urlLower.includes('/movie.php');
+        const isSeriesUrl = urlLower.includes('/series/') || urlLower.includes('/series.php');
+
+        // Regex para capturar padrão de episódio: S01 E01, S1E1, T01 E01, [01x02], etc.
+        const episodeMatch = name.match(/(.*?)\s+(?:S|T|TEMPORADA)\s*(\d+)\s*(?:E|EP|EPISODIO)\s*(\d+)/i) ||
+                             name.match(/(.*?)\s*\[(\d+)x(\d+)\]/i) ||
+                             name.match(/(.*?)\s*(\d+)x(\d+)/i);
+
+        // Palavras-chave inequívocas de Canais de TV Ao Vivo
+        const hasLiveKeyword = /(CANAIS|CANAL|\bTV\b|AO VIVO|LIVE|CHANNELS|ABERTO|ABERTOS|ESPORTE|ESPORTES|SPORT|SPORTS|FUTEBOL|NOTICIA|NOTICIAS|NOTÍCIA|NOTÍCIAS|GLOBO|RECORD|SBT|BAND|PREMIERE|COMBATE|TELECINE|TELE CINE|HBO|MAX|DISCOVERY|INFANTIL|KIDS|RELIGIOS|VARIEDADE|VARIEDADES|24H|24 HORAS|PPV|PAY PER VIEW|DAZN|ESPN|PARAMOUNT|PLUTO|REGIONAL|REGIONAIS|ADULTO|ADULTOS|\+18|RADIO|RÁDIO|NEWS|WARNER|SONY|AXN|UNIVERSAL|CONMEBOL|UHD|4K|FHD|HD|SD)/i.test(groupUpper);
+        const hasSerieKeyword = /(SERIE|SÉRIE|SERIES|SÉRIES|TEMPORADA|NOVELA|NOVELAS|DORAMA|DORAMAS|ANIME|ANIMES|MINISERIE|MINISÉRIE)/i.test(groupUpper);
+        const hasMovieKeyword = /(FILME|FILMES|MOVIE|MOVIES|CINEMA|VOD|LANCAMENTO|LANÇAMENTO)/i.test(groupUpper);
+
+        let type: 'Filme' | 'Serie' | 'TV' | 'Episódio' = 'Filme';
+
+        // 1. Identificação prioritária por URL do servidor IPTV (padrão Xtream Codes / DNS)
+        if (isLiveUrl) {
+          type = 'TV';
+        } else if (isSeriesUrl) {
+          type = episodeMatch ? 'Episódio' : 'Serie';
+        } else if (isMovieUrl) {
+          type = 'Filme';
+        } else if (hasLiveKeyword && !hasMovieKeyword && !hasSerieKeyword) {
+          // 2. Se a categoria tem nome de canais ao vivo (Abertos, Esportes, etc.)
+          type = 'TV';
+        } else if (hasSerieKeyword && !hasLiveKeyword) {
+          type = episodeMatch ? 'Episódio' : 'Serie';
+        } else if (hasMovieKeyword && !hasLiveKeyword) {
+          type = 'Filme';
+        } else if (episodeMatch && !hasLiveKeyword) {
+          type = 'Episódio';
+        } else if (lineUpper.includes('RADIO="TRUE"') || lineUpper.includes('TVG-TYPE="LIVE"')) {
+          type = 'TV';
+        } else if (/\.(ts|m3u8)($|\?)/i.test(urlLower) && !urlLower.includes('.mp4') && !urlLower.includes('.mkv')) {
+          // Streams .ts ou .m3u8 sem padrão de arquivo de filme são TV ao vivo
+          type = 'TV';
+        } else if (typeRaw) {
+          const typeUpper = typeRaw.toUpperCase();
+          if (typeUpper.includes('TV') || typeUpper.includes('CANAL') || typeUpper.includes('CANAIS') || typeUpper.includes('LIVE')) type = 'TV';
+          else if (typeUpper.includes('SERIE') || typeUpper.includes('SÉRIE') || typeUpper.includes('SERIES')) type = 'Serie';
+          else if (typeUpper.includes('FILME')) type = 'Filme';
+        }
         
         let season: number | undefined;
         let episode: number | undefined;
         let seriesName: string | undefined;
 
-        if (episodeMatch) {
-            type = 'Episódio';
+        // Se for Episódio genuíno (e NÃO um canal ao vivo)
+        if (type === 'Episódio' && episodeMatch) {
             seriesName = episodeMatch[1].trim();
             season = parseInt(episodeMatch[2], 10);
             episode = parseInt(episodeMatch[3], 10);
-            
-            // Nome do episódio deve ser apenas o nome da série conforme regra
             name = seriesName; 
         } else if (type === 'Serie') {
-            // Se for marcado como Série mas não tem padrão de episódio, 
-            // assumimos que é uma entrada de série (talvez canal 24h ou algo assim)
-            // ou mantemos como Série para ser criado em Conteúdos
             seriesName = name;
         }
 
@@ -834,11 +861,36 @@ const M3UImporter = () => {
   };
 
   const handleImport = async () => {
-    if (!config?.tableIds?.conteudos || !config?.tableIds?.episodios) {
-      toast.error('Configuração necessária', {
-        description: 'Configure os IDs das tabelas primeiro.'
+    // 🛡️ Validação inteligente de tabelas requeridas por tipo selecionado
+    if (!importFilters.series && !importFilters.movies && !importFilters.tv) {
+      toast.error('Nenhum tipo selecionado', {
+        description: 'Selecione ao menos um tipo (Séries, Filmes ou Canais TV) para importar.'
       });
       return;
+    }
+
+    if (importFilters.series && (!config?.tableIds?.conteudos || !config?.tableIds?.episodios)) {
+      toast.error('Configuração necessária para Séries', {
+        description: 'Para importar séries, configure as tabelas de Conteúdos e Episódios em Configurações.'
+      });
+      return;
+    }
+
+    if (importFilters.movies && !config?.tableIds?.conteudos) {
+      toast.error('Configuração necessária para Filmes', {
+        description: 'Para importar filmes, configure a tabela de Conteúdos em Configurações.'
+      });
+      return;
+    }
+
+    if (importFilters.tv) {
+      const hasTvTable = ((namingMode === 'plural' || namingMode === 'tibim') && config?.tableIds?.canaisTv) || config?.tableIds?.conteudos;
+      if (!hasTvTable) {
+        toast.error('Configuração necessária para Canais TV', {
+          description: 'Configure a tabela de Canais TV ou Conteúdos em Configurações para importar canais.'
+        });
+        return;
+      }
     }
 
     // Aviso se TMDB ativo mas chave não configurada
@@ -900,10 +952,25 @@ const M3UImporter = () => {
     try {
       const grouped = groupSeriesAndEpisodes(parsedItems);
       
-      const totalItems = grouped.series.length + 
-                        grouped.series.reduce((sum, s) => sum + s.episodes.length, 0) +
-                        grouped.filmes.length + 
-                        grouped.canais.length;
+      // Contar apenas os tipos selecionados para o progresso correto
+      let totalItems = 0;
+      if (importFilters.series) {
+        totalItems += grouped.series.length + grouped.series.reduce((sum, s) => sum + s.episodes.length, 0);
+      }
+      if (importFilters.movies) {
+        totalItems += grouped.filmes.length;
+      }
+      if (importFilters.tv) {
+        totalItems += grouped.canais.length;
+      }
+
+      if (totalItems === 0) {
+        toast.warning('Nenhum item correspondente encontrado', {
+          description: 'A lista não possui conteúdos para os tipos selecionados.'
+        });
+        setIsImporting(false);
+        return;
+      }
       
       setProgress({ current: 0, total: totalItems, percentage: 0, currentType: '', currentItem: '' });
       
@@ -911,23 +978,29 @@ const M3UImporter = () => {
       let existingNames = new Set<string>();
       const duplicateCheckActive = ignoreDuplicates;
       if (ignoreDuplicates) {
-        const MAX_RETRIES = 3;
+        const MAX_RETRIES = 2;
         let loaded = false;
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
           try {
-            setProgress(prev => ({ ...prev, currentItem: `Carregando conteúdos existentes para verificação de duplicados... (tentativa ${attempt}/${MAX_RETRIES})` }));
-            const { results } = await baserowService.getAllTableData(config.tableIds.conteudos);
-            existingNames = new Set(results.map((item: any) => {
-              const nome = item.Nome;
-              return nome ? normalizeName(nome) : '';
-            }).filter(Boolean));
+            setProgress(prev => ({ ...prev, currentItem: `Carregando existentes para verificação... (${attempt}/${MAX_RETRIES})` }));
+            
+            // Só busca conteudos se estamos importando Filmes, Séries ou se canais vão para conteudos
+            const isTvOnlySeparate = importFilters.tv && !importFilters.movies && !importFilters.series && (namingMode === 'plural' || namingMode === 'tibim') && config?.tableIds?.canaisTv;
 
-            // Se for modo plural ou tibim e canais de TV forem importados para tabela separada, carregar nomes de lá também
-            if ((namingMode === 'plural' || namingMode === 'tibim') && config.tableIds.canaisTv && importFilters.tv) {
+            if (!isTvOnlySeparate && config?.tableIds?.conteudos) {
+              const { results } = await baserowService.getAllTableData(config.tableIds.conteudos, undefined, 1500);
+              results.forEach((item: any) => {
+                const nome = item.Nome || item.nome;
+                if (nome) existingNames.add(normalizeName(nome));
+              });
+            }
+
+            // Se vai importar canais para tabela canaisTv separada, carregar nomes de canaisTv
+            if (importFilters.tv && (namingMode === 'plural' || namingMode === 'tibim') && config.tableIds.canaisTv) {
               try {
-                const canaisRes = await baserowService.getAllTableData(config.tableIds.canaisTv);
+                const canaisRes = await baserowService.getAllTableData(config.tableIds.canaisTv, undefined, 1500);
                 canaisRes.results.forEach((item: any) => {
-                  const nome = item.Nome;
+                  const nome = item.Nome || item.nome || item.Canal || item.canalNome;
                   if (nome) existingNames.add(normalizeName(nome));
                 });
               } catch (cErr) {
@@ -936,27 +1009,22 @@ const M3UImporter = () => {
             }
 
             toast.success(`Verificação de duplicados ativa`, {
-              description: `${existingNames.size} conteúdos existentes carregados para comparação.`,
+              description: `${existingNames.size} nomes existentes carregados.`,
               icon: <Database className="w-4 h-4" />,
             });
-            console.log(`✅ Duplicados: ${existingNames.size} nomes existentes carregados`);
             loaded = true;
             break;
           } catch (error) {
             console.error(`Tentativa ${attempt}/${MAX_RETRIES} falhou ao buscar conteúdos existentes:`, error);
             if (attempt < MAX_RETRIES) {
-              await new Promise(r => setTimeout(r, 2000 * attempt));
+              await new Promise(r => setTimeout(r, 1000));
             }
           }
         }
         if (!loaded) {
-          toast.error('Importação cancelada: não foi possível verificar duplicados', {
-            description: 'Não conseguimos carregar os conteúdos existentes após 3 tentativas. A importação foi cancelada para evitar duplicados. Tente novamente.',
-            duration: 10000,
+          toast.warning('Aviso de duplicados', {
+            description: 'Não foi possível carregar os registros existentes. A importação prosseguirá normalmente.',
           });
-          setIsImporting(false);
-          clearGlobalProgress();
-          return;
         }
       }
 
@@ -1200,7 +1268,7 @@ const M3UImporter = () => {
             }
           }
 
-          resumeIdxRef.current.filmes = resumeIdxRef.current.filmes + i + batch.length;
+          resumeIdxRef.current.filmes = i + batch.length;
           saveResumeState(resumeIdxRef.current.series, resumeIdxRef.current.filmes, resumeIdxRef.current.canais, stats);
         }
       }
@@ -1232,16 +1300,14 @@ const M3UImporter = () => {
 
         for (const canal of canaisToImport) {
           if (abortRef.current) break;
-          let category = canal.category || '';
-          if (category) category += ', ';
-          category += 'TV';
+          const cleanCategory = (canal.category || 'TV').trim();
 
           if (isSeparateCanaisTable) {
             const canalRecord: Record<string, any> = {
               [colMap.canalNome]: canal.name,
-              [colMap.canalCapa]: canal.logo || '',
-              [colMap.canalCategoria]: category,
               [colMap.canalLink]: canal.url,
+              [colMap.canalCategoria]: cleanCategory,
+              [colMap.canalCapa]: canal.logo || '',
               [colMap.canalTipo]: 'TV',
             };
             if (namingMode === 'tibim') {
@@ -1252,9 +1318,9 @@ const M3UImporter = () => {
           } else {
             canaisData.push({
               [colMap.nome]: canal.name,
-              [colMap.capa]: canal.logo || '',
-              [colMap.categoria]: category,
               [colMap.link]: canal.url,
+              [colMap.categoria]: cleanCategory,
+              [colMap.capa]: canal.logo || '',
               [colMap.tipo]: 'TV',
               [colMap.idioma]: 'Ao Vivo',
               [colMap.views]: 0,
@@ -1274,26 +1340,42 @@ const M3UImporter = () => {
             updateProgressCount(batch.length, 'Canais', `Importando lote de ${batch.length} canais...`);
             await baserowService.createRowsBatch(targetTableId, batch);
             successCount += batch.length;
+            setStats(prev => ({ ...prev, canais: prev.canais + batch.length }));
             // ✅ Atualizar existingNames com nomes dos canais importados
             for (const canalData of batch) {
               const cName = canalData[colMap.canalNome] || canalData[colMap.nome] || canalData.Nome;
               if (cName) existingNames.add(normalizeName(cName));
             }
           } catch (error) {
-            console.error('Erro ao importar lote de canais:', error);
-            // Fallback: um por um
+            console.error('Erro ao importar lote de canais, tentando individual:', error);
+            // Fallback: tentar um por um com payload resiliente
             for (const canalData of batch) {
+              if (abortRef.current) break;
               try {
                 await baserowService.createRow(targetTableId, canalData);
                 successCount++;
-              } catch (cErr) {
-                console.error('Erro ao importar canal individual:', cErr);
-                errorCount++;
+                setStats(prev => ({ ...prev, canais: prev.canais + 1 }));
+              } catch (cErr: any) {
+                // Se falhou por coluna opcional inexistente na tabela, tentar payload mínimo essencial
+                const minimalPayload: Record<string, any> = {
+                  'Nome': canalData[colMap.canalNome] || canalData[colMap.nome] || canalData.Nome || '',
+                  'Link': canalData[colMap.canalLink] || canalData[colMap.link] || canalData.Link || '',
+                  'Categoria': canalData[colMap.canalCategoria] || canalData[colMap.categoria] || canalData.Categoria || 'TV',
+                  'Capa': canalData[colMap.canalCapa] || canalData[colMap.capa] || canalData.Capa || '',
+                };
+                try {
+                  await baserowService.createRow(targetTableId, minimalPayload);
+                  successCount++;
+                  setStats(prev => ({ ...prev, canais: prev.canais + 1 }));
+                } catch (fallbackErr) {
+                  console.error('Erro definitivo ao importar canal individual:', canalData.Nome || canalData[colMap.canalNome], fallbackErr);
+                  errorCount++;
+                }
               }
             }
           }
 
-          resumeIdxRef.current.canais = resumeIdxRef.current.canais + i + batch.length;
+          resumeIdxRef.current.canais = i + batch.length;
           saveResumeState(resumeIdxRef.current.series, resumeIdxRef.current.filmes, resumeIdxRef.current.canais, stats);
         }
       }
