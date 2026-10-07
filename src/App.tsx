@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ConfigProvider } from "./contexts/ConfigContext";
 import { AdminConfigProvider } from "./contexts/AdminConfigContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -22,6 +22,7 @@ import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { SimpleProtectedRoute } from "./components/SimpleProtectedRoute";
 import { AdminProtectedRoute } from "./components/AdminProtectedRoute";
 import { Layout } from "./components/Layout";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { UpdateNotificationModal } from "./components/UpdateNotificationModal";
 import { M3UImportProvider } from "./contexts/M3UImportContext";
 
@@ -84,7 +85,6 @@ const RelatoriosVisualizacao = lazy(() => import("./pages/RelatoriosVisualizacao
 const ImportarCanaisTV = lazy(() => import("./pages/ImportarCanaisTV"));
 const Ofertas = lazy(() => import("./pages/Ofertas"));
 const LimpezaDados = lazy(() => import("./pages/LimpezaDados"));
-const MaxPlusImport = lazy(() => import("./pages/MaxPlusImport"));
 const MaxPlus = lazy(() => import("./pages/MaxPlus"));
 const SistemaIndicacao = lazy(() => import("./pages/SistemaIndicacao"));
 const ConfiguracoesAPIs = lazy(() => import("./pages/ConfiguracoesAPIs"));
@@ -167,7 +167,9 @@ const App = () => {
                               {/* Rota do painel administrativo - protegida */}
                               <Route path="/admin-dashboard" element={
                                 <AdminProtectedRoute>
-                                  <AdminDashboard />
+                                  <ErrorBoundary>
+                                    <AdminDashboard />
+                                  </ErrorBoundary>
                                 </AdminProtectedRoute>
                               } />
 
@@ -723,15 +725,7 @@ const App = () => {
                                 </SimpleProtectedRoute>
                               } />
 
-                              <Route path="/maxplus-import" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <PermissionGate feature="maxplus">
-                                      <MaxPlus />
-                                    </PermissionGate>
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
+                              <Route path="/maxplus-import" element={<Navigate to="/maxplus" replace />} />
 
                               {/* Rota 404 - deve ser a última */}
                               <Route path="*" element={<NotFound />} />

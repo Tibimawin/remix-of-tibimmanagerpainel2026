@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { FirebaseUserService, FirebaseUser } from '@/services/FirebaseUserService';
@@ -118,6 +118,9 @@ export const AdminAlertCenter: React.FC = () => {
                 });
                 setUsers(userData);
                 checkForAlerts(userData);
+            },
+            (error) => {
+                console.warn('Erro ao escutar usuários no AdminAlertCenter:', error);
             }
         );
 
@@ -126,30 +129,41 @@ export const AdminAlertCenter: React.FC = () => {
 
     // Monitorar logs de automação em tempo real
     useEffect(() => {
-        const q = query(
-            collection(db, 'autoImportLogs'),
-            where('status', '==', 'success'),
-            orderBy('timestamp', 'desc'),
-            limit(10)
-        );
+        let unsubscribe = () => {};
+        try {
+            const q = query(
+                collection(db, 'autoImportLogs'),
+                where('status', '==', 'success'),
+                orderBy('timestamp', 'desc'),
+                limit(10)
+            );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const runningUsers = new Set<string>();
-            const now = new Date().getTime();
-            const fiveMinutesAgo = now - (5 * 60 * 1000);
+            unsubscribe = onSnapshot(
+                q,
+                (snapshot) => {
+                    const runningUsers = new Set<string>();
+                    const now = new Date().getTime();
+                    const fiveMinutesAgo = now - (5 * 60 * 1000);
 
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                const logTime = new Date(data.timestamp).getTime();
+                    snapshot.forEach((doc) => {
+                        const data = doc.data();
+                        const logTime = new Date(data.timestamp).getTime();
 
-                // Se importou nos últimos 5 minutos, considera como "rodando"
-                if (logTime > fiveMinutesAgo) {
-                    runningUsers.add(data.userEmail);
+                        // Se importou nos últimos 5 minutos, considera como "rodando"
+                        if (logTime > fiveMinutesAgo) {
+                            runningUsers.add(data.userEmail);
+                        }
+                    });
+
+                    setAutomationRunning(Array.from(runningUsers));
+                },
+                (error) => {
+                    console.warn('Erro ao escutar autoImportLogs no AdminAlertCenter:', error);
                 }
-            });
-
-            setAutomationRunning(Array.from(runningUsers));
-        });
+            );
+        } catch (err) {
+            console.warn('Erro ao criar query autoImportLogs:', err);
+        }
 
         return () => unsubscribe();
     }, []);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { useLocation } from 'react-router-dom';
 import { AIAssistantService, AISuggestion } from '@/services/AIAssistantService';
