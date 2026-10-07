@@ -3,7 +3,7 @@
  * especially user management, content, and system tables.
  */
 const COLUMN_ALIASES: Record<string, string[]> = {
-  nome: ['nome', 'name', 'usuario', 'usuário', 'cliente'],
+  nome: ['nome', 'name', 'usuario', 'usuário', 'cliente', 'categoria', 'category', 'titulo', 'title'],
   email: ['email', 'e-mail', 'mail'],
   senha: ['senha', 'password', 'pass'],
   status: ['status', 'situacao', 'situação', 'estado'],
@@ -21,7 +21,7 @@ const COLUMN_ALIASES: Record<string, string[]> = {
   // Campos de Conteúdos e Mídias
   capa: ['capa', 'poster', 'imagem', 'thumbnail', 'foto', 'image', 'banner', 'cover'],
   sinopse: ['sinopse', 'synopsis', 'descricao', 'descrição', 'description', 'resumo', 'overview'],
-  categoria: ['categoria', 'category', 'genero', 'gênero', 'genres', 'generos'],
+  categoria: ['categoria', 'category', 'genero', 'gênero', 'genres', 'generos', 'categoriatv', 'categoria tv', 'categorias tv', 'nome', 'name', 'titulo', 'title'],
   link: ['link', 'url', 'video', 'stream', 'player', 'arquivo', 'source', 'videourl'],
   tipo: ['tipo', 'type', 'format', 'formato', 'conteudo_tipo'],
   idioma: ['idioma', 'language', 'audio', 'áudio', 'legenda', 'dublado_legendado'],

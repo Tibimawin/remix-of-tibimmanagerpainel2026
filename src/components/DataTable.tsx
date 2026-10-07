@@ -99,7 +99,19 @@ export const DataTable: React.FC<DataTableProps & {
     // Capitalizar primeira letra para bater com os nomes de campos normais no Baserow
     const capitalizedKey = key.charAt(0).toUpperCase() + key.slice(1);
     
-    switch (key) {
+    // Tentar resolver a coluna real baseada nas chaves da primeira linha carregada
+    const firstRow = data[0] || bulkData?.[0];
+    if (firstRow) {
+      const rowKeys = Object.keys(firstRow);
+      const exactMatch = rowKeys.find(k => k.toLowerCase() === key.toLowerCase());
+      if (exactMatch) return isDesc ? `-${exactMatch}` : exactMatch;
+      if (key.toLowerCase() === 'categoria') {
+        const nomeMatch = rowKeys.find(k => k.toLowerCase() === 'nome' || k.toLowerCase() === 'name');
+        if (nomeMatch) return isDesc ? `-${nomeMatch}` : nomeMatch;
+      }
+    }
+
+    switch (key.toLowerCase()) {
       case 'id':
         return isDesc ? '-id' : 'id';
       case 'nome':
@@ -445,11 +457,54 @@ export const DataTable: React.FC<DataTableProps & {
     }
   };
 
-  const formatValue = (column: string, value: any, item?: any) => {
+  const formatValue = (column: string, rawValue: any, item?: any) => {
     if (formatters[column]) {
-      return formatters[column](value, item);
+      return formatters[column](rawValue, item);
     }
-    return value || '-';
+
+    let value = rawValue;
+
+    // Se o valor estiver vazio ou indefinido, tentar recuperar inteligentemente do item
+    if (value === undefined || value === null || value === '') {
+      if (item && typeof item === 'object') {
+        const colLower = column.toLowerCase();
+        // Se a coluna for Categoria ou Nome, tentar sinônimos diretos no objeto
+        if (colLower.includes('categoria') || colLower.includes('nome')) {
+          const directCandidates = ['Nome', 'nome', 'Categoria', 'categoria', 'Name', 'name', 'Category', 'category', 'Titulo', 'Título', 'Title', 'title'];
+          for (const cand of directCandidates) {
+            if (item[cand] !== undefined && item[cand] !== null && item[cand] !== '') {
+              value = item[cand];
+              break;
+            }
+          }
+        }
+        // Fallback: se ainda estiver vazio e o item tem poucos campos além de id
+        if (value === undefined || value === null || value === '') {
+          const validKeys = Object.keys(item).filter(k => !['id', 'order', 'created_at', 'updated_at'].includes(k.toLowerCase()));
+          if (validKeys.length > 0) {
+            const first = item[validKeys[0]];
+            if (first !== undefined && first !== null && first !== '') {
+              value = first;
+            }
+          }
+        }
+      }
+    }
+
+    if (value === undefined || value === null || value === '') {
+      return '-';
+    }
+
+    // Desempacotar tipos especiais do Baserow (Single Select, Link Row, Array de tags, etc)
+    if (typeof value === 'object') {
+      if (Array.isArray(value)) {
+        if (value.length === 0) return '-';
+        return value.map(v => (typeof v === 'object' && v !== null ? (v.value || v.name || v.Nome || v.Categoria || JSON.stringify(v)) : String(v))).filter(Boolean).join(', ') || '-';
+      }
+      return value.value || value.name || value.Nome || value.Categoria || JSON.stringify(value);
+    }
+
+    return value;
   };
 
   const handlePageChange = (newPage: number) => {

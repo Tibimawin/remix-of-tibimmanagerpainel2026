@@ -30,32 +30,46 @@ export const EditCategoriaTVDialog: React.FC<EditCategoriaTVDialogProps> = ({
   item, 
   onEditSuccess 
 }) => {
-  const [formData, setFormData] = useState<any>({});
+  const [categoryName, setCategoryName] = useState('');
   const { config } = useConfig();
   const baserowService = useBaserowService();
 
   useEffect(() => {
     if (item) {
-      const filteredData: Record<string, any> = {};
-      CATEGORIA_TV_FIELDS.forEach(field => {
-        filteredData[field] = item[field] ?? "";
-      });
-      setFormData(filteredData);
+      const rawVal = item.Categoria || item.categoria || item.Nome || item.nome || item.Name || item.name || item.Titulo || item.Título || '';
+      const stringVal = typeof rawVal === 'object' ? (rawVal?.value || rawVal?.name || '') : String(rawVal || '');
+      setCategoryName(stringVal);
     }
   }, [item]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
   const handleSave = async () => {
+    if (!categoryName.trim()) {
+      toast.error('O nome da categoria é obrigatório');
+      return;
+    }
+
     try {
       const tableId = config.tableIds['categoriasTV'];
-      await baserowService.updateRow(tableId, item.id, formData);
+      if (!tableId) {
+        toast.error('Tabela de Categorias TV não configurada');
+        return;
+      }
+
+      const val = categoryName.trim();
+      const keys = item ? Object.keys(item) : [];
+      const targetKey = keys.find(k => k.toLowerCase() === 'categoria') || 
+                        keys.find(k => k.toLowerCase() === 'nome') || 
+                        keys.find(k => k.toLowerCase() === 'name') || 
+                        'Categoria';
+
+      try {
+        await baserowService.updateRow(tableId, item.id, { [targetKey]: val });
+      } catch {
+        // Se a primeira chave não existir na tabela, tenta com a chave alternativa (Nome/Categoria)
+        const altKey = targetKey.toLowerCase() === 'categoria' ? 'Nome' : 'Categoria';
+        await baserowService.updateRow(tableId, item.id, { [altKey]: val });
+      }
+
       toast.success('Categoria TV atualizada com sucesso!');
       onEditSuccess();
       setOpen(false);
@@ -78,13 +92,14 @@ export const EditCategoriaTVDialog: React.FC<EditCategoriaTVDialogProps> = ({
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="Categoria">Categoria *</Label>
+            <Label htmlFor="category-input">Categoria *</Label>
             <Input
-              id="Categoria"
-              name="Categoria"
-              value={formData.Categoria || ''}
-              onChange={handleInputChange}
+              id="category-input"
+              value={categoryName}
+              onChange={(e) => setCategoryName(e.target.value)}
+              placeholder="Nome da categoria..."
               required
+              autoFocus
             />
           </div>
         </div>

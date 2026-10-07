@@ -19,6 +19,31 @@ const CategoriasTV = () => {
     { label: 'Categoria (Z-A)', value: 'Categoria_desc' },
   ];
 
+  // Formatter resiliente: busca o nome da categoria em qualquer campo que o Baserow do usuário use
+  const formatters = {
+    Categoria: (_: any, item: any) => {
+      if (!item) return '-';
+      const val = item.Categoria || item.categoria || item.Nome || item.nome || item.Name || item.name || item.Titulo || item.Título || item.Title || item.title;
+      if (val !== undefined && val !== null && val !== '') {
+        if (typeof val === 'object') {
+          if (Array.isArray(val)) {
+            return val.map((v: any) => (typeof v === 'object' ? (v?.value || v?.name || v?.Nome || '') : String(v))).filter(Boolean).join(', ') || '-';
+          }
+          return val.value || val.name || val.Nome || val.Categoria || '-';
+        }
+        return String(val);
+      }
+      // Se não encontrou por chaves conhecidas, busca qualquer primeiro campo com texto
+      const keys = Object.keys(item).filter(k => !['id', 'order', 'created_at', 'updated_at'].includes(k.toLowerCase()));
+      for (const k of keys) {
+        const v = item[k];
+        if (typeof v === 'string' && v.trim()) return v;
+        if (typeof v === 'object' && v && (v.value || v.name)) return v.value || v.name;
+      }
+      return '-';
+    }
+  };
+
   const handleEdit = (item: any) => {
     setSelectedItem(item);
     setEditDialogOpen(true);
@@ -57,6 +82,7 @@ const CategoriasTV = () => {
           sortOptions={sortOptions}
           defaultSort="Categoria_asc"
           onEdit={handleEdit}
+          formatters={formatters}
           refreshTrigger={refreshTrigger}
           skipEditDialog={true}
         />

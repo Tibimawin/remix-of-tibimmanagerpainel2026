@@ -53,7 +53,20 @@ export const CreateCategoriaTVDialog: React.FC<CreateCategoriaTVDialogProps> = (
         return;
       }
 
-      await baserowService.createRow(tableId, { Categoria: categoria.trim() });
+      const val = categoria.trim();
+      try {
+        // Tenta enviar com ambas as chaves para máxima compatibilidade
+        await baserowService.createRow(tableId, { Categoria: val, Nome: val });
+      } catch {
+        // Se a tabela rejeitou um dos campos por não existir, tenta com Nome (padrão Baserow)
+        try {
+          await baserowService.createRow(tableId, { Nome: val });
+        } catch {
+          // Se Nome não existir, tenta com Categoria
+          await baserowService.createRow(tableId, { Categoria: val });
+        }
+      }
+
       toast.success('Categoria TV criada com sucesso!');
       onCreateSuccess();
       setOpen(false);
