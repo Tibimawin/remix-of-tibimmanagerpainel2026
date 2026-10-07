@@ -255,7 +255,7 @@ export const useOptimizedImport = (
         toast.error('Erro ao carregar dados para importação');
       }
     }
-  }, [baserowService, pageSize, maxConcurrentRequests, updateProgress]);
+  }, [pageSize, maxConcurrentRequests, updateProgress]);
 
   // Importar dados selecionados com progresso
   const importSelectedData = useCallback(async (

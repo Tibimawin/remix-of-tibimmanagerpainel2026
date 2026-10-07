@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,7 +46,7 @@ export default function GestaoDispositivos() {
     device: null
   });
 
-  const loadDevices = async () => {
+  const loadDevices = useCallback(async () => {
     if (!userInfo?.id) return;
     
     try {
@@ -63,11 +63,11 @@ export default function GestaoDispositivos() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userInfo?.id]);
 
   useEffect(() => {
     loadDevices();
-  }, [userInfo?.id]);
+  }, [loadDevices]);
 
   const handleRemoveDevice = async () => {
     if (!deleteDialog.device) return;

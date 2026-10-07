@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DataTable } from '@/components/DataTable';
 import { EditDialog } from '@/components/EditDialog';
 import { useBaserowService } from '@/services/BaserowService';
@@ -14,6 +14,23 @@ interface UserStats {
   blocked: number;
   expiringSoon: number;
 }
+
+// Calcular dias restantes
+const calculateDaysRemaining = (pagamento: string, totalDias: number) => {
+  try {
+    if (!pagamento || !totalDias) return 0;
+
+    const paymentDate = new Date(pagamento);
+    if (isNaN(paymentDate.getTime())) return 0;
+
+    const hoje = new Date();
+    const diffDays = Math.floor((hoje.getTime() - paymentDate.getTime()) / (1000 * 60 * 60 * 24));
+    const restam = Math.max(0, totalDias - diffDays);
+    return restam;
+  } catch (error) {
+    return 0;
+  }
+};
 
 const Usuarios = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -55,25 +72,8 @@ const Usuarios = () => {
     { label: 'Moedas (Maior primeiro)', value: 'moedas_desc' },
   ];
 
-  // Calcular dias restantes
-  const calculateDaysRemaining = (pagamento: string, totalDias: number) => {
-    try {
-      if (!pagamento || !totalDias) return 0;
-
-      const paymentDate = new Date(pagamento);
-      if (isNaN(paymentDate.getTime())) return 0;
-
-      const hoje = new Date();
-      const diffDays = Math.floor((hoje.getTime() - paymentDate.getTime()) / (1000 * 60 * 60 * 24));
-      const restam = Math.max(0, totalDias - diffDays);
-      return restam;
-    } catch (error) {
-      return 0;
-    }
-  };
-
   // Carregar estatísticas
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     console.log('🔍 [Usuarios] Iniciando loadStats...');
     
     if (!isConfigured) {
@@ -163,12 +163,12 @@ const Usuarios = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [baserowService, config.tableIds, isConfigured]);
 
   useEffect(() => {
     console.log('🔄 [Usuarios] useEffect disparado - isConfigured:', isConfigured, 'refreshTrigger:', refreshTrigger);
     loadStats();
-  }, [isConfigured, refreshTrigger]);
+  }, [isConfigured, loadStats, refreshTrigger]);
 
   const formatters = {
     Nome: (value: any) => (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ShoppingBag, 
@@ -34,7 +34,7 @@ const Produtos = () => {
   // Quantidade de itens no carrinho
   const [cartCount, setCartCount] = useState(0);
 
-  const updateCartCount = () => {
+  const updateCartCount = useCallback(() => {
     try {
       const savedCart = localStorage.getItem('loja-carrinho');
       if (savedCart) {
@@ -47,9 +47,9 @@ const Produtos = () => {
     } catch {
       setCartCount(0);
     }
-  };
+  }, []);
 
-  const checkPurchases = async () => {
+  const checkPurchases = useCallback(async () => {
     if (!userInfo) return;
     try {
       const purchased = await SourceExportService.hasPurchasedFullExport(userInfo.id, userInfo.email);
@@ -57,12 +57,12 @@ const Produtos = () => {
     } catch (e) {
       console.error('Erro ao checar compras:', e);
     }
-  };
+  }, [userInfo]);
 
   useEffect(() => {
     checkPurchases();
     updateCartCount();
-  }, [userInfo]);
+  }, [checkPurchases, updateCartCount]);
 
   const handleAddToCart = (product: ProductItem, e: React.MouseEvent) => {
     e.stopPropagation();

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -97,11 +97,13 @@ const AtualizacaoSeries = () => {
   }, [isConfigured, seriesUpdateService]);
 
   // Carregar automaticamente na montagem se configurado e vazio
+  const hasLoadedRef = useRef(false);
   useEffect(() => {
-    if (isConfigured && episodes.length === 0 && !loading) {
+    if (isConfigured && !hasLoadedRef.current) {
+      hasLoadedRef.current = true;
       loadAvailableEpisodes();
     }
-  }, [isConfigured]); // Executa uma vez se configurado
+  }, [isConfigured, loadAvailableEpisodes]);
 
   // 1. Contagem otimizada O(N) de episódios por série em uma única passada
   const seriesCounts = useMemo(() => {
@@ -354,12 +356,12 @@ const AtualizacaoSeries = () => {
   };
 
   // Cronômetro da importação em andamento
+  const startedAt = progress?.startedAt;
   useEffect(() => {
-    if (!importing || !progress) return;
-    const startedAt = progress.startedAt;
+    if (!importing || !startedAt) return;
     const timer = setInterval(() => setElapsed(Date.now() - startedAt), 500);
     return () => clearInterval(timer);
-  }, [importing, progress?.startedAt]);
+  }, [importing, startedAt]);
 
   const formatDuration = (ms: number) => {
     const totalSeconds = Math.max(0, Math.round(ms / 1000));

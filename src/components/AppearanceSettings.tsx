@@ -52,7 +52,7 @@ export const AppearanceSettings: React.FC = () => {
   // Sincronizar preview quando as configurações reais mudam (ex: reset)
   useEffect(() => {
     setPreviewSettings({ ...settings });
-  }, [settings.themeId, settings.fontId, settings.customColor, settings.fontSize, settings.highContrast, settings.language]);
+  }, [settings]);
 
   const [isPreviewActive, setIsPreviewActive] = useState(false);
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,47 +46,7 @@ export const StorePixPaymentDialog: React.FC<StorePixPaymentDialogProps> = ({
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasTriggeredRef = useRef(false);
 
-  // Iniciar geração automática e instantânea do PIX assim que o modal for aberto
-  useEffect(() => {
-    if (isOpen) {
-      const userName = userInfo?.name || userInfo?.email?.split('@')[0] || 'Cliente';
-      const userEmail = userInfo?.email || 'cliente@painel.com';
-      const autoCpf = generateValidCPF();
-
-      setName(userName);
-      setEmail(userEmail);
-      setCpf(autoCpf);
-
-      if (!hasTriggeredRef.current) {
-        hasTriggeredRef.current = true;
-        handleAutoGenerate(userName, userEmail, autoCpf);
-      }
-    } else {
-      hasTriggeredRef.current = false;
-    }
-  }, [isOpen, userInfo]);
-
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []);
-
-  const formatCpf = (value: string) => {
-    const nums = value.replace(/\D/g, '').slice(0, 11);
-    if (nums.length <= 3) return nums;
-    if (nums.length <= 6) return `${nums.slice(0, 3)}.${nums.slice(3)}`;
-    if (nums.length <= 9) return `${nums.slice(0, 3)}.${nums.slice(3, 6)}.${nums.slice(6)}`;
-    return `${nums.slice(0, 3)}.${nums.slice(3, 6)}.${nums.slice(6, 9)}-${nums.slice(9)}`;
-  };
-
-  const handleGenerateNewCpf = () => {
-    const newCpf = generateValidCPF();
-    setCpf(newCpf);
-    toast.success('Novo CPF válido gerado automaticamente!', { duration: 2000 });
-  };
-
-  const handleAutoGenerate = async (userName: string, userEmail: string, userCpf: string) => {
+  const handleAutoGenerate = useCallback(async (userName: string, userEmail: string, userCpf: string) => {
     setStep('processing');
     setError('');
 
@@ -189,6 +149,46 @@ export const StorePixPaymentDialog: React.FC<StorePixPaymentDialogProps> = ({
       setError(err.message || 'Não foi possível gerar a chave PIX no momento.');
       setStep('error');
     }
+  }, [productPrice, productTitle, userInfo?.id, productId, onSuccess]);
+
+  // Iniciar geração automática e instantânea do PIX assim que o modal for aberto
+  useEffect(() => {
+    if (isOpen) {
+      const userName = userInfo?.name || userInfo?.email?.split('@')[0] || 'Cliente';
+      const userEmail = userInfo?.email || 'cliente@painel.com';
+      const autoCpf = generateValidCPF();
+
+      setName(userName);
+      setEmail(userEmail);
+      setCpf(autoCpf);
+
+      if (!hasTriggeredRef.current) {
+        hasTriggeredRef.current = true;
+        handleAutoGenerate(userName, userEmail, autoCpf);
+      }
+    } else {
+      hasTriggeredRef.current = false;
+    }
+  }, [isOpen, userInfo, handleAutoGenerate]);
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
+  const formatCpf = (value: string) => {
+    const nums = value.replace(/\D/g, '').slice(0, 11);
+    if (nums.length <= 3) return nums;
+    if (nums.length <= 6) return `${nums.slice(0, 3)}.${nums.slice(3)}`;
+    if (nums.length <= 9) return `${nums.slice(0, 3)}.${nums.slice(3, 6)}.${nums.slice(6)}`;
+    return `${nums.slice(0, 3)}.${nums.slice(3, 6)}.${nums.slice(6, 9)}-${nums.slice(9)}`;
+  };
+
+  const handleGenerateNewCpf = () => {
+    const newCpf = generateValidCPF();
+    setCpf(newCpf);
+    toast.success('Novo CPF válido gerado automaticamente!', { duration: 2000 });
   };
 
   const handleCopyPix = () => {

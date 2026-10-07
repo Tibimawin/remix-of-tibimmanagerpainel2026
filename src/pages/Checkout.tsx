@@ -68,13 +68,11 @@ const Checkout = () => {
   useEffect(() => {
     if (userInfo) {
       setEmail(userInfo.email || '');
-      if (userInfo.name && !name) {
-        setName(userInfo.name);
+      if (userInfo.name) {
+        setName(prev => prev || userInfo.name);
       }
     }
-    if (!cpf) {
-      setCpf(generateValidCPF());
-    }
+    setCpf(prev => prev || generateValidCPF());
   }, [userInfo]);
 
   useEffect(() => {

@@ -98,7 +98,7 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
         isCancelled = true;
       };
     }
-  }, [details?.link, details?.nome, open]);
+  }, [details?.link, details?.nome, details?.total_seasons, details?.seasons_details, open]);
 
   const isSeries = useMemo(() => {
     if (!details) return false;

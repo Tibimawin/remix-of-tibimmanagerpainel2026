@@ -100,5 +100,5 @@ export const useExpirationMonitor = () => {
 
     const timeout = setTimeout(checkExpiration, 5000);
     return () => clearTimeout(timeout);
-  }, [userInfo?.diasRestantes]);
+  }, [userInfo]);
 };

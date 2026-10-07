@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -70,12 +70,12 @@ export const AdminReferrals: React.FC = () => {
     }
   };
 
-  const inDateRange = (dateStr: string) => {
+  const inDateRange = useCallback((dateStr: string) => {
     const d = new Date(dateStr);
     if (dateFrom && d < new Date(new Date(dateFrom).setHours(0, 0, 0, 0))) return false;
     if (dateTo && d > new Date(new Date(dateTo).setHours(23, 59, 59, 999))) return false;
     return true;
-  };
+  }, [dateFrom, dateTo]);
 
   const filtered = useMemo(() => {
     const s = search.toLowerCase();
@@ -84,11 +84,11 @@ export const AdminReferrals: React.FC = () => {
       if (!s) return true;
       return `${r.referrerEmail || ''} ${r.referredEmail || ''} ${r.referrerName || ''} ${r.referredName || ''} ${r.referrerUid} ${r.referredUid}`.toLowerCase().includes(s);
     });
-  }, [search, items, dateFrom, dateTo]);
+  }, [search, items, inDateRange]);
 
   const filteredWithdrawals = useMemo(() => {
     return withdrawals.filter(w => inDateRange(w.createdAt));
-  }, [withdrawals, dateFrom, dateTo]);
+  }, [withdrawals, inDateRange]);
 
   const handleActivate = async (uid: string) => {
     try {

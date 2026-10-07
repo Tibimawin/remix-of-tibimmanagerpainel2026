@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -57,7 +57,7 @@ const AdminUserActionHistory: React.FC = () => {
     }
   };
 
-  const fetchUserActions = async () => {
+  const fetchUserActions = useCallback(async () => {
     try {
       setIsLoading(true);
       console.log('Buscando histórico de ações dos usuários...');
@@ -106,7 +106,7 @@ const AdminUserActionHistory: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   // Filtrar ações baseado na busca e usuário selecionado
   useEffect(() => {
@@ -130,7 +130,7 @@ const AdminUserActionHistory: React.FC = () => {
   // Carregar dados ao montar o componente
   useEffect(() => {
     fetchUserActions();
-  }, []);
+  }, [fetchUserActions]);
 
   // Obter lista única de usuários
   const uniqueUsers = Array.from(new Set(actions.map(action => action.userEmail))).sort();

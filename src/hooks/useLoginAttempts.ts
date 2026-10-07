@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { collection, query, orderBy, getDocs, where, Timestamp } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 
@@ -15,13 +15,87 @@ export interface LoginAttempt {
   risk: 'low' | 'medium' | 'high';
 }
 
+const getLocationFromIP = (ip: string): string => {
+  if (!ip || ip === 'N/A') return 'Desconhecido';
+  
+  if (ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.')) {
+    return 'Rede Local';
+  }
+  
+  const knownIPs: { [key: string]: string } = {
+    '203.0.113.45': 'Estados Unidos',
+    '198.51.100.22': 'Canadá',
+    '45.77.123.45': 'Reino Unido',
+    '185.199.108.153': 'Alemanha'
+  };
+  
+  return knownIPs[ip] || `Externo (${ip.split('.')[0]}.${ip.split('.')[1]}.x.x)`;
+};
+
+const calculateRisk = (data: any): 'low' | 'medium' | 'high' => {
+  if (data.success) return 'low';
+  
+  if (data.email?.includes('admin') || data.email?.includes('root')) {
+    return 'high';
+  }
+  
+  if (data.ip?.startsWith('192.168.') || data.ip?.startsWith('10.')) {
+    return 'low';
+  }
+  
+  return 'medium';
+};
+
+const generateDemoAttempts = (): LoginAttempt[] => {
+  const now = new Date();
+  const demoEmails = [
+    'user1@test.com',
+    'admin@test.com',
+    'hacker@suspicious.com',
+    'user2@company.com',
+    'test@example.com'
+  ];
+  
+  const demoIPs = [
+    '192.168.1.100',
+    '203.0.113.45',
+    '198.51.100.22',
+    '45.77.123.45',
+    '185.199.108.153'
+  ];
+
+  const attempts: LoginAttempt[] = [];
+  
+  for (let i = 0; i < 50; i++) {
+    const email = demoEmails[Math.floor(Math.random() * demoEmails.length)];
+    const ip = demoIPs[Math.floor(Math.random() * demoIPs.length)];
+    const success = Math.random() > 0.3; // 70% de sucesso
+    const timestamp = new Date(now.getTime() - Math.random() * 7 * 24 * 60 * 60 * 1000);
+    
+    attempts.push({
+      id: `demo-${i}`,
+      email,
+      timestamp: timestamp.toISOString(),
+      success,
+      ip,
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      errorCode: success ? undefined : 'auth/invalid-credential',
+      errorMessage: success ? undefined : 'Credenciais inválidas',
+      location: getLocationFromIP(ip),
+      risk: calculateRisk({ email, ip, success })
+    });
+  }
+
+  return attempts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+};
+
 export const useLoginAttempts = () => {
   const [attempts, setAttempts] = useState<LoginAttempt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [failedAttempts, setFailedAttempts] = useState<LoginAttempt[]>([]);
   const [suspiciousIPs, setSuspiciousIPs] = useState<string[]>([]);
 
-  const fetchLoginAttempts = async () => {
+  const fetchLoginAttempts = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -89,81 +163,7 @@ export const useLoginAttempts = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const generateDemoAttempts = (): LoginAttempt[] => {
-    const now = new Date();
-    const demoEmails = [
-      'user1@test.com',
-      'admin@test.com',
-      'hacker@suspicious.com',
-      'user2@company.com',
-      'test@example.com'
-    ];
-    
-    const demoIPs = [
-      '192.168.1.100',
-      '203.0.113.45',
-      '198.51.100.22',
-      '45.77.123.45',
-      '185.199.108.153'
-    ];
-
-    const attempts: LoginAttempt[] = [];
-    
-    for (let i = 0; i < 50; i++) {
-      const email = demoEmails[Math.floor(Math.random() * demoEmails.length)];
-      const ip = demoIPs[Math.floor(Math.random() * demoIPs.length)];
-      const success = Math.random() > 0.3; // 70% de sucesso
-      const timestamp = new Date(now.getTime() - Math.random() * 7 * 24 * 60 * 60 * 1000);
-      
-      attempts.push({
-        id: `demo-${i}`,
-        email,
-        timestamp: timestamp.toISOString(),
-        success,
-        ip,
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        errorCode: success ? undefined : 'auth/invalid-credential',
-        errorMessage: success ? undefined : 'Credenciais inválidas',
-        location: getLocationFromIP(ip),
-        risk: calculateRisk({ email, ip, success })
-      });
-    }
-
-    return attempts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  };
-
-  const getLocationFromIP = (ip: string): string => {
-    if (!ip || ip === 'N/A') return 'Desconhecido';
-    
-    if (ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.')) {
-      return 'Rede Local';
-    }
-    
-    const knownIPs: { [key: string]: string } = {
-      '203.0.113.45': 'Estados Unidos',
-      '198.51.100.22': 'Canadá',
-      '45.77.123.45': 'Reino Unido',
-      '185.199.108.153': 'Alemanha'
-    };
-    
-    return knownIPs[ip] || `Externo (${ip.split('.')[0]}.${ip.split('.')[1]}.x.x)`;
-  };
-
-  const calculateRisk = (data: any): 'low' | 'medium' | 'high' => {
-    if (data.success) return 'low';
-    
-    if (data.email?.includes('admin') || data.email?.includes('root')) {
-      return 'high';
-    }
-    
-    if (data.ip?.startsWith('192.168.') || data.ip?.startsWith('10.')) {
-      return 'low';
-    }
-    
-    return 'medium';
-  };
+  }, []);
 
   const getAttemptsByTimeframe = (hours: number) => {
     const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
@@ -194,7 +194,7 @@ export const useLoginAttempts = () => {
 
   useEffect(() => {
     fetchLoginAttempts();
-  }, []);
+  }, [fetchLoginAttempts]);
 
   return {
     attempts,

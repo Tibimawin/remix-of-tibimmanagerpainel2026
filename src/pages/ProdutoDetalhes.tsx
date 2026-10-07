@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -53,7 +53,7 @@ const ProdutoDetalhes = () => {
     }
   }, [id, navigate]);
 
-  const verifyPurchase = async () => {
+  const verifyPurchase = useCallback(async () => {
     if (!userInfo) {
       setCheckingPurchase(false);
       return;
@@ -74,13 +74,13 @@ const ProdutoDetalhes = () => {
     } finally {
       setCheckingPurchase(false);
     }
-  };
+  }, [userInfo, product?.id]);
 
   useEffect(() => {
     if (product) {
       verifyPurchase();
     }
-  }, [product, userInfo]);
+  }, [product, verifyPurchase]);
 
   const handleAddToCart = () => {
     if (!product) return;

@@ -20,7 +20,7 @@ export const useUserActionHistory = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { userInfo } = useSimpleAuth();
 
-  const getStorageKey = () => `user_actions_${userInfo?.id || 'unknown'}`;
+  const getStorageKey = useCallback(() => `user_actions_${userInfo?.id || 'unknown'}`, [userInfo?.id]);
 
   // Carregar histórico prioritariamente do localStorage (LocalStorage-first)
   useEffect(() => {
@@ -36,7 +36,7 @@ export const useUserActionHistory = () => {
     } catch (error) {
       console.error('Erro ao carregar histórico do localStorage:', error);
     }
-  }, [userInfo?.id]);
+  }, [userInfo?.id, getStorageKey]);
 
   // Sistema de Batching para Firebase (opcional / baixa frequência)
   // Mantido mas desativado por padrão para evitar writes desnecessários.
@@ -69,12 +69,13 @@ export const useUserActionHistory = () => {
 
   // Como estamos em modo LocalStorage-first, não disparamos mais batchs automaticamente.
   useEffect(() => {
-    if (batchTimeoutRef.current) {
-      clearTimeout(batchTimeoutRef.current);
+    const currentTimeout = batchTimeoutRef.current;
+    if (currentTimeout) {
+      clearTimeout(currentTimeout);
     }
     return () => {
-      if (batchTimeoutRef.current) {
-        clearTimeout(batchTimeoutRef.current);
+      if (currentTimeout) {
+        clearTimeout(currentTimeout);
       }
     };
   }, []);
@@ -94,7 +95,7 @@ export const useUserActionHistory = () => {
       } catch {}
       setActions(updatedActions);
     }
-  }, [userInfo?.id]);
+  }, [userInfo?.id, getStorageKey]);
 
   // Adicionar nova ação
   const addAction = useCallback((
@@ -179,7 +180,7 @@ export const useUserActionHistory = () => {
     } catch (error) {
       console.error('Erro ao limpar histórico local:', error);
     }
-  }, [userInfo?.id]);
+  }, [userInfo?.id, getStorageKey]);
 
   // Filtrar ações por categoria
   const getActionsByCategory = useCallback((category: UserAction['category']) => {

@@ -30,7 +30,7 @@ export function useAutoImportLogs(limitCount = 20) {
             return;
         }
 
-        console.log('📡 [AUTO-IMPORT-LOGS] Iniciando listener de logs para:', userInfo.email);
+        console.log('📡 [AUTO-IMPORT-LOGS] Iniciando listener de logs para:', userInfo?.email);
 
         const q = query(
             collection(db, 'autoImportLogs'),
@@ -61,7 +61,7 @@ export function useAutoImportLogs(limitCount = 20) {
             console.log('🔥 [AUTO-IMPORT-LOGS] Removendo listener de logs');
             unsubscribe();
         };
-    }, [userInfo?.id, limitCount]);
+    }, [userInfo?.id, userInfo?.email, limitCount]);
 
     return { logs, loading };
 }

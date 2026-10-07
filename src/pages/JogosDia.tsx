@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Trophy, 
@@ -93,7 +93,7 @@ const JogosDia = () => {
   } | null>(null);
 
 
-  const fetchJogos = async () => {
+  const fetchJogos = useCallback(async () => {
     if (!globalConfig?.isActive || !globalConfig?.contentTableId) return;
 
     setLoading(true);
@@ -118,13 +118,13 @@ const JogosDia = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [globalConfig]);
 
   useEffect(() => {
     if (globalConfig?.isActive) {
       fetchJogos();
     }
-  }, [globalConfig]);
+  }, [globalConfig?.isActive, fetchJogos]);
 
   // Carrega histórico de logs sob demanda para economizar quota do Firestore
   useEffect(() => {

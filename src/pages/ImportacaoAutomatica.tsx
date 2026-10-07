@@ -457,7 +457,7 @@ const ImportacaoAutomatica = ({ variant = 'padrao' }: ImportacaoAutomaticaProps)
         setShowProgressModal(false);
       }, 2500);
     }
-  }, [autoImportService, canAddMoreContent, configValid, importConfig, isMiniseries, typeMode, userConfig, userInfo]);
+  }, [autoImportService, canAddMoreContent, configValid, enrichWithTmdb, importConfig, isMiniseries, navigate, typeMode, userConfig]);
 
   useEffect(() => {
     const state = location.state as ImportacaoAutomaticaLocationState | null;

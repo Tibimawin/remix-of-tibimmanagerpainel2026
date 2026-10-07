@@ -30,7 +30,7 @@ export const useExpirationNotifications = () => {
       console.log('🔥 Removendo listener de notificações de expiração');
       unsubscribe();
     };
-  }, [userInfo?.id]);
+  }, [userInfo?.id, userInfo?.email]);
 
   const hasExpirationWarning = (): boolean => {
     return expirationNotification !== null && !expirationNotification.dismissed;

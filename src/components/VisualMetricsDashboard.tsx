@@ -114,7 +114,7 @@ const VisualMetricsDashboard: React.FC<VisualMetricsDashboardProps> = ({ users, 
       pieData,
       errorActions
     };
-  }, [users, logs]);
+  }, [logs]);
 
   const chartConfig = {
     actions: {

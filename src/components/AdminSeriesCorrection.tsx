@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,7 @@ export const AdminSeriesCorrection = () => {
   const [retryCount, setRetryCount] = useState(0);
   const maxRetries = 3;
 
-  const fetchSeriesData = async (attempt = 0) => {
+  const fetchSeriesData = useCallback(async (attempt = 0) => {
     try {
       setLoading(true);
       console.log(`Tentativa ${attempt + 1} de carregar dados das séries...`);
@@ -57,11 +57,11 @@ export const AdminSeriesCorrection = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchSeriesData();
-  }, []);
+  }, [fetchSeriesData]);
 
   const handleCorrectSeries = async (seriesId: string) => {
     setCorrecting(seriesId);

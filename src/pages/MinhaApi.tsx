@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Key, Plus, Copy, Trash2, RefreshCw, Eye, EyeOff, CheckCircle, XCircle, Code, Terminal, Zap, Shield, BookOpen, Database, Film, Tv } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,7 +34,7 @@ const MinhaApi = () => {
   const [testResult, setTestResult] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
 
-  const loadKeys = async () => {
+  const loadKeys = useCallback(async () => {
     if (!userInfo?.id) return;
     try {
       setLoading(true);
@@ -45,9 +45,9 @@ const MinhaApi = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userInfo?.id]);
 
-  useEffect(() => { loadKeys(); }, [userInfo?.id]);
+  useEffect(() => { loadKeys(); }, [loadKeys]);
 
   const handleGenerate = async () => {
     if (!userInfo?.id || !userInfo?.email) return;

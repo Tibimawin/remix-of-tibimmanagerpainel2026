@@ -24,18 +24,7 @@ export const AIAssistant: React.FC = () => {
     const [isMinimized, setIsMinimized] = useState(false);
     const [isDismissed, setIsDismissed] = useState(false);
 
-    useEffect(() => {
-        if (!userInfo?.id) return;
-
-        loadSuggestions();
-
-        // Recarregar sugestões a cada 1 HORA (otimizado para evitar quota exceeded)
-        const interval = setInterval(loadSuggestions, 60 * 60 * 1000);
-
-        return () => clearInterval(interval);
-    }, [userInfo?.id, location.pathname]);
-
-    const loadSuggestions = async () => {
+    const loadSuggestions = useCallback(async () => {
         if (!userInfo?.id) return;
 
         try {
@@ -61,7 +50,18 @@ export const AIAssistant: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [userInfo?.id, location.pathname]);
+
+    useEffect(() => {
+        if (!userInfo?.id) return;
+
+        loadSuggestions();
+
+        // Recarregar sugestões a cada 1 HORA (otimizado para evitar quota exceeded)
+        const interval = setInterval(loadSuggestions, 60 * 60 * 1000);
+
+        return () => clearInterval(interval);
+    }, [userInfo?.id, loadSuggestions]);
 
     const handleAction = (suggestion: AISuggestion) => {
         if (suggestion.actionRoute) {

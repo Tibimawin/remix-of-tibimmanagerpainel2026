@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -77,7 +77,7 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
   const { mode, setMode } = useTypeMode();
   const { addAction } = useUserActionHistory();
 
-  const loadContents = async (page = 1, search = '', type = 'all', forceRefresh = false) => {
+  const loadContents = useCallback(async (page = 1, search = '', type = 'all', forceRefresh = false) => {
     try {
       const loadingState = forceRefresh ? setRefreshing : setLoading;
       loadingState(true);
@@ -140,11 +140,11 @@ export const ImportContentInterface: React.FC<ImportContentInterfaceProps> = ({
         setProgressStep('');
       }, 500);
     }
-  };
+  }, [autoImportService, importConfig, pageSize]);
 
   useEffect(() => {
-    loadContents(1, searchTerm, typeFilter);
-  }, []);
+    loadContents(1, '', 'all');
+  }, [loadContents]);
 
   const handleSearch = () => {
     setCurrentPage(1);

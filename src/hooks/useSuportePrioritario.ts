@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface MensagemSuportePrioritario {
   id: string;
@@ -34,7 +34,7 @@ export const useSuportePrioritario = () => {
   });
   const [loading, setLoading] = useState(false);
 
-  const buscarMensagens = async () => {
+  const buscarMensagens = useCallback(async () => {
     setLoading(true);
     try {
       // Buscar mensagens do localStorage
@@ -52,7 +52,7 @@ export const useSuportePrioritario = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const enviarMensagem = async (dadosMensagem: {
     nome: string;

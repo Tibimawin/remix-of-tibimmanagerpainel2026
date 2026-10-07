@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { userActivityService } from '@/services/UserActivityService';
 
 export interface LoginIPData {
@@ -10,7 +10,7 @@ export interface LoginIPData {
   loginCount: number;
   device: string;
   location?: string;
-  risk: 'low' | 'medium' | 'high';
+  risk?: 'low' | 'medium' | 'high';
 }
 
 export const useLoginIPs = () => {
@@ -18,7 +18,7 @@ export const useLoginIPs = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [uniqueIPs, setUniqueIPs] = useState<Set<string>>(new Set());
 
-  const fetchLoginIPs = async () => {
+  const fetchLoginIPs = useCallback(async () => {
     try {
       setIsLoading(true);
       const users = await userActivityService.getUsersWithActivity();
@@ -64,7 +64,7 @@ export const useLoginIPs = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   const getLocationFromIP = (ip: string): string => {
     // Lógica básica para identificar tipo de IP
@@ -117,7 +117,7 @@ export const useLoginIPs = () => {
 
   useEffect(() => {
     fetchLoginIPs();
-  }, []);
+  }, [fetchLoginIPs]);
 
   return {
     loginIPs,

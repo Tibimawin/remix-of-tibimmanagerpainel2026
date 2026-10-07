@@ -115,7 +115,7 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
             window.removeEventListener('focus', onFocus);
             document.removeEventListener('visibilitychange', onVisibility);
         };
-    }, [userInfo?.id, userInfo?.email, permissions?.enabledFeatures, refreshTrigger]);
+    }, [userInfo?.id, userInfo?.email, userInfo?.name, permissions, refreshTrigger]);
 
     useEffect(() => {
         if (!userInfo?.id) {

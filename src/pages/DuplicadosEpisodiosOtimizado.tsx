@@ -117,7 +117,7 @@ const DuplicadosEpisodiosOtimizado = () => {
     if (isConfigured && config.tableIds?.episodios) {
       findDuplicates();
     }
-  }, [isConfigured, config.tableIds?.episodios]);
+  }, [isConfigured, config.tableIds?.episodios, findDuplicates]);
 
   // Verificar se a configuração está completa
   if (!isConfigured) {

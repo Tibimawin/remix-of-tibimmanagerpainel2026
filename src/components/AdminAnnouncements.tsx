@@ -31,18 +31,18 @@ const AdminAnnouncements = () => {
     isActive: true
   });
 
-  useEffect(() => {
-    loadAllAnnouncements();
-  }, []);
-
-  const loadAllAnnouncements = async () => {
+  const loadAllAnnouncements = useCallback(async () => {
     try {
       const all = await fetchAllAnnouncements();
       setAllAnnouncements(all);
     } catch (error) {
       console.error('Erro ao carregar anúncios:', error);
     }
-  };
+  }, [fetchAllAnnouncements]);
+
+  useEffect(() => {
+    loadAllAnnouncements();
+  }, [loadAllAnnouncements]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

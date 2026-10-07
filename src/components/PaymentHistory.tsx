@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -75,7 +75,7 @@ const PaymentHistory: React.FC = () => {
     setShowPixDialog(true);
   };
 
-  const fetchPayments = async () => {
+  const fetchPayments = useCallback(async () => {
     if (!userInfo?.email) return;
     setLoading(true);
     try {
@@ -87,11 +87,11 @@ const PaymentHistory: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userInfo?.email]);
 
   useEffect(() => {
     fetchPayments();
-  }, [userInfo?.email]);
+  }, [fetchPayments]);
 
   const filteredPayments = useMemo(() => {
     return payments.filter((p) => {

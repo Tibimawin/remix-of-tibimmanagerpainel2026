@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -91,7 +91,10 @@ export const DataTable: React.FC<DataTableProps & {
   const { notifyDelete, notifyImport } = useAutoNotifyCRUD(tableKey);
   const itemsPerPage = 20;
 
-  const getOrderParam = (sort: string | undefined) => {
+  const firstRow = data[0] || bulkData?.[0];
+  const firstRowKeys = useMemo(() => (firstRow ? Object.keys(firstRow) : []), [firstRow]);
+
+  const getOrderParam = useCallback((sort: string | undefined) => {
     if (!sort) return undefined;
     const [key, dir] = sort.split('_');
     const isDesc = dir === 'desc';
@@ -100,13 +103,11 @@ export const DataTable: React.FC<DataTableProps & {
     const capitalizedKey = key.charAt(0).toUpperCase() + key.slice(1);
     
     // Tentar resolver a coluna real baseada nas chaves da primeira linha carregada
-    const firstRow = data[0] || bulkData?.[0];
-    if (firstRow) {
-      const rowKeys = Object.keys(firstRow);
-      const exactMatch = rowKeys.find(k => k.toLowerCase() === key.toLowerCase());
+    if (firstRowKeys.length > 0) {
+      const exactMatch = firstRowKeys.find(k => k.toLowerCase() === key.toLowerCase());
       if (exactMatch) return isDesc ? `-${exactMatch}` : exactMatch;
       if (key.toLowerCase() === 'categoria') {
-        const nomeMatch = rowKeys.find(k => k.toLowerCase() === 'nome' || k.toLowerCase() === 'name');
+        const nomeMatch = firstRowKeys.find(k => k.toLowerCase() === 'nome' || k.toLowerCase() === 'name');
         if (nomeMatch) return isDesc ? `-${nomeMatch}` : nomeMatch;
       }
     }
@@ -122,7 +123,7 @@ export const DataTable: React.FC<DataTableProps & {
         // Tentar casing capitalizado para bater com nomes de chaves do Baserow
         return isDesc ? `-${capitalizedKey}` : capitalizedKey;
     }
-  };
+  }, [firstRowKeys]);
 
   // Se usarmos dados bulk, eles devem ser paginados localmente!
   const currentData = useMemo(() => {
@@ -178,13 +179,20 @@ export const DataTable: React.FC<DataTableProps & {
     });
   }, [currentData, sortBy]);
 
-  const loadData = async (currentPage = page, search = searchTerm) => {
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  const searchTermRef = useRef(searchTerm);
+  searchTermRef.current = searchTerm;
+
+  const loadData = useCallback(async (currentPage?: number, search?: string) => {
     if (!isConfigured) return;
+    const targetPage = currentPage !== undefined ? currentPage : pageRef.current;
+    const targetSearch = search !== undefined ? search : searchTermRef.current;
     
     try {
       setLoading(true);
       const orderParam = getOrderParam(sortBy);
-      console.log('Carregando dados paginados para tabela:', tableKey, 'página:', currentPage, 'busca:', search, 'ordem:', orderParam);
+      console.log('Carregando dados paginados para tabela:', tableKey, 'página:', targetPage, 'busca:', targetSearch, 'ordem:', orderParam);
       
       const tableId = config.tableIds[tableKey as keyof typeof config.tableIds];
       console.log('Table ID:', tableId);
@@ -198,7 +206,7 @@ export const DataTable: React.FC<DataTableProps & {
       }
       
       // Usar paginação real do servidor com busca
-      const response = await baserowService.getTableData(tableId, currentPage, itemsPerPage, search, orderParam);
+      const response = await baserowService.getTableData(tableId, targetPage, itemsPerPage, targetSearch, orderParam);
       console.log('Dados paginados carregados:', response);
       
       if ((response as any)?.notFound) {
@@ -225,9 +233,9 @@ export const DataTable: React.FC<DataTableProps & {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isConfigured, getOrderParam, sortBy, tableKey, config, baserowService, itemsPerPage]);
 
-  const loadAllDataForExport = async () => {
+  const loadAllDataForExport = useCallback(async () => {
     if (!isConfigured) return;
     
     try {
@@ -239,9 +247,8 @@ export const DataTable: React.FC<DataTableProps & {
       setAllData(response.results || []);
     } catch (error) {
       console.error('Erro ao carregar todos os dados:', error);
-      setAllData(data); //fallback para dados da página atual
     }
-  };
+  }, [isConfigured, config, tableKey, baserowService]);
 
   useEffect(() => {
     const initializeData = async () => {
@@ -280,18 +287,18 @@ export const DataTable: React.FC<DataTableProps & {
     };
 
     initializeData();
-  }, [isConfigured, refreshTrigger, tableKey, config, goToPage]);
+  }, [isConfigured, refreshTrigger, tableKey, config, goToPage, getOrderParam, sortBy, baserowService, itemsPerPage, searchTerm, loadData, loadAllDataForExport]);
 
   useEffect(() => {
     if (page !== 1 && !goToPage) {
-      loadData();
+      loadData(page);
     }
-  }, [page]);
+  }, [page, goToPage, loadData]);
 
   // Efeito separado para busca com debounce
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (page !== 1) {
+      if (pageRef.current !== 1) {
         setPage(1);
       } else {
         loadData(1, searchTerm);
@@ -299,12 +306,13 @@ export const DataTable: React.FC<DataTableProps & {
     }, 500); // Debounce de 500ms
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
+  }, [searchTerm, loadData]);
 
   // Reset page para 1 ao trocar entre bulk e api paginado
+  const hasBulkData = Boolean(bulkData);
   useEffect(() => {
     setPage(1);
-  }, [!!bulkData]);
+  }, [hasBulkData]);
 
   const handleDelete = async (rowId: string) => {
     if (!confirm('Tem certeza que deseja deletar este registro?')) return;

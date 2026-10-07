@@ -138,7 +138,7 @@ const DuplicadosEpisodios = () => {
 
   useEffect(() => {
     if (isConfigured && config.tableIds?.episodios) findDuplicates();
-  }, [isConfigured, config.tableIds?.episodios]);
+  }, [isConfigured, config.tableIds?.episodios, findDuplicates]);
 
   // ---- seleção ----
   const toggleRegistro = (record: any, grupo: any) => {

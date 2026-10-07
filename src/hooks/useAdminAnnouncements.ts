@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AdminAnnouncementService, AdminAnnouncement } from '@/services/AdminAnnouncementService';
 import { toast } from 'sonner';
 import { logger } from '@/utils/logger';
@@ -23,7 +23,7 @@ export const useAdminAnnouncements = () => {
   }, []);
 
   // Criar novo anúncio
-  const createAnnouncement = async (announcement: Omit<AdminAnnouncement, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const createAnnouncement = useCallback(async (announcement: Omit<AdminAnnouncement, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       const id = await AdminAnnouncementService.createAnnouncement(announcement);
       toast.success('Anúncio criado com sucesso!');
@@ -33,10 +33,10 @@ export const useAdminAnnouncements = () => {
       toast.error('Erro ao criar anúncio');
       throw error;
     }
-  };
+  }, []);
 
   // Atualizar anúncio
-  const updateAnnouncement = async (id: string, updates: Partial<AdminAnnouncement>) => {
+  const updateAnnouncement = useCallback(async (id: string, updates: Partial<AdminAnnouncement>) => {
     try {
       await AdminAnnouncementService.updateAnnouncement(id, updates);
       toast.success('Anúncio atualizado com sucesso!');
@@ -45,10 +45,10 @@ export const useAdminAnnouncements = () => {
       toast.error('Erro ao atualizar anúncio');
       throw error;
     }
-  };
+  }, []);
 
   // Deletar anúncio
-  const deleteAnnouncement = async (id: string) => {
+  const deleteAnnouncement = useCallback(async (id: string) => {
     try {
       await AdminAnnouncementService.deleteAnnouncement(id);
       toast.success('Anúncio deletado com sucesso!');
@@ -57,10 +57,10 @@ export const useAdminAnnouncements = () => {
       toast.error('Erro ao deletar anúncio');
       throw error;
     }
-  };
+  }, []);
 
   // Buscar todos os anúncios (para admin)
-  const fetchAllAnnouncements = async () => {
+  const fetchAllAnnouncements = useCallback(async () => {
     try {
       setLoading(true);
       const allAnnouncements = await AdminAnnouncementService.getAnnouncements();
@@ -72,7 +72,7 @@ export const useAdminAnnouncements = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   return {
     announcements,

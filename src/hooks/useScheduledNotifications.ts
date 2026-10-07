@@ -5,6 +5,11 @@ import { toast } from 'sonner';
 export const useScheduledNotifications = () => {
   const [schedules, setSchedules] = useState<ScheduledNotification[]>([]);
 
+  const loadSchedules = useCallback(() => {
+    const allSchedules = scheduledNotificationService.getSchedules();
+    setSchedules(allSchedules);
+  }, []);
+
   useEffect(() => {
     // Carregar agendamentos
     loadSchedules();
@@ -15,12 +20,7 @@ export const useScheduledNotifications = () => {
     return () => {
       scheduledNotificationService.stopScheduler();
     };
-  }, []);
-
-  const loadSchedules = useCallback(() => {
-    const allSchedules = scheduledNotificationService.getSchedules();
-    setSchedules(allSchedules);
-  }, []);
+  }, [loadSchedules]);
 
   const addSchedule = useCallback((
     schedule: Omit<ScheduledNotification, 'id' | 'createdAt' | 'nextRun'>

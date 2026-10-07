@@ -98,12 +98,12 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
   useEffect(() => {
     if (userInfo) {
       setEmail(userInfo.email || '');
-      if (userInfo.name && !name) {
-        setName(userInfo.name);
+      if (userInfo.name) {
+        setName(prev => prev || userInfo.name);
       }
     }
-    if (isOpen && !cpf) {
-      setCpf(generateValidCPF());
+    if (isOpen) {
+      setCpf(prev => prev || generateValidCPF());
     }
   }, [userInfo, isOpen]);
 

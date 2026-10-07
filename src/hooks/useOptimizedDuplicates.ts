@@ -104,7 +104,7 @@ export const useOptimizedDuplicates = (
       console.error(`Falha ao carregar página ${page} após 3 tentativas`, lastError);
       return null;
     },
-    [baserowService, batchSize]
+    [baserowService, batchSize, tableId]
   );
 
   const scan = useCallback(

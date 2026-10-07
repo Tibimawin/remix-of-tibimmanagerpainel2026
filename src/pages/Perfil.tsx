@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -132,7 +132,7 @@ const Perfil = () => {
     return Smartphone;
   };
 
-  const fetchUserDetails = async () => {
+  const fetchUserDetails = useCallback(async () => {
     if (!userInfo?.id) return;
     
     try {
@@ -168,11 +168,11 @@ const Perfil = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userInfo?.id]);
 
   useEffect(() => {
     fetchUserDetails();
-  }, [userInfo?.id]);
+  }, [fetchUserDetails]);
 
   const handleLogout = async () => {
     await logout();

@@ -227,11 +227,11 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     'pay-per-view', 'ppv', 'adulto', 'xxx', '+18', 'sexo', 'erotico'
   ], []);
 
-  const isCategoryAllowed = (category: string) => {
+  const isCategoryAllowed = useCallback((category: string) => {
     if (!category) return false;
     const lowerCat = category.toLowerCase();
     return !EXCLUDED_KEYWORDS.some(keyword => lowerCat.includes(keyword));
-  };
+  }, [EXCLUDED_KEYWORDS]);
 
   const normalizeText = (value?: string | null) =>
     (value || '')
@@ -724,7 +724,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       // ignore
     }
     setPageRestored(true);
-  }, [initialLoadDone, totalCount]);
+  }, [initialLoadDone, totalCount, currentPage, pageRestored]);
 
   useEffect(() => {
     if (configValid && importConfig) {
@@ -734,6 +734,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       fetchTypeCounts();
       fetchCategories();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configValid, importConfig?.sourceToken, importConfig?.sourceBaseUrl, importConfig?.contentTableId]);
 
   useEffect(() => {
@@ -845,6 +846,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       setPageRestored(true); // user changed filters; don't restore old page
       fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeFilter, categoryFilter, genreFilter, yearFilter, platformFilter]);
 
   // Debounced server-side search when searchTerm changes — skip first mount
@@ -863,6 +865,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
       fetchPreview(typeFilter, categoryFilter, 1, { skipInversion: true, search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     }, 400);
     return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]);
 
   // Fetch when page changes
@@ -870,6 +873,7 @@ export const ImportPreview: React.FC<ImportPreviewProps> = ({
     if (configValid && currentPage > 0 && initialLoadDone) {
       fetchPreview(typeFilter, categoryFilter, currentPage, { search: searchTerm, genre: genreFilter, year: yearFilter, platform: platformFilter });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
 
   const handleRefresh = () => {

@@ -36,7 +36,7 @@ export const AdminSuportePrioritario = () => {
 
   useEffect(() => {
     buscarMensagens();
-  }, []);
+  }, [buscarMensagens]);
 
   useEffect(() => {
     setNovasConfiguracoes(configuracoes);

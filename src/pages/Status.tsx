@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -145,7 +145,7 @@ export const Status: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   // Carregar dados detalhados do usuário no Firebase (users/{uid})
-  const fetchPanelUserData = async () => {
+  const fetchPanelUserData = useCallback(async () => {
     if (!userInfo?.id) return;
     try {
       setPanelLoading(true);
@@ -157,11 +157,11 @@ export const Status: React.FC = () => {
     } finally {
       setPanelLoading(false);
     }
-  };
+  }, [userInfo?.id]);
 
   useEffect(() => {
     fetchPanelUserData();
-  }, [userInfo?.id]);
+  }, [fetchPanelUserData]);
 
   const handleRefreshAll = async () => {
     setIsRefreshing(true);

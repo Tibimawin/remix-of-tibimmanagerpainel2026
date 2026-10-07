@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -97,7 +97,7 @@ const AdminFinancialDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [periodFilter, setPeriodFilter] = useState('all');
 
-  const reconcilePendingPayments = async (pendingRecords: FinancialRecord[], isManual = false) => {
+  const reconcilePendingPayments = useCallback(async (pendingRecords: FinancialRecord[], isManual = false) => {
     if (pendingRecords.length === 0) {
       if (isManual) toast.info('Nenhum pagamento pendente para verificar.');
       return;
@@ -184,9 +184,9 @@ const AdminFinancialDashboard: React.FC = () => {
     } finally {
       if (isManual) setIsReconciling(false);
     }
-  };
+  }, []);
 
-  const loadRecords = async () => {
+  const loadRecords = useCallback(async () => {
     try {
       setLoading(true);
       // Sem orderBy: o Firestore exclui documentos que não tenham o campo do orderBy,
@@ -216,11 +216,11 @@ const AdminFinancialDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [reconcilePendingPayments]);
 
   useEffect(() => {
     loadRecords();
-  }, []);
+  }, [loadRecords]);
 
   const filteredRecords = useMemo(() => {
     let filtered = records;

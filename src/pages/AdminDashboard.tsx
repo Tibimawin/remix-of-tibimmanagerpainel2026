@@ -189,7 +189,6 @@ const AdminDashboard = () => {
 
       try {
         await fetchUsers();
-        loadLogs();
         console.log('Dados carregados com sucesso');
       } catch (error) {
         console.error('Erro ao carregar dados:', error);

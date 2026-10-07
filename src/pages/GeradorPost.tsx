@@ -88,7 +88,7 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
 
   useEffect(() => {
     debouncedSearch(searchQuery);
-  }, [searchQuery]);
+  }, [searchQuery, debouncedSearch]);
 
   const handleSelectContent = async (result: TMDBSearchResult) => {
     try {

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
     ConteudoParaImportar,
     TelaImportacao,
@@ -32,10 +32,10 @@ import { normalizeCategories } from '@/utils/categoryNormalizer';
 
 export function useImportacaoZynner() {
     // 🔧 Usar configuração dedicada do Zynner
-    const baserow = new BaserowService(
+    const baserow = useMemo(() => new BaserowService(
         BASEROW_IMPORT_CONFIG.token,
         BASEROW_IMPORT_CONFIG.url_base
-    );
+    ), []);
 
     const [estado, setEstado] = useState<EstadoImportacao>({
         telaAtual: 'formulario',
@@ -52,48 +52,17 @@ export function useImportacaoZynner() {
     });
 
     /**
-     * Processa a lista inicial de nomes
+     * Verifica se o conteúdo já existe no Baserow
      */
-    const processarLista = useCallback(async (
-        texto: string,
-        tipo: 'Filme' | 'Serie',
-        categoriaPrincipal: string
-    ) => {
-        // Dividir por vírgula e limpar espaços
-        const nomes = texto
-            .split(',')
-            .map(n => n.trim())
-            .filter(n => n.length > 0);
-
-        if (nomes.length === 0) {
-            toast.error('Nenhum nome válido encontrado');
-            return;
+    const verificarDuplicata = useCallback(async (nome: string): Promise<boolean> => {
+        try {
+            const resultado = await baserow.getAllTableData(BASEROW_IMPORT_CONFIG.id_conteudo, nome, 1);
+            return resultado.results.length > 0;
+        } catch (error) {
+            console.error('Erro ao verificar duplicata:', error);
+            return false;
         }
-
-        const conteudos: ConteudoParaImportar[] = nomes.map(nome => ({
-            titulo: nome,
-            tipo,
-            categoriaPrincipal,
-            status: 'pendente',
-            idioma: 'DUB' // Padrão
-        }));
-
-        setEstado(prev => ({
-            ...prev,
-            listaOriginal: nomes,
-            conteudosParaImportar: conteudos,
-            progresso: {
-                total: conteudos.length,
-                processados: 0,
-                sucesso: 0,
-                erros: 0
-            },
-            telaAtual: 'busca'
-        }));
-
-        // Iniciar processamento do primeiro item
-        await buscarProximoConteudo(0, conteudos);
-    }, []);
+    }, [baserow]);
 
     /**
      * Busca o próximo conteúdo da lista no TMDB
@@ -193,20 +162,51 @@ export function useImportacaoZynner() {
                 carregando: false
             }));
         }
-    }, [estado.conteudosParaImportar]);
+    }, [estado.conteudosParaImportar, verificarDuplicata]);
 
     /**
-     * Verifica se o conteúdo já existe no Baserow
+     * Processa a lista inicial de nomes
      */
-    const verificarDuplicata = async (nome: string): Promise<boolean> => {
-        try {
-            const resultado = await baserow.getAllTableData(BASEROW_IMPORT_CONFIG.id_conteudo, nome, 1);
-            return resultado.results.length > 0;
-        } catch (error) {
-            console.error('Erro ao verificar duplicata:', error);
-            return false;
+    const processarLista = useCallback(async (
+        texto: string,
+        tipo: 'Filme' | 'Serie',
+        categoriaPrincipal: string
+    ) => {
+        // Dividir por vírgula e limpar espaços
+        const nomes = texto
+            .split(',')
+            .map(n => n.trim())
+            .filter(n => n.length > 0);
+
+        if (nomes.length === 0) {
+            toast.error('Nenhum nome válido encontrado');
+            return;
         }
-    };
+
+        const conteudos: ConteudoParaImportar[] = nomes.map(nome => ({
+            titulo: nome,
+            tipo,
+            categoriaPrincipal,
+            status: 'pendente',
+            idioma: 'DUB' // Padrão
+        }));
+
+        setEstado(prev => ({
+            ...prev,
+            listaOriginal: nomes,
+            conteudosParaImportar: conteudos,
+            progresso: {
+                total: conteudos.length,
+                processados: 0,
+                sucesso: 0,
+                erros: 0
+            },
+            telaAtual: 'busca'
+        }));
+
+        // Iniciar processamento do primeiro item
+        await buscarProximoConteudo(0, conteudos);
+    }, [buscarProximoConteudo]);
 
     /**
      * Valida os links de streaming automaticamente

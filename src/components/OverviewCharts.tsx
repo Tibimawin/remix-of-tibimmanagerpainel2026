@@ -28,32 +28,31 @@ interface OverviewChartsProps {
   logs: ActivityLog[];
 }
 
-const OverviewCharts: React.FC<OverviewChartsProps> = ({ users, logs }) => {
-  // Mover a função calculateRemainingDays para fora do useMemo
-  const calculateRemainingDays = (user: User) => {
-    try {
-      if (!user.Pagamento || !user.Dias) {
-        return 0;
-      }
-      
-      const dias = Number(user.Dias) || 0;
-      const pagamento = new Date(user.Pagamento);
-      
-      // Verificar se a data é válida
-      if (isNaN(pagamento.getTime())) {
-        console.warn('Data de pagamento inválida para usuário:', user.Email, user.Pagamento);
-        return 0;
-      }
-      
-      const hoje = new Date();
-      const diffDays = Math.floor((hoje.getTime() - pagamento.getTime()) / (1000 * 60 * 60 * 24));
-      return Math.max(0, dias - diffDays);
-    } catch (error) {
-      console.error('Erro ao calcular dias restantes:', error);
+const calculateRemainingDays = (user: User) => {
+  try {
+    if (!user.Pagamento || !user.Dias) {
       return 0;
     }
-  };
+    
+    const dias = Number(user.Dias) || 0;
+    const pagamento = new Date(user.Pagamento);
+    
+    // Verificar se a data é válida
+    if (isNaN(pagamento.getTime())) {
+      console.warn('Data de pagamento inválida para usuário:', user.Email, user.Pagamento);
+      return 0;
+    }
+    
+    const hoje = new Date();
+    const diffDays = Math.floor((hoje.getTime() - pagamento.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.max(0, dias - diffDays);
+  } catch (error) {
+    console.error('Erro ao calcular dias restantes:', error);
+    return 0;
+  }
+};
 
+const OverviewCharts: React.FC<OverviewChartsProps> = ({ users, logs }) => {
   const chartData = useMemo(() => {
     const now = new Date();
     const last7Days = [];
@@ -106,7 +105,7 @@ const OverviewCharts: React.FC<OverviewChartsProps> = ({ users, logs }) => {
       userStatusData,
       loginDistribution
     };
-  }, [users, logs, calculateRemainingDays]);
+  }, [users, logs]);
 
   const chartConfig = {
     atividades: {

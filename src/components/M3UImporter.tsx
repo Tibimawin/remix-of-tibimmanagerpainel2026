@@ -192,7 +192,7 @@ const M3UImporter = () => {
       currentItem: progress.currentItem,
       stats,
     });
-  }, [isImporting, isPaused, progress, stats]);
+  }, [isImporting, isPaused, progress, stats, updateGlobalProgress]);
 
   // ✅ Avisa o usuário ao tentar fechar a aba/navegador durante importação ativa
   useEffect(() => {
@@ -326,7 +326,7 @@ const M3UImporter = () => {
         const hasPipe = groupTitleFull.includes('|');
         const [typeRaw, categoryRaw] = hasPipe ? groupTitleFull.split('|').map(s => s.trim()) : ['', groupTitleFull];
         
-        let category = categoryRaw || groupTitleFull || 'Geral';
+        const category = categoryRaw || groupTitleFull || 'Geral';
 
         // Análise ultra-robusta de rota de URL e padrões de IPTV
         const urlLower = url.toLowerCase();
@@ -679,7 +679,8 @@ const M3UImporter = () => {
       setPendingAutoFetch(false);
       handleFetchDNS();
     }
-  }, [pendingAutoFetch, dnsUrl, dnsUsername, dnsPassword]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAutoFetch, dnsUrl, dnsUsername, dnsPassword, isFetchingDns]);
 
   const handlePreviewImport = () => {
     // Determinar conteúdo M3U (arquivo ou DNS)
@@ -975,7 +976,7 @@ const M3UImporter = () => {
       setProgress({ current: 0, total: totalItems, percentage: 0, currentType: '', currentItem: '' });
       
       // Buscar conteúdos existentes se a opção de ignorar duplicados estiver ativa
-      let existingNames = new Set<string>();
+      const existingNames = new Set<string>();
       const duplicateCheckActive = ignoreDuplicates;
       if (ignoreDuplicates) {
         const MAX_RETRIES = 2;

@@ -29,54 +29,7 @@ export const AdminAlertCenter: React.FC = () => {
     const [showDismissed, setShowDismissed] = useState(false);
     const [soundEnabled, setSoundEnabled] = useState(true);
 
-    // Monitorar usuários em tempo real
-    useEffect(() => {
-        const unsubscribe = onSnapshot(
-            collection(db, 'users'),
-            (snapshot) => {
-                const userData: FirebaseUser[] = [];
-                snapshot.forEach((doc) => {
-                    userData.push({ uid: doc.id, ...doc.data() } as FirebaseUser);
-                });
-                setUsers(userData);
-                checkForAlerts(userData);
-            }
-        );
-
-        return () => unsubscribe();
-    }, []);
-
-    // Monitorar logs de automação em tempo real
-    useEffect(() => {
-        const q = query(
-            collection(db, 'autoImportLogs'),
-            where('status', '==', 'success'),
-            orderBy('timestamp', 'desc'),
-            limit(10)
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const runningUsers = new Set<string>();
-            const now = new Date().getTime();
-            const fiveMinutesAgo = now - (5 * 60 * 1000);
-
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                const logTime = new Date(data.timestamp).getTime();
-
-                // Se importou nos últimos 5 minutos, considera como "rodando"
-                if (logTime > fiveMinutesAgo) {
-                    runningUsers.add(data.userEmail);
-                }
-            });
-
-            setAutomationRunning(Array.from(runningUsers));
-        });
-
-        return () => unsubscribe();
-    }, []);
-
-    const checkForAlerts = (userList: FirebaseUser[]) => {
+    const checkForAlerts = useCallback((userList: FirebaseUser[]) => {
         const newAlerts: AdminAlert[] = [];
         const now = new Date();
 
@@ -152,7 +105,54 @@ export const AdminAlertCenter: React.FC = () => {
         }
 
         setAlerts(newAlerts);
-    };
+    }, [automationRunning, soundEnabled]);
+
+    // Monitorar usuários em tempo real
+    useEffect(() => {
+        const unsubscribe = onSnapshot(
+            collection(db, 'users'),
+            (snapshot) => {
+                const userData: FirebaseUser[] = [];
+                snapshot.forEach((doc) => {
+                    userData.push({ uid: doc.id, ...doc.data() } as FirebaseUser);
+                });
+                setUsers(userData);
+                checkForAlerts(userData);
+            }
+        );
+
+        return () => unsubscribe();
+    }, [checkForAlerts]);
+
+    // Monitorar logs de automação em tempo real
+    useEffect(() => {
+        const q = query(
+            collection(db, 'autoImportLogs'),
+            where('status', '==', 'success'),
+            orderBy('timestamp', 'desc'),
+            limit(10)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const runningUsers = new Set<string>();
+            const now = new Date().getTime();
+            const fiveMinutesAgo = now - (5 * 60 * 1000);
+
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                const logTime = new Date(data.timestamp).getTime();
+
+                // Se importou nos últimos 5 minutos, considera como "rodando"
+                if (logTime > fiveMinutesAgo) {
+                    runningUsers.add(data.userEmail);
+                }
+            });
+
+            setAutomationRunning(Array.from(runningUsers));
+        });
+
+        return () => unsubscribe();
+    }, []);
 
     const playAlertSound = () => {
         // Som de alerta suave

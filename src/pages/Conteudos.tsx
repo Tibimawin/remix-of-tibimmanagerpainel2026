@@ -238,7 +238,7 @@ const Conteudos = () => {
     };
 
     runGlobalSort();
-  }, [selectedSort, isConfigured]);
+  }, [selectedSort, isConfigured, baserowService, config]);
 
   return (
     <PermissionGate feature="conteudos">

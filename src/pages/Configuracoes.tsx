@@ -228,7 +228,7 @@ const Configuracoes = () => {
       // Limpar o state para não repetir o foco em refresh
       navigate(location.pathname, { replace: true });
     }
-  }, [location.state, navigate]);
+  }, [location.state, location.pathname, navigate]);
 
   const handleInputChange = (field: string, value: string) => {
     if (field.startsWith('tableIds.')) {
