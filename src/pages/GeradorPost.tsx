@@ -43,15 +43,107 @@ import { cn } from '@/lib/utils';
 import debounce from 'lodash/debounce';
 import { PermissionGate } from '@/components/PermissionGate';
 
+// Conteúdo padrão para não iniciar a tela vazia
+const DEFAULT_DEMO_CONTENT: TMDBDetails = {
+  id: 558449,
+  title: 'Gladiador II',
+  name: 'Gladiador II',
+  overview: 'Anos após testemunhar a morte do herói Maximus, Lucius é forçado a lutar no Coliseu depois que sua terra natal é dominada pelos tirânicos imperadores romanos.',
+  poster_path: '/2cxhvwyEwRlysAmRH4iodkvo0z5.jpg',
+  backdrop_path: '/euYIwmqkmz95mnXvufEmbL69ovr.jpg',
+  release_date: '2024-11-13',
+  vote_average: 7.8,
+  vote_count: 2450,
+  genres: [
+    { id: 28, name: 'Ação' },
+    { id: 12, name: 'Aventura' },
+    { id: 18, name: 'Drama' }
+  ],
+  media_type: 'movie',
+  status: 'Released',
+  runtime: 148,
+};
+
+const PRESET_CONTENTS: Record<string, TMDBDetails> = {
+  gladiador: DEFAULT_DEMO_CONTENT,
+  duna: {
+    id: 693134,
+    title: 'Duna: Parte 2',
+    name: 'Duna: Parte 2',
+    overview: 'Paul Atreides se une a Chani e aos Fremen enquanto busca vingança contra os conspiradores que destruíram sua família.',
+    poster_path: '/czembW0Rk1Ke7ra2Ns6Yzyzn4CW.jpg',
+    backdrop_path: '/xOMo8BRK7PfcJv9JCnx7s52009S.jpg',
+    release_date: '2024-02-27',
+    vote_average: 8.2,
+    vote_count: 5300,
+    genres: [{ id: 878, name: 'Ficção Científica' }, { id: 12, name: 'Aventura' }],
+    media_type: 'movie',
+    runtime: 166,
+  },
+  avatar: {
+    id: 76600,
+    title: 'Avatar: O Caminho da Água',
+    name: 'Avatar: O Caminho da Água',
+    overview: 'Jake Sully e Neytiri formaram uma família e fazem de tudo para ficarem juntos, explorando os oceanos fascinantes de Pandora.',
+    poster_path: '/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg',
+    backdrop_path: '/s16H6tpK2utvwDtzZ8Qy4qm5Emw.jpg',
+    release_date: '2022-12-14',
+    vote_average: 7.7,
+    vote_count: 11000,
+    genres: [{ id: 878, name: 'Ficção Científica' }, { id: 12, name: 'Aventura' }, { id: 28, name: 'Ação' }],
+    media_type: 'movie',
+    runtime: 192,
+  },
+  deadpool: {
+    id: 533535,
+    title: 'Deadpool & Wolverine',
+    name: 'Deadpool & Wolverine',
+    overview: 'Wade Wilson leva uma vida calma até ser recrutado pela TVA para proteger o multiverso ao lado de uma variante do Wolverine.',
+    poster_path: '/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg',
+    backdrop_path: '/yDHYTjA3R0jFYba16jBB1jv8vE1.jpg',
+    release_date: '2024-07-24',
+    vote_average: 7.7,
+    vote_count: 6100,
+    genres: [{ id: 28, name: 'Ação' }, { id: 35, name: 'Comédia' }],
+    media_type: 'movie',
+    runtime: 128,
+  },
+  stranger: {
+    id: 66732,
+    title: 'Stranger Things',
+    name: 'Stranger Things',
+    overview: 'Quando um garoto desaparece, sua mãe, um delegado e seus amigos descobrem conspirações secretas e forças sobrenaturais.',
+    poster_path: '/49WJfeN0moxb9IPfGn8AIqMGskD.jpg',
+    backdrop_path: '/56v2KjBlU4XaOv9rVYEQypROD7P.jpg',
+    release_date: '2016-07-15',
+    vote_average: 8.6,
+    vote_count: 17000,
+    genres: [{ id: 10765, name: 'Sci-Fi & Fantasy' }, { id: 18, name: 'Drama' }],
+    media_type: 'tv',
+    runtime: 50,
+  }
+};
+
+const POPULAR_SUGGESTIONS = [
+  { label: 'Gladiador II', key: 'gladiador', query: 'Gladiador II' },
+  { label: 'Duna 2', key: 'duna', query: 'Duna Parte 2' },
+  { label: 'Avatar 2', key: 'avatar', query: 'Avatar Caminho da Agua' },
+  { label: 'Deadpool & Wolverine', key: 'deadpool', query: 'Deadpool' },
+  { label: 'Stranger Things', key: 'stranger', query: 'Stranger Things' },
+];
+
 const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
   // States for search
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<TMDBSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [selectedContent, setSelectedContent] = useState<TMDBDetails | null>(null);
+  const [selectedContent, setSelectedContent] = useState<TMDBDetails | null>(DEFAULT_DEMO_CONTENT);
 
   // Mode: Post de Imagem ou Vídeo Animado
   const [postMode, setPostMode] = useState<'image' | 'video'>('image');
+
+  // Zoom da pré-visualização (auto ajusta ao tamanho da coluna para evitar cortes)
+  const [previewZoom, setPreviewZoom] = useState<'auto' | 60 | 80 | 100>('auto');
 
   // States for customization (4 modelos de imagem)
   const [selectedTemplate, setSelectedTemplate] = useState<'smartphone' | 'cinematic' | 'stories' | 'minimalist'>('smartphone');
@@ -121,6 +213,26 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
     }
   };
 
+  const handleSelectPreset = async (item: typeof POPULAR_SUGGESTIONS[0]) => {
+    if (PRESET_CONTENTS[item.key]) {
+      setSelectedContent(PRESET_CONTENTS[item.key]);
+      setFeaturedLabel(PRESET_CONTENTS[item.key].media_type === 'tv' ? 'SÉRIE EM DESTAQUE' : 'FILME EM DESTAQUE');
+      toast.success(`Carregado: ${item.label}`);
+      return;
+    }
+    try {
+      setIsSearching(true);
+      const results = await tmdbService.searchMulti(item.query);
+      if (results && results.length > 0) {
+        await handleSelectContent(results[0]);
+      }
+    } catch {
+      // fallback
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -140,14 +252,27 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
     localStorage.removeItem('gerador-post-logo');
   };
 
+  const getScaleFactor = () => {
+    if (previewZoom === 60) return 0.6;
+    if (previewZoom === 80) return 0.8;
+    if (previewZoom === 100) return 1.0;
+    // 'auto':
+    if (selectedTemplate === 'cinematic') return 0.72;
+    if (selectedTemplate === 'stories') return 0.74;
+    if (selectedTemplate === 'minimalist') return 0.78;
+    return 0.78; // smartphone
+  };
+
+  const scale = getScaleFactor();
+
   const downloadImage = async () => {
     if (!previewRef.current) return;
 
     try {
-      toast.loading('Gerando imagem...', { id: 'download' });
+      toast.loading('Gerando imagem em alta resolução...', { id: 'download' });
       const dataUrl = await toPng(previewRef.current, {
         cacheBust: true,
-        quality: 0.95,
+        quality: 0.98,
         pixelRatio: 2, // High resolution
         skipFonts: true, // Prevents reading cross-origin CSSStyleSheet rules which triggers SecurityError
       });
@@ -221,6 +346,31 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                   {isSearching && (
                     <Loader2 className="absolute right-3 top-3 w-4 h-4 animate-spin text-primary" />
                   )}
+                </div>
+
+                {/* Sugestões Rápidas de Destaques */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[11px] font-bold text-muted-foreground mr-1 flex items-center gap-1">
+                    <Flame className="w-3.5 h-3.5 text-primary" /> Populares:
+                  </span>
+                  {POPULAR_SUGGESTIONS.map((sug) => {
+                    const isSelected = selectedContent?.title === sug.label || selectedContent?.name === sug.label;
+                    return (
+                      <button
+                        key={sug.key}
+                        type="button"
+                        onClick={() => handleSelectPreset(sug)}
+                        className={cn(
+                          "text-[10px] font-semibold px-2.5 py-0.5 rounded-full border transition-all",
+                          isSelected
+                            ? "bg-primary text-white border-primary shadow-sm"
+                            : "bg-muted/40 hover:bg-muted border-border/50 text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {sug.label}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {searchResults.length > 0 && (
@@ -789,8 +939,43 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
           </div>
 
           {/* Right Column: Preview */}
-          <div className="flex-1 flex justify-center items-start">
-            <div className="sticky top-24 w-full flex flex-col items-center">
+          <div className="flex-1 flex justify-center items-start w-full">
+            <div className="sticky top-20 w-full flex flex-col items-center">
+              
+              {/* Barra de Controles da Pré-Visualização */}
+              <div className="w-full flex items-center justify-between bg-black/40 backdrop-blur-md border border-border/40 rounded-xl px-4 py-2.5 mb-4 text-xs shadow-sm">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <span className="font-bold text-muted-foreground hidden sm:inline">Modelo:</span>
+                  <Badge variant="outline" className="text-primary border-primary/40 font-black uppercase text-[10px] tracking-wider">
+                    {postMode === 'video' ? 'Vídeo Animado' : (
+                      selectedTemplate === 'smartphone' ? '1. Smartphone (9:16)' :
+                      selectedTemplate === 'cinematic' ? '2. Cinemático (16:9)' :
+                      selectedTemplate === 'stories' ? '3. Stories Neon (9:16)' :
+                      '4. Cartaz IMAX (2:3)'
+                    )}
+                  </Badge>
+                </div>
+
+                {postMode === 'image' && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-muted-foreground mr-1">Zoom:</span>
+                    {(['auto', 60, 80, 100] as const).map((z) => (
+                      <Button
+                        key={z}
+                        type="button"
+                        variant={previewZoom === z ? 'default' : 'ghost'}
+                        size="sm"
+                        className="h-7 px-2 text-[11px] font-bold"
+                        onClick={() => setPreviewZoom(z)}
+                      >
+                        {z === 'auto' ? 'Ajustar' : `${z}%`}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {!selectedContent ? (
                 <div className="w-full aspect-video flex flex-col items-center justify-center border-2 border-dashed border-border/40 rounded-xl bg-muted/10 text-muted-foreground p-12 text-center">
                   <Sparkles className="w-16 h-16 mb-4 opacity-20" />
@@ -811,110 +996,118 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                   />
                 </div>
               ) : (
-                <>
-                  <div ref={previewRef} className="flex justify-center items-center">
-                    {selectedTemplate === 'smartphone' && (
-                      <SmartphoneTemplate
-                        selectedContent={selectedContent}
-                        backgroundBlur={backgroundBlur}
-                        overlayOpacity={overlayOpacity}
-                        logo={logo}
-                        logoPosition={logoPosition}
-                        logoSize={logoSize}
-                        logoX={logoX}
-                        logoY={logoY}
-                        featuredLabel={featuredLabel}
-                        accentColor={accentColor}
-                        posterWidth={posterWidth}
-                        posterHeight={posterHeight}
-                        statusLabel={statusLabel}
-                        statusHeight={statusHeight}
-                        statusFontSize={statusFontSize}
-                        statusPaddingX={statusPaddingX}
-                        statusX={statusX}
-                        statusY={statusY}
-                        statusAlign={statusAlign}
-                        showSynopsis={showSynopsis}
-                        synopsisLength={synopsisLength}
-                      />
-                    )}
-                    {selectedTemplate === 'cinematic' && (
-                      <CinematicTemplate
-                        selectedContent={selectedContent}
-                        backgroundBlur={backgroundBlur}
-                        overlayOpacity={overlayOpacity}
-                        logo={logo}
-                        logoPosition={logoPosition}
-                        logoSize={logoSize}
-                        logoX={logoX}
-                        logoY={logoY}
-                        featuredLabel={featuredLabel}
-                        accentColor={accentColor}
-                        posterWidth={posterWidth}
-                        posterHeight={posterHeight}
-                        statusLabel={statusLabel}
-                        statusHeight={statusHeight}
-                        statusFontSize={statusFontSize}
-                        statusPaddingX={statusPaddingX}
-                        statusX={statusX}
-                        statusY={statusY}
-                        statusAlign={statusAlign}
-                        showSynopsis={showSynopsis}
-                        synopsisLength={synopsisLength}
-                      />
-                    )}
-                    {selectedTemplate === 'stories' && (
-                      <StoriesTemplate
-                        selectedContent={selectedContent}
-                        backgroundBlur={backgroundBlur}
-                        overlayOpacity={overlayOpacity}
-                        logo={logo}
-                        logoPosition={logoPosition}
-                        logoSize={logoSize}
-                        logoX={logoX}
-                        logoY={logoY}
-                        featuredLabel={featuredLabel}
-                        accentColor={accentColor}
-                        posterWidth={posterWidth}
-                        posterHeight={posterHeight}
-                        statusLabel={statusLabel}
-                        statusHeight={statusHeight}
-                        statusFontSize={statusFontSize}
-                        statusPaddingX={statusPaddingX}
-                        statusX={statusX}
-                        statusY={statusY}
-                        statusAlign={statusAlign}
-                        showSynopsis={showSynopsis}
-                        synopsisLength={synopsisLength}
-                      />
-                    )}
-                    {selectedTemplate === 'minimalist' && (
-                      <MinimalistTemplate
-                        selectedContent={selectedContent}
-                        backgroundBlur={backgroundBlur}
-                        overlayOpacity={overlayOpacity}
-                        logo={logo}
-                        logoPosition={logoPosition}
-                        logoSize={logoSize}
-                        logoX={logoX}
-                        logoY={logoY}
-                        featuredLabel={featuredLabel}
-                        accentColor={accentColor}
-                        posterWidth={posterWidth}
-                        posterHeight={posterHeight}
-                        statusLabel={statusLabel}
-                        statusHeight={statusHeight}
-                        statusFontSize={statusFontSize}
-                        statusPaddingX={statusPaddingX}
-                        statusX={statusX}
-                        statusY={statusY}
-                        statusAlign={statusAlign}
-                        showSynopsis={showSynopsis}
-                        synopsisLength={synopsisLength}
-                      />
-                    )}
+                <div className="w-full flex justify-center items-start overflow-hidden py-2 min-h-[500px]">
+                  <div
+                    style={{
+                      transform: `scale(${scale})`,
+                      transformOrigin: 'top center',
+                      transition: 'transform 0.2s ease-out',
+                    }}
+                  >
+                    <div ref={previewRef} className="flex justify-center items-center shadow-2xl rounded-2xl overflow-hidden">
+                      {selectedTemplate === 'smartphone' && (
+                        <SmartphoneTemplate
+                          selectedContent={selectedContent}
+                          backgroundBlur={backgroundBlur}
+                          overlayOpacity={overlayOpacity}
+                          logo={logo}
+                          logoPosition={logoPosition}
+                          logoSize={logoSize}
+                          logoX={logoX}
+                          logoY={logoY}
+                          featuredLabel={featuredLabel}
+                          accentColor={accentColor}
+                          posterWidth={posterWidth}
+                          posterHeight={posterHeight}
+                          statusLabel={statusLabel}
+                          statusHeight={statusHeight}
+                          statusFontSize={statusFontSize}
+                          statusPaddingX={statusPaddingX}
+                          statusX={statusX}
+                          statusY={statusY}
+                          statusAlign={statusAlign}
+                          showSynopsis={showSynopsis}
+                          synopsisLength={synopsisLength}
+                        />
+                      )}
+                      {selectedTemplate === 'cinematic' && (
+                        <CinematicTemplate
+                          selectedContent={selectedContent}
+                          backgroundBlur={backgroundBlur}
+                          overlayOpacity={overlayOpacity}
+                          logo={logo}
+                          logoPosition={logoPosition}
+                          logoSize={logoSize}
+                          logoX={logoX}
+                          logoY={logoY}
+                          featuredLabel={featuredLabel}
+                          accentColor={accentColor}
+                          posterWidth={posterWidth}
+                          posterHeight={posterHeight}
+                          statusLabel={statusLabel}
+                          statusHeight={statusHeight}
+                          statusFontSize={statusFontSize}
+                          statusPaddingX={statusPaddingX}
+                          statusX={statusX}
+                          statusY={statusY}
+                          statusAlign={statusAlign}
+                          showSynopsis={showSynopsis}
+                          synopsisLength={synopsisLength}
+                        />
+                      )}
+                      {selectedTemplate === 'stories' && (
+                        <StoriesTemplate
+                          selectedContent={selectedContent}
+                          backgroundBlur={backgroundBlur}
+                          overlayOpacity={overlayOpacity}
+                          logo={logo}
+                          logoPosition={logoPosition}
+                          logoSize={logoSize}
+                          logoX={logoX}
+                          logoY={logoY}
+                          featuredLabel={featuredLabel}
+                          accentColor={accentColor}
+                          posterWidth={posterWidth}
+                          posterHeight={posterHeight}
+                          statusLabel={statusLabel}
+                          statusHeight={statusHeight}
+                          statusFontSize={statusFontSize}
+                          statusPaddingX={statusPaddingX}
+                          statusX={statusX}
+                          statusY={statusY}
+                          statusAlign={statusAlign}
+                          showSynopsis={showSynopsis}
+                          synopsisLength={synopsisLength}
+                        />
+                      )}
+                      {selectedTemplate === 'minimalist' && (
+                        <MinimalistTemplate
+                          selectedContent={selectedContent}
+                          backgroundBlur={backgroundBlur}
+                          overlayOpacity={overlayOpacity}
+                          logo={logo}
+                          logoPosition={logoPosition}
+                          logoSize={logoSize}
+                          logoX={logoX}
+                          logoY={logoY}
+                          featuredLabel={featuredLabel}
+                          accentColor={accentColor}
+                          posterWidth={posterWidth}
+                          posterHeight={posterHeight}
+                          statusLabel={statusLabel}
+                          statusHeight={statusHeight}
+                          statusFontSize={statusFontSize}
+                          statusPaddingX={statusPaddingX}
+                          statusX={statusX}
+                          statusY={statusY}
+                          statusAlign={statusAlign}
+                          showSynopsis={showSynopsis}
+                          synopsisLength={synopsisLength}
+                        />
+                      )}
+                    </div>
                   </div>
-                </>
+                </div>
               )}
             </div>
           </div>

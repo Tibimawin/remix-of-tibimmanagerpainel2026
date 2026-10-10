@@ -244,6 +244,11 @@ export const DataTable: React.FC<DataTableProps & {
     }
   }, [isConfigured, currentTableId, baserowService]);
 
+  const loadDataRef = useRef(loadData);
+  loadDataRef.current = loadData;
+  const loadAllDataRef = useRef(loadAllDataForExport);
+  loadAllDataRef.current = loadAllDataForExport;
+
   useEffect(() => {
     const initializeData = async () => {
       if (!isConfigured) return;
@@ -273,14 +278,14 @@ export const DataTable: React.FC<DataTableProps & {
       } else {
         // Comportamento normal - página 1
         setPage(1);
-        loadData(1);
+        loadDataRef.current(1);
       }
 
-      loadAllDataForExport();
+      loadAllDataRef.current();
     };
 
     initializeData();
-  }, [isConfigured, refreshTrigger, tableKey, currentTableId, goToPage, sortBy, loadData, loadAllDataForExport, baserowService, getOrderParam]);
+  }, [isConfigured, refreshTrigger, tableKey, currentTableId, goToPage, sortBy, getOrderParam]);
 
   useEffect(() => {
     if (page !== 1 && !goToPage) {
