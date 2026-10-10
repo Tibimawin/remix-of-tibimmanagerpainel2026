@@ -162,6 +162,7 @@ const CinematicTemplate = ({
               src={`https://image.tmdb.org/t/p/w780${selectedContent.poster_path}`} 
               alt={selectedContent.title || selectedContent.name}
               className="w-full h-full object-cover"
+              crossOrigin="anonymous"
             />
             <div
               className={cn(

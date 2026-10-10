@@ -104,6 +104,7 @@ const loadGoogleFonts = () => {
     link = document.createElement('link');
     link.id = linkId;
     link.rel = 'stylesheet';
+    link.crossOrigin = 'anonymous';
     link.href = `https://fonts.googleapis.com/css2?family=${fontsToLoad}:wght@300;400;500;600;700&display=swap`;
     document.head.appendChild(link);
   }

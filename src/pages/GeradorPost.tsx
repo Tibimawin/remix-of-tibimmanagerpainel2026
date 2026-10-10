@@ -140,6 +140,7 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
         cacheBust: true,
         quality: 0.95,
         pixelRatio: 2, // High resolution
+        skipFonts: true, // Prevents reading cross-origin CSSStyleSheet rules which triggers SecurityError
       });
       
       const link = document.createElement('a');

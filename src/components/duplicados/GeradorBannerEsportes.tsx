@@ -109,8 +109,10 @@ const GeradorBannerEsportes = () => {
     try {
       toast.loading('Gerando banner...', { id: 'download-banner' });
       const dataUrl = await toPng(previewRef.current, {
+        cacheBust: true,
         quality: 0.95,
         pixelRatio: 2,
+        skipFonts: true, // Prevents reading cross-origin CSSStyleSheet rules which triggers SecurityError
       });
       const link = document.createElement('a');
       link.download = `banner-jogos-${new Date().getTime()}.png`;
