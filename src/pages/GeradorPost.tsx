@@ -55,6 +55,9 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
   const [posterHeight, setPosterHeight] = useState(14);
   const [accentColor, setAccentColor] = useState('#e50914'); // Netflix Red
   const [statusLabel, setStatusLabel] = useState('LANÇAMENTOS');
+  const [statusHeight, setStatusHeight] = useState(24);
+  const [statusFontSize, setStatusFontSize] = useState(9);
+  const [statusPaddingX, setStatusPaddingX] = useState(12);
   const [statusX, setStatusX] = useState(0);
   const [statusY, setStatusY] = useState(0);
   const [statusAlign, setStatusAlign] = useState<'left' | 'center' | 'right'>('center');
@@ -366,6 +369,26 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                       ))}
                     </div>
                     <div className="space-y-2">
+                      <Label>Altura do Container ({statusHeight}px)</Label>
+                      <Slider
+                        value={[statusHeight]}
+                        onValueChange={([val]) => setStatusHeight(val)}
+                        max={64}
+                        min={14}
+                        step={1}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Tamanho do Texto ({statusFontSize}px)</Label>
+                      <Slider
+                        value={[statusFontSize]}
+                        onValueChange={([val]) => setStatusFontSize(val)}
+                        max={18}
+                        min={7}
+                        step={1}
+                      />
+                    </div>
+                    <div className="space-y-2">
                       <Label>Ajuste Horizontal ({statusX}%)</Label>
                       <Slider
                         value={[statusX]}
@@ -389,9 +412,16 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                       variant="ghost"
                       size="sm"
                       className="text-xs"
-                      onClick={() => { setStatusX(0); setStatusY(0); setStatusAlign('center'); }}
+                      onClick={() => {
+                        setStatusHeight(24);
+                        setStatusFontSize(9);
+                        setStatusPaddingX(12);
+                        setStatusX(0);
+                        setStatusY(0);
+                        setStatusAlign('center');
+                      }}
                     >
-                      Redefinir posição
+                      Redefinir rótulo
                     </Button>
                   </div>
 
@@ -542,25 +572,126 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
 
               <TabsContent value="layout" className="space-y-4 pt-4">
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Largura da Capa ({posterWidth}%)</Label>
-                    <Slider
-                      value={[posterWidth]}
-                      onValueChange={([val]) => setPosterWidth(val)}
-                      max={100}
-                      min={20}
-                      step={1}
-                    />
+                  {/* Container do Rótulo Superior (Lançamentos / Destaque) */}
+                  <div className="space-y-3 rounded-lg border border-border/50 p-3 bg-muted/10">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs uppercase tracking-wide font-semibold text-primary">
+                        Container do Rótulo ({statusLabel || 'Lançamentos'})
+                      </Label>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs">
+                        <Label>Altura do Container ({statusHeight}px)</Label>
+                        <span className="text-muted-foreground">{statusHeight}px</span>
+                      </div>
+                      <Slider
+                        value={[statusHeight]}
+                        onValueChange={([val]) => setStatusHeight(val)}
+                        max={64}
+                        min={14}
+                        step={1}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs">
+                        <Label>Posição Vertical / Altura ({statusY}%)</Label>
+                        <span className="text-muted-foreground">{statusY}%</span>
+                      </div>
+                      <Slider
+                        value={[statusY]}
+                        onValueChange={([val]) => setStatusY(val)}
+                        max={1200}
+                        min={0}
+                        step={10}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs">
+                        <Label>Tamanho do Texto ({statusFontSize}px)</Label>
+                        <span className="text-muted-foreground">{statusFontSize}px</span>
+                      </div>
+                      <Slider
+                        value={[statusFontSize]}
+                        onValueChange={([val]) => setStatusFontSize(val)}
+                        max={18}
+                        min={7}
+                        step={1}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs">
+                        <Label>Largura / Espaçamento Interno ({statusPaddingX}px)</Label>
+                        <span className="text-muted-foreground">{statusPaddingX}px</span>
+                      </div>
+                      <Slider
+                        value={[statusPaddingX]}
+                        onValueChange={([val]) => setStatusPaddingX(val)}
+                        max={36}
+                        min={4}
+                        step={1}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs">Alinhamento Horizontal</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(['left', 'center', 'right'] as const).map((pos) => (
+                          <Button
+                            key={pos}
+                            variant={statusAlign === pos ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setStatusAlign(pos)}
+                            className="text-xs h-7"
+                          >
+                            {pos === 'left' ? 'Esquerda' : pos === 'center' ? 'Centro' : 'Direita'}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs">
+                        <Label>Ajuste Horizontal ({statusX}%)</Label>
+                        <span className="text-muted-foreground">{statusX}%</span>
+                      </div>
+                      <Slider
+                        value={[statusX]}
+                        onValueChange={([val]) => setStatusX(val)}
+                        max={100}
+                        min={-100}
+                        step={1}
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Proporção Altura ({posterHeight})</Label>
-                    <Slider
-                      value={[posterHeight]}
-                      onValueChange={([val]) => setPosterHeight(val)}
-                      max={20}
-                      min={10}
-                      step={0.5}
-                    />
+
+                  <div className="space-y-3 rounded-lg border border-border/50 p-3 bg-muted/10">
+                    <Label className="text-xs uppercase tracking-wide font-semibold text-primary">
+                      Ajustes da Capa / Poster
+                    </Label>
+                    <div className="space-y-2">
+                      <Label>Largura da Capa ({posterWidth}%)</Label>
+                      <Slider
+                        value={[posterWidth]}
+                        onValueChange={([val]) => setPosterWidth(val)}
+                        max={100}
+                        min={20}
+                        step={1}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Proporção Altura ({posterHeight})</Label>
+                      <Slider
+                        value={[posterHeight]}
+                        onValueChange={([val]) => setPosterHeight(val)}
+                        max={20}
+                        min={10}
+                        step={0.5}
+                      />
+                    </div>
                   </div>
                 </div>
               </TabsContent>
@@ -614,6 +745,9 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                         posterWidth={posterWidth}
                         posterHeight={posterHeight}
                         statusLabel={statusLabel}
+                        statusHeight={statusHeight}
+                        statusFontSize={statusFontSize}
+                        statusPaddingX={statusPaddingX}
                         statusX={statusX}
                         statusY={statusY}
                         statusAlign={statusAlign}
@@ -635,6 +769,9 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                         posterWidth={posterWidth}
                         posterHeight={posterHeight}
                         statusLabel={statusLabel}
+                        statusHeight={statusHeight}
+                        statusFontSize={statusFontSize}
+                        statusPaddingX={statusPaddingX}
                         statusX={statusX}
                         statusY={statusY}
                         statusAlign={statusAlign}

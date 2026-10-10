@@ -18,6 +18,9 @@ interface TemplateProps {
   posterWidth: number;
   posterHeight: number;
   statusLabel: string;
+  statusHeight?: number;
+  statusFontSize?: number;
+  statusPaddingX?: number;
   statusX?: number;
   statusY?: number;
   statusAlign?: 'left' | 'center' | 'right';
@@ -39,6 +42,9 @@ const CinematicTemplate = ({
   posterWidth,
   posterHeight,
   statusLabel,
+  statusHeight = 24,
+  statusFontSize = 9,
+  statusPaddingX = 12,
   statusX = 0,
   statusY = 0,
   statusAlign = 'right',
@@ -159,14 +165,23 @@ const CinematicTemplate = ({
             />
             <div
               className={cn(
-                "absolute top-3 left-3 right-3 flex",
+                "absolute top-3 left-3 right-3 flex z-30 pointer-events-none",
                 statusAlign === 'left' && "justify-start",
                 statusAlign === 'center' && "justify-center",
                 statusAlign === 'right' && "justify-end"
               )}
               style={{ transform: `translate(${statusX}%, ${statusY}%)` }}
             >
-              <Badge className="bg-white text-black font-black text-[10px] px-2 py-0.5 rounded-sm shadow-xl">
+              <Badge 
+                className="bg-white text-black font-black rounded-sm shadow-xl inline-flex items-center justify-center transition-all border-none"
+                style={{
+                  height: `${statusHeight}px`,
+                  fontSize: `${statusFontSize}px`,
+                  paddingLeft: `${statusPaddingX}px`,
+                  paddingRight: `${statusPaddingX}px`,
+                  lineHeight: 1,
+                }}
+              >
                 {statusLabel}
               </Badge>
             </div>

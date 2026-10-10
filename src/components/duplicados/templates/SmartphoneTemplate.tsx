@@ -18,6 +18,9 @@ interface TemplateProps {
   posterWidth: number;
   posterHeight: number;
   statusLabel: string;
+  statusHeight?: number;
+  statusFontSize?: number;
+  statusPaddingX?: number;
   statusX?: number;
   statusY?: number;
   statusAlign?: 'left' | 'center' | 'right';
@@ -39,6 +42,9 @@ const SmartphoneTemplate = ({
   posterWidth,
   posterHeight,
   statusLabel,
+  statusHeight = 24,
+  statusFontSize = 9,
+  statusPaddingX = 12,
   statusX = 0,
   statusY = 0,
   statusAlign = 'center',
@@ -145,7 +151,7 @@ const SmartphoneTemplate = ({
               {/* Poster Overlay Label */}
               <div
                 className={cn(
-                  "absolute top-3 left-3 right-3 flex z-30",
+                  "absolute top-3 left-3 right-3 flex z-30 pointer-events-none",
                   statusAlign === 'left' && "justify-start",
                   statusAlign === 'center' && "justify-center",
                   statusAlign === 'right' && "justify-end"
@@ -153,7 +159,14 @@ const SmartphoneTemplate = ({
                 style={{ transform: `translate(${statusX}%, ${statusY}%)` }}
               >
                 <Badge 
-                  className="text-[9px] px-3 py-0.5 font-black rounded-full bg-white text-black shadow-lg"
+                  className="font-black rounded-full bg-white text-black shadow-lg inline-flex items-center justify-center transition-all border-none"
+                  style={{
+                    height: `${statusHeight}px`,
+                    fontSize: `${statusFontSize}px`,
+                    paddingLeft: `${statusPaddingX}px`,
+                    paddingRight: `${statusPaddingX}px`,
+                    lineHeight: 1,
+                  }}
                 >
                   {statusLabel}
                 </Badge>
