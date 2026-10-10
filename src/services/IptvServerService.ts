@@ -222,112 +222,117 @@ export class IptvServerService {
       testUrl.startsWith('http://') ? testUrl.replace('http://', 'https://') : testUrl.replace('https://', 'http://'),
     ];
 
-    const proxyEndpoint = BASEROW_PROXY_CONFIG.M3U_PROXY_URL;
+    const proxyEndpoints = [
+      '/api/m3u-proxy',
+      BASEROW_PROXY_CONFIG.M3U_PROXY_URL,
+    ].filter((v, i, arr) => arr.indexOf(v) === i);
 
-    try {
-      const response = await fetch(proxyEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: candidateUrls[0],
-          urls: candidateUrls,
-          userAgent: 'IPTVSmartersPro/1.0.0 (Android; 9)',
-          timeout: 25000,
-        }),
-      });
+    let lastDiagError: any = null;
 
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        return {
-          success: false,
-          status: 'unknown',
-          auth: false,
-          message: errJson.error || `Servidor retornou erro ${response.status}`,
-        };
-      }
-
-      const text = await response.text();
-      let data: any = null;
+    for (const endpoint of proxyEndpoints) {
       try {
-        data = JSON.parse(text);
-      } catch {
-        // Se não retornou JSON, mas retornou status 200, pode ser que o servidor não tenha player_api.php aberto
-        return {
-          success: true,
-          status: 'active',
-          auth: true,
-          message: 'Servidor IPTV online e acessível (modo de compatibilidade básico).',
-        };
-      }
-
-      const userInfo = data?.user_info || data?.userInfo;
-      const serverInfo = data?.server_info || data?.serverInfo;
-
-      if (!userInfo) {
-        return {
-          success: true,
-          status: 'active',
-          auth: true,
-          message: 'Conexão estabelecida com o servidor IPTV com sucesso.',
-        };
-      }
-
-      const isAuthValid = userInfo.auth === 1 || userInfo.status?.toLowerCase() === 'active';
-      const rawStatus = (userInfo.status || '').toLowerCase();
-
-      let expFormatted = 'Vitalício / Sem expiração';
-      if (userInfo.exp_date && userInfo.exp_date !== 'null' && Number(userInfo.exp_date) > 0) {
-        const expTimestamp = Number(userInfo.exp_date) * 1000;
-        const expDate = new Date(expTimestamp);
-        expFormatted = expDate.toLocaleDateString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'omit',
+          body: JSON.stringify({
+            url: candidateUrls[0],
+            urls: candidateUrls,
+            userAgent: 'IPTVSmartersPro/1.0.0 (Android; 9)',
+            timeout: 25000,
+          }),
         });
-      }
 
-      if (!isAuthValid && (rawStatus === 'banned' || rawStatus === 'disabled')) {
+        if (!response.ok) {
+          const errJson = await response.json().catch(() => ({}));
+          lastDiagError = new Error(errJson.error || `Servidor retornou erro ${response.status}`);
+          continue;
+        }
+
+        const text = await response.text();
+        let data: any = null;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          return {
+            success: true,
+            status: 'active',
+            auth: true,
+            message: 'Servidor IPTV online e acessível (modo de compatibilidade básico).',
+          };
+        }
+
+        const userInfo = data?.user_info || data?.userInfo;
+        const serverInfo = data?.server_info || data?.serverInfo;
+
+        if (!userInfo) {
+          return {
+            success: true,
+            status: 'active',
+            auth: true,
+            message: 'Conexão estabelecida com o servidor IPTV com sucesso.',
+          };
+        }
+
+        const isAuthValid = userInfo.auth === 1 || userInfo.status?.toLowerCase() === 'active';
+        const rawStatus = (userInfo.status || '').toLowerCase();
+
+        let expFormatted = 'Vitalício / Sem expiração';
+        if (userInfo.exp_date && userInfo.exp_date !== 'null' && Number(userInfo.exp_date) > 0) {
+          const expTimestamp = Number(userInfo.exp_date) * 1000;
+          const expDate = new Date(expTimestamp);
+          expFormatted = expDate.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+        }
+
+        if (!isAuthValid && (rawStatus === 'banned' || rawStatus === 'disabled')) {
+          return {
+            success: false,
+            status: rawStatus as any,
+            auth: false,
+            message: `Conta ${rawStatus === 'banned' ? 'bloqueada/banida' : 'desativada'} no servidor IPTV.`,
+          };
+        }
+
+        if (userInfo.auth === 0) {
+          return {
+            success: false,
+            status: 'expired',
+            auth: false,
+            message: 'Usuário ou senha inválidos, ou assinatura vencida no servidor IPTV.',
+          };
+        }
+
         return {
-          success: false,
-          status: rawStatus as any,
-          auth: false,
-          message: `Conta ${rawStatus === 'banned' ? 'bloqueada/banida' : 'desativada'} no servidor IPTV.`,
+          success: true,
+          status: 'active',
+          auth: true,
+          username: userInfo.username,
+          expDateFormatted: expFormatted,
+          isTrial: userInfo.is_trial === '1' || userInfo.is_trial === 1,
+          maxConnections: Number(userInfo.max_connections) || 1,
+          activeConnections: Number(userInfo.active_cons) || 0,
+          serverVersion: serverInfo?.version || 'Xtream Codes',
+          serverProtocol: serverInfo?.server_protocol || 'http',
+          serverPort: serverInfo?.port || '',
+          message: `Servidor online! Conta ativa. Validade: ${expFormatted}`,
         };
+      } catch (err: any) {
+        lastDiagError = err;
       }
-
-      if (userInfo.auth === 0) {
-        return {
-          success: false,
-          status: 'expired',
-          auth: false,
-          message: 'Usuário ou senha inválidos, ou assinatura vencida no servidor IPTV.',
-        };
-      }
-
-      return {
-        success: true,
-        status: 'active',
-        auth: true,
-        username: userInfo.username,
-        expDateFormatted: expFormatted,
-        isTrial: userInfo.is_trial === '1' || userInfo.is_trial === 1,
-        maxConnections: Number(userInfo.max_connections) || 1,
-        activeConnections: Number(userInfo.active_cons) || 0,
-        serverVersion: serverInfo?.version || 'Xtream Codes',
-        serverProtocol: serverInfo?.server_protocol || 'http',
-        serverPort: serverInfo?.port || '',
-        message: `Servidor online! Conta ativa. Validade: ${expFormatted}`,
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        status: 'unknown',
-        auth: false,
-        message: error?.message || 'Falha ao testar conexão com o servidor.',
-      };
     }
+
+    return {
+      success: false,
+      status: 'unknown',
+      auth: false,
+      message: lastDiagError?.message || 'Falha ao testar conexão com o servidor.',
+    };
   }
 
   /**
@@ -360,73 +365,109 @@ export class IptvServerService {
     onPhaseChange?.('connecting');
     onLog?.(`Identificadas ${candidateUrls.length} variações de formato para o servidor IPTV...`);
 
-    const proxyEndpoint = BASEROW_PROXY_CONFIG.M3U_PROXY_URL;
     onPhaseChange?.('downloading');
 
     let response: Response | null = null;
-    let fetchError: any = null;
+    let lastError: any = null;
 
-    // Tentativa 1: Enviar lista de URLs candidatas para o proxy inteligente
-    try {
-      response = await fetch(proxyEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: candidateUrls[0],
-          urls: candidateUrls,
-          userAgent: 'IPTVSmartersPro/1.0.0 (Android; 9)',
-          timeout: 85000,
-        }),
-      });
-    } catch (err: any) {
-      fetchError = err;
-      onLog?.(`Proxy primário indisponível (${err.message}). Tentando rota alternativa...`);
+    const proxyEndpoints = [
+      '/api/m3u-proxy',
+      BASEROW_PROXY_CONFIG.M3U_PROXY_URL,
+    ].filter((v, i, arr) => arr.indexOf(v) === i);
+
+    // Estratégia 1: Tentar endpoints de proxy configurados (POST com credentials omit)
+    for (const endpoint of proxyEndpoints) {
+      try {
+        onLog?.(`Conectando através do proxy (${endpoint})...`);
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'omit',
+          body: JSON.stringify({
+            url: candidateUrls[0],
+            urls: candidateUrls,
+            userAgent: 'IPTVSmartersPro/1.0.0 (Android; 9)',
+            timeout: 85000,
+          }),
+        });
+
+        if (res.ok) {
+          response = res;
+          break;
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          lastError = new Error(errData.error || `Proxy retornou HTTP ${res.status}`);
+          onLog?.(`Aviso: ${endpoint} retornou status ${res.status}. Tentando alternativa...`);
+        }
+      } catch (err: any) {
+        lastError = err;
+        onLog?.(`Falha na rota ${endpoint} (${err.message}).`);
+      }
     }
 
-    // Tentativa 2: Fallback para rota relativa /api/m3u-proxy se a primária falhou
+    // Estratégia 2: Se POST falhou, tentar GET nos proxies (GET simples não dispara preflight OPTIONS no navegador)
     if (!response || !response.ok) {
-      if (proxyEndpoint !== '/api/m3u-proxy') {
+      for (const endpoint of proxyEndpoints) {
         try {
-          onLog?.('Tentando endpoint de contingência /api/m3u-proxy...');
-          response = await fetch('/api/m3u-proxy', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              url: candidateUrls[0],
-              urls: candidateUrls,
-              userAgent: 'IPTVSmartersPro/1.0.0 (Android; 9)',
-              timeout: 85000,
-            }),
+          const getUrl = `${endpoint}?url=${encodeURIComponent(candidateUrls[0])}`;
+          onLog?.(`Tentando requisição direta GET em ${endpoint}...`);
+          const res = await fetch(getUrl, {
+            method: 'GET',
+            credentials: 'omit',
           });
-        } catch (err) {
-          // Ignora e continua
+          if (res.ok) {
+            response = res;
+            break;
+          }
+        } catch {
+          // Continua para próxima tentativa
         }
       }
     }
 
-    // Tentativa 3: Se o proxy falhou com erro de rede, tenta fetch direto no navegador (caso o servidor suporte CORS)
+    // Estratégia 3: Tentar proxy público CORS de alta disponibilidade para IPTV
+    if (!response || !response.ok) {
+      const publicProxies = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(candidateUrls[0])}`,
+        `https://corsproxy.io/?url=${encodeURIComponent(candidateUrls[0])}`
+      ];
+
+      for (const pubProxy of publicProxies) {
+        try {
+          onLog?.('Tentando rota de contingência segura...');
+          const pubRes = await fetch(pubProxy, {
+            method: 'GET',
+            credentials: 'omit',
+          });
+          if (pubRes.ok) {
+            response = pubRes;
+            break;
+          }
+        } catch {
+          // Continua
+        }
+      }
+    }
+
+    // Estratégia 4: Se o servidor IPTV suportar CORS nativo diretamente
     if (!response || !response.ok) {
       try {
         onLog?.('Testando acesso direto ao servidor IPTV...');
         const directResp = await fetch(candidateUrls[0], {
           headers: { 'Accept': '*/*' },
+          credentials: 'omit',
         });
         if (directResp.ok) {
           response = directResp;
         }
       } catch {
-        // Direct fetch CORS blocked (esperado para a maioria dos servidores IPTV)
+        // Direct fetch CORS blocked
       }
     }
 
-    if (!response) {
-      throw new Error(fetchError?.message || 'Falha de comunicação com o serviço de proxy e com o servidor IPTV.');
-    }
-
-    if (!response.ok) {
-      const errorJson = await response.json().catch(() => ({}));
-      const msg = errorJson.error || `Erro ${response.status}: ${response.statusText}`;
-      throw new Error(msg);
+    if (!response || !response.ok) {
+      const errMsg = lastError?.message || 'Falha de comunicação com o serviço de proxy e com o servidor IPTV.';
+      throw new Error(errMsg);
     }
 
     onPhaseChange?.('validating');

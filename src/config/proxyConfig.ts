@@ -19,8 +19,8 @@ const getEnvironmentType = () => {
 
     const hostname = window.location.hostname;
 
-    // Localhost/development
-    if (hostname === 'localhost' || hostname === '127.0.0.1') return 'development';
+    // Localhost/development/container preview (Cloud Run / AI Studio)
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('run.app')) return 'development';
 
     // Lovable preview domains: id-preview--<uuid>.lovable.app
     if (hostname.startsWith('id-preview--') && hostname.endsWith('.lovable.app')) return 'lovable-preview';
@@ -34,16 +34,16 @@ const getEnvironmentType = () => {
     // Vercel preview/production
     if (hostname.includes('vercel.app')) return 'vercel';
 
-    // Custom domain (assume production on Vercel)
+    // Custom domain (tibimmanagerpainel.shop hospedado na Vercel com /api nativo)
     return 'vercel-production';
 };
 
 const shouldUseAbsoluteVercelUrl = (env: string) => {
-    // Em domínios Lovable e em domínios custom (não-Vercel), /api/* não existe
-    // localmente — precisamos chamar o Vercel pela URL absoluta.
-    return env === 'lovable-preview'
-        || env === 'lovable-production'
-        || env === 'vercel-production';
+    // Apenas domínios do Lovable necessitam de URL absoluta do Vercel
+    // porque o Lovable não possui rotas /api locais.
+    // Todos os outros ambientes (dev, Vercel nativo e domínios customizados na Vercel)
+    // possuem rotas /api no mesmo host, evitando problemas de CORS e preflight.
+    return env === 'lovable-preview' || env === 'lovable-production';
 };
 
 export const BASEROW_PROXY_CONFIG = {

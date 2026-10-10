@@ -23,6 +23,111 @@ const versionFilePlugin = () => ({
   },
 });
 
+const m3uDevProxyPlugin = () => ({
+  name: "m3u-dev-proxy-plugin",
+  configureServer(server: any) {
+    server.middlewares.use("/api/m3u-proxy", async (req: any, res: any) => {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "*");
+
+      if (req.method === "OPTIONS") {
+        res.statusCode = 200;
+        return res.end();
+      }
+
+      let rawBody = "";
+      req.on("data", (chunk: any) => {
+        rawBody += chunk;
+      });
+
+      req.on("end", async () => {
+        try {
+          let body: any = {};
+          if (req.method === "POST" && rawBody) {
+            try {
+              body = JSON.parse(rawBody);
+            } catch {
+              body = {};
+            }
+          }
+
+          let urlsToTry: string[] = [body.url, ...(Array.isArray(body.urls) ? body.urls : [])].filter(Boolean);
+
+          if (urlsToTry.length === 0 && req.url) {
+            try {
+              const urlObj = new URL(req.url, "http://localhost:3000");
+              const qUrl = urlObj.searchParams.get("url");
+              if (qUrl) urlsToTry.push(qUrl);
+            } catch {}
+          }
+
+          if (urlsToTry.length === 0) {
+            res.statusCode = 400;
+            res.setHeader("Content-Type", "application/json");
+            return res.end(JSON.stringify({ error: "URL do servidor é obrigatória" }));
+          }
+
+          const userAgent = body.userAgent || "IPTVSmartersPro/1.0.0 (Android; 9)";
+          const timeout = Number(body.timeout) || 75000;
+
+          let lastError: any = null;
+          let lastStatus = 500;
+
+          for (const currentUrl of urlsToTry) {
+            try {
+              const cleanUrl = currentUrl.trim().startsWith("http") ? currentUrl.trim() : `http://${currentUrl.trim()}`;
+              console.log("[m3u-dev-proxy] Conectando:", cleanUrl);
+              const controller = new AbortController();
+              const timer = setTimeout(() => controller.abort(), timeout);
+
+              const upstreamRes = await fetch(cleanUrl, {
+                method: "GET",
+                headers: {
+                  "User-Agent": userAgent,
+                  "Accept": "*/*",
+                  "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+                },
+                signal: controller.signal,
+              });
+
+              clearTimeout(timer);
+
+              if (!upstreamRes.ok) {
+                lastStatus = upstreamRes.status;
+                lastError = new Error(`Servidor IPTV retornou status ${upstreamRes.status}`);
+                continue;
+              }
+
+              const contentType = upstreamRes.headers.get("content-type") || "text/plain";
+              const content = await upstreamRes.text();
+
+              res.statusCode = 200;
+              res.setHeader("Content-Type", contentType);
+              console.log(`[m3u-dev-proxy] ✅ Sucesso! Recebidos ${(content.length / 1024).toFixed(1)} KB`);
+              return res.end(content);
+            } catch (err: any) {
+              lastError = err;
+              console.warn("[m3u-dev-proxy] Falha na URL:", currentUrl, err?.message);
+            }
+          }
+
+          res.statusCode = lastStatus >= 400 && lastStatus < 600 ? lastStatus : 500;
+          res.setHeader("Content-Type", "application/json");
+          return res.end(JSON.stringify({
+            error: lastError?.message || "Não foi possível conectar ao servidor IPTV.",
+            lastUrl: urlsToTry[0],
+          }));
+        } catch (fatal: any) {
+          res.statusCode = 500;
+          res.setHeader("Content-Type", "application/json");
+          return res.end(JSON.stringify({ error: fatal?.message || "Erro interno no proxy IPTV" }));
+        }
+      });
+    });
+  },
+});
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
@@ -36,19 +141,23 @@ export default defineConfig(({ mode }) => ({
         secure: true,
         rewrite: (path) => path,
         configure: (proxy, options) => {
-          proxy.on("error", (err, req, res) => {
+          proxy.on("error", (err) => {
             console.log("⚠️ [PROXY ERROR]:", err.message);
           });
-          proxy.on("proxyReq", (proxyReq, req, res) => {
+          proxy.on("proxyReq", (proxyReq, req) => {
             const target = (options && typeof options === "object" && "target" in options && options.target) || "https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app";
             const url = req.url || "";
             console.log("🔄 [PROXY] Redirecionando:", url, "→", target + url);
+          });
+          proxy.on("proxyRes", (proxyRes) => {
+            delete proxyRes.headers["access-control-allow-credentials"];
+            proxyRes.headers["access-control-allow-origin"] = "*";
           });
         },
       },
     },
   },
-  plugins: [react(), mode === "development" && componentTagger(), versionFilePlugin()].filter(Boolean),
+  plugins: [m3uDevProxyPlugin(), react(), mode === "development" && componentTagger(), versionFilePlugin()].filter(Boolean),
   define: {
     __APP_VERSION__: JSON.stringify(BUILD_ID),
   },
