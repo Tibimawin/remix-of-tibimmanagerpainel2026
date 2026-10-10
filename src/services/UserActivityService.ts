@@ -1,10 +1,8 @@
 
-// Novo serviço para gerenciar atividades de usuários na tabela 758
-const ADMIN_API_KEY = 'TH0lxs0P4EzApqjqMXjEqHvtRsjemFgn';
-const BASEROW_BASE_URL = 'http://213.199.56.115';
-import { BASEROW_PROXY_CONFIG } from '../config/proxyConfig';
-
-const PROXY_URL = BASEROW_PROXY_CONFIG.ACTIVE_PROXY_URL;
+import { FirebaseUserService } from './FirebaseUserService';
+import { firebaseLogService } from './FirebaseLogService';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 
 export interface UserActivity {
   Ultimo_Login: string;
@@ -18,7 +16,6 @@ export interface UserActivity {
 
 class UserActivityService {
   private formatDateTime(date: Date): string {
-    // Formato brasileiro: DD/MM/YYYY HH:mm:ss
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
@@ -30,6 +27,7 @@ class UserActivityService {
   }
 
   private getDeviceInfo(): string {
+    if (typeof navigator === 'undefined') return 'Desktop';
     const userAgent = navigator.userAgent;
     let deviceInfo = 'Desktop';
 
@@ -57,107 +55,61 @@ class UserActivityService {
       const response = await fetch('https://api.ipify.org?format=json');
       const data = await response.json();
       return data.ip || '0.0.0.0';
-    } catch (error) {
-      console.warn('Erro ao obter IP:', error);
+    } catch {
       return '0.0.0.0';
-    }
-  }
-
-  private async makeRequest(method: string, endpoint: string, data?: any) {
-    try {
-      const originalUrl = `${BASEROW_BASE_URL}${endpoint}`;
-      console.log('UserActivityService: Fazendo requisição:', { method, originalUrl });
-
-      const proxyPayload = {
-        url: originalUrl,
-        method: method,
-        token: ADMIN_API_KEY,
-        body: data ? JSON.stringify(data) : null
-      };
-
-      const response = await fetch(PROXY_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(proxyPayload),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('UserActivityService: Erro na resposta:', response.status, errorText);
-        throw new Error(`HTTP Error: ${response.status} - ${errorText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('UserActivityService: Erro na requisição:', error);
-      throw error;
     }
   }
 
   async updateUserActivity(userId: string, activityType: 'login' | 'logout' | 'action', actionDetails?: string): Promise<void> {
     try {
-      console.log('=== UPDATEUSERACTIVITY INICIANDO ===');
-      console.log('UserActivityService: Atualizando atividade do usuário:', { userId, activityType, actionDetails });
+      if (!userId) return;
 
       const now = new Date();
       const currentDateTime = this.formatDateTime(now);
       const clientIP = await this.getClientIP();
       const deviceInfo = this.getDeviceInfo();
 
-      console.log('UserActivityService: Dados coletados:', {
-        currentDateTime,
-        clientIP,
-        deviceInfo
-      });
+      // Atualizar no Firestore
+      try {
+        const userRef = doc(db, 'users', userId);
+        const userSnap = await getDoc(userRef);
 
-      // Primeiro, buscar dados atuais do usuário para pegar Total_Logins atual
-      console.log('UserActivityService: Buscando dados atuais do usuário...');
-      const getUserResponse = await this.makeRequest('GET', `/api/database/rows/table/758/${userId}/?user_field_names=true`);
+        let userEmail = '';
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          userEmail = userData.email || '';
+          const currentTotal = Number(userData.totalLogins) || 0;
 
-      console.log('UserActivityService: Dados atuais do usuário:', getUserResponse);
+          const updates: Record<string, any> = {
+            'deviceInfo.ip': clientIP,
+            'deviceInfo.dispositivo': deviceInfo,
+            'deviceInfo.lastActivity': currentDateTime,
+          };
 
-      const currentTotalLogins = Number(getUserResponse.Total_Logins) || 0;
-      console.log('UserActivityService: Total_Logins atual:', currentTotalLogins);
+          if (activityType === 'login') {
+            updates.lastLogin = currentDateTime;
+            updates.totalLogins = currentTotal + 1;
+            updates.isActive = true;
+          } else if (activityType === 'logout') {
+            updates.isActive = false;
+          }
 
-      let updateData: any = {
-        Data_Ultima_Atividade: currentDateTime,
-        IP_Ultimo_Acesso: clientIP,
-        Dispositivo_Ultimo_Acesso: deviceInfo
-      };
+          await updateDoc(userRef, updates);
+        }
 
-      if (activityType === 'login') {
-        updateData.Ultimo_Login = currentDateTime;
-        updateData.Status_Ativo = 'Ativo';
-        updateData.Total_Logins = currentTotalLogins + 1;
-
-        console.log('UserActivityService: Dados de login preparados:', updateData);
-      } else if (activityType === 'logout') {
-        updateData.Status_Ativo = 'Inativo';
-        console.log('UserActivityService: Dados de logout preparados:', updateData);
+        // Salvar log de atividade
+        if (userEmail) {
+          await this.logDetailedActivity(userEmail, activityType, actionDetails, {
+            ip: clientIP,
+            device: deviceInfo,
+            timestamp: currentDateTime
+          });
+        }
+      } catch (firestoreError) {
+        console.warn('UserActivityService: Aviso ao atualizar atividade no Firestore:', firestoreError);
       }
-
-      console.log('UserActivityService: Dados finais para atualização:', updateData);
-
-      // Atualizar usuário na tabela 758 com user_field_names=true
-      console.log('UserActivityService: Enviando atualização para tabela 758...');
-      const updateResponse = await this.makeRequest('PATCH', `/api/database/rows/table/758/${userId}/?user_field_names=true`, updateData);
-
-      console.log('UserActivityService: Usuário atualizado com sucesso:', updateResponse);
-
-      // Registrar no log detalhado (tabela 759)
-      await this.logDetailedActivity(getUserResponse.Email, activityType, actionDetails, {
-        ip: clientIP,
-        device: deviceInfo,
-        timestamp: currentDateTime
-      });
-
-      console.log('=== UPDATEUSERACTIVITY FINALIZADO ===');
-
     } catch (error) {
       console.error('UserActivityService: Erro ao atualizar atividade do usuário:', error);
-      throw error;
     }
   }
 
@@ -181,34 +133,25 @@ class UserActivityService {
           break;
       }
 
-      const logData = {
-        userEmail: userEmail,
-        action: action,
-        details: fullDetails,
-        timestamp: context?.timestamp || this.formatDateTime(new Date())
-      };
-
-      console.log('UserActivityService: Salvando log detalhado:', logData);
-
-      // Salvar no log centralizado (tabela 759) com user_field_names=true
-      await this.makeRequest('POST', '/api/database/rows/table/759/?user_field_names=true', logData);
-
-      console.log('UserActivityService: Log detalhado salvo com sucesso');
-
+      await firebaseLogService.addLog(userEmail, action, fullDetails);
     } catch (error) {
-      console.error('UserActivityService: Erro ao salvar log detalhado:', error);
+      console.warn('UserActivityService: Erro ao salvar log detalhado:', error);
     }
   }
 
   async getUsersWithActivity(): Promise<any[]> {
     try {
-      console.log('UserActivityService: Buscando usuários com dados de atividade...');
-
-      const response = await this.makeRequest('GET', '/api/database/rows/table/758/?user_field_names=true&size=200');
-
-      console.log('UserActivityService: Resposta dos usuários:', response);
-
-      return response.results || [];
+      const users = await FirebaseUserService.getAllUsers();
+      return users.map(user => ({
+        id: user.uid,
+        Email: user.email,
+        Nome: user.name,
+        IP_Ultimo_Acesso: user.deviceInfo?.ip || '0.0.0.0',
+        Ultimo_Login: user.lastLogin || user.deviceInfo?.lastActivity || '',
+        Total_Logins: Number(user.totalLogins) || 0,
+        Dispositivo_Ultimo_Acesso: user.deviceInfo?.dispositivo || 'Desktop',
+        Status_Ativo: user.isActive ? 'Ativo' : 'Inativo'
+      }));
     } catch (error) {
       console.error('UserActivityService: Erro ao buscar usuários:', error);
       return [];
@@ -217,3 +160,4 @@ class UserActivityService {
 }
 
 export const userActivityService = new UserActivityService();
+

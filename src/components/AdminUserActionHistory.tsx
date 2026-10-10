@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { History, Search, RefreshCw, User, Calendar, Activity } from 'lucide-react';
 import { toast } from 'sonner';
-import { BASEROW_PROXY_CONFIG } from '@/config/proxyConfig';
+import { db } from '@/config/firebase';
+import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 
 interface UserActionLog {
   id: string;
@@ -23,83 +24,54 @@ const AdminUserActionHistory: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<string>('');
 
-  const ADMIN_API_KEY = 'TH0lxs0P4EzApqjqMXjEqHvtRsjemFgn';
-  const BASEROW_BASE_URL = 'http://213.199.56.115';
-
-  const makeRequest = async (method: string, endpoint: string) => {
-    try {
-      const originalUrl = `${BASEROW_BASE_URL}${endpoint}`;
-
-      // 🔧 Usar proxy local configurado
-      const proxyPayload = {
-        url: originalUrl,
-        method: method,
-        token: ADMIN_API_KEY,
-        body: null
-      };
-
-      const response = await fetch(BASEROW_PROXY_CONFIG.ACTIVE_PROXY_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(proxyPayload)
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP Error: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Erro na requisição:', error);
-      throw error;
-    }
-  };
-
   const fetchUserActions = useCallback(async () => {
     try {
       setIsLoading(true);
       console.log('Buscando histórico de ações dos usuários...');
 
-      // Buscar logs da tabela 759 (logs detalhados)
-      const response = await makeRequest('GET', '/api/database/rows/table/759/?user_field_names=true&size=200');
+      let fetchedActions: UserActionLog[] = [];
 
-      console.log('Resposta dos logs:', response);
-
-      if (response.results) {
-        const formattedActions = response.results.map((log: any, index: number) => ({
-          id: log.id || `action_${index}`,
-          userEmail: log.userEmail || 'Usuário desconhecido',
-          action: log.action || 'Ação não especificada',
-          details: log.details || '',
-          timestamp: log.timestamp || new Date().toLocaleString('pt-BR')
-        }));
-
-        const parsePyDateTime = (str: string): Date => {
-          try {
-            // Formato esperado: "dd/MM/yyyy, HH:mm:ss" ou "dd/MM/yyyy HH:mm:ss"
-            const cleanStr = str.replace(',', '').trim();
-            const [datePart, timePart] = cleanStr.split(' ');
-            const [day, month, year] = datePart.split('/').map(Number);
-            if (!timePart) {
-              return new Date(year, month - 1, day);
-            }
-            const [hours, minutes, seconds] = timePart.split(':').map(Number);
-            return new Date(year, month - 1, day, hours, minutes, seconds || 0);
-          } catch (error) {
-            return new Date(str); // fallback
-          }
-        };
-
-        // Ordenar por timestamp (mais recentes primeiro)
-        formattedActions.sort((a, b) => parsePyDateTime(b.timestamp).getTime() - parsePyDateTime(a.timestamp).getTime());
-
-        setActions(formattedActions);
-        setFilteredActions(formattedActions);
-        console.log('Ações carregadas:', formattedActions.length);
+      // 1. Tentar buscar do Firestore
+      try {
+        const q = query(collection(db, 'system_logs'), orderBy('createdAt', 'desc'), limit(200));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          fetchedActions = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              userEmail: data.userEmail || 'Usuário desconhecido',
+              action: data.action || 'Ação não especificada',
+              details: data.details || '',
+              timestamp: data.timestamp || new Date().toLocaleString('pt-BR')
+            };
+          });
+        }
+      } catch (fbErr) {
+        console.warn('AdminUserActionHistory: Aviso ao buscar do Firestore:', fbErr);
       }
 
+      // 2. Se vazio ou como complemento, carregar do localStorage
+      if (fetchedActions.length === 0) {
+        try {
+          const localLogs = JSON.parse(localStorage.getItem('system-logs') || '[]');
+          if (Array.isArray(localLogs) && localLogs.length > 0) {
+            fetchedActions = localLogs.map((log: any, index: number) => ({
+              id: log.id || `action_${index}`,
+              userEmail: log.userEmail || 'Usuário desconhecido',
+              action: log.action || 'Ação não especificada',
+              details: log.details || '',
+              timestamp: log.timestamp || new Date().toLocaleString('pt-BR')
+            }));
+          }
+        } catch (localErr) {
+          console.warn('AdminUserActionHistory: Erro ao carregar localStorage:', localErr);
+        }
+      }
+
+      setActions(fetchedActions);
+      setFilteredActions(fetchedActions);
+      console.log('Ações carregadas com sucesso:', fetchedActions.length);
     } catch (error) {
       console.error('Erro ao buscar ações dos usuários:', error);
       toast.error('Erro ao carregar histórico de ações dos usuários');

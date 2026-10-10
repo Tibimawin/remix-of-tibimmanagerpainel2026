@@ -267,7 +267,7 @@ const M3UImporter = () => {
       const posterPath = details.poster_path || first.poster_path;
 
       return {
-        poster: posterPath ? `https://image.tmdb.org/t/p/w92${posterPath}` : null,
+        poster: posterPath ? `https://media.themoviedb.org/t/p/original${posterPath}` : null,
         overview: details.overview || first.overview || '',
         rating
       };

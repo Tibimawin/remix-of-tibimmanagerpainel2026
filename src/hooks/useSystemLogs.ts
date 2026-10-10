@@ -28,29 +28,30 @@ export const useSystemLogs = () => {
   };
 
   const addLog = async (action: string, details?: string) => {
-    if (userInfo?.email && userInfo?.id) {
-      try {
-        console.log('useSystemLogs: Adicionando log com atividade:', { action, details, email: userInfo.email, userId: userInfo.id });
-        
-        // Registrar no Firebase (tempo real)
-        await firebaseLogService.addLog(userInfo.email, action, details);
-        
-        // Registrar atividade completa do usuário
-        await userActivityService.updateUserActivity(userInfo.id, 'action', `${action}${details ? ` - ${details}` : ''}`);
-        
-        // Manter compatibilidade com sistema antigo
-        await logService.addLog(userInfo.email, action, details);
-        
-        // Registrar no histórico pessoal do usuário
-        addAction(action, details || '', 'other', false);
-        
-        // Atualizar logs após adicionar
-        await refreshLogs();
-      } catch (error) {
-        console.error('useSystemLogs: Erro ao adicionar log:', error);
+    const userEmail = userInfo?.email || 'usuario@sistema.com';
+    const userId = userInfo?.id || 'default_user';
+
+    try {
+      console.log('useSystemLogs: Adicionando log:', { action, details, email: userEmail, userId });
+      
+      // Registrar no Firebase (tempo real)
+      await firebaseLogService.addLog(userEmail, action, details);
+      
+      // Registrar atividade completa do usuário
+      if (userInfo?.id) {
+        await userActivityService.updateUserActivity(userId, 'action', `${action}${details ? ` - ${details}` : ''}`);
       }
-    } else {
-      console.warn('useSystemLogs: Tentativa de adicionar log sem userInfo completo:', userInfo);
+      
+      // Salvar via logService (localStorage)
+      await logService.addLog(userEmail, action, details);
+      
+      // Registrar no histórico pessoal do usuário
+      addAction(action, details || '', 'other', false);
+      
+      // Atualizar logs após adicionar
+      await refreshLogs();
+    } catch (error) {
+      console.error('useSystemLogs: Erro ao adicionar log:', error);
     }
   };
 
