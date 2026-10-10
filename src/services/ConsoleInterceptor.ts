@@ -194,9 +194,11 @@ class ConsoleInterceptorService {
     return this.logs.filter(l => l.type === 'error').length;
   }
 
+  private notifyTimer: any = null;
+
   public clear() {
     this.logs = [];
-    this.notifyListeners();
+    this.notifyListenersImmediate();
   }
 
   public subscribe(listener: LogListener): () => void {
@@ -207,10 +209,24 @@ class ConsoleInterceptorService {
     };
   }
 
-  private notifyListeners() {
+  private notifyListenersImmediate() {
+    if (this.notifyTimer) {
+      clearTimeout(this.notifyTimer);
+      this.notifyTimer = null;
+    }
     const logs = this.getLogs();
     const errors = this.getErrorCount();
     this.listeners.forEach(fn => fn(logs, errors));
+  }
+
+  private notifyListeners() {
+    if (this.notifyTimer) return;
+    this.notifyTimer = setTimeout(() => {
+      this.notifyTimer = null;
+      const logs = this.getLogs();
+      const errors = this.getErrorCount();
+      this.listeners.forEach(fn => fn(logs, errors));
+    }, 100);
   }
 
   public evaluate(jsCode: string): any {

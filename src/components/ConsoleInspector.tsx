@@ -194,7 +194,7 @@ export const ConsoleInspector: React.FC = () => {
             title="Inspecionar Console (Atalho: Ctrl+Shift+L)"
             className={`flex items-center gap-2 px-3 py-2 rounded-full font-mono text-xs shadow-2xl backdrop-blur-md border transition-all duration-200 cursor-pointer active:scale-95 ${
               errorCount > 0
-                ? 'bg-rose-950/90 hover:bg-rose-900 text-rose-200 border-rose-500/50 shadow-rose-950/50 animate-pulse'
+                ? 'bg-rose-950/90 hover:bg-rose-900 text-rose-200 border-rose-500/70 shadow-rose-950/60'
                 : 'bg-slate-900/90 hover:bg-slate-800 text-slate-200 border-slate-700/70 shadow-black/60'
             }`}
           >

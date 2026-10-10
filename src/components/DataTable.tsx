@@ -88,11 +88,13 @@ export const DataTable: React.FC<DataTableProps & {
   const { config, isConfigured } = useConfig();
   const baserowService = useBaserowService();
   const { addLog } = useSystemLogs();
-  const { notifyDelete, notifyImport } = useAutoNotifyCRUD(tableKey);
+  const { notifyDelete } = useAutoNotifyCRUD(tableKey);
   const itemsPerPage = 20;
 
-  const firstRow = data[0] || bulkData?.[0];
-  const firstRowKeys = useMemo(() => (firstRow ? Object.keys(firstRow) : []), [firstRow]);
+  const dataRef = useRef<any[]>(data);
+  dataRef.current = data;
+  const bulkDataRef = useRef<any[] | null>(bulkData);
+  bulkDataRef.current = bulkData;
 
   const getOrderParam = useCallback((sort: string | undefined) => {
     if (!sort) return undefined;
@@ -102,12 +104,14 @@ export const DataTable: React.FC<DataTableProps & {
     // Capitalizar primeira letra para bater com os nomes de campos normais no Baserow
     const capitalizedKey = key.charAt(0).toUpperCase() + key.slice(1);
     
-    // Tentar resolver a coluna real baseada nas chaves da primeira linha carregada
-    if (firstRowKeys.length > 0) {
-      const exactMatch = firstRowKeys.find(k => k.toLowerCase() === key.toLowerCase());
+    // Tentar resolver a coluna real baseada nas chaves da primeira linha carregada sem causar re-render loop
+    const firstItem = dataRef.current?.[0] || bulkDataRef.current?.[0];
+    const rowKeys = firstItem ? Object.keys(firstItem) : [];
+    if (rowKeys.length > 0) {
+      const exactMatch = rowKeys.find(k => k.toLowerCase() === key.toLowerCase());
       if (exactMatch) return isDesc ? `-${exactMatch}` : exactMatch;
       if (key.toLowerCase() === 'categoria') {
-        const nomeMatch = firstRowKeys.find(k => k.toLowerCase() === 'nome' || k.toLowerCase() === 'name');
+        const nomeMatch = rowKeys.find(k => k.toLowerCase() === 'nome' || k.toLowerCase() === 'name');
         if (nomeMatch) return isDesc ? `-${nomeMatch}` : nomeMatch;
       }
     }
@@ -123,7 +127,7 @@ export const DataTable: React.FC<DataTableProps & {
         // Tentar casing capitalizado para bater com nomes de chaves do Baserow
         return isDesc ? `-${capitalizedKey}` : capitalizedKey;
     }
-  }, [firstRowKeys]);
+  }, []);
 
   // Se usarmos dados bulk, eles devem ser paginados localmente!
   const currentData = useMemo(() => {
@@ -184,6 +188,8 @@ export const DataTable: React.FC<DataTableProps & {
   const searchTermRef = useRef(searchTerm);
   searchTermRef.current = searchTerm;
 
+  const currentTableId = config?.tableIds?.[tableKey as keyof typeof config.tableIds];
+
   const loadData = useCallback(async (currentPage?: number, search?: string) => {
     if (!isConfigured) return;
     const targetPage = currentPage !== undefined ? currentPage : pageRef.current;
@@ -192,13 +198,9 @@ export const DataTable: React.FC<DataTableProps & {
     try {
       setLoading(true);
       const orderParam = getOrderParam(sortBy);
-      console.log('Carregando dados paginados para tabela:', tableKey, 'página:', targetPage, 'busca:', targetSearch, 'ordem:', orderParam);
       
-      const tableId = config.tableIds[tableKey as keyof typeof config.tableIds];
-      console.log('Table ID:', tableId);
-      
-      if (!tableId) {
-        console.warn(`ID da tabela ${tableKey} não configurado. Aguardando configuração...`);
+      if (!currentTableId) {
+        console.warn(`ID da tabela ${tableKey} não configurado.`);
         setData([]);
         setTotalCount(0);
         setTotalPages(1);
@@ -206,8 +208,7 @@ export const DataTable: React.FC<DataTableProps & {
       }
       
       // Usar paginação real do servidor com busca
-      const response = await baserowService.getTableData(tableId, targetPage, itemsPerPage, targetSearch, orderParam);
-      console.log('Dados paginados carregados:', response);
+      const response = await baserowService.getTableData(currentTableId, targetPage, itemsPerPage, targetSearch, orderParam);
       
       if ((response as any)?.notFound) {
         setTableNotFound(true);
@@ -224,45 +225,37 @@ export const DataTable: React.FC<DataTableProps & {
       
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
-      toast.error("Erro", {
-        description: "Não foi possível carregar os dados da tabela.",
-      });
       setData([]);
       setTotalCount(0);
       setTotalPages(1);
     } finally {
       setLoading(false);
     }
-  }, [isConfigured, getOrderParam, sortBy, tableKey, config, baserowService, itemsPerPage]);
+  }, [isConfigured, getOrderParam, sortBy, tableKey, currentTableId, baserowService, itemsPerPage]);
 
   const loadAllDataForExport = useCallback(async () => {
-    if (!isConfigured) return;
+    if (!isConfigured || !currentTableId) return;
     
     try {
-      const tableId = config.tableIds[tableKey as keyof typeof config.tableIds];
-      if (!tableId) return;
-      
-      console.log('Carregando todos os dados para exportação...');
-      const response = await baserowService.getAllTableData(tableId);
+      const response = await baserowService.getAllTableData(currentTableId);
       setAllData(response.results || []);
     } catch (error) {
       console.error('Erro ao carregar todos os dados:', error);
     }
-  }, [isConfigured, config, tableKey, baserowService]);
+  }, [isConfigured, currentTableId, baserowService]);
 
   useEffect(() => {
     const initializeData = async () => {
       if (!isConfigured) return;
 
       if (goToPage === 'last') {
-        const tableId = config.tableIds[tableKey as keyof typeof config.tableIds];
-        if (!tableId) return;
+        if (!currentTableId) return;
 
         try {
           setLoading(true);
           const orderParam = getOrderParam(sortBy);
           // Buscar primeira página só para saber o count
-          const response = await baserowService.getTableData(tableId, 1, itemsPerPage, searchTerm, orderParam);
+          const response = await baserowService.getTableData(currentTableId, 1, itemsPerPage, searchTermRef.current, orderParam);
           const count = response.count || 0;
           const lastPage = Math.ceil(count / itemsPerPage) || 1;
 
@@ -272,7 +265,7 @@ export const DataTable: React.FC<DataTableProps & {
           setPage(lastPage);
 
           // Carregar dados da última página
-          const lastPageResponse = await baserowService.getTableData(tableId, lastPage, itemsPerPage, searchTerm, orderParam);
+          const lastPageResponse = await baserowService.getTableData(currentTableId, lastPage, itemsPerPage, searchTermRef.current, orderParam);
           setData(lastPageResponse.results || []);
         } finally {
           setLoading(false);
@@ -287,7 +280,7 @@ export const DataTable: React.FC<DataTableProps & {
     };
 
     initializeData();
-  }, [isConfigured, refreshTrigger, tableKey, config, goToPage, getOrderParam, sortBy, baserowService, itemsPerPage, searchTerm, loadData, loadAllDataForExport]);
+  }, [isConfigured, refreshTrigger, tableKey, currentTableId, goToPage, sortBy, loadData, loadAllDataForExport, baserowService, getOrderParam]);
 
   useEffect(() => {
     if (page !== 1 && !goToPage) {

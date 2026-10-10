@@ -42,6 +42,8 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
     };
 
     // Verifica periodicamente se a assinatura está expirada para liberar features grátis
+    const enabledFeaturesSignature = permissions?.enabledFeatures?.join(',') || '';
+
     useEffect(() => {
         if (!userInfo?.id) {
             setIsSubscriptionExpired(false);
@@ -115,7 +117,7 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
             window.removeEventListener('focus', onFocus);
             document.removeEventListener('visibilitychange', onVisibility);
         };
-    }, [userInfo?.id, userInfo?.email, userInfo?.name, permissions, refreshTrigger]);
+    }, [userInfo?.id, userInfo?.email, userInfo?.name, enabledFeaturesSignature, refreshTrigger]);
 
     useEffect(() => {
         if (!userInfo?.id) {

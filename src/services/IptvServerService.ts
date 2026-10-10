@@ -222,10 +222,12 @@ export class IptvServerService {
       testUrl.startsWith('http://') ? testUrl.replace('http://', 'https://') : testUrl.replace('https://', 'http://'),
     ];
 
+    const vercelFallback = 'https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app/api/m3u-proxy';
     const proxyEndpoints = [
       '/api/m3u-proxy',
       BASEROW_PROXY_CONFIG.M3U_PROXY_URL,
-    ].filter((v, i, arr) => arr.indexOf(v) === i);
+      vercelFallback,
+    ].filter((v, i, arr) => arr.indexOf(v) === i && !!v);
 
     let lastDiagError: any = null;
 
@@ -370,10 +372,12 @@ export class IptvServerService {
     let response: Response | null = null;
     let lastError: any = null;
 
+    const vercelFallback = 'https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app/api/m3u-proxy';
     const proxyEndpoints = [
       '/api/m3u-proxy',
       BASEROW_PROXY_CONFIG.M3U_PROXY_URL,
-    ].filter((v, i, arr) => arr.indexOf(v) === i);
+      vercelFallback,
+    ].filter((v, i, arr) => arr.indexOf(v) === i && !!v);
 
     // Estratégia 1: Tentar endpoints de proxy configurados (POST com credentials omit)
     for (const endpoint of proxyEndpoints) {
@@ -466,7 +470,10 @@ export class IptvServerService {
     }
 
     if (!response || !response.ok) {
-      const errMsg = lastError?.message || 'Falha de comunicação com o serviço de proxy e com o servidor IPTV.';
+      let errMsg = lastError?.message || 'Falha de comunicação com o serviço de proxy e com o servidor IPTV.';
+      if (errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError')) {
+        errMsg = 'Não foi possível conectar ao servidor IPTV. Verifique se a URL, porta e credenciais estão corretas e o servidor está online.';
+      }
       throw new Error(errMsg);
     }
 
