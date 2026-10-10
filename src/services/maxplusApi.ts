@@ -1,3 +1,5 @@
+import { upgradeToHighResTmdbImage } from '@/utils/imageQuality';
+
 /**
  * Serviço de integração com a API MaxPlus
  * API Base: https://api-tibimmanagerpainel.vercel.app/api/maxplus
@@ -119,7 +121,10 @@ export async function fetchCatalog(categoryUrl: string): Promise<MaxPlusCatalogI
       return [];
     }
 
-    return data;
+    return data.map((item) => ({
+      ...item,
+      imagem: upgradeToHighResTmdbImage(item.imagem),
+    }));
   } catch (error: unknown) {
     console.error('Erro em fetchCatalog:', error);
     const msg = error instanceof Error ? error.message : 'Erro ao conectar à API MaxPlus';
@@ -145,7 +150,10 @@ export async function fetchDetails(contentUrl: string): Promise<MaxPlusContentDe
       throw new Error(`Falha ao obter detalhes: status ${response.status}`);
     }
 
-    const data = await response.json();
+    const data: MaxPlusContentDetails = await response.json();
+    if (data && typeof data === 'object') {
+      data.imagem = upgradeToHighResTmdbImage(data.imagem);
+    }
     return data;
   } catch (error: unknown) {
     console.error('Erro em fetchDetails:', error);

@@ -1,5 +1,6 @@
 import React from 'react';
 import { MaxPlusCatalogItem } from '@/services/maxplusApi';
+import { upgradeToHighResTmdbImage } from '@/utils/imageQuality';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Download, Film, Tv, Sparkles, Check, RefreshCw } from 'lucide-react';
@@ -82,7 +83,7 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
       >
         {item.imagem ? (
           <img
-            src={item.imagem}
+            src={upgradeToHighResTmdbImage(item.imagem)}
             alt={item.nome}
             loading="lazy"
             referrerPolicy="no-referrer"

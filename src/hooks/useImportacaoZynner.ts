@@ -430,7 +430,7 @@ export function useImportacaoZynner() {
 
                 const dataConteudo: Conteudo = {
                     Nome: tmdb.title || tmdb.name || conteudo.titulo,
-                    Capa: tmdbService.getImageUrl(tmdb.poster_path, 'w780'),
+                    Capa: tmdbService.getImageUrl(tmdb.poster_path, 'original'),
                     "Capa de fundo": tmdbService.getImageUrl(tmdb.backdrop_path, 'original'),
                     Categoria: categoria,
                     Sinopse: tmdb.overview || '',

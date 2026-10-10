@@ -24,6 +24,7 @@ import { AdminProtectedRoute } from "./components/AdminProtectedRoute";
 import { Layout } from "./components/Layout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { UpdateNotificationModal } from "./components/UpdateNotificationModal";
+import { ConsoleInspector } from "./components/ConsoleInspector";
 import { M3UImportProvider } from "./contexts/M3UImportContext";
 
 // 🚀 OTIMIZAÇÃO: Lazy Loading de todas as páginas para dividir o bundle de 5.2MB em micro-chunks
@@ -148,6 +149,7 @@ const App = () => {
                           <M3UImportProvider>
                           <AppWithMonitor />
                           <UpdateNotificationModal />
+                          <ConsoleInspector />
                           <Sonner />
                           <BrowserRouter>
                             <Suspense fallback={<PageLoadingFallback />}>

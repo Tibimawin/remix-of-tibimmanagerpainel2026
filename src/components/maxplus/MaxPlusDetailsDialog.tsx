@@ -18,6 +18,7 @@ import {
 import { ImportProgress } from '@/services/maxplusImportEngine';
 import { normalizeCategories } from '@/utils/categoryNormalizer';
 import { tmdbService } from '@/services/TmdbService';
+import { upgradeToHighResTmdbImage } from '@/utils/imageQuality';
 import { 
   Film, 
   Tv, 
@@ -222,7 +223,7 @@ export const MaxPlusDetailsDialog: React.FC<MaxPlusDetailsDialogProps> = ({
               <div className="w-24 sm:w-28 shrink-0 aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-[#232738] bg-slate-900 mx-auto sm:mx-0">
                 {details.imagem ? (
                   <img
-                    src={details.imagem}
+                    src={upgradeToHighResTmdbImage(details.imagem)}
                     alt={details.nome}
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover"

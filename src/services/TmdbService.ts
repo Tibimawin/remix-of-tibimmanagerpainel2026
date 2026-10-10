@@ -377,9 +377,9 @@ class TmdbService {
       const dataDeLancamento = details.release_date || details.first_air_date || '';
       const ano = dataDeLancamento ? dataDeLancamento.slice(0, 4) : '';
 
-      // Extrai Capa de fundo (Backdrop)
+      // Extrai Capa de fundo (Backdrop em alta resolução original)
       const capaDeFundo = details.backdrop_path 
-        ? `https://image.tmdb.org/t/p/original${details.backdrop_path}` 
+        ? `https://media.themoviedb.org/t/p/original${details.backdrop_path}` 
         : '';
 
       // Extrai Avaliação (Nota numérica, ex: "7.5" ou "8.0") para a coluna Imdb
@@ -423,7 +423,7 @@ class TmdbService {
         capaDeFundo,
         imdb: avaliacaoNota,
         streamingPlatform,
-        poster: details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : undefined,
+        poster: details.poster_path ? `https://media.themoviedb.org/t/p/original${details.poster_path}` : undefined,
         sinopse: details.overview || undefined,
       };
     } catch (err) {

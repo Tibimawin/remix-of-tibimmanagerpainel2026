@@ -13,6 +13,7 @@ import {
 import { mapToDatabaseKeys } from '@/utils/baserowHelpers';
 import { tmdbService } from '@/services/TmdbService';
 import { normalizeCategories } from '@/utils/categoryNormalizer';
+import { upgradeToHighResTmdbImage } from '@/utils/imageQuality';
 
 export interface ImportProgress {
   active: boolean;
@@ -348,6 +349,10 @@ export class MaxPlusImportEngine {
     // Avaliação numérica do filme para a coluna Imdb (ex: "7.5" ou "5.0")
     const avaliacaoImdb = tmdbData?.imdb || (data.estrelas ? String(data.estrelas) : '');
 
+    // 🖼️ Resolução Máxima: Converte qualquer Capa e Capa de Fundo do TMDb para a qualidade máxima ('original')
+    const capaEmAltaResolucao = upgradeToHighResTmdbImage(data.imagem || tmdbData?.poster) || '';
+    const capaDeFundoEmAltaResolucao = upgradeToHighResTmdbImage(tmdbData?.capaDeFundo) || '';
+
     const tableKeys = await this.getConteudosKeys();
 
     // 🔍 Estratégia de Upsert: verificar se o conteúdo já foi importado
@@ -357,7 +362,7 @@ export class MaxPlusImportEngine {
       console.log(`🔄 [MaxPlus] Filme já existe no Baserow (ID: ${existingContent.id}), atualizando dados...`);
       const rawUpdatePayload = {
         Nome: data.nome,
-        Capa: this.pick(data.imagem || tmdbData?.poster, existingContent.Capa || existingContent.Poster),
+        Capa: this.pick(capaEmAltaResolucao, existingContent.Capa || existingContent.Poster),
         Sinopse: this.pick(data.sinopse || tmdbData?.sinopse, existingContent.Sinopse),
         Categoria: normalizeCategories({
           tipo: 'Filme',
@@ -374,7 +379,7 @@ export class MaxPlusImportEngine {
         'Trailer': this.pick(tmdbData?.trailer, existingContent.Trailer || existingContent.trailer),
         'Ano': this.pick(tmdbData?.ano, existingContent.Ano || existingContent.ano),
         'Data de Lançamento': this.pick(tmdbData?.dataDeLancamento, existingContent['Data de Lançamento'] || existingContent.data_lancamento),
-        'Capa de fundo': this.pick(tmdbData?.capaDeFundo, existingContent['Capa de fundo'] || existingContent.capa_de_fundo),
+        'Capa de fundo': this.pick(capaDeFundoEmAltaResolucao, existingContent['Capa de fundo'] || existingContent.capa_de_fundo),
         'Imdb': this.pick(avaliacaoImdb, existingContent.Imdb || existingContent.imdb),
         Temporadas: '0',
       };
@@ -388,7 +393,7 @@ export class MaxPlusImportEngine {
     // Se não existir, cria um novo registro
     const rawPayload = {
       Nome: data.nome,
-      Capa: data.imagem || tmdbData?.poster || '',
+      Capa: capaEmAltaResolucao,
       Sinopse: data.sinopse || tmdbData?.sinopse || '',
       Categoria: categoriaNormalizada,
       Link: videoUrl,
@@ -398,7 +403,7 @@ export class MaxPlusImportEngine {
       'Trailer': tmdbData?.trailer || '',
       'Ano': tmdbData?.ano || '',
       'Data de Lançamento': tmdbData?.dataDeLancamento || '',
-      'Capa de fundo': tmdbData?.capaDeFundo || '',
+      'Capa de fundo': capaDeFundoEmAltaResolucao,
       'Imdb': avaliacaoImdb,
       Temporadas: '0',
     };
@@ -469,6 +474,10 @@ export class MaxPlusImportEngine {
 
     const conteudosKeys = await this.getConteudosKeys();
 
+    // 🖼️ Resolução Máxima: Converte qualquer Capa e Capa de Fundo do TMDb para a qualidade máxima ('original')
+    const serieCapaEmAltaResolucao = upgradeToHighResTmdbImage(data.imagem || tmdbData?.poster) || '';
+    const serieCapaDeFundoEmAltaResolucao = upgradeToHighResTmdbImage(tmdbData?.capaDeFundo) || '';
+
     // 🔢 Obter o número total de temporadas da série como String
     const qtdTemporadas = String(data.total_seasons || (data as any).temporadas || (data.seasons_details ? data.seasons_details.length : 1));
 
@@ -481,7 +490,7 @@ export class MaxPlusImportEngine {
       console.log(`🔄 [MaxPlus] Série já existe no Baserow (ID: ${existingSerie.id}), atualizando registro...`);
       const rawSerieUpdate = {
         Nome: data.nome,
-        Capa: this.pick(data.imagem || tmdbData?.poster, existingSerie.Capa || existingSerie.Poster),
+        Capa: this.pick(serieCapaEmAltaResolucao, existingSerie.Capa || existingSerie.Poster),
         Sinopse: this.pick(data.sinopse || tmdbData?.sinopse, existingSerie.Sinopse),
         Categoria: normalizeCategories({
           tipo: 'Serie',
@@ -497,7 +506,7 @@ export class MaxPlusImportEngine {
         'Trailer': this.pick(tmdbData?.trailer, existingSerie.Trailer || existingSerie.trailer),
         'Ano': this.pick(tmdbData?.ano, existingSerie.Ano || existingSerie.ano),
         'Data de Lançamento': this.pick(tmdbData?.dataDeLancamento, existingSerie['Data de Lançamento'] || existingSerie.data_lancamento),
-        'Capa de fundo': this.pick(tmdbData?.capaDeFundo, existingSerie['Capa de fundo'] || existingSerie.capa_de_fundo),
+        'Capa de fundo': this.pick(serieCapaDeFundoEmAltaResolucao, existingSerie['Capa de fundo'] || existingSerie.capa_de_fundo),
         'Imdb': this.pick(avaliacaoImdb, existingSerie.Imdb || existingSerie.imdb),
         Temporadas: qtdTemporadas,
       };
@@ -510,7 +519,7 @@ export class MaxPlusImportEngine {
     } else {
       const rawSeriePayload = {
         Nome: data.nome,
-        Capa: data.imagem || tmdbData?.poster || '',
+        Capa: serieCapaEmAltaResolucao,
         Sinopse: data.sinopse || tmdbData?.sinopse || '',
         Categoria: categoriaNormalizada,
         Tipo: 'Serie',
@@ -519,7 +528,7 @@ export class MaxPlusImportEngine {
         'Trailer': tmdbData?.trailer || '',
         'Ano': tmdbData?.ano || '',
         'Data de Lançamento': tmdbData?.dataDeLancamento || '',
-        'Capa de fundo': tmdbData?.capaDeFundo || '',
+        'Capa de fundo': serieCapaDeFundoEmAltaResolucao,
         'Imdb': avaliacaoImdb,
         Temporadas: qtdTemporadas,
       };

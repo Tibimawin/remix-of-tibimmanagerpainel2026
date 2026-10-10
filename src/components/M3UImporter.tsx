@@ -816,8 +816,8 @@ const M3UImporter = () => {
         overview: details.overview || firstResult.overview || '',
         rating,
         release_date,
-        poster: posterPath ? `https://image.tmdb.org/t/p/w500${posterPath}` : null,
-        backdrop: backdropPath ? `https://image.tmdb.org/t/p/original${backdropPath}` : null,
+        poster: posterPath ? `https://media.themoviedb.org/t/p/original${posterPath}` : null,
+        backdrop: backdropPath ? `https://media.themoviedb.org/t/p/original${backdropPath}` : null,
         genres: details.genres?.map((g: any) => g.name) || []
       };
     } catch (error) {
