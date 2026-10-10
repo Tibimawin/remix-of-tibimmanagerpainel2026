@@ -24,13 +24,19 @@ import {
   Loader2,
   Trash2,
   History,
-  Sparkles
+  Sparkles,
+  Video,
+  Flame,
+  Film
 } from 'lucide-react';
 import { tmdbService } from '@/services/TmdbService';
 import { TMDBSearchResult, TMDBDetails } from '@/types/importacao';
 import GeradorBannerEsportes from '@/components/duplicados/GeradorBannerEsportes';
 import SmartphoneTemplate from '@/components/duplicados/templates/SmartphoneTemplate';
 import CinematicTemplate from '@/components/duplicados/templates/CinematicTemplate';
+import StoriesTemplate from '@/components/duplicados/templates/StoriesTemplate';
+import MinimalistTemplate from '@/components/duplicados/templates/MinimalistTemplate';
+import VideoPostGenerator from '@/components/duplicados/VideoPostGenerator';
 import { toPng } from 'html-to-image';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -44,8 +50,11 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedContent, setSelectedContent] = useState<TMDBDetails | null>(null);
 
-  // States for customization
-  const [selectedTemplate, setSelectedTemplate] = useState<'smartphone' | 'cinematic'>('smartphone');
+  // Mode: Post de Imagem ou Vídeo Animado
+  const [postMode, setPostMode] = useState<'image' | 'video'>('image');
+
+  // States for customization (4 modelos de imagem)
+  const [selectedTemplate, setSelectedTemplate] = useState<'smartphone' | 'cinematic' | 'stories' | 'minimalist'>('smartphone');
   const [logo, setLogo] = useState<string | null>(localStorage.getItem('gerador-post-logo'));
   const [logoSize, setLogoSize] = useState(100);
   const [logoPosition, setLogoPosition] = useState<'left' | 'center' | 'right'>('right');
@@ -240,6 +249,36 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
               </CardContent>
             </Card>
 
+            {/* Seletor de Tipo de Post: Imagem vs Vídeo Animado */}
+            <div className="flex bg-muted/20 p-1.5 rounded-xl border border-border/40 gap-1.5 shadow-sm">
+              <Button
+                type="button"
+                variant={postMode === 'image' ? 'default' : 'ghost'}
+                size="sm"
+                className={cn(
+                  'flex-1 text-xs font-black uppercase tracking-wider h-9 transition-all',
+                  postMode === 'image' && 'bg-primary text-white shadow-md'
+                )}
+                onClick={() => setPostMode('image')}
+              >
+                <ImageIcon className="w-3.5 h-3.5 mr-1.5" />
+                Post Imagem (4 Modelos)
+              </Button>
+              <Button
+                type="button"
+                variant={postMode === 'video' ? 'default' : 'ghost'}
+                size="sm"
+                className={cn(
+                  'flex-1 text-xs font-black uppercase tracking-wider h-9 transition-all',
+                  postMode === 'video' && 'bg-primary text-white shadow-md'
+                )}
+                onClick={() => setPostMode('video')}
+              >
+                <Video className="w-3.5 h-3.5 mr-1.5" />
+                Vídeo Animado 🎬
+              </Button>
+            </div>
+
             <Tabs defaultValue="visual" className="w-full">
               <TabsList className="grid w-full grid-cols-5 bg-muted/20">
                 <TabsTrigger value="template" className="data-[state=active]:bg-primary/20 px-0 text-xs">
@@ -265,7 +304,7 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
               </TabsList>
 
               <TabsContent value="template" className="space-y-4 pt-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => setSelectedTemplate('smartphone')}
                     className={cn(
@@ -274,9 +313,9 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                     )}
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />
-                    <div className="absolute bottom-2 left-2 z-20 text-[10px] font-bold">Smartphone</div>
+                    <div className="absolute bottom-2 left-2 z-20 text-[10px] font-bold">1. Smartphone</div>
                     <div className="w-full h-full bg-muted/20 flex items-center justify-center">
-                       <Smartphone size={32} className="text-white/20 group-hover:text-primary transition-colors" />
+                       <Smartphone size={30} className="text-white/30 group-hover:text-primary transition-colors" />
                     </div>
                   </button>
                   <button
@@ -287,9 +326,35 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                     )}
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />
-                    <div className="absolute bottom-2 left-2 z-20 text-[10px] font-bold">Cinemático</div>
+                    <div className="absolute bottom-2 left-2 z-20 text-[10px] font-bold">2. Cinemático</div>
                     <div className="w-full h-full bg-muted/20 flex items-center justify-center">
-                       <Monitor size={32} className="text-white/20 group-hover:text-primary transition-colors" />
+                       <Monitor size={30} className="text-white/30 group-hover:text-primary transition-colors" />
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setSelectedTemplate('stories')}
+                    className={cn(
+                      "group relative aspect-[9/12] border-2 rounded-lg overflow-hidden transition-all hover:scale-105",
+                      selectedTemplate === 'stories' ? "border-primary shadow-[0_0_15px_rgba(229,9,20,0.3)]" : "border-border/40 hover:border-primary/50"
+                    )}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />
+                    <div className="absolute bottom-2 left-2 z-20 text-[10px] font-bold">3. Stories Neon</div>
+                    <div className="w-full h-full bg-muted/20 flex items-center justify-center">
+                       <Flame size={30} className="text-white/30 group-hover:text-primary transition-colors" />
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setSelectedTemplate('minimalist')}
+                    className={cn(
+                      "group relative aspect-[9/12] border-2 rounded-lg overflow-hidden transition-all hover:scale-105",
+                      selectedTemplate === 'minimalist' ? "border-primary shadow-[0_0_15px_rgba(229,9,20,0.3)]" : "border-border/40 hover:border-primary/50"
+                    )}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />
+                    <div className="absolute bottom-2 left-2 z-20 text-[10px] font-bold">4. Cartaz IMAX</div>
+                    <div className="w-full h-full bg-muted/20 flex items-center justify-center">
+                       <Film size={30} className="text-white/30 group-hover:text-primary transition-colors" />
                     </div>
                   </button>
                 </div>
@@ -698,25 +763,29 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
               </TabsContent>
             </Tabs>
 
-            <Button 
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-bold"
-              disabled={!selectedContent}
-              onClick={downloadImage}
-            >
-              <Download className="w-5 h-5 mr-2" />
-              Baixar Imagem (PNG)
-            </Button>
+            {postMode === 'image' && (
+              <>
+                <Button 
+                  className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-bold"
+                  disabled={!selectedContent}
+                  onClick={downloadImage}
+                >
+                  <Download className="w-5 h-5 mr-2" />
+                  Baixar Imagem (PNG)
+                </Button>
 
-            <div className="mt-4 flex gap-4 text-xs text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-primary/20" />
-                Preview em tempo real
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-primary/20" />
-                Alta resolução (2x)
-              </div>
-            </div>
+                <div className="mt-4 flex gap-4 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full bg-primary/20" />
+                    Preview em tempo real
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full bg-primary/20" />
+                    Alta resolução (2x)
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Right Column: Preview */}
@@ -725,13 +794,26 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
               {!selectedContent ? (
                 <div className="w-full aspect-video flex flex-col items-center justify-center border-2 border-dashed border-border/40 rounded-xl bg-muted/10 text-muted-foreground p-12 text-center">
                   <Sparkles className="w-16 h-16 mb-4 opacity-20" />
-                  <h3 className="text-xl font-medium mb-2">Sua arte aparecerá aqui</h3>
-                  <p className="max-w-xs mx-auto">Busque um filme ou série à esquerda para começar a personalizar seu post.</p>
+                  <h3 className="text-xl font-medium mb-2">Sua arte ou vídeo aparecerá aqui</h3>
+                  <p className="max-w-xs mx-auto">Busque um filme ou série à esquerda para começar a personalizar sua arte ou vídeo.</p>
+                </div>
+              ) : postMode === 'video' ? (
+                <div className="w-full flex justify-center">
+                  <VideoPostGenerator
+                    selectedContent={selectedContent}
+                    accentColor={accentColor}
+                    statusLabel={statusLabel}
+                    featuredLabel={featuredLabel}
+                    statusHeight={statusHeight}
+                    statusFontSize={statusFontSize}
+                    statusY={statusY}
+                    logo={logo}
+                  />
                 </div>
               ) : (
                 <>
                   <div ref={previewRef} className="flex justify-center items-center">
-                    {selectedTemplate === 'smartphone' ? (
+                    {selectedTemplate === 'smartphone' && (
                       <SmartphoneTemplate
                         selectedContent={selectedContent}
                         backgroundBlur={backgroundBlur}
@@ -755,8 +837,59 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                         showSynopsis={showSynopsis}
                         synopsisLength={synopsisLength}
                       />
-                    ) : (
+                    )}
+                    {selectedTemplate === 'cinematic' && (
                       <CinematicTemplate
+                        selectedContent={selectedContent}
+                        backgroundBlur={backgroundBlur}
+                        overlayOpacity={overlayOpacity}
+                        logo={logo}
+                        logoPosition={logoPosition}
+                        logoSize={logoSize}
+                        logoX={logoX}
+                        logoY={logoY}
+                        featuredLabel={featuredLabel}
+                        accentColor={accentColor}
+                        posterWidth={posterWidth}
+                        posterHeight={posterHeight}
+                        statusLabel={statusLabel}
+                        statusHeight={statusHeight}
+                        statusFontSize={statusFontSize}
+                        statusPaddingX={statusPaddingX}
+                        statusX={statusX}
+                        statusY={statusY}
+                        statusAlign={statusAlign}
+                        showSynopsis={showSynopsis}
+                        synopsisLength={synopsisLength}
+                      />
+                    )}
+                    {selectedTemplate === 'stories' && (
+                      <StoriesTemplate
+                        selectedContent={selectedContent}
+                        backgroundBlur={backgroundBlur}
+                        overlayOpacity={overlayOpacity}
+                        logo={logo}
+                        logoPosition={logoPosition}
+                        logoSize={logoSize}
+                        logoX={logoX}
+                        logoY={logoY}
+                        featuredLabel={featuredLabel}
+                        accentColor={accentColor}
+                        posterWidth={posterWidth}
+                        posterHeight={posterHeight}
+                        statusLabel={statusLabel}
+                        statusHeight={statusHeight}
+                        statusFontSize={statusFontSize}
+                        statusPaddingX={statusPaddingX}
+                        statusX={statusX}
+                        statusY={statusY}
+                        statusAlign={statusAlign}
+                        showSynopsis={showSynopsis}
+                        synopsisLength={synopsisLength}
+                      />
+                    )}
+                    {selectedTemplate === 'minimalist' && (
+                      <MinimalistTemplate
                         selectedContent={selectedContent}
                         backgroundBlur={backgroundBlur}
                         overlayOpacity={overlayOpacity}
