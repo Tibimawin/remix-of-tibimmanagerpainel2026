@@ -14,10 +14,12 @@ interface TemplateProps {
   logoX: number;
   logoY: number;
   featuredLabel: string;
+  showFeaturedLabel?: boolean;
   accentColor: string;
   posterWidth: number;
   posterHeight: number;
   statusLabel: string;
+  showStatusLabel?: boolean;
   statusHeight?: number;
   statusFontSize?: number;
   statusPaddingX?: number;
@@ -38,10 +40,12 @@ const StoriesTemplate: React.FC<TemplateProps> = ({
   logoX,
   logoY,
   featuredLabel,
+  showFeaturedLabel = true,
   accentColor,
   posterWidth,
   posterHeight,
   statusLabel,
+  showStatusLabel = true,
   statusHeight = 24,
   statusFontSize = 9,
   statusPaddingX = 12,
@@ -126,19 +130,21 @@ const StoriesTemplate: React.FC<TemplateProps> = ({
         </div>
 
         {/* Top Badges */}
-        <div className="flex items-center gap-2">
-          <Badge
-            className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 border rounded-md"
-            style={{
-              backgroundColor: `${accentColor}25`,
-              color: accentColor,
-              borderColor: `${accentColor}50`,
-            }}
-          >
-            <Flame size={12} className="mr-1 inline-block" />
-            {featuredLabel}
-          </Badge>
-        </div>
+        {showFeaturedLabel && featuredLabel && (
+          <div className="flex items-center gap-2">
+            <Badge
+              className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 border rounded-md"
+              style={{
+                backgroundColor: `${accentColor}25`,
+                color: accentColor,
+                borderColor: `${accentColor}50`,
+              }}
+            >
+              <Flame size={12} className="mr-1 inline-block" />
+              {featuredLabel}
+            </Badge>
+          </div>
+        )}
       </div>
 
       {/* Poster Central com Efeito Glassmorphism & Shadow */}
@@ -163,28 +169,30 @@ const StoriesTemplate: React.FC<TemplateProps> = ({
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
 
           {/* Rótulo Superior Customizável (ex: LANÇAMENTOS) */}
-          <div
-            className={cn(
-              'absolute top-3 left-3 right-3 flex z-30 pointer-events-none',
-              statusAlign === 'left' && 'justify-start',
-              statusAlign === 'center' && 'justify-center',
-              statusAlign === 'right' && 'justify-end'
-            )}
-            style={{ transform: `translate(${statusX}%, ${statusY}%)` }}
-          >
-            <Badge
-              className="font-black rounded-full bg-white text-black shadow-2xl inline-flex items-center justify-center transition-all border-none"
-              style={{
-                height: `${statusHeight}px`,
-                fontSize: `${statusFontSize}px`,
-                paddingLeft: `${statusPaddingX}px`,
-                paddingRight: `${statusPaddingX}px`,
-                lineHeight: 1,
-              }}
+          {showStatusLabel && statusLabel && (
+            <div
+              className={cn(
+                'absolute top-3 left-3 right-3 flex z-30 pointer-events-none',
+                statusAlign === 'left' && 'justify-start',
+                statusAlign === 'center' && 'justify-center',
+                statusAlign === 'right' && 'justify-end'
+              )}
+              style={{ transform: `translate(${statusX}%, ${statusY}%)` }}
             >
-              {statusLabel}
-            </Badge>
-          </div>
+              <Badge
+                className="font-black rounded-full bg-white text-black shadow-2xl inline-flex items-center justify-center transition-all border-none"
+                style={{
+                  height: `${statusHeight}px`,
+                  fontSize: `${statusFontSize}px`,
+                  paddingLeft: `${statusPaddingX}px`,
+                  paddingRight: `${statusPaddingX}px`,
+                  lineHeight: 1,
+                }}
+              >
+                {statusLabel}
+              </Badge>
+            </div>
+          )}
 
           {/* Badges de Qualidade no Poster */}
           <div className="absolute bottom-3 left-3 right-3 flex justify-between items-center z-30">

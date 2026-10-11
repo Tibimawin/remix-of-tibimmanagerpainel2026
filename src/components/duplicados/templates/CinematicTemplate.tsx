@@ -14,10 +14,12 @@ interface TemplateProps {
   logoX: number;
   logoY: number;
   featuredLabel: string;
+  showFeaturedLabel?: boolean;
   accentColor: string;
   posterWidth: number;
   posterHeight: number;
   statusLabel: string;
+  showStatusLabel?: boolean;
   statusHeight?: number;
   statusFontSize?: number;
   statusPaddingX?: number;
@@ -38,10 +40,12 @@ const CinematicTemplate = ({
   logoX,
   logoY,
   featuredLabel,
+  showFeaturedLabel = true,
   accentColor,
   posterWidth,
   posterHeight,
   statusLabel,
+  showStatusLabel = true,
   statusHeight = 24,
   statusFontSize = 9,
   statusPaddingX = 12,
@@ -112,12 +116,14 @@ const CinematicTemplate = ({
             )}
           </div>
 
-          <Badge 
-            className="w-fit bg-primary/20 text-primary border-primary/30 text-[10px] px-3 py-1 tracking-[0.2em] font-black italic rounded-sm uppercase"
-            style={{ color: accentColor, borderColor: `${accentColor}30`, backgroundColor: `${accentColor}20` }}
-          >
-            {featuredLabel}
-          </Badge>
+          {showFeaturedLabel && featuredLabel && (
+            <Badge 
+              className="w-fit bg-primary/20 text-primary border-primary/30 text-[10px] px-3 py-1 tracking-[0.2em] font-black italic rounded-sm uppercase"
+              style={{ color: accentColor, borderColor: `${accentColor}30`, backgroundColor: `${accentColor}20` }}
+            >
+              {featuredLabel}
+            </Badge>
+          )}
 
           <h1 className="text-5xl font-black uppercase tracking-tight leading-none drop-shadow-2xl">
             {selectedContent.title || selectedContent.name}
@@ -164,28 +170,30 @@ const CinematicTemplate = ({
               className="w-full h-full object-cover"
               crossOrigin="anonymous"
             />
-            <div
-              className={cn(
-                "absolute top-3 left-3 right-3 flex z-30 pointer-events-none",
-                statusAlign === 'left' && "justify-start",
-                statusAlign === 'center' && "justify-center",
-                statusAlign === 'right' && "justify-end"
-              )}
-              style={{ transform: `translate(${statusX}%, ${statusY}%)` }}
-            >
-              <Badge 
-                className="bg-white text-black font-black rounded-sm shadow-xl inline-flex items-center justify-center transition-all border-none"
-                style={{
-                  height: `${statusHeight}px`,
-                  fontSize: `${statusFontSize}px`,
-                  paddingLeft: `${statusPaddingX}px`,
-                  paddingRight: `${statusPaddingX}px`,
-                  lineHeight: 1,
-                }}
+            {showStatusLabel && statusLabel && (
+              <div
+                className={cn(
+                  "absolute top-3 left-3 right-3 flex z-30 pointer-events-none",
+                  statusAlign === 'left' && "justify-start",
+                  statusAlign === 'center' && "justify-center",
+                  statusAlign === 'right' && "justify-end"
+                )}
+                style={{ transform: `translate(${statusX}%, ${statusY}%)` }}
               >
-                {statusLabel}
-              </Badge>
-            </div>
+                <Badge 
+                  className="bg-white text-black font-black rounded-sm shadow-xl inline-flex items-center justify-center transition-all border-none"
+                  style={{
+                    height: `${statusHeight}px`,
+                    fontSize: `${statusFontSize}px`,
+                    paddingLeft: `${statusPaddingX}px`,
+                    paddingRight: `${statusPaddingX}px`,
+                    lineHeight: 1,
+                  }}
+                >
+                  {statusLabel}
+                </Badge>
+              </div>
+            )}
             {/* Play button overlay */}
             <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity">
                <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center" style={{ backgroundColor: accentColor }}>

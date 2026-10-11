@@ -156,6 +156,7 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
   const [posterHeight, setPosterHeight] = useState(14);
   const [accentColor, setAccentColor] = useState('#e50914'); // Netflix Red
   const [statusLabel, setStatusLabel] = useState('LANÇAMENTOS');
+  const [showStatusLabel, setShowStatusLabel] = useState(true);
   const [statusHeight, setStatusHeight] = useState(24);
   const [statusFontSize, setStatusFontSize] = useState(9);
   const [statusPaddingX, setStatusPaddingX] = useState(12);
@@ -163,6 +164,7 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
   const [statusY, setStatusY] = useState(0);
   const [statusAlign, setStatusAlign] = useState<'left' | 'center' | 'right'>('center');
   const [featuredLabel, setFeaturedLabel] = useState('FILME EM DESTAQUE');
+  const [showFeaturedLabel, setShowFeaturedLabel] = useState(true);
   const [showSynopsis, setShowSynopsis] = useState(true);
   const [synopsisLength, setSynopsisLength] = useState(250);
   const [backgroundBlur, setBackgroundBlur] = useState(8);
@@ -558,117 +560,197 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
 
               <TabsContent value="labels" className="space-y-4 pt-4">
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Rótulo Superior (Poster)</Label>
-                    <Input 
-                      value={statusLabel} 
-                      onChange={(e) => setStatusLabel(e.target.value)}
-                      className="bg-muted/50"
-                    />
+                  {/* Rótulo Superior (Poster) */}
+                  <div className="space-y-3 rounded-lg border border-border/50 p-3.5 bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="toggle-status-label" className="font-semibold text-sm cursor-pointer">
+                            Rótulo Superior (Poster)
+                          </Label>
+                          <span className={cn(
+                            "text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider",
+                            showStatusLabel ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                          )}>
+                            {showStatusLabel ? 'Ativado' : 'Desativado'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Exibe faixa ou selo sobre o poster (ex: {statusLabel || 'LANÇAMENTOS'})
+                        </p>
+                      </div>
+                      <Switch 
+                        id="toggle-status-label"
+                        checked={showStatusLabel} 
+                        onCheckedChange={setShowStatusLabel} 
+                      />
+                    </div>
+
+                    {showStatusLabel ? (
+                      <>
+                        <div className="space-y-2 pt-2 border-t border-border/40">
+                          <Label className="text-xs">Texto do Rótulo</Label>
+                          <Input 
+                            value={statusLabel} 
+                            onChange={(e) => setStatusLabel(e.target.value)}
+                            className="bg-muted/50"
+                            placeholder="Ex: LANÇAMENTOS, NOVO, EXCLUSIVO"
+                          />
+                        </div>
+
+                        <div className="space-y-3 pt-2 border-t border-border/40">
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                            Posição do Rótulo (Poster)
+                          </Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {(['left', 'center', 'right'] as const).map((pos) => (
+                              <Button
+                                key={pos}
+                                variant={statusAlign === pos ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setStatusAlign(pos)}
+                                className="text-xs"
+                              >
+                                {pos === 'left' ? 'Esquerda' : pos === 'center' ? 'Centro' : 'Direita'}
+                              </Button>
+                            ))}
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Altura do Container ({statusHeight}px)</Label>
+                            <Slider
+                              value={[statusHeight]}
+                              onValueChange={([val]) => setStatusHeight(val)}
+                              max={64}
+                              min={14}
+                              step={1}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Tamanho do Texto ({statusFontSize}px)</Label>
+                            <Slider
+                              value={[statusFontSize]}
+                              onValueChange={([val]) => setStatusFontSize(val)}
+                              max={18}
+                              min={7}
+                              step={1}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Ajuste Horizontal ({statusX}%)</Label>
+                            <Slider
+                              value={[statusX]}
+                              onValueChange={([val]) => setStatusX(val)}
+                              max={100}
+                              min={-100}
+                              step={1}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Ajuste Vertical ({statusY}%)</Label>
+                            <Slider
+                              value={[statusY]}
+                              onValueChange={([val]) => setStatusY(val)}
+                              max={1200}
+                              min={0}
+                              step={10}
+                            />
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => {
+                              setStatusHeight(24);
+                              setStatusFontSize(9);
+                              setStatusPaddingX(12);
+                              setStatusX(0);
+                              setStatusY(0);
+                              setStatusAlign('center');
+                            }}
+                          >
+                            Redefinir rótulo
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic pt-1 border-t border-border/30">
+                        Rótulo do poster desativado. Ative a chave acima para exibi-lo na arte.
+                      </p>
+                    )}
                   </div>
 
-                  <div className="space-y-3 rounded-lg border border-border/50 p-3">
-                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Posição do Rótulo (Poster)
-                    </Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['left', 'center', 'right'] as const).map((pos) => (
-                        <Button
-                          key={pos}
-                          variant={statusAlign === pos ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setStatusAlign(pos)}
-                          className="text-xs"
-                        >
-                          {pos === 'left' ? 'Esquerda' : pos === 'center' ? 'Centro' : 'Direita'}
-                        </Button>
-                      ))}
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Altura do Container ({statusHeight}px)</Label>
-                      <Slider
-                        value={[statusHeight]}
-                        onValueChange={([val]) => setStatusHeight(val)}
-                        max={64}
-                        min={14}
-                        step={1}
+                  {/* Rótulo Superior (Geral) */}
+                  <div className="space-y-3 rounded-lg border border-border/50 p-3.5 bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="toggle-featured-label" className="font-semibold text-sm cursor-pointer">
+                            Rótulo Superior (Geral)
+                          </Label>
+                          <span className={cn(
+                            "text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider",
+                            showFeaturedLabel ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                          )}>
+                            {showFeaturedLabel ? 'Ativado' : 'Desativado'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Exibe tag de destaque no topo geral (ex: {featuredLabel || 'FILME EM DESTAQUE'})
+                        </p>
+                      </div>
+                      <Switch 
+                        id="toggle-featured-label"
+                        checked={showFeaturedLabel} 
+                        onCheckedChange={setShowFeaturedLabel} 
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label>Tamanho do Texto ({statusFontSize}px)</Label>
-                      <Slider
-                        value={[statusFontSize]}
-                        onValueChange={([val]) => setStatusFontSize(val)}
-                        max={18}
-                        min={7}
-                        step={1}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Ajuste Horizontal ({statusX}%)</Label>
-                      <Slider
-                        value={[statusX]}
-                        onValueChange={([val]) => setStatusX(val)}
-                        max={100}
-                        min={-100}
-                        step={1}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Ajuste Vertical ({statusY}%)</Label>
-                      <Slider
-                        value={[statusY]}
-                        onValueChange={([val]) => setStatusY(val)}
-                        max={1200}
-                        min={0}
-                        step={10}
-                      />
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => {
-                        setStatusHeight(24);
-                        setStatusFontSize(9);
-                        setStatusPaddingX(12);
-                        setStatusX(0);
-                        setStatusY(0);
-                        setStatusAlign('center');
-                      }}
-                    >
-                      Redefinir rótulo
-                    </Button>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label>Rótulo Superior (Geral)</Label>
-                    <Input 
-                      value={featuredLabel} 
-                      onChange={(e) => setFeaturedLabel(e.target.value)}
-                      className="bg-muted/50"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label>Tipo de Destaque</Label>
-                    <div className="flex gap-1">
-                      <Button 
-                        variant={featuredLabel.includes('FILME') ? 'default' : 'outline'} 
-                        size="sm" 
-                        onClick={() => setFeaturedLabel('FILME EM DESTAQUE')}
-                        className="h-7 text-[10px] px-2"
-                      >
-                        Filme
-                      </Button>
-                      <Button 
-                        variant={featuredLabel.includes('SÉRIE') ? 'default' : 'outline'} 
-                        size="sm" 
-                        onClick={() => setFeaturedLabel('SÉRIE EM DESTAQUE')}
-                        className="h-7 text-[10px] px-2"
-                      >
-                        Série
-                      </Button>
-                    </div>
+                    {showFeaturedLabel ? (
+                      <>
+                        <div className="space-y-2 pt-2 border-t border-border/40">
+                          <Label className="text-xs">Texto do Rótulo Geral</Label>
+                          <Input 
+                            value={featuredLabel} 
+                            onChange={(e) => setFeaturedLabel(e.target.value)}
+                            className="bg-muted/50"
+                            placeholder="Ex: FILME EM DESTAQUE, SUPER LANÇAMENTO"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between pt-1">
+                          <Label className="text-xs">Presets Rápidos</Label>
+                          <div className="flex gap-1 flex-wrap">
+                            <Button 
+                              variant={featuredLabel.includes('FILME') ? 'default' : 'outline'} 
+                              size="sm" 
+                              onClick={() => setFeaturedLabel('FILME EM DESTAQUE')}
+                              className="h-7 text-[10px] px-2"
+                            >
+                              Filme
+                            </Button>
+                            <Button 
+                              variant={featuredLabel.includes('SÉRIE') ? 'default' : 'outline'} 
+                              size="sm" 
+                              onClick={() => setFeaturedLabel('SÉRIE EM DESTAQUE')}
+                              className="h-7 text-[10px] px-2"
+                            >
+                              Série
+                            </Button>
+                            <Button 
+                              variant={featuredLabel.includes('ORIGINAL') ? 'default' : 'outline'} 
+                              size="sm" 
+                              onClick={() => setFeaturedLabel('ORIGINAL STREAMING')}
+                              className="h-7 text-[10px] px-2"
+                            >
+                              Original
+                            </Button>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic pt-1 border-t border-border/30">
+                        Rótulo geral desativado. Ative a chave acima para exibi-lo na arte.
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center justify-between">
                     <Label htmlFor="show-synopsis">Mostrar Sinopse</Label>
@@ -791,97 +873,112 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                   {/* Container do Rótulo Superior (Lançamentos / Destaque) */}
                   <div className="space-y-3 rounded-lg border border-border/50 p-3 bg-muted/10">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs uppercase tracking-wide font-semibold text-primary">
-                        Container do Rótulo ({statusLabel || 'Lançamentos'})
-                      </Label>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs">
-                        <Label>Altura do Container ({statusHeight}px)</Label>
-                        <span className="text-muted-foreground">{statusHeight}px</span>
+                      <div className="space-y-0.5">
+                        <Label className="text-xs uppercase tracking-wide font-semibold text-primary">
+                          Container do Rótulo ({statusLabel || 'Lançamentos'})
+                        </Label>
+                        <p className="text-[10px] text-muted-foreground">Exibir rótulo sobre a capa do poster</p>
                       </div>
-                      <Slider
-                        value={[statusHeight]}
-                        onValueChange={([val]) => setStatusHeight(val)}
-                        max={64}
-                        min={14}
-                        step={1}
+                      <Switch 
+                        checked={showStatusLabel} 
+                        onCheckedChange={setShowStatusLabel} 
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs">
-                        <Label>Posição Vertical / Altura ({statusY}%)</Label>
-                        <span className="text-muted-foreground">{statusY}%</span>
-                      </div>
-                      <Slider
-                        value={[statusY]}
-                        onValueChange={([val]) => setStatusY(val)}
-                        max={1200}
-                        min={0}
-                        step={10}
-                      />
-                    </div>
+                    {showStatusLabel ? (
+                      <>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <Label>Altura do Container ({statusHeight}px)</Label>
+                            <span className="text-muted-foreground">{statusHeight}px</span>
+                          </div>
+                          <Slider
+                            value={[statusHeight]}
+                            onValueChange={([val]) => setStatusHeight(val)}
+                            max={64}
+                            min={14}
+                            step={1}
+                          />
+                        </div>
 
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs">
-                        <Label>Tamanho do Texto ({statusFontSize}px)</Label>
-                        <span className="text-muted-foreground">{statusFontSize}px</span>
-                      </div>
-                      <Slider
-                        value={[statusFontSize]}
-                        onValueChange={([val]) => setStatusFontSize(val)}
-                        max={18}
-                        min={7}
-                        step={1}
-                      />
-                    </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <Label>Posição Vertical / Altura ({statusY}%)</Label>
+                            <span className="text-muted-foreground">{statusY}%</span>
+                          </div>
+                          <Slider
+                            value={[statusY]}
+                            onValueChange={([val]) => setStatusY(val)}
+                            max={1200}
+                            min={0}
+                            step={10}
+                          />
+                        </div>
 
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs">
-                        <Label>Largura / Espaçamento Interno ({statusPaddingX}px)</Label>
-                        <span className="text-muted-foreground">{statusPaddingX}px</span>
-                      </div>
-                      <Slider
-                        value={[statusPaddingX]}
-                        onValueChange={([val]) => setStatusPaddingX(val)}
-                        max={36}
-                        min={4}
-                        step={1}
-                      />
-                    </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <Label>Tamanho do Texto ({statusFontSize}px)</Label>
+                            <span className="text-muted-foreground">{statusFontSize}px</span>
+                          </div>
+                          <Slider
+                            value={[statusFontSize]}
+                            onValueChange={([val]) => setStatusFontSize(val)}
+                            max={18}
+                            min={7}
+                            step={1}
+                          />
+                        </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-xs">Alinhamento Horizontal</Label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {(['left', 'center', 'right'] as const).map((pos) => (
-                          <Button
-                            key={pos}
-                            variant={statusAlign === pos ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setStatusAlign(pos)}
-                            className="text-xs h-7"
-                          >
-                            {pos === 'left' ? 'Esquerda' : pos === 'center' ? 'Centro' : 'Direita'}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <Label>Largura / Espaçamento Interno ({statusPaddingX}px)</Label>
+                            <span className="text-muted-foreground">{statusPaddingX}px</span>
+                          </div>
+                          <Slider
+                            value={[statusPaddingX]}
+                            onValueChange={([val]) => setStatusPaddingX(val)}
+                            max={36}
+                            min={4}
+                            step={1}
+                          />
+                        </div>
 
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs">
-                        <Label>Ajuste Horizontal ({statusX}%)</Label>
-                        <span className="text-muted-foreground">{statusX}%</span>
-                      </div>
-                      <Slider
-                        value={[statusX]}
-                        onValueChange={([val]) => setStatusX(val)}
-                        max={100}
-                        min={-100}
-                        step={1}
-                      />
-                    </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs">Alinhamento Horizontal</Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {(['left', 'center', 'right'] as const).map((pos) => (
+                              <Button
+                                key={pos}
+                                variant={statusAlign === pos ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setStatusAlign(pos)}
+                                className="text-xs h-7"
+                              >
+                                {pos === 'left' ? 'Esquerda' : pos === 'center' ? 'Centro' : 'Direita'}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <Label>Ajuste Horizontal ({statusX}%)</Label>
+                            <span className="text-muted-foreground">{statusX}%</span>
+                          </div>
+                          <Slider
+                            value={[statusX]}
+                            onValueChange={([val]) => setStatusX(val)}
+                            max={100}
+                            min={-100}
+                            step={1}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic pt-1">
+                        Rótulo do poster desativado. Ative a chave acima para ajustar tamanho e posição.
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-3 rounded-lg border border-border/50 p-3 bg-muted/10">
@@ -988,11 +1085,15 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                     selectedContent={selectedContent}
                     accentColor={accentColor}
                     statusLabel={statusLabel}
+                    showStatusLabel={showStatusLabel}
                     featuredLabel={featuredLabel}
+                    showFeaturedLabel={showFeaturedLabel}
                     statusHeight={statusHeight}
                     statusFontSize={statusFontSize}
                     statusY={statusY}
                     logo={logo}
+                    onToggleStatusLabel={setShowStatusLabel}
+                    onToggleFeaturedLabel={setShowFeaturedLabel}
                   />
                 </div>
               ) : (
@@ -1016,10 +1117,12 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                           logoX={logoX}
                           logoY={logoY}
                           featuredLabel={featuredLabel}
+                          showFeaturedLabel={showFeaturedLabel}
                           accentColor={accentColor}
                           posterWidth={posterWidth}
                           posterHeight={posterHeight}
                           statusLabel={statusLabel}
+                          showStatusLabel={showStatusLabel}
                           statusHeight={statusHeight}
                           statusFontSize={statusFontSize}
                           statusPaddingX={statusPaddingX}
@@ -1041,10 +1144,12 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                           logoX={logoX}
                           logoY={logoY}
                           featuredLabel={featuredLabel}
+                          showFeaturedLabel={showFeaturedLabel}
                           accentColor={accentColor}
                           posterWidth={posterWidth}
                           posterHeight={posterHeight}
                           statusLabel={statusLabel}
+                          showStatusLabel={showStatusLabel}
                           statusHeight={statusHeight}
                           statusFontSize={statusFontSize}
                           statusPaddingX={statusPaddingX}
@@ -1066,10 +1171,12 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                           logoX={logoX}
                           logoY={logoY}
                           featuredLabel={featuredLabel}
+                          showFeaturedLabel={showFeaturedLabel}
                           accentColor={accentColor}
                           posterWidth={posterWidth}
                           posterHeight={posterHeight}
                           statusLabel={statusLabel}
+                          showStatusLabel={showStatusLabel}
                           statusHeight={statusHeight}
                           statusFontSize={statusFontSize}
                           statusPaddingX={statusPaddingX}
@@ -1091,10 +1198,12 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                           logoX={logoX}
                           logoY={logoY}
                           featuredLabel={featuredLabel}
+                          showFeaturedLabel={showFeaturedLabel}
                           accentColor={accentColor}
                           posterWidth={posterWidth}
                           posterHeight={posterHeight}
                           statusLabel={statusLabel}
+                          showStatusLabel={showStatusLabel}
                           statusHeight={statusHeight}
                           statusFontSize={statusFontSize}
                           statusPaddingX={statusPaddingX}

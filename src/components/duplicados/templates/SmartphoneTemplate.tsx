@@ -14,10 +14,12 @@ interface TemplateProps {
   logoX: number;
   logoY: number;
   featuredLabel: string;
+  showFeaturedLabel?: boolean;
   accentColor: string;
   posterWidth: number;
   posterHeight: number;
   statusLabel: string;
+  showStatusLabel?: boolean;
   statusHeight?: number;
   statusFontSize?: number;
   statusPaddingX?: number;
@@ -38,10 +40,12 @@ const SmartphoneTemplate = ({
   logoX,
   logoY,
   featuredLabel,
+  showFeaturedLabel = true,
   accentColor,
   posterWidth,
   posterHeight,
   statusLabel,
+  showStatusLabel = true,
   statusHeight = 24,
   statusFontSize = 9,
   statusPaddingX = 12,
@@ -117,14 +121,16 @@ const SmartphoneTemplate = ({
         </div>
 
         {/* Featured Section */}
-        <div className="w-full space-y-2 mb-8 text-center">
-          <Badge 
-            className="bg-primary/20 text-primary border-primary/30 text-[10px] px-3 py-0.5 tracking-[0.2em] font-black italic rounded-sm uppercase"
-            style={{ color: accentColor, borderColor: `${accentColor}30`, backgroundColor: `${accentColor}20` }}
-          >
-            {featuredLabel}
-          </Badge>
-        </div>
+        {showFeaturedLabel && featuredLabel && (
+          <div className="w-full space-y-2 mb-8 text-center">
+            <Badge 
+              className="bg-primary/20 text-primary border-primary/30 text-[10px] px-3 py-0.5 tracking-[0.2em] font-black italic rounded-sm uppercase"
+              style={{ color: accentColor, borderColor: `${accentColor}30`, backgroundColor: `${accentColor}20` }}
+            >
+              {featuredLabel}
+            </Badge>
+          </div>
+        )}
 
         {/* Smartphone Frame with Poster */}
         <div className="relative w-full flex justify-center mb-8">
@@ -150,28 +156,30 @@ const SmartphoneTemplate = ({
               />
               
               {/* Poster Overlay Label */}
-              <div
-                className={cn(
-                  "absolute top-3 left-3 right-3 flex z-30 pointer-events-none",
-                  statusAlign === 'left' && "justify-start",
-                  statusAlign === 'center' && "justify-center",
-                  statusAlign === 'right' && "justify-end"
-                )}
-                style={{ transform: `translate(${statusX}%, ${statusY}%)` }}
-              >
-                <Badge 
-                  className="font-black rounded-full bg-white text-black shadow-lg inline-flex items-center justify-center transition-all border-none"
-                  style={{
-                    height: `${statusHeight}px`,
-                    fontSize: `${statusFontSize}px`,
-                    paddingLeft: `${statusPaddingX}px`,
-                    paddingRight: `${statusPaddingX}px`,
-                    lineHeight: 1,
-                  }}
+              {showStatusLabel && statusLabel && (
+                <div
+                  className={cn(
+                    "absolute top-3 left-3 right-3 flex z-30 pointer-events-none",
+                    statusAlign === 'left' && "justify-start",
+                    statusAlign === 'center' && "justify-center",
+                    statusAlign === 'right' && "justify-end"
+                  )}
+                  style={{ transform: `translate(${statusX}%, ${statusY}%)` }}
                 >
-                  {statusLabel}
-                </Badge>
-              </div>
+                  <Badge 
+                    className="font-black rounded-full bg-white text-black shadow-lg inline-flex items-center justify-center transition-all border-none"
+                    style={{
+                      height: `${statusHeight}px`,
+                      fontSize: `${statusFontSize}px`,
+                      paddingLeft: `${statusPaddingX}px`,
+                      paddingRight: `${statusPaddingX}px`,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {statusLabel}
+                  </Badge>
+                </div>
+              )}
 
               {/* Corner Accents */}
               <div className="absolute bottom-6 left-6 z-30 flex items-center gap-1 opacity-80">

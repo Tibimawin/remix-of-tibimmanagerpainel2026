@@ -14,10 +14,12 @@ interface TemplateProps {
   logoX: number;
   logoY: number;
   featuredLabel: string;
+  showFeaturedLabel?: boolean;
   accentColor: string;
   posterWidth: number;
   posterHeight: number;
   statusLabel: string;
+  showStatusLabel?: boolean;
   statusHeight?: number;
   statusFontSize?: number;
   statusPaddingX?: number;
@@ -38,10 +40,12 @@ const MinimalistTemplate: React.FC<TemplateProps> = ({
   logoX,
   logoY,
   featuredLabel,
+  showFeaturedLabel = true,
   accentColor,
   posterWidth,
   posterHeight,
   statusLabel,
+  showStatusLabel = true,
   statusHeight = 24,
   statusFontSize = 9,
   statusPaddingX = 12,
@@ -122,10 +126,12 @@ const MinimalistTemplate: React.FC<TemplateProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded bg-white/5 border border-white/10">
-          <Award size={13} style={{ color: accentColor }} />
-          <span>{featuredLabel}</span>
-        </div>
+        {showFeaturedLabel && featuredLabel && (
+          <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded bg-white/5 border border-white/10">
+            <Award size={13} style={{ color: accentColor }} />
+            <span>{featuredLabel}</span>
+          </div>
+        )}
       </div>
 
       {/* Main Content Area: Grid with Poster & Editorial Block */}
@@ -147,28 +153,30 @@ const MinimalistTemplate: React.FC<TemplateProps> = ({
           />
 
           {/* Rótulo Superior Customizável */}
-          <div
-            className={cn(
-              'absolute top-2.5 left-2.5 right-2.5 flex z-30 pointer-events-none',
-              statusAlign === 'left' && 'justify-start',
-              statusAlign === 'center' && 'justify-center',
-              statusAlign === 'right' && 'justify-end'
-            )}
-            style={{ transform: `translate(${statusX}%, ${statusY}%)` }}
-          >
-            <Badge
-              className="font-black rounded bg-white text-black shadow-2xl inline-flex items-center justify-center transition-all border-none"
-              style={{
-                height: `${statusHeight}px`,
-                fontSize: `${statusFontSize}px`,
-                paddingLeft: `${statusPaddingX}px`,
-                paddingRight: `${statusPaddingX}px`,
-                lineHeight: 1,
-              }}
+          {showStatusLabel && statusLabel && (
+            <div
+              className={cn(
+                'absolute top-2.5 left-2.5 right-2.5 flex z-30 pointer-events-none',
+                statusAlign === 'left' && 'justify-start',
+                statusAlign === 'center' && 'justify-center',
+                statusAlign === 'right' && 'justify-end'
+              )}
+              style={{ transform: `translate(${statusX}%, ${statusY}%)` }}
             >
-              {statusLabel}
-            </Badge>
-          </div>
+              <Badge
+                className="font-black rounded bg-white text-black shadow-2xl inline-flex items-center justify-center transition-all border-none"
+                style={{
+                  height: `${statusHeight}px`,
+                  fontSize: `${statusFontSize}px`,
+                  paddingLeft: `${statusPaddingX}px`,
+                  paddingRight: `${statusPaddingX}px`,
+                  lineHeight: 1,
+                }}
+              >
+                {statusLabel}
+              </Badge>
+            </div>
+          )}
 
           <div className="absolute bottom-2 left-2 right-2 bg-black/80 backdrop-blur-md px-2 py-1 rounded text-center border border-white/10">
             <span className="text-[9px] font-mono tracking-widest text-white/80 uppercase">

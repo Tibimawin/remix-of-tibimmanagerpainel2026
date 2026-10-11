@@ -19,6 +19,7 @@ import {
   Monitor,
   Smartphone,
   Flame,
+  Award,
   CheckCircle2,
   Loader2,
 } from 'lucide-react';
@@ -26,28 +27,36 @@ import { TMDBDetails } from '@/types/importacao';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-export type VideoTemplateType = 'reels-neon' | 'cinema-widescreen' | 'glitch-cyber';
+export type VideoTemplateType = 'reels-neon' | 'cinema-widescreen' | 'glitch-cyber' | 'imax-gold';
 
 interface VideoPostGeneratorProps {
   selectedContent: TMDBDetails;
   accentColor: string;
   statusLabel: string;
+  showStatusLabel?: boolean;
   featuredLabel: string;
+  showFeaturedLabel?: boolean;
   statusHeight?: number;
   statusFontSize?: number;
   statusY?: number;
   logo: string | null;
+  onToggleStatusLabel?: (show: boolean) => void;
+  onToggleFeaturedLabel?: (show: boolean) => void;
 }
 
 export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
   selectedContent,
   accentColor,
   statusLabel,
+  showStatusLabel = true,
   featuredLabel,
+  showFeaturedLabel = true,
   statusHeight = 28,
   statusFontSize = 14,
   statusY = 0,
   logo,
+  onToggleStatusLabel,
+  onToggleFeaturedLabel,
 }) => {
   const [videoTemplate, setVideoTemplate] = useState<VideoTemplateType>('reels-neon');
   const [duration, setDuration] = useState<number>(5); // seconds
@@ -55,6 +64,18 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
   const [includeAudio, setIncludeAudio] = useState<boolean>(true);
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recordingProgress, setRecordingProgress] = useState<number>(0);
+
+  // Sincronização dos estados de visibilidade dos rótulos
+  const [internalShowStatusLabel, setInternalShowStatusLabel] = useState(showStatusLabel);
+  const [internalShowFeaturedLabel, setInternalShowFeaturedLabel] = useState(showFeaturedLabel);
+
+  useEffect(() => {
+    setInternalShowStatusLabel(showStatusLabel);
+  }, [showStatusLabel]);
+
+  useEffect(() => {
+    setInternalShowFeaturedLabel(showFeaturedLabel);
+  }, [showFeaturedLabel]);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameIdRef = useRef<number | null>(null);
@@ -148,20 +169,22 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
     }
 
     // Featured Badge Top Right
-    const featText = featuredLabel || 'ESTREIA EXCLUSIVA';
-    ctx.font = 'bold 15px system-ui, -apple-system, sans-serif';
-    const featWidth = ctx.measureText(featText).width + 30;
-    const featX = W - featWidth - 36;
-    ctx.fillStyle = `${accentColor}40`;
-    ctx.beginPath();
-    ctx.roundRect(featX, logoY, featWidth, 34, 17);
-    ctx.fill();
-    ctx.strokeStyle = accentColor;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    if (internalShowFeaturedLabel && featuredLabel) {
+      const featText = featuredLabel;
+      ctx.font = 'bold 15px system-ui, -apple-system, sans-serif';
+      const featWidth = ctx.measureText(featText).width + 30;
+      const featX = W - featWidth - 36;
+      ctx.fillStyle = `${accentColor}40`;
+      ctx.beginPath();
+      ctx.roundRect(featX, logoY, featWidth, 34, 17);
+      ctx.fill();
+      ctx.strokeStyle = accentColor;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
 
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(featText, featX + 15, logoY + 23);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(featText, featX + 15, logoY + 23);
+    }
 
     // Poster Central Flutuante com Glow
     const poster = posterImgRef.current;
@@ -203,7 +226,7 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
       ctx.restore();
 
       // Rótulo Superior Customizável (ex: LANÇAMENTOS)
-      if (statusLabel) {
+      if (internalShowStatusLabel && statusLabel) {
         ctx.save();
         const baseBadgeY = py + 20 + statusY;
         const bHeight = Math.max(statusHeight, 22);
@@ -285,7 +308,7 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.fillText('ASSISTA AGORA NA SUA LISTA', W / 2, ctaY + 42);
-  }, [accentColor, featuredLabel, statusHeight, statusFontSize, statusLabel, statusY, selectedContent]);
+  }, [accentColor, featuredLabel, internalShowFeaturedLabel, statusHeight, statusFontSize, statusLabel, internalShowStatusLabel, statusY, selectedContent]);
 
   // Renderizador: Cinema Widescreen (16:9)
   const renderCinemaWidescreen = useCallback((
@@ -329,7 +352,7 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
       ctx.restore();
 
       // Status Badge no Poster
-      if (statusLabel) {
+      if (internalShowStatusLabel && statusLabel) {
         ctx.save();
         const baseBadgeY = py + 20 + statusY;
         const bHeight = Math.max(statusHeight, 24);
@@ -354,12 +377,15 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
     let textY = 160;
 
     // Tag Destaque
-    ctx.font = '900 16px system-ui, -apple-system, sans-serif';
-    ctx.fillStyle = accentColor;
-    ctx.textAlign = 'left';
-    ctx.fillText((featuredLabel || 'DESTAQUE DA SEMANA').toUpperCase(), leftX, textY);
-
-    textY += 60;
+    if (internalShowFeaturedLabel && featuredLabel) {
+      ctx.font = '900 16px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = accentColor;
+      ctx.textAlign = 'left';
+      ctx.fillText(featuredLabel.toUpperCase(), leftX, textY);
+      textY += 60;
+    } else {
+      textY += 20;
+    }
 
     // Título Grande
     ctx.font = '900 52px system-ui, -apple-system, sans-serif';
@@ -402,7 +428,162 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
     ctx.font = '900 18px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#ffffff';
     ctx.fillText('ASSISTIR TRAILER', leftX + 45, btnY + 35);
-  }, [accentColor, featuredLabel, statusHeight, statusFontSize, statusLabel, statusY, selectedContent]);
+  }, [accentColor, featuredLabel, internalShowFeaturedLabel, statusHeight, statusFontSize, statusLabel, internalShowStatusLabel, statusY, selectedContent]);
+
+  // Renderizador: IMAX Gold / Cartaz Dourado (Vertical 9:16)
+  const renderImaxGold = useCallback((
+    ctx: CanvasRenderingContext2D,
+    W: number,
+    H: number,
+    progress: number,
+    elapsedSec: number
+  ) => {
+    // Header sutil de luxo
+    const logoY = 60;
+    if (logoImgRef.current) {
+      const logoAspect = logoImgRef.current.width / logoImgRef.current.height;
+      const lw = 130;
+      const lh = lw / logoAspect;
+      ctx.drawImage(logoImgRef.current, 36, logoY, lw, lh);
+    } else {
+      ctx.font = '900 20px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText('CINEMA GOLD', 36, logoY + 18);
+    }
+
+    // Featured Badge Top Right (Dourado / Accent)
+    if (internalShowFeaturedLabel && featuredLabel) {
+      const featText = featuredLabel;
+      ctx.font = '900 13px system-ui, -apple-system, sans-serif';
+      const featWidth = ctx.measureText(featText).width + 30;
+      const featX = W - featWidth - 36;
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.2)';
+      ctx.beginPath();
+      ctx.roundRect(featX, logoY, featWidth, 32, 16);
+      ctx.fill();
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#fef3c7';
+      ctx.fillText(featText, featX + 15, logoY + 21);
+    }
+
+    // Poster Central Flutuante com Golden Rim Light
+    const poster = posterImgRef.current;
+    if (poster) {
+      const pw = W * 0.64;
+      const ph = pw * 1.48;
+      const px = (W - pw) / 2;
+      const floatOffset = Math.sin(elapsedSec * 1.8) * 6;
+      const py = 140 + floatOffset;
+
+      // Glow Dourado
+      ctx.save();
+      ctx.shadowColor = accentColor || '#f59e0b';
+      ctx.shadowBlur = 35 + Math.sin(elapsedSec * 2.5) * 15;
+      ctx.strokeStyle = 'rgba(254, 243, 199, 0.6)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(px, py, pw, ph, 20);
+      ctx.stroke();
+      ctx.restore();
+
+      // Desenha o Poster
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(px, py, pw, ph, 20);
+      ctx.clip();
+      ctx.drawImage(poster, px, py, pw, ph);
+
+      // Reflexo de lente dourada passando
+      const shineX = px - pw + (pw * 3) * ((elapsedSec * 0.3) % 1);
+      const shineGrad = ctx.createLinearGradient(shineX, py, shineX + 130, py + ph);
+      shineGrad.addColorStop(0, 'rgba(245, 158, 11, 0)');
+      shineGrad.addColorStop(0.5, 'rgba(254, 243, 199, 0.35)');
+      shineGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+      ctx.fillStyle = shineGrad;
+      ctx.fillRect(px, py, pw, ph);
+      ctx.restore();
+
+      // Rótulo Superior Customizável (ex: LANÇAMENTOS)
+      if (internalShowStatusLabel && statusLabel) {
+        ctx.save();
+        const baseBadgeY = py + 20 + statusY;
+        const bHeight = Math.max(statusHeight, 22);
+        const bFontSize = Math.max(statusFontSize, 11);
+        ctx.font = `900 ${bFontSize}px system-ui, -apple-system, sans-serif`;
+        const textMetrics = ctx.measureText(statusLabel);
+        const bWidth = textMetrics.width + 36;
+        const bx = px + (pw - bWidth) / 2;
+
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+        ctx.shadowBlur = 15;
+        const badgeGrad = ctx.createLinearGradient(bx, baseBadgeY, bx + bWidth, baseBadgeY + bHeight);
+        badgeGrad.addColorStop(0, '#fef08a');
+        badgeGrad.addColorStop(1, '#f59e0b');
+        ctx.fillStyle = badgeGrad;
+        ctx.beginPath();
+        ctx.roundRect(bx, baseBadgeY, bWidth, bHeight, bHeight / 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#000000';
+        ctx.fillText(statusLabel, bx + 18, baseBadgeY + bHeight / 2 + bFontSize / 3);
+        ctx.restore();
+      }
+    }
+
+    // Informações Inferiores Elegantes
+    const infoY = H - 390;
+    const titleText = (selectedContent.title || selectedContent.name || '').toUpperCase();
+    ctx.save();
+    ctx.font = '900 36px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+    ctx.shadowBlur = 20;
+
+    const displayTitle = ctx.measureText(titleText).width > W - 80 ? (ctx.font = '900 28px system-ui, -apple-system, sans-serif', titleText) : titleText;
+    ctx.fillText(displayTitle, W / 2, infoY);
+
+    // Avaliação por estrelas douradas
+    const starsY = infoY + 40;
+    const voteAvg = selectedContent.vote_average || 8.5;
+    const starsCount = Math.round(voteAvg / 2);
+    ctx.font = '22px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillText('★'.repeat(starsCount) + '☆'.repeat(5 - starsCount), W / 2, starsY);
+
+    // Gêneros e Ano
+    const metaY = starsY + 38;
+    const releaseYear = new Date(
+      selectedContent.release_date || selectedContent.first_air_date || ''
+    ).getFullYear() || '2026';
+    const genres = selectedContent.genres?.slice(0, 2).map((g) => g.name).join(' • ') || 'Exclusivo';
+    ctx.font = 'bold 17px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.fillText(`${releaseYear}  •  ${genres}  •  IMAX EXPERIENCE`, W / 2, metaY);
+    ctx.restore();
+
+    // CTA Box no Rodapé
+    const ctaY = H - 140;
+    ctx.save();
+    ctx.shadowColor = 'rgba(245, 158, 11, 0.5)';
+    ctx.shadowBlur = 25;
+    const ctaGrad = ctx.createLinearGradient(40, ctaY, W - 40, ctaY + 68);
+    ctaGrad.addColorStop(0, '#f59e0b');
+    ctaGrad.addColorStop(1, '#d97706');
+    ctx.fillStyle = ctaGrad;
+    ctx.beginPath();
+    ctx.roundRect(40, ctaY, W - 80, 68, 20);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.font = '900 22px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = '#000000';
+    ctx.textAlign = 'center';
+    ctx.fillText('DISPONÍVEL AGORA EM ALTA DEFINIÇÃO', W / 2, ctaY + 42);
+  }, [accentColor, featuredLabel, internalShowFeaturedLabel, statusHeight, statusFontSize, statusLabel, internalShowStatusLabel, statusY, selectedContent]);
 
   // Renderizador: Glitch Cyber (Vertical 9:16)
   const renderGlitchCyber = useCallback((
@@ -489,6 +670,8 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
         renderCinemaWidescreen(ctx, W, H, progress, elapsedSec);
       } else if (videoTemplate === 'glitch-cyber') {
         renderGlitchCyber(ctx, W, H, progress, elapsedSec);
+      } else if (videoTemplate === 'imax-gold') {
+        renderImaxGold(ctx, W, H, progress, elapsedSec);
       } else {
         renderReelsNeon(ctx, W, H, progress, elapsedSec);
       }
@@ -501,6 +684,7 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
       accentColor,
       renderCinemaWidescreen,
       renderGlitchCyber,
+      renderImaxGold,
       renderReelsNeon,
     ]
   );
@@ -679,7 +863,7 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
             </div>
 
             {/* Seletor de Modelo de Vídeo */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setVideoTemplate('reels-neon')}
@@ -692,7 +876,7 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
               >
                 <Smartphone size={20} className="mb-1" />
                 <span>Reels Neon</span>
-                <span className="text-[9px] opacity-70">9:16</span>
+                <span className="text-[9px] opacity-70">9:16 Vertical</span>
               </button>
 
               <button
@@ -722,8 +906,62 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
               >
                 <Sparkles size={20} className="mb-1" />
                 <span>Cyberpunk</span>
-                <span className="text-[9px] opacity-70">9:16</span>
+                <span className="text-[9px] opacity-70">9:16 Glitch</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setVideoTemplate('imax-gold')}
+                className={cn(
+                  'flex flex-col items-center justify-center p-2.5 rounded-lg border text-xs font-bold transition-all',
+                  videoTemplate === 'imax-gold'
+                    ? 'border-amber-500 bg-amber-500/20 text-amber-300 shadow-md'
+                    : 'border-border/40 hover:bg-muted/30 text-muted-foreground'
+                )}
+              >
+                <Award size={20} className="mb-1 text-amber-400" />
+                <span>IMAX Gold</span>
+                <span className="text-[9px] opacity-70">9:16 Dourado</span>
+              </button>
+            </div>
+
+            {/* Exibição de Rótulos (Geral e Poster) */}
+            <div className="space-y-2.5 pt-2 border-t border-border/30">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Exibição de Rótulos
+              </Label>
+              
+              <div className="flex items-center justify-between p-2 rounded-lg bg-muted/20 border border-border/30">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-medium block">Rótulo Superior (Geral)</span>
+                  <span className="text-[10px] text-muted-foreground line-clamp-1">
+                    {featuredLabel || 'FILME EM DESTAQUE'}
+                  </span>
+                </div>
+                <Switch
+                  checked={internalShowFeaturedLabel}
+                  onCheckedChange={(checked) => {
+                    setInternalShowFeaturedLabel(checked);
+                    onToggleFeaturedLabel?.(checked);
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-lg bg-muted/20 border border-border/30">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-medium block">Rótulo Superior (Poster)</span>
+                  <span className="text-[10px] text-muted-foreground line-clamp-1">
+                    {statusLabel || 'LANÇAMENTOS'}
+                  </span>
+                </div>
+                <Switch
+                  checked={internalShowStatusLabel}
+                  onCheckedChange={(checked) => {
+                    setInternalShowStatusLabel(checked);
+                    onToggleStatusLabel?.(checked);
+                  }}
+                />
+              </div>
             </div>
 
             {/* Duração do Vídeo */}
