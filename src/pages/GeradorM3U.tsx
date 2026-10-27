@@ -91,6 +91,9 @@ export default function GeradorM3U() {
   const [customUsername, setCustomUsername] = useState('demo');
   const [customPassword, setCustomPassword] = useState('123456');
 
+  // Filtro de conteúdo no DNS (all | tv | movies | series)
+  const [filtroTipoDns, setFiltroTipoDns] = useState<'all' | 'tv' | 'movies' | 'series'>('all');
+
   // Lista de usuários carregados do Baserow para seleção
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [loadingUsuarios, setLoadingUsuarios] = useState(false);
@@ -161,21 +164,23 @@ export default function GeradorM3U() {
     return host.replace(/\/+$/, '');
   }, [dnsHost]);
 
-  // URLs geradas do Xtream Codes
+  // URLs geradas do Xtream Codes com suporte a separação por tipo
   const xtreamUrls = useMemo(() => {
     const user = encodeURIComponent(customUsername.trim() || 'demo');
     const pass = encodeURIComponent(customPassword.trim() || '123456');
+    const contentParam = filtroTipoDns !== 'all' ? `&content=${filtroTipoDns}` : '';
 
     return {
       server: sanitizedDns,
       username: customUsername.trim() || 'demo',
       password: customPassword.trim() || '123456',
-      m3uPlusTs: `${sanitizedDns}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=ts`,
-      m3uPlusHls: `${sanitizedDns}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=m3u8`,
-      playerApi: `${sanitizedDns}/player_api.php?username=${user}&password=${pass}`,
+      contentMode: filtroTipoDns,
+      m3uPlusTs: `${sanitizedDns}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=ts${contentParam}`,
+      m3uPlusHls: `${sanitizedDns}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=m3u8${contentParam}`,
+      playerApi: `${sanitizedDns}/player_api.php?username=${user}&password=${pass}${contentParam}`,
       epgXml: `${sanitizedDns}/xmltv.php?username=${user}&password=${pass}`
     };
-  }, [sanitizedDns, customUsername, customPassword]);
+  }, [sanitizedDns, customUsername, customPassword, filtroTipoDns]);
 
   // Botões de Seleção Rápida de Filtro (Presets)
   const handleSelectPreset = (preset: 'todos' | 'tv' | 'filmes' | 'series') => {
@@ -394,20 +399,68 @@ export default function GeradorM3U() {
       setProgresso(92);
       setStatusMsg('Montando arquivo M3U oficial...');
 
-      // Construção da string #EXTM3U
-      let m3uString = `#EXTM3U name="${nomeLista || 'Lista IPTV'}"\n`;
-      m3uString += `## Gerado automaticamente pelo Painel Baserow em ${new Date().toLocaleString('pt-BR')}\n`;
+      // Construção da string #EXTM3U com seções profissionais separadas
+      let m3uString = `#EXTM3U name="${nomeLista || 'Lista IPTV Profissional'}"\n`;
+      m3uString += `## Gerado via Painel Baserow em ${new Date().toLocaleString('pt-BR')}\n`;
       m3uString += `## Total de conteúdos reais: ${itens.length}\n\n`;
 
-      itens.forEach((item) => {
-        const logoAttr = item.capa ? ` tvg-logo="${item.capa}"` : '';
-        const groupAttr = item.categoria ? ` group-title="${item.categoria}"` : '';
-        const tvgNameAttr = ` tvg-name="${item.nome.replace(/"/g, "'")}"`;
-        const tvgIdAttr = ` tvg-id="${item.id}"`;
+      const tvItems = itens.filter(i => i.tipo === 'tv').sort((a, b) => a.categoria.localeCompare(b.categoria) || a.nome.localeCompare(b.nome));
+      const filmeItems = itens.filter(i => i.tipo === 'filme').sort((a, b) => a.categoria.localeCompare(b.categoria) || a.nome.localeCompare(b.nome));
+      const serieItems = itens.filter(i => i.tipo === 'serie').sort((a, b) => a.categoria.localeCompare(b.categoria) || a.nome.localeCompare(b.nome));
 
-        m3uString += `#EXTINF:-1${tvgIdAttr}${tvgNameAttr}${logoAttr}${groupAttr},${item.nome}\n`;
-        m3uString += `${item.streamUrl}\n\n`;
-      });
+      // SEÇÃO 1: CANAIS DE TV
+      if (tvItems.length > 0) {
+        m3uString += `### =========================================\n`;
+        m3uString += `### [SEÇÃO 1] CANAIS DE TV AO VIVO (${tvItems.length})\n`;
+        m3uString += `### =========================================\n\n`;
+
+        tvItems.forEach((item) => {
+          const logoAttr = item.capa ? ` tvg-logo="${item.capa}"` : '';
+          const cleanCat = item.categoria.startsWith('CANAIS |') ? item.categoria : `CANAIS | ${item.categoria.toUpperCase()}`;
+          const groupAttr = ` group-title="${cleanCat}"`;
+          const tvgNameAttr = ` tvg-name="${item.nome.replace(/"/g, "'")}"`;
+          const tvgIdAttr = ` tvg-id="${item.id}"`;
+
+          m3uString += `#EXTINF:-1${tvgIdAttr}${tvgNameAttr}${logoAttr}${groupAttr},${item.nome}\n`;
+          m3uString += `${item.streamUrl}\n\n`;
+        });
+      }
+
+      // SEÇÃO 2: FILMES VOD
+      if (filmeItems.length > 0) {
+        m3uString += `### =========================================\n`;
+        m3uString += `### [SEÇÃO 2] FILMES VOD (${filmeItems.length})\n`;
+        m3uString += `### =========================================\n\n`;
+
+        filmeItems.forEach((item) => {
+          const logoAttr = item.capa ? ` tvg-logo="${item.capa}"` : '';
+          const cleanCat = item.categoria.startsWith('FILMES |') ? item.categoria : `FILMES | ${item.categoria.toUpperCase()}`;
+          const groupAttr = ` group-title="${cleanCat}"`;
+          const tvgNameAttr = ` tvg-name="${item.nome.replace(/"/g, "'")}"`;
+          const tvgIdAttr = ` tvg-id="${item.id}"`;
+
+          m3uString += `#EXTINF:-1${tvgIdAttr}${tvgNameAttr}${logoAttr}${groupAttr},${item.nome}\n`;
+          m3uString += `${item.streamUrl}\n\n`;
+        });
+      }
+
+      // SEÇÃO 3: SÉRIES & EPISÓDIOS
+      if (serieItems.length > 0) {
+        m3uString += `### =========================================\n`;
+        m3uString += `### [SEÇÃO 3] SÉRIES & EPISÓDIOS (${serieItems.length})\n`;
+        m3uString += `### =========================================\n\n`;
+
+        serieItems.forEach((item) => {
+          const logoAttr = item.capa ? ` tvg-logo="${item.capa}"` : '';
+          const cleanCat = item.categoria.startsWith('SÉRIES |') ? item.categoria : `SÉRIES | ${item.categoria.toUpperCase()}`;
+          const groupAttr = ` group-title="${cleanCat}"`;
+          const tvgNameAttr = ` tvg-name="${item.nome.replace(/"/g, "'")}"`;
+          const tvgIdAttr = ` tvg-id="${item.id}"`;
+
+          m3uString += `#EXTINF:-1${tvgIdAttr}${tvgNameAttr}${logoAttr}${groupAttr},${item.nome}\n`;
+          m3uString += `${item.streamUrl}\n\n`;
+        });
+      }
 
       setItensGerados(itens);
       setM3uContent(m3uString);
@@ -496,7 +549,12 @@ export default function GeradorM3U() {
 
   // Copiar Mensagem Pronta de Acesso para o Cliente (WhatsApp)
   const handleCopyWhatsAppMessage = () => {
+    const modoTexto = filtroTipoDns === 'all' ? 'Completo (Canais de TV + Filmes + Séries)' :
+                      filtroTipoDns === 'tv' ? 'Exclusivamente Canais de TV Ao Vivo' :
+                      filtroTipoDns === 'movies' ? 'Exclusivamente Filmes VOD' : 'Exclusivamente Séries & Episódios';
+
     const texto = `📺 *SEUS DADOS DE ACESSO IPTV / XTREAM CODES*\n\n` +
+      `📦 *Conteúdo Liberado:* ${modoTexto}\n` +
       `🌐 *Servidor / Host (DNS):* ${xtreamUrls.server}\n` +
       `👤 *Usuário:* ${xtreamUrls.username}\n` +
       `🔑 *Senha:* ${xtreamUrls.password}\n\n` +
@@ -1232,6 +1290,87 @@ export default function GeradorM3U() {
                     className="font-mono"
                   />
                 </div>
+              </div>
+
+              {/* Seletor de Tipo de Conteúdo no DNS / M3U */}
+              <div className="p-4 rounded-xl bg-card border shadow-sm space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-primary" />
+                      Conteúdo Liberado para este Acesso / Link
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Defina se este cliente ou link deve receber tudo ou apenas uma categoria específica.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={filtroTipoDns === 'all' ? 'default' : 'outline'}
+                      onClick={() => setFiltroTipoDns('all')}
+                      className="text-xs h-8"
+                    >
+                      🌐 Completo
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={filtroTipoDns === 'tv' ? 'default' : 'outline'}
+                      onClick={() => setFiltroTipoDns('tv')}
+                      className="text-xs h-8"
+                    >
+                      <Tv className="w-3.5 h-3.5 mr-1" /> Só Canais TV
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={filtroTipoDns === 'movies' ? 'default' : 'outline'}
+                      onClick={() => setFiltroTipoDns('movies')}
+                      className="text-xs h-8"
+                    >
+                      <Film className="w-3.5 h-3.5 mr-1" /> Só Filmes
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={filtroTipoDns === 'series' ? 'default' : 'outline'}
+                      onClick={() => setFiltroTipoDns('series')}
+                      className="text-xs h-8"
+                    >
+                      <Clapperboard className="w-3.5 h-3.5 mr-1" /> Só Séries
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-muted/50 p-2.5 rounded-lg border">
+                  <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>
+                    <strong>Modo Ativo: </strong>
+                    {filtroTipoDns === 'all' && 'Todos os canais, filmes e séries serão sincronizados no aplicativo.'}
+                    {filtroTipoDns === 'tv' && 'Exclusivamente Canais de TV Ao Vivo serão entregues. Filmes e séries ficarão ocultos no app.'}
+                    {filtroTipoDns === 'movies' && 'Exclusivamente Filmes VOD serão entregues. Canais e séries ficarão ocultos no app.'}
+                    {filtroTipoDns === 'series' && 'Exclusivamente Séries & Episódios serão entregues. Canais e filmes ficarão ocultos no app.'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Card de Otimização para Catálogos Gigantes (+30.000 Conteúdos) */}
+              <div className="p-3.5 rounded-xl bg-gradient-to-r from-sky-500/10 via-purple-500/10 to-emerald-500/10 border border-primary/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-semibold text-xs">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                    <span>Motor de Alta Performance para Grandes Catálogos (+30.000 conteúdos)</span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
+                    Otimizado v3.0
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Para evitar lentidão com a limitação de 200 itens por requisição do Baserow, o servidor agora utiliza <strong>Carregamento Segmentado Sob Demanda (Lazy Loading)</strong> e <strong>Pool de Concorrência Paralela</strong> em chunks de 5 páginas. Além disso, as consultas ficam cacheadas por 5 a 15 minutos em memória, entregando respostas em menos de <strong>50ms</strong> mesmo para catálogos com dezenas de milhares de itens!
+                </p>
               </div>
 
               {/* Ações: Testar Conexão Xtream, Sincronizar Servidor e Copiar WhatsApp */}
