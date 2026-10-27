@@ -41,6 +41,7 @@ import {
   Info,
   Smartphone,
   Star,
+  Radio,
   X,
   Layout as LayoutIcon
 } from 'lucide-react';
@@ -460,6 +461,15 @@ const menuItems: MenuItem[] = [
     description: 'Importar listas M3U',
     feature: 'importar-m3u',
     badge: { type: 'info', text: 'BETA' }
+  },
+  {
+    id: 'gerador-m3u',
+    label: 'Gerar Lista M3U & DNS',
+    href: '/gerar-m3u',
+    icon: Radio,
+    category: 'tools',
+    description: 'Gerador de listas M3U e DNS Xtream Codes',
+    badge: { type: 'new', text: 'NOVO' }
   },
   {
     id: 'importar-canais-tv',

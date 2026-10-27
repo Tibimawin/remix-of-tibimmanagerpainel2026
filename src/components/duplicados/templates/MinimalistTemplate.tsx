@@ -126,12 +126,12 @@ const MinimalistTemplate: React.FC<TemplateProps> = ({
           )}
         </div>
 
-        {showFeaturedLabel && featuredLabel && (
+        {showFeaturedLabel && featuredLabel?.trim() ? (
           <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded bg-white/5 border border-white/10">
             <Award size={13} style={{ color: accentColor }} />
-            <span>{featuredLabel}</span>
+            <span>{featuredLabel.trim()}</span>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Main Content Area: Grid with Poster & Editorial Block */}
@@ -153,7 +153,7 @@ const MinimalistTemplate: React.FC<TemplateProps> = ({
           />
 
           {/* Rótulo Superior Customizável */}
-          {showStatusLabel && statusLabel && (
+          {showStatusLabel && statusLabel?.trim() ? (
             <div
               className={cn(
                 'absolute top-2.5 left-2.5 right-2.5 flex z-30 pointer-events-none',
@@ -173,10 +173,10 @@ const MinimalistTemplate: React.FC<TemplateProps> = ({
                   lineHeight: 1,
                 }}
               >
-                {statusLabel}
+                {statusLabel.trim()}
               </Badge>
             </div>
-          )}
+          ) : null}
 
           <div className="absolute bottom-2 left-2 right-2 bg-black/80 backdrop-blur-md px-2 py-1 rounded text-center border border-white/10">
             <span className="text-[9px] font-mono tracking-widest text-white/80 uppercase">

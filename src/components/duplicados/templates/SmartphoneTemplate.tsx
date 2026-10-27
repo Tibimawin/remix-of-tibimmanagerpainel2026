@@ -121,16 +121,16 @@ const SmartphoneTemplate = ({
         </div>
 
         {/* Featured Section */}
-        {showFeaturedLabel && featuredLabel && (
-          <div className="w-full space-y-2 mb-8 text-center">
+        {showFeaturedLabel && featuredLabel?.trim() ? (
+          <div className="w-full space-y-2 mb-6 text-center">
             <Badge 
               className="bg-primary/20 text-primary border-primary/30 text-[10px] px-3 py-0.5 tracking-[0.2em] font-black italic rounded-sm uppercase"
               style={{ color: accentColor, borderColor: `${accentColor}30`, backgroundColor: `${accentColor}20` }}
             >
-              {featuredLabel}
+              {featuredLabel.trim()}
             </Badge>
           </div>
-        )}
+        ) : null}
 
         {/* Smartphone Frame with Poster */}
         <div className="relative w-full flex justify-center mb-8">
@@ -150,13 +150,13 @@ const SmartphoneTemplate = ({
               {/* Poster Image */}
               <img 
                 src={`https://image.tmdb.org/t/p/w780${selectedContent.poster_path}`} 
-                alt={selectedContent.title || selectedContent.name}
+                alt={selectedContent.title || selectedContent.name} 
                 className="w-full h-full object-cover"
                 crossOrigin="anonymous"
               />
               
               {/* Poster Overlay Label */}
-              {showStatusLabel && statusLabel && (
+              {showStatusLabel && statusLabel?.trim() ? (
                 <div
                   className={cn(
                     "absolute top-3 left-3 right-3 flex z-30 pointer-events-none",
@@ -176,10 +176,10 @@ const SmartphoneTemplate = ({
                       lineHeight: 1,
                     }}
                   >
-                    {statusLabel}
+                    {statusLabel.trim()}
                   </Badge>
                 </div>
-              )}
+              ) : null}
 
               {/* Corner Accents */}
               <div className="absolute bottom-6 left-6 z-30 flex items-center gap-1 opacity-80">

@@ -125,6 +125,69 @@ const m3uDevProxyPlugin = () => ({
         }
       });
     });
+
+    server.middlewares.use((req: any, res: any, next: any) => {
+      const url = req.url || "";
+      if (url.startsWith("/player_api.php") || url.startsWith("/get.php") || url.startsWith("/api/xtream")) {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "*");
+        if (req.method === "OPTIONS") {
+          res.statusCode = 200;
+          return res.end();
+        }
+        try {
+          const parsed = new URL(url, "http://localhost:3000");
+          const username = (parsed.searchParams.get("username") || parsed.searchParams.get("user") || "").trim();
+          const password = (parsed.searchParams.get("password") || parsed.searchParams.get("pass") || "").trim();
+          const action = (parsed.searchParams.get("action") || "").trim();
+
+          if (url.startsWith("/get.php")) {
+            res.setHeader("Content-Type", "audio/x-mpegurl; charset=utf-8");
+            res.setHeader("Content-Disposition", 'attachment; filename="playlist.m3u"');
+            return res.end('#EXTM3U name="Lista IPTV Baserow"\n## Conexao Xtream Codes Ativa via Painel\n');
+          }
+
+          if (!action) {
+            res.setHeader("Content-Type", "application/json");
+            const host = req.headers.host || "localhost:3000";
+            const port = host.includes(":") ? host.split(":")[1] : "3000";
+            return res.end(JSON.stringify({
+              user_info: {
+                username: username || "usuario",
+                password: password || "123456",
+                message: "Autenticado com sucesso via Painel",
+                auth: 1,
+                status: "Active",
+                exp_date: "1798675200",
+                is_trial: "0",
+                active_cons: "0",
+                created_at: String(Math.floor(Date.now() / 1000) - 86400),
+                max_connections: "1",
+                allowed_output_formats: ["m3u8", "ts", "rtmp"]
+              },
+              server_info: {
+                url: host.split(":")[0],
+                port: port,
+                https_port: "443",
+                server_protocol: req.headers["x-forwarded-proto"] || "http",
+                rtmp_port: "8880",
+                timezone: "America/Sao_Paulo",
+                timestamp_now: Math.floor(Date.now() / 1000),
+                time_now: new Date().toISOString().replace("T", " ").substring(0, 19)
+              }
+            }));
+          }
+
+          res.setHeader("Content-Type", "application/json");
+          return res.end(JSON.stringify([]));
+        } catch (e: any) {
+          res.statusCode = 500;
+          return res.end(JSON.stringify({ error: e?.message }));
+        }
+      }
+      next();
+    });
   },
 });
 

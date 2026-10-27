@@ -23,6 +23,14 @@
   },
   "rewrites": [
     {
+      "source": "/player_api.php",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/get.php",
+      "destination": "/api/xtream"
+    },
+    {
       "source": "/api/s/:token/:id",
       "destination": "/api/stream-proxy?token=:token&id=:id"
     },

@@ -47,6 +47,7 @@ const Plataformas = lazy(() => import("./pages/Plataformas"));
 const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Recursos = lazy(() => import("./pages/Recursos"));
 const ImportarM3U = lazy(() => import("./pages/ImportarM3U"));
+const GeradorM3U = lazy(() => import("./pages/GeradorM3U"));
 const ImportacaoAutomatica = lazy(() => import("./pages/ImportacaoAutomatica"));
 const Miniseries = lazy(() => import("./pages/Miniseries"));
 const AtualizacaoSeries = lazy(() => import("./pages/AtualizacaoSeries"));
@@ -559,6 +560,14 @@ const App = () => {
                                 <SimpleProtectedRoute>
                                   <Layout>
                                     <ImportarM3U />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/gerar-m3u" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <GeradorM3U />
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />

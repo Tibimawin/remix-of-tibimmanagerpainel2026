@@ -27,7 +27,9 @@ import {
   Sparkles,
   Video,
   Flame,
-  Film
+  Film,
+  Pipette,
+  Check
 } from 'lucide-react';
 import { tmdbService } from '@/services/TmdbService';
 import { TMDBSearchResult, TMDBDetails } from '@/types/importacao';
@@ -42,6 +44,28 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import debounce from 'lodash/debounce';
 import { PermissionGate } from '@/components/PermissionGate';
+
+// Paleta completa de cores de destaque para cinema e streaming
+const PRESET_ACCENT_COLORS = [
+  { name: 'Vermelho Netflix', value: '#E50914' },
+  { name: 'Vermelho Rubi', value: '#DC2626' },
+  { name: 'Laranja Fogo', value: '#F97316' },
+  { name: 'Dourado / Âmbar IMAX', value: '#F59E0B' },
+  { name: 'Amarelo Canário', value: '#EAB308' },
+  { name: 'Verde Lima Neon', value: '#84CC16' },
+  { name: 'Verde Esmeralda', value: '#10B981' },
+  { name: 'Verde Menta', value: '#14B8A6' },
+  { name: 'Ciano Prime Video', value: '#06B6D4' },
+  { name: 'Azul Céu', value: '#0EA5E9' },
+  { name: 'Azul Disney', value: '#3B82F6' },
+  { name: 'Índigo Cyber', value: '#6366F1' },
+  { name: 'Roxo Neon HBO', value: '#8B5CF6' },
+  { name: 'Púrpura Vibrante', value: '#A855F7' },
+  { name: 'Fúcsia Elétrico', value: '#D946EF' },
+  { name: 'Rosa Choque', value: '#EC4899' },
+  { name: 'Dourado Metálico', value: '#D97706' },
+  { name: 'Branco Puro', value: '#FFFFFF' },
+];
 
 // Conteúdo padrão para não iniciar a tela vazia
 const DEFAULT_DEMO_CONTENT: TMDBDetails = {
@@ -514,21 +538,115 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
 
               <TabsContent value="visual" className="space-y-4 pt-4">
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Cor de Destaque</Label>
-                    <div className="flex gap-2">
-                      <Input 
-                        type="color" 
-                        value={accentColor} 
-                        onChange={(e) => setAccentColor(e.target.value)}
-                        className="w-12 h-10 p-1 bg-transparent border-border/40"
-                      />
-                      <Input 
-                        type="text" 
-                        value={accentColor} 
-                        onChange={(e) => setAccentColor(e.target.value)}
-                        className="flex-1 bg-muted/50"
-                      />
+                  {/* Seletor Avançado de Cor de Destaque */}
+                  <div className="space-y-3 p-3.5 rounded-lg border border-border/50 bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="font-semibold text-sm">Cor de Destaque</Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Escolha qualquer cor livremente ou use presets de cinema
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-6 h-6 rounded-full border-2 border-white/50 shadow-sm"
+                          style={{ backgroundColor: accentColor }}
+                          title={`Cor atual: ${accentColor}`}
+                        />
+                        <span className="font-mono text-xs font-bold">{accentColor.toUpperCase()}</span>
+                      </div>
+                    </div>
+
+                    {/* Controles de Seleção Livre de Cores */}
+                    <div className="flex items-center gap-2">
+                      <div className="relative group flex-shrink-0">
+                        <input 
+                          type="color" 
+                          value={accentColor.startsWith('#') && accentColor.length === 7 ? accentColor : '#E50914'} 
+                          onChange={(e) => setAccentColor(e.target.value)}
+                          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                          title="Clique para abrir o seletor completo de todas as cores"
+                        />
+                        <div 
+                          className="w-12 h-10 rounded-lg border-2 border-border/60 shadow-sm flex items-center justify-center cursor-pointer transition-transform group-hover:scale-105"
+                          style={{ backgroundColor: accentColor }}
+                        >
+                          <Palette className="w-5 h-5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]" />
+                        </div>
+                      </div>
+
+                      <div className="relative flex-1">
+                        <Input 
+                          type="text" 
+                          value={accentColor} 
+                          onChange={(e) => {
+                            let val = e.target.value;
+                            if (val && !val.startsWith('#') && !val.startsWith('rgb')) {
+                              val = '#' + val;
+                            }
+                            setAccentColor(val);
+                          }}
+                          placeholder="#E50914"
+                          className="bg-muted/50 font-mono text-xs uppercase"
+                        />
+                      </div>
+
+                      {typeof window !== 'undefined' && 'EyeDropper' in window && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-10 w-10 flex-shrink-0"
+                          onClick={async () => {
+                            try {
+                              // @ts-expect-error EyeDropper is a modern browser API
+                              const eyeDropper = new window.EyeDropper();
+                              const result = await eyeDropper.open();
+                              if (result?.sRGBHex) {
+                                setAccentColor(result.sRGBHex);
+                                toast.success(`Cor capturada: ${result.sRGBHex}`);
+                              }
+                            } catch {
+                              // Cancelled
+                            }
+                          }}
+                          title="Capturar qualquer cor da tela (Conta-gotas)"
+                        >
+                          <Pipette className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Paleta Completa de Cores Rápidas */}
+                    <div className="space-y-1.5 pt-1 border-t border-border/30">
+                      <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                        Paleta de Cores de Cinema & Streaming
+                      </Label>
+                      <div className="grid grid-cols-6 gap-2">
+                        {PRESET_ACCENT_COLORS.map((c) => {
+                          const isSelected = accentColor.toLowerCase() === c.value.toLowerCase();
+                          return (
+                            <button
+                              key={c.value}
+                              type="button"
+                              onClick={() => setAccentColor(c.value)}
+                              className={cn(
+                                "group relative h-7 rounded-md transition-all flex items-center justify-center border shadow-sm hover:scale-110",
+                                isSelected ? "ring-2 ring-primary ring-offset-2 ring-offset-background border-white" : "border-black/20 hover:border-white/50"
+                              )}
+                              style={{ backgroundColor: c.value }}
+                              title={`${c.name} (${c.value})`}
+                            >
+                              {isSelected && (
+                                <Check className={cn(
+                                  "w-3.5 h-3.5 drop-shadow-md",
+                                  c.value === '#FFFFFF' || c.value === '#EAB308' || c.value === '#84CC16' ? "text-black" : "text-white"
+                                )} />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 
@@ -560,6 +678,24 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
 
               <TabsContent value="labels" className="space-y-4 pt-4">
                 <div className="space-y-4">
+                  {/* Botão para Esvaziar / Limpar Ambos */}
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setStatusLabel('');
+                        setFeaturedLabel('');
+                        toast.info('Texto de ambos os rótulos foi esvaziado.');
+                      }}
+                      className="text-xs h-8 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                      Esvaziar Ambos os Rótulos
+                    </Button>
+                  </div>
+
                   {/* Rótulo Superior (Poster) */}
                   <div className="space-y-3 rounded-lg border border-border/50 p-3.5 bg-muted/20">
                     <div className="flex items-center justify-between">
@@ -570,13 +706,13 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                           </Label>
                           <span className={cn(
                             "text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider",
-                            showStatusLabel ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                            showStatusLabel && statusLabel.trim() ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
                           )}>
-                            {showStatusLabel ? 'Ativado' : 'Desativado'}
+                            {showStatusLabel && statusLabel.trim() ? 'Ativado' : 'Desativado / Vazio'}
                           </span>
                         </div>
                         <p className="text-[11px] text-muted-foreground">
-                          Exibe faixa ou selo sobre o poster (ex: {statusLabel || 'LANÇAMENTOS'})
+                          Exibe faixa ou selo sobre o poster (ex: {statusLabel || 'Vazio'})
                         </p>
                       </div>
                       <Switch 
@@ -589,13 +725,32 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                     {showStatusLabel ? (
                       <>
                         <div className="space-y-2 pt-2 border-t border-border/40">
-                          <Label className="text-xs">Texto do Rótulo</Label>
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs">Texto do Rótulo</Label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setStatusLabel('')}
+                              disabled={!statusLabel}
+                              className="h-6 text-[11px] px-2 text-muted-foreground hover:text-destructive"
+                              title="Esvaziar texto do rótulo para remover o espaço na arte"
+                            >
+                              <Trash2 className="w-3 h-3 mr-1" />
+                              Esvaziar
+                            </Button>
+                          </div>
                           <Input 
                             value={statusLabel} 
                             onChange={(e) => setStatusLabel(e.target.value)}
                             className="bg-muted/50"
-                            placeholder="Ex: LANÇAMENTOS, NOVO, EXCLUSIVO"
+                            placeholder="Deixe vazio ou digite (ex: LANÇAMENTOS)"
                           />
+                          {!statusLabel.trim() && (
+                            <p className="text-[11px] text-amber-500/90 italic">
+                              Campo vazio: o espaço do rótulo sobre a capa está 100% esvaziado.
+                            </p>
+                          )}
                         </div>
 
                         <div className="space-y-3 pt-2 border-t border-border/40">
@@ -668,13 +823,13 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                               setStatusAlign('center');
                             }}
                           >
-                            Redefinir rótulo
+                            Redefinir dimensões
                           </Button>
                         </div>
                       </>
                     ) : (
                       <p className="text-xs text-muted-foreground italic pt-1 border-t border-border/30">
-                        Rótulo do poster desativado. Ative a chave acima para exibi-lo na arte.
+                        Rótulo do poster desativado e espaço esvaziado na arte. Ative a chave para exibi-lo.
                       </p>
                     )}
                   </div>
@@ -689,13 +844,13 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                           </Label>
                           <span className={cn(
                             "text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider",
-                            showFeaturedLabel ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                            showFeaturedLabel && featuredLabel.trim() ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
                           )}>
-                            {showFeaturedLabel ? 'Ativado' : 'Desativado'}
+                            {showFeaturedLabel && featuredLabel.trim() ? 'Ativado' : 'Desativado / Vazio'}
                           </span>
                         </div>
                         <p className="text-[11px] text-muted-foreground">
-                          Exibe tag de destaque no topo geral (ex: {featuredLabel || 'FILME EM DESTAQUE'})
+                          Exibe tag de destaque no topo geral (ex: {featuredLabel || 'Vazio'})
                         </p>
                       </div>
                       <Switch 
@@ -708,13 +863,32 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                     {showFeaturedLabel ? (
                       <>
                         <div className="space-y-2 pt-2 border-t border-border/40">
-                          <Label className="text-xs">Texto do Rótulo Geral</Label>
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs">Texto do Rótulo Geral</Label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setFeaturedLabel('')}
+                              disabled={!featuredLabel}
+                              className="h-6 text-[11px] px-2 text-muted-foreground hover:text-destructive"
+                              title="Esvaziar texto do rótulo para remover o espaço na arte"
+                            >
+                              <Trash2 className="w-3 h-3 mr-1" />
+                              Esvaziar
+                            </Button>
+                          </div>
                           <Input 
                             value={featuredLabel} 
                             onChange={(e) => setFeaturedLabel(e.target.value)}
                             className="bg-muted/50"
-                            placeholder="Ex: FILME EM DESTAQUE, SUPER LANÇAMENTO"
+                            placeholder="Deixe vazio ou digite (ex: FILME EM DESTAQUE)"
                           />
+                          {!featuredLabel.trim() && (
+                            <p className="text-[11px] text-amber-500/90 italic">
+                              Campo vazio: o espaço do rótulo superior está 100% esvaziado.
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center justify-between pt-1">
                           <Label className="text-xs">Presets Rápidos</Label>
@@ -748,7 +922,7 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                       </>
                     ) : (
                       <p className="text-xs text-muted-foreground italic pt-1 border-t border-border/30">
-                        Rótulo geral desativado. Ative a chave acima para exibi-lo na arte.
+                        Rótulo geral desativado e espaço esvaziado na arte. Ative a chave para exibi-lo.
                       </p>
                     )}
                   </div>

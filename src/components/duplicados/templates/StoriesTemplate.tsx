@@ -130,7 +130,7 @@ const StoriesTemplate: React.FC<TemplateProps> = ({
         </div>
 
         {/* Top Badges */}
-        {showFeaturedLabel && featuredLabel && (
+        {showFeaturedLabel && featuredLabel?.trim() ? (
           <div className="flex items-center gap-2">
             <Badge
               className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 border rounded-md"
@@ -141,10 +141,10 @@ const StoriesTemplate: React.FC<TemplateProps> = ({
               }}
             >
               <Flame size={12} className="mr-1 inline-block" />
-              {featuredLabel}
+              {featuredLabel.trim()}
             </Badge>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Poster Central com Efeito Glassmorphism & Shadow */}
@@ -169,7 +169,7 @@ const StoriesTemplate: React.FC<TemplateProps> = ({
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
 
           {/* Rótulo Superior Customizável (ex: LANÇAMENTOS) */}
-          {showStatusLabel && statusLabel && (
+          {showStatusLabel && statusLabel?.trim() ? (
             <div
               className={cn(
                 'absolute top-3 left-3 right-3 flex z-30 pointer-events-none',
@@ -189,10 +189,10 @@ const StoriesTemplate: React.FC<TemplateProps> = ({
                   lineHeight: 1,
                 }}
               >
-                {statusLabel}
+                {statusLabel.trim()}
               </Badge>
             </div>
-          )}
+          ) : null}
 
           {/* Badges de Qualidade no Poster */}
           <div className="absolute bottom-3 left-3 right-3 flex justify-between items-center z-30">

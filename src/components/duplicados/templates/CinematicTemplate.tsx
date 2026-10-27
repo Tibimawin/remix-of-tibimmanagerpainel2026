@@ -116,14 +116,14 @@ const CinematicTemplate = ({
             )}
           </div>
 
-          {showFeaturedLabel && featuredLabel && (
+          {showFeaturedLabel && featuredLabel?.trim() ? (
             <Badge 
               className="w-fit bg-primary/20 text-primary border-primary/30 text-[10px] px-3 py-1 tracking-[0.2em] font-black italic rounded-sm uppercase"
               style={{ color: accentColor, borderColor: `${accentColor}30`, backgroundColor: `${accentColor}20` }}
             >
-              {featuredLabel}
+              {featuredLabel.trim()}
             </Badge>
-          )}
+          ) : null}
 
           <h1 className="text-5xl font-black uppercase tracking-tight leading-none drop-shadow-2xl">
             {selectedContent.title || selectedContent.name}
@@ -170,7 +170,7 @@ const CinematicTemplate = ({
               className="w-full h-full object-cover"
               crossOrigin="anonymous"
             />
-            {showStatusLabel && statusLabel && (
+            {showStatusLabel && statusLabel?.trim() ? (
               <div
                 className={cn(
                   "absolute top-3 left-3 right-3 flex z-30 pointer-events-none",
@@ -190,10 +190,10 @@ const CinematicTemplate = ({
                     lineHeight: 1,
                   }}
                 >
-                  {statusLabel}
+                  {statusLabel.trim()}
                 </Badge>
               </div>
-            )}
+            ) : null}
             {/* Play button overlay */}
             <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity">
                <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center" style={{ backgroundColor: accentColor }}>

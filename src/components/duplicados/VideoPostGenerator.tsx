@@ -169,8 +169,8 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
     }
 
     // Featured Badge Top Right
-    if (internalShowFeaturedLabel && featuredLabel) {
-      const featText = featuredLabel;
+    if (internalShowFeaturedLabel && featuredLabel?.trim()) {
+      const featText = featuredLabel.trim();
       ctx.font = 'bold 15px system-ui, -apple-system, sans-serif';
       const featWidth = ctx.measureText(featText).width + 30;
       const featX = W - featWidth - 36;
@@ -226,13 +226,14 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
       ctx.restore();
 
       // Rótulo Superior Customizável (ex: LANÇAMENTOS)
-      if (internalShowStatusLabel && statusLabel) {
+      if (internalShowStatusLabel && statusLabel?.trim()) {
+        const textToDraw = statusLabel.trim();
         ctx.save();
         const baseBadgeY = py + 20 + statusY;
         const bHeight = Math.max(statusHeight, 22);
         const bFontSize = Math.max(statusFontSize, 11);
         ctx.font = `900 ${bFontSize}px system-ui, -apple-system, sans-serif`;
-        const textMetrics = ctx.measureText(statusLabel);
+        const textMetrics = ctx.measureText(textToDraw);
         const bWidth = textMetrics.width + 36;
         const bx = px + (pw - bWidth) / 2;
 
@@ -245,7 +246,7 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
         ctx.fill();
 
         ctx.fillStyle = '#000000';
-        ctx.fillText(statusLabel, bx + 18, baseBadgeY + bHeight / 2 + bFontSize / 3);
+        ctx.fillText(textToDraw, bx + 18, baseBadgeY + bHeight / 2 + bFontSize / 3);
         ctx.restore();
       }
     }
@@ -352,13 +353,14 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
       ctx.restore();
 
       // Status Badge no Poster
-      if (internalShowStatusLabel && statusLabel) {
+      if (internalShowStatusLabel && statusLabel?.trim()) {
+        const textToDraw = statusLabel.trim();
         ctx.save();
         const baseBadgeY = py + 20 + statusY;
         const bHeight = Math.max(statusHeight, 24);
         const bFontSize = Math.max(statusFontSize, 12);
         ctx.font = `900 ${bFontSize}px system-ui, -apple-system, sans-serif`;
-        const bWidth = ctx.measureText(statusLabel).width + 36;
+        const bWidth = ctx.measureText(textToDraw).width + 36;
         const bx = px + (pw - bWidth) / 2;
 
         ctx.fillStyle = '#ffffff';
@@ -367,7 +369,7 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
         ctx.fill();
 
         ctx.fillStyle = '#000000';
-        ctx.fillText(statusLabel, bx + 18, baseBadgeY + bHeight / 2 + bFontSize / 3);
+        ctx.fillText(textToDraw, bx + 18, baseBadgeY + bHeight / 2 + bFontSize / 3);
         ctx.restore();
       }
     }
@@ -377,14 +379,12 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
     let textY = 160;
 
     // Tag Destaque
-    if (internalShowFeaturedLabel && featuredLabel) {
+    if (internalShowFeaturedLabel && featuredLabel?.trim()) {
       ctx.font = '900 16px system-ui, -apple-system, sans-serif';
       ctx.fillStyle = accentColor;
       ctx.textAlign = 'left';
-      ctx.fillText(featuredLabel.toUpperCase(), leftX, textY);
+      ctx.fillText(featuredLabel.trim().toUpperCase(), leftX, textY);
       textY += 60;
-    } else {
-      textY += 20;
     }
 
     // Título Grande
@@ -452,8 +452,8 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
     }
 
     // Featured Badge Top Right (Dourado / Accent)
-    if (internalShowFeaturedLabel && featuredLabel) {
-      const featText = featuredLabel;
+    if (internalShowFeaturedLabel && featuredLabel?.trim()) {
+      const featText = featuredLabel.trim();
       ctx.font = '900 13px system-ui, -apple-system, sans-serif';
       const featWidth = ctx.measureText(featText).width + 30;
       const featX = W - featWidth - 36;
@@ -507,13 +507,14 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
       ctx.restore();
 
       // Rótulo Superior Customizável (ex: LANÇAMENTOS)
-      if (internalShowStatusLabel && statusLabel) {
+      if (internalShowStatusLabel && statusLabel?.trim()) {
+        const textToDraw = statusLabel.trim();
         ctx.save();
         const baseBadgeY = py + 20 + statusY;
         const bHeight = Math.max(statusHeight, 22);
         const bFontSize = Math.max(statusFontSize, 11);
         ctx.font = `900 ${bFontSize}px system-ui, -apple-system, sans-serif`;
-        const textMetrics = ctx.measureText(statusLabel);
+        const textMetrics = ctx.measureText(textToDraw);
         const bWidth = textMetrics.width + 36;
         const bx = px + (pw - bWidth) / 2;
 
@@ -528,7 +529,7 @@ export const VideoPostGenerator: React.FC<VideoPostGeneratorProps> = ({
         ctx.fill();
 
         ctx.fillStyle = '#000000';
-        ctx.fillText(statusLabel, bx + 18, baseBadgeY + bHeight / 2 + bFontSize / 3);
+        ctx.fillText(textToDraw, bx + 18, baseBadgeY + bHeight / 2 + bFontSize / 3);
         ctx.restore();
       }
     }
