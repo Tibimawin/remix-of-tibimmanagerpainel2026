@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
 import { useBaserowService } from '@/services/BaserowService';
@@ -514,82 +516,104 @@ export default function GeradorM3U() {
     });
   };
 
-  // Testador de Autenticação Xtream Codes ao Vivo
+  const [sincronizandoXtream, setSincronizandoXtream] = useState(false);
+
+  // Sincronizar configuração do Xtream Codes com o Baserow no servidor
+  const handleSyncXtreamConfig = async () => {
+    try {
+      setSincronizandoXtream(true);
+      const docRef = doc(db, 'globalConfig', 'xtreamConfig');
+      await setDoc(docRef, {
+        baseUrl: config.baseUrl || 'http://31.220.72.235:8080',
+        apiToken: config.apiToken || 'YNDJLHK1xJMjetLswXWKlbFb4agzxItL',
+        tableCanaisTv: config.tableIds.canaisTv || '960',
+        tokenCanaisTv: config.apiToken || 'J85ZVuxAYiOdSQocIk7pnvDUUMznY6og',
+        tableConteudos: config.tableIds.conteudos || '1157',
+        tableEpisodios: config.tableIds.episodios || '1158',
+        tableUsuarios: config.tableIds.usuarios || '1165',
+        tableCategoriasTV: config.tableIds.categoriasTV || '1159',
+        defaultUser: customUsername.trim() || 'demo',
+        defaultPass: customPassword.trim() || '123456',
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      toast.success('Configuração Xtream Codes sincronizada com sucesso no servidor do painel!');
+    } catch (err: any) {
+      console.error('Erro ao sincronizar Xtream Config:', err);
+      toast.error(`Falha ao salvar no servidor: ${err?.message || 'Erro desconhecido'}`);
+    } finally {
+      setSincronizandoXtream(false);
+    }
+  };
+
+  // Testador Completo de Diagnóstico Xtream Codes
   const handleTestarXtream = async () => {
     setTestandoXtream(true);
     setResultadoTeste(null);
     try {
       const userToFind = customUsername.trim().toLowerCase();
       const passToFind = customPassword.trim();
+      const uEnc = encodeURIComponent(userToFind);
+      const pEnc = encodeURIComponent(passToFind);
 
-      // Procurar usuário na tabela usuarios do Baserow
-      let matched = usuarios.find(u => {
-        const uNome = String(getValueByPossibleKeys(u, 'nome') || getValueByPossibleKeys(u, 'usuario') || getValueByPossibleKeys(u, 'email') || '').trim().toLowerCase();
-        return uNome === userToFind || uNome.replace(/\s+/g, '_') === userToFind;
-      });
-
-      if (!matched && config.tableIds?.usuarios) {
-        const resp = await baserowService.getAllTableData(config.tableIds.usuarios, undefined, 200);
-        const resList = resp?.results || [];
-        matched = resList.find((u: any) => {
-          const uNome = String(getValueByPossibleKeys(u, 'nome') || getValueByPossibleKeys(u, 'usuario') || getValueByPossibleKeys(u, 'email') || '').trim().toLowerCase();
-          return uNome === userToFind || uNome.replace(/\s+/g, '_') === userToFind;
-        });
-      }
-
-      // Testar se o endpoint local ou proxy responde
+      // 1. Testar Auth no endpoint
       let apiResp: any = null;
+      let liveCount = 0;
+      let vodCount = 0;
+      let seriesCount = 0;
+
       try {
-        const res = await fetch(`${sanitizedDns}/player_api.php?username=${encodeURIComponent(userToFind)}&password=${encodeURIComponent(passToFind)}`);
-        if (res.ok) {
-          apiResp = await res.json();
-        }
+        const res = await fetch(`${sanitizedDns}/player_api.php?username=${uEnc}&password=${pEnc}`);
+        if (res.ok) apiResp = await res.json();
       } catch (e) {
-        console.warn('Endpoint local /player_api.php retornou:', e);
+        console.warn('Erro ao chamar /player_api.php:', e);
       }
 
-      const uSenha = matched ? String(getValueByPossibleKeys(matched, 'senha') || '') : passToFind;
-      const uStatus = matched ? String(getValueByPossibleKeys(matched, 'status') || 'Ativo') : 'Ativo';
-      const uVenc = matched ? getValueByPossibleKeys(matched, 'vencimento') || 'Ilimitado' : 'Ilimitado';
-      const uLimite = matched ? getValueByPossibleKeys(matched, 'limite') || '1' : '1';
+      // 2. Testar Canais Ao Vivo
+      try {
+        const resLive = await fetch(`${sanitizedDns}/player_api.php?username=${uEnc}&password=${pEnc}&action=get_live_streams`);
+        if (resLive.ok) {
+          const lData = await resLive.json();
+          liveCount = Array.isArray(lData) ? lData.length : 0;
+        }
+      } catch (e) {}
 
-      const senhaOk = !passToFind || !uSenha || uSenha === passToFind;
-      const statusAtivo = !uStatus.toLowerCase().includes('inativ') && !uStatus.toLowerCase().includes('bloque');
-      const isSuccess = Boolean((matched && senhaOk && statusAtivo) || apiResp?.user_info?.auth === 1);
+      // 3. Testar Filmes VOD
+      try {
+        const resVod = await fetch(`${sanitizedDns}/player_api.php?username=${uEnc}&password=${pEnc}&action=get_vod_streams`);
+        if (resVod.ok) {
+          const vData = await resVod.json();
+          vodCount = Array.isArray(vData) ? vData.length : 0;
+        }
+      } catch (e) {}
+
+      // 4. Testar Séries
+      try {
+        const resSer = await fetch(`${sanitizedDns}/player_api.php?username=${uEnc}&password=${pEnc}&action=get_series`);
+        if (resSer.ok) {
+          const sData = await resSer.json();
+          seriesCount = Array.isArray(sData) ? sData.length : 0;
+        }
+      } catch (e) {}
+
+      const isAuthOk = apiResp?.user_info?.auth === 1;
 
       const result = {
-        sucesso: isSuccess,
+        sucesso: isAuthOk,
         usuario: customUsername,
         senha: customPassword,
-        status: uStatus,
-        senhaCorreta: senhaOk,
-        vencimento: uVenc,
-        limiteTelas: uLimite,
+        status: isAuthOk ? 'Ativo' : 'Não autenticado',
+        liveCount,
+        vodCount,
+        seriesCount,
         timestamp: new Date().toLocaleTimeString(),
-        apiResponse: apiResp || {
-          user_info: {
-            username: customUsername,
-            password: customPassword,
-            auth: isSuccess ? 1 : 0,
-            status: isSuccess ? "Active" : "Disabled",
-            exp_date: uVenc,
-            max_connections: String(uLimite),
-            allowed_output_formats: ["m3u8", "ts", "rtmp"]
-          },
-          server_info: {
-            url: sanitizedDns.replace(/^https?:\/\//, '').split(':')[0],
-            port: sanitizedDns.includes(':') ? sanitizedDns.split(':')[2] || '80' : '80',
-            server_protocol: sanitizedDns.startsWith('https') ? 'https' : 'http',
-            timezone: 'America/Sao_Paulo'
-          }
-        }
+        apiResponse: apiResp || { erro: 'Sem resposta do endpoint' }
       };
 
       setResultadoTeste(result);
-      if (result.sucesso) {
-        toast.success(`Usuário "${customUsername}" autenticado com sucesso! Status: Ativo.`);
+      if (isAuthOk) {
+        toast.success(`Conexão 100% OK! ${liveCount} canais, ${vodCount} filmes e ${seriesCount} séries disponíveis.`);
       } else {
-        toast.warning(`Usuário "${customUsername}" não localizado ou inativo na tabela usuarios.`);
+        toast.warning('O servidor respondeu, mas a autenticação falhou.');
       }
     } catch (err: any) {
       toast.error(`Erro ao testar: ${err?.message || 'Falha na conexão'}`);
@@ -1210,17 +1234,30 @@ export default function GeradorM3U() {
                 </div>
               </div>
 
-              {/* Ações: Testar Conexão Xtream e Copiar WhatsApp */}
+              {/* Ações: Testar Conexão Xtream, Sincronizar Servidor e Copiar WhatsApp */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-                <Button
-                  onClick={handleTestarXtream}
-                  disabled={testandoXtream}
-                  variant="outline"
-                  className="gap-2 border-primary/40 text-primary hover:bg-primary/10"
-                >
-                  <Zap className={`w-4 h-4 ${testandoXtream ? 'animate-spin' : ''}`} />
-                  {testandoXtream ? 'Validando no Baserow...' : 'Testar Login Xtream Codes ao Vivo'}
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    onClick={handleTestarXtream}
+                    disabled={testandoXtream}
+                    variant="outline"
+                    className="gap-2 border-primary/40 text-primary hover:bg-primary/10"
+                  >
+                    <Zap className={`w-4 h-4 ${testandoXtream ? 'animate-spin' : ''}`} />
+                    {testandoXtream ? 'Diagnosticando Servidor...' : 'Testar Conexão e Conteúdo ao Vivo'}
+                  </Button>
+
+                  <Button
+                    onClick={handleSyncXtreamConfig}
+                    disabled={sincronizandoXtream}
+                    variant="secondary"
+                    className="gap-2 text-xs"
+                    title="Salva as tabelas e tokens ativos do Baserow no servidor para o Xtream Codes"
+                  >
+                    <Server className={`w-4 h-4 ${sincronizandoXtream ? 'animate-spin' : ''}`} />
+                    {sincronizandoXtream ? 'Sincronizando...' : 'Sincronizar Servidor Xtream'}
+                  </Button>
+                </div>
 
                 <Button
                   onClick={handleCopyWhatsAppMessage}
@@ -1240,22 +1277,52 @@ export default function GeradorM3U() {
                     ) : (
                       <XCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
                     )}
-                    <div className="space-y-1.5 flex-1 text-xs">
+                    <div className="space-y-3 flex-1 text-xs">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-sm">
-                          {resultadoTeste.sucesso ? 'Autenticação Xtream Codes Bem-Sucedida!' : 'Falha na Validação Xtream'}
+                        <h4 className="font-semibold text-sm flex items-center gap-2">
+                          {resultadoTeste.sucesso ? '✅ Servidor Xtream Codes Pronto e Sincronizado!' : '⚠️ Atenção na Conexão'}
                         </h4>
                         <span className="text-[11px] opacity-75">{resultadoTeste.timestamp}</span>
                       </div>
-                      <p>
-                        {resultadoTeste.sucesso
-                          ? `O aplicativo IPTV receberá resposta "auth: 1", status "${resultadoTeste.status}" e validade "${resultadoTeste.vencimento}". As categorias e streams do Baserow serão liberadas!`
-                          : 'As credenciais informadas não correspondem a um usuário ativo na tabela do Baserow.'}
-                      </p>
 
-                      <details className="mt-2 text-[11px] font-mono bg-background/80 p-2 rounded border">
+                      {resultadoTeste.sucesso ? (
+                        <>
+                          <div className="grid grid-cols-3 gap-2 p-2.5 rounded-lg bg-background/60 border border-emerald-500/20 text-center">
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase font-semibold">Canais de TV</p>
+                              <p className="text-base font-bold text-sky-600 dark:text-sky-400">{resultadoTeste.liveCount}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase font-semibold">Filmes VOD</p>
+                              <p className="text-base font-bold text-emerald-600 dark:text-emerald-400">{resultadoTeste.vodCount}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase font-semibold">Séries</p>
+                              <p className="text-base font-bold text-amber-600 dark:text-amber-400">{resultadoTeste.seriesCount}</p>
+                            </div>
+                          </div>
+
+                          <div className="p-2.5 rounded bg-sky-500/10 border border-sky-500/20 text-sky-900 dark:text-sky-200 text-xs space-y-1">
+                            <p className="font-semibold flex items-center gap-1.5">
+                              <Info className="w-4 h-4 text-sky-500 shrink-0" />
+                              Como preencher no seu App IPTV (IPTV Smarters / XCIPTV / TiviMate):
+                            </p>
+                            <ul className="list-disc list-inside space-y-0.5 pl-1 text-[11px]">
+                              <li><strong>Host / Servidor:</strong> <code className="bg-background px-1 py-0.5 rounded font-bold">{sanitizedDns}</code> (Atenção: NÃO adicione barra no final nem get.php)</li>
+                              <li><strong>Usuário:</strong> <code className="bg-background px-1 py-0.5 rounded font-bold">{customUsername}</code></li>
+                              <li><strong>Senha:</strong> <code className="bg-background px-1 py-0.5 rounded font-bold">{customPassword}</code></li>
+                            </ul>
+                          </div>
+                        </>
+                      ) : (
+                        <p>
+                          O endpoint respondeu com status inválido ou erro de autenticação. Clique em &quot;Sincronizar Servidor Xtream&quot; para atualizar as credenciais do banco.
+                        </p>
+                      )}
+
+                      <details className="text-[11px] font-mono bg-background/80 p-2 rounded border">
                         <summary className="cursor-pointer font-sans font-medium text-foreground">
-                          Ver JSON bruto retornado para o IPTV Smarters (/player_api.php)
+                          Ver JSON bruto retornado para o app (/player_api.php)
                         </summary>
                         <pre className="mt-2 overflow-x-auto text-[10px] text-foreground">
                           {JSON.stringify(resultadoTeste.apiResponse, null, 2)}

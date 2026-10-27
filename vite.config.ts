@@ -126,63 +126,69 @@ const m3uDevProxyPlugin = () => ({
       });
     });
 
-    server.middlewares.use((req: any, res: any, next: any) => {
+    server.middlewares.use(async (req: any, res: any, next: any) => {
       const url = req.url || "";
-      if (url.startsWith("/player_api.php") || url.startsWith("/get.php") || url.startsWith("/api/xtream")) {
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        res.setHeader("Access-Control-Allow-Headers", "*");
-        if (req.method === "OPTIONS") {
-          res.statusCode = 200;
-          return res.end();
-        }
+      if (
+        url.startsWith("/player_api.php") ||
+        url.startsWith("/get.php") ||
+        url.startsWith("/xmltv.php") ||
+        url.startsWith("/api/xtream") ||
+        url.startsWith("/live/") ||
+        url.startsWith("/movie/") ||
+        url.startsWith("/series/")
+      ) {
         try {
+          // @ts-ignore
+          const xtreamModule = await import("./api/xtream.js");
+          const handler = xtreamModule.default || xtreamModule;
+
           const parsed = new URL(url, "http://localhost:3000");
-          const username = (parsed.searchParams.get("username") || parsed.searchParams.get("user") || "").trim();
-          const password = (parsed.searchParams.get("password") || parsed.searchParams.get("pass") || "").trim();
-          const action = (parsed.searchParams.get("action") || "").trim();
+          const query: Record<string, string> = {};
+          parsed.searchParams.forEach((val, key) => {
+            query[key] = val;
+          });
+          req.query = query;
 
-          if (url.startsWith("/get.php")) {
-            res.setHeader("Content-Type", "audio/x-mpegurl; charset=utf-8");
-            res.setHeader("Content-Disposition", 'attachment; filename="playlist.m3u"');
-            return res.end('#EXTM3U name="Lista IPTV Baserow"\n## Conexao Xtream Codes Ativa via Painel\n');
+          // Polyfill métodos Express/Vercel no response do Node
+          if (!res.status) {
+            res.status = (code: number) => {
+              res.statusCode = code;
+              return res;
+            };
+          }
+          if (!res.json) {
+            res.json = (data: any) => {
+              res.setHeader("Content-Type", "application/json; charset=utf-8");
+              res.end(JSON.stringify(data));
+              return res;
+            };
+          }
+          if (!res.send) {
+            res.send = (data: any) => {
+              res.end(data);
+              return res;
+            };
           }
 
-          if (!action) {
-            res.setHeader("Content-Type", "application/json");
-            const host = req.headers.host || "localhost:3000";
-            const port = host.includes(":") ? host.split(":")[1] : "3000";
-            return res.end(JSON.stringify({
-              user_info: {
-                username: username || "usuario",
-                password: password || "123456",
-                message: "Autenticado com sucesso via Painel",
-                auth: 1,
-                status: "Active",
-                exp_date: "1798675200",
-                is_trial: "0",
-                active_cons: "0",
-                created_at: String(Math.floor(Date.now() / 1000) - 86400),
-                max_connections: "1",
-                allowed_output_formats: ["m3u8", "ts", "rtmp"]
-              },
-              server_info: {
-                url: host.split(":")[0],
-                port: port,
-                https_port: "443",
-                server_protocol: req.headers["x-forwarded-proto"] || "http",
-                rtmp_port: "8880",
-                timezone: "America/Sao_Paulo",
-                timestamp_now: Math.floor(Date.now() / 1000),
-                time_now: new Date().toISOString().replace("T", " ").substring(0, 19)
+          if (req.method === "POST" && !req.body) {
+            let bodyStr = "";
+            req.on("data", (c: any) => { bodyStr += c; });
+            req.on("end", async () => {
+              try {
+                req.body = JSON.parse(bodyStr);
+              } catch {
+                req.body = {};
               }
-            }));
+              await handler(req, res);
+            });
+            return;
           }
 
-          res.setHeader("Content-Type", "application/json");
-          return res.end(JSON.stringify([]));
+          return await handler(req, res);
         } catch (e: any) {
+          console.error("Erro no middleware Xtream local:", e);
           res.statusCode = 500;
+          res.setHeader("Content-Type", "application/json");
           return res.end(JSON.stringify({ error: e?.message }));
         }
       }

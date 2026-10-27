@@ -31,6 +31,22 @@
       "destination": "/api/xtream"
     },
     {
+      "source": "/xmltv.php",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/live/:path*",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/movie/:path*",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/series/:path*",
+      "destination": "/api/xtream"
+    },
+    {
       "source": "/api/s/:token/:id",
       "destination": "/api/stream-proxy?token=:token&id=:id"
     },
