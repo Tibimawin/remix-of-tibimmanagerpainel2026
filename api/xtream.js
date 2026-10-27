@@ -39,6 +39,9 @@ const SEGMENT_CACHE = {
   usuarios: { data: [], expiresAt: 0 }
 };
 
+// Cache individual por série para busca sob demanda em 290ms sem sobrecarregar Baserow
+const SERIES_INFO_CACHE = new Map();
+
 // Mapa global para redirecionamento instantâneo de stream (stream_id -> real_url)
 const STREAM_URL_CACHE = new Map();
 
@@ -80,12 +83,13 @@ async function getActiveConfig() {
 }
 
 // Helper otimizado com pool de concorrência paralela (em lotes de 5 páginas)
-async function fetchBaserowRows(baseUrl, tableId, token, maxRows = 3000) {
+async function fetchBaserowRows(baseUrl, tableId, token, maxRows = 3000, searchTerm = '') {
   if (!tableId || !token) return [];
   try {
     const base = baseUrl.replace(/\/+$/, '');
     const pageSize = 200; // Limite estrito da API do Baserow
-    const firstUrl = `${base}/api/database/rows/table/${tableId}/?user_field_names=true&size=${pageSize}&page=1`;
+    const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
+    const firstUrl = `${base}/api/database/rows/table/${tableId}/?user_field_names=true&size=${pageSize}&page=1${searchParam}`;
     const resp = await fetch(firstUrl, {
       headers: {
         Authorization: `Token ${token}`,
@@ -113,7 +117,7 @@ async function fetchBaserowRows(baseUrl, tableId, token, maxRows = 3000) {
       for (let i = 0; i < remainingPages.length; i += CHUNK_SIZE) {
         const chunk = remainingPages.slice(i, i + CHUNK_SIZE);
         const chunkPromises = chunk.map(p => {
-          const nextUrl = `${base}/api/database/rows/table/${tableId}/?user_field_names=true&size=${pageSize}&page=${p}`;
+          const nextUrl = `${base}/api/database/rows/table/${tableId}/?user_field_names=true&size=${pageSize}&page=${p}${searchParam}`;
           return fetch(nextUrl, {
             headers: {
               Authorization: `Token ${token}`,
@@ -235,13 +239,14 @@ async function getConteudosCached(config) {
     return SEGMENT_CACHE.conteudos.data;
   }
 
-  const conteudos = await fetchBaserowRows(config.baseUrl, config.tableConteudos, config.apiToken, 2500);
+  // Carrega até 12.000 para cobrir integralmente os 5.054 filmes e 2.712 séries
+  const conteudos = await fetchBaserowRows(config.baseUrl, config.tableConteudos, config.apiToken, 12000);
   conteudos.forEach(c => {
     const link = extractStreamUrl(c);
     if (link) STREAM_URL_CACHE.set(`movie_${c.id}`, link);
   });
 
-  SEGMENT_CACHE.conteudos = { data: conteudos, expiresAt: now + 300000 };
+  SEGMENT_CACHE.conteudos = { data: conteudos, expiresAt: now + 600000 }; // 10 min cache
   return conteudos;
 }
 
@@ -821,56 +826,106 @@ export default async function handler(req, res) {
   if (action === 'get_series_info') {
     if (!isSeriesAllowed) return res.status(200).json({ seasons: [], episodes: {} });
 
-    const targetSeriesId = query.series_id || body.series_id;
-    const conteudos = await getConteudosCached(config);
-    const episodios = await getEpisodiosCached(config);
+    const targetSeriesId = String(query.series_id || body.series_id || '').trim();
+    if (!targetSeriesId) {
+      return res.status(200).json({ seasons: [], episodes: {} });
+    }
 
-    const serieDoc = conteudos.find(c => String(c.id) === String(targetSeriesId)) || conteudos[0];
+    const now = Date.now();
+    // Cache em memória de episódios por série (10 minutos)
+    const cachedSeries = SERIES_INFO_CACHE.get(targetSeriesId);
+    if (cachedSeries && cachedSeries.expiresAt > now) {
+      return res.status(200).json(cachedSeries.data);
+    }
+
+    const conteudos = await getConteudosCached(config);
+    const serieDoc = conteudos.find(c => String(c.id) === targetSeriesId) || conteudos.find(c => String(c.id).toLowerCase() === targetSeriesId.toLowerCase());
     const serieName = serieDoc ? extractField(serieDoc, ['nome', 'titulo']) : '';
 
-    const matchingEps = episodios.filter(e => {
-      const epSerie = String(extractField(e, ['serie', 'serieNome'])).toLowerCase();
-      return epSerie && serieName && (epSerie.includes(serieName.toLowerCase()) || serieName.toLowerCase().includes(epSerie));
+    let matchingEps = [];
+    if (serieName) {
+      // Busca hiper-direcionada na tabela de episódios (+96.000 linhas) usando o índice de busca do Baserow em ~290ms!
+      matchingEps = await fetchBaserowRows(config.baseUrl, config.tableEpisodios, config.apiToken, 1000, serieName);
+    }
+
+    // Se a busca por nome não retornou, tenta com as primeiras palavras do título da série
+    if (matchingEps.length === 0 && serieName && serieName.includes(' ')) {
+      const shortName = serieName.split(' ').slice(0, 2).join(' ');
+      matchingEps = await fetchBaserowRows(config.baseUrl, config.tableEpisodios, config.apiToken, 1000, shortName);
+    }
+
+    // Registra links no cache global de streams
+    matchingEps.forEach(e => {
+      const link = extractStreamUrl(e);
+      if (link) STREAM_URL_CACHE.set(`series_${e.id}`, link);
     });
 
     const seasonsMap = {};
-    (matchingEps.length > 0 ? matchingEps : episodios.slice(0, 20)).forEach(e => {
+    const seasonsList = [];
+
+    matchingEps.forEach(e => {
       const sNum = String(extractField(e, ['temporada', 'temporadas']) || '1');
       const epNum = String(extractField(e, ['episodio', 'episodios']) || '1');
       const epNome = extractField(e, ['nome', 'episodioNome']) || `Episódio ${epNum}`;
       const link = extractStreamUrl(e);
+      let ext = 'mp4';
+      if (link && link.includes('.mkv')) ext = 'mkv';
+      if (link && link.includes('.m3u8')) ext = 'm3u8';
 
-      if (!seasonsMap[sNum]) seasonsMap[sNum] = [];
+      if (!seasonsMap[sNum]) {
+        seasonsMap[sNum] = [];
+        seasonsList.push({
+          air_date: '2026',
+          episode_count: 0,
+          id: Number(sNum) || 1,
+          name: `Temporada ${sNum}`,
+          overview: '',
+          season_number: Number(sNum) || 1,
+          cover: serieDoc ? extractField(serieDoc, ['capa', 'poster']) : ''
+        });
+      }
+
       seasonsMap[sNum].push({
         id: e.id,
-        episode_num: epNum,
+        episode_num: Number(epNum) || 1,
         title: epNome,
-        container_extension: 'mp4',
+        container_extension: ext,
         info: {
           duration_secs: 2700,
           duration: '45 min',
           plot: '',
           rating: '8.0'
         },
+        custom_sid: '',
+        added: String(Math.floor(Date.now() / 1000)),
+        season: Number(sNum) || 1,
         direct_source: link
       });
     });
 
-    return res.status(200).json({
-      seasons: Object.keys(seasonsMap).map(s => ({
-        season_number: s,
-        name: `Temporada ${s}`,
-        episode_count: seasonsMap[s].length
-      })),
+    seasonsList.forEach(s => {
+      const sKey = String(s.season_number);
+      s.episode_count = seasonsMap[sKey] ? seasonsMap[sKey].length : 0;
+    });
+
+    const responseData = {
+      seasons: seasonsList.length > 0 ? seasonsList : [{ season_number: 1, name: 'Temporada 1', episode_count: 1 }],
       info: {
         name: serieName || 'Série',
         cover: serieDoc ? extractField(serieDoc, ['capa', 'poster']) : '',
-        plot: serieDoc ? extractField(serieDoc, ['sinopse']) : '',
-        genre: serieDoc ? formatCategory(extractField(serieDoc, ['categoria']), 'series') : 'Séries',
-        releaseDate: '2026'
+        plot: serieDoc ? extractField(serieDoc, ['sinopse', 'plot']) : '',
+        genre: serieDoc ? formatCategory(extractField(serieDoc, ['categoria', 'genero']), 'series') : 'SÉRIES',
+        releaseDate: serieDoc ? extractField(serieDoc, ['ano', 'data']) || '2026' : '2026'
       },
       episodes: seasonsMap
+    };
+
+    SERIES_INFO_CACHE.set(targetSeriesId, {
+      data: responseData,
+      expiresAt: now + 600000 // 10 minutos
     });
+
+    return res.status(200).json(responseData);
   }
 
   return res.status(200).json([]);

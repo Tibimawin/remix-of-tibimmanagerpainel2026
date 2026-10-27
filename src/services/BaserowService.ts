@@ -180,7 +180,12 @@ export class BaserowService {
     }
   }
 
-  async getAllTableData(tableId: string, searchTerm?: string, maxRecords?: number) {
+  async getAllTableData(
+    tableId: string,
+    searchTerm?: string,
+    maxRecords?: number,
+    onProgress?: (loaded: number, total: number, page: number) => void
+  ) {
     if (!tableId || !tableId.trim()) {
       return { results: [], count: 0 };
     }
@@ -194,11 +199,11 @@ export class BaserowService {
       let allResults: any[] = [];
       let page = 1;
       let hasMore = true;
-      const batchSize = 100;
-      // Limite seguro padrão de 1500 registros se maxRecords não for especificado para evitar sobrecarga do servidor
-      const effectiveMax = maxRecords && maxRecords > 0 ? maxRecords : 1500;
+      const batchSize = 200; // Máximo suportado nativamente pelo Baserow para alto desempenho
+      // Se maxRecords for 0 ou indefinido, busca sem limite arbitrário (teto de segurança 100.000)
+      const effectiveMax = maxRecords !== undefined && maxRecords > 0 ? maxRecords : 100000;
 
-      logger.debug('Carregando dados paginados da tabela', { effectiveMax });
+      logger.debug('Carregando dados paginados da tabela', { effectiveMax, batchSize });
 
       while (hasMore && allResults.length < effectiveMax) {
         const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
@@ -288,14 +293,19 @@ export class BaserowService {
         if (data.results?.length) {
           const remaining = effectiveMax - allResults.length;
           allResults = allResults.concat(data.results.slice(0, remaining));
+          
+          if (onProgress) {
+            onProgress(allResults.length, data.count || allResults.length, page);
+          }
+
           page++;
         } else {
           hasMore = false;
         }
 
         if (!data.next) hasMore = false;
-        // Intervalo de 120ms entre páginas para não sobrecarregar a instância do Baserow
-        await new Promise(r => setTimeout(r, 120));
+        // Intervalo de 50ms entre páginas para máxima velocidade sem acionar rate limit
+        await new Promise(r => setTimeout(r, 50));
       }
 
       logger.debug('Dados carregados', { totalRecords: allResults.length });
