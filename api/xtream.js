@@ -16,18 +16,73 @@ const FIREBASE_API_KEY = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBA
 // Configurações padrão com fallback para o banco ativo do painel
 const FALLBACK_CONFIG = {
   baseUrl: 'http://31.220.72.235:8080',
-  apiToken: 'YNDJLHK1xJMjetLswXWKlbFb4agzxItL',
-  tableCanaisTv: '960',
-  tokenCanaisTv: 'J85ZVuxAYiOdSQocIk7pnvDUUMznY6og',
-  tableConteudos: '1157',
-  tableEpisodios: '1158',
-  tableUsuarios: '1165',
-  tableCategoriasTV: '1159',
+  apiToken: 'GdbNYJHQHQVLqiu6l4AmDIflycrcppPw',
+  tableCanaisTv: '1302', // Tabela ativa configurada pelo usuário (e fallback 909)
+  tokenCanaisTv: 'GdbNYJHQHQVLqiu6l4AmDIflycrcppPw',
+  tableConteudos: '1295', // Tabela ativa de conteúdos (e fallback 917)
+  tableEpisodios: '1296', // Tabela ativa de episódios (e fallback 911)
+  tableUsuarios: '1297', // Tabela ativa de usuários (e fallback 889)
+  tableCategoriasTV: '1310',
   defaultUser: 'demo',
   defaultPass: '123456'
 };
 
-// Cache de configurações (5 min)
+// Sanitizador de texto para tags e metadados M3U
+function sanitizeM3uText(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/"/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Parser universal de datas (ISO: 2026-01-24T01:07:45Z, SQL: 2026-06-11 04:23:42, YYYY-MM-DD e DD/MM/YYYY)
+function parseUserDate(val) {
+  if (!val) return null;
+  if (typeof val === 'object' && val !== null) {
+    if (val.value) val = val.value;
+    else if (val.date) val = val.date;
+  }
+  const s = String(val).trim();
+  if (!s) return null;
+
+  // Timestamp numérico
+  if (/^\d+$/.test(s)) {
+    const num = Number(s);
+    return new Date(num > 10000000000 ? num : num * 1000);
+  }
+
+  // DD/MM/YYYY ou DD/MM/YYYY HH:mm:ss
+  const brMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (brMatch) {
+    const dia = brMatch[1].padStart(2, '0');
+    const mes = brMatch[2].padStart(2, '0');
+    const ano = brMatch[3];
+    const hora = (brMatch[4] || '23').padStart(2, '0');
+    const min = (brMatch[5] || '59').padStart(2, '0');
+    const seg = (brMatch[6] || '59').padStart(2, '0');
+    return new Date(`${ano}-${mes}-${dia}T${hora}:${min}:${seg}Z`);
+  }
+
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    return new Date(`${s}T23:59:59Z`);
+  }
+
+  // YYYY-MM-DD HH:mm:ss
+  const sqlMatch = s.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{1,2}(?::\d{1,2})?)/);
+  if (sqlMatch) {
+    return new Date(`${sqlMatch[1]}T${sqlMatch[2]}Z`);
+  }
+
+  // ISO 8601 (ex: 2026-01-24T01:07:45Z, 2026-02-14T23:04:17.151859Z)
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d;
+  return null;
+}
+
+// Cache de configurações (60s)
 let cachedConfig = null;
 let configExpiresAt = 0;
 
@@ -52,33 +107,63 @@ async function getActiveConfig() {
     return cachedConfig;
   }
 
+  let baseCfg = { ...FALLBACK_CONFIG };
+
   try {
     const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/globalConfig/xtreamConfig?key=${FIREBASE_API_KEY}`;
     const resp = await fetch(url);
     if (resp.ok) {
       const doc = await resp.json();
       const f = doc.fields || {};
-      cachedConfig = {
-        baseUrl: f.baseUrl?.stringValue || FALLBACK_CONFIG.baseUrl,
-        apiToken: f.apiToken?.stringValue || FALLBACK_CONFIG.apiToken,
-        tableCanaisTv: f.tableCanaisTv?.stringValue || FALLBACK_CONFIG.tableCanaisTv,
-        tokenCanaisTv: f.tokenCanaisTv?.stringValue || f.apiToken?.stringValue || FALLBACK_CONFIG.tokenCanaisTv,
-        tableConteudos: f.tableConteudos?.stringValue || FALLBACK_CONFIG.tableConteudos,
-        tableEpisodios: f.tableEpisodios?.stringValue || FALLBACK_CONFIG.tableEpisodios,
-        tableUsuarios: f.tableUsuarios?.stringValue || FALLBACK_CONFIG.tableUsuarios,
-        tableCategoriasTV: f.tableCategoriasTV?.stringValue || FALLBACK_CONFIG.tableCategoriasTV,
-        defaultUser: f.defaultUser?.stringValue || FALLBACK_CONFIG.defaultUser,
-        defaultPass: f.defaultPass?.stringValue || FALLBACK_CONFIG.defaultPass,
-      };
-      configExpiresAt = now + 300000; // 5 minutos
-      return cachedConfig;
+      if (f.baseUrl?.stringValue) baseCfg.baseUrl = f.baseUrl.stringValue;
+      if (f.apiToken?.stringValue) baseCfg.apiToken = f.apiToken.stringValue;
+      if (f.tableCanaisTv?.stringValue) baseCfg.tableCanaisTv = f.tableCanaisTv.stringValue;
+      if (f.tokenCanaisTv?.stringValue) baseCfg.tokenCanaisTv = f.tokenCanaisTv.stringValue;
+      else if (f.apiToken?.stringValue) baseCfg.tokenCanaisTv = f.apiToken.stringValue;
+      if (f.tableConteudos?.stringValue) baseCfg.tableConteudos = f.tableConteudos.stringValue;
+      if (f.tableEpisodios?.stringValue) baseCfg.tableEpisodios = f.tableEpisodios.stringValue;
+      if (f.tableUsuarios?.stringValue) baseCfg.tableUsuarios = f.tableUsuarios.stringValue;
+      if (f.tableCategoriasTV?.stringValue) baseCfg.tableCategoriasTV = f.tableCategoriasTV.stringValue;
+      if (f.defaultUser?.stringValue) baseCfg.defaultUser = f.defaultUser.stringValue;
+      if (f.defaultPass?.stringValue) baseCfg.defaultPass = f.defaultPass.stringValue;
     }
   } catch (err) {
-    console.warn('[xtream-api] Erro ao carregar config do Firestore, usando fallback:', err?.message);
+    console.warn('[xtream-api] Erro ao carregar xtreamConfig do Firestore:', err?.message);
   }
 
-  cachedConfig = { ...FALLBACK_CONFIG };
-  configExpiresAt = now + 120000;
+  // Se tableCanaisTv ainda for vazia, consultar userConfigs no Firestore
+  if (!baseCfg.tableCanaisTv) {
+    try {
+      const uUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/userConfigs?key=${FIREBASE_API_KEY}&pageSize=10`;
+      const uResp = await fetch(uUrl);
+      if (uResp.ok) {
+        const uData = await uResp.json();
+        if (uData.documents && uData.documents.length > 0) {
+          for (const uDoc of uData.documents) {
+            const uFields = uDoc.fields || {};
+            const tIds = uFields.tableIds?.mapValue?.fields || {};
+            if (tIds.canaisTv?.stringValue) {
+              baseCfg.tableCanaisTv = tIds.canaisTv.stringValue;
+              if (tIds.conteudos?.stringValue) baseCfg.tableConteudos = tIds.conteudos.stringValue;
+              if (tIds.episodios?.stringValue) baseCfg.tableEpisodios = tIds.episodios.stringValue;
+              if (tIds.usuarios?.stringValue) baseCfg.tableUsuarios = tIds.usuarios.stringValue;
+              if (uFields.baseUrl?.stringValue) baseCfg.baseUrl = uFields.baseUrl.stringValue;
+              if (uFields.apiToken?.stringValue) {
+                baseCfg.apiToken = uFields.apiToken.stringValue;
+                baseCfg.tokenCanaisTv = uFields.apiToken.stringValue;
+              }
+              break;
+            }
+          }
+        }
+      }
+    } catch (uErr) {
+      console.warn('[xtream-api] Erro ao verificar userConfigs:', uErr?.message);
+    }
+  }
+
+  cachedConfig = baseCfg;
+  configExpiresAt = now + 60000; // 1 minuto de cache
   return cachedConfig;
 }
 
@@ -279,6 +364,129 @@ async function getUsuariosCached(config) {
   return usuarios;
 }
 
+// 5. Validador Centralizado de Usuário com Cálculo Rigoroso de DataCriacao, Vencimento e Limite
+async function validateUser(config, username, password) {
+  const targetUser = String(username || '').trim().toLowerCase();
+  const cleanPass = String(password || '').trim();
+
+  if (!targetUser) {
+    return { ok: false, status: 'Disabled', message: 'Usuário e senha são obrigatórios' };
+  }
+
+  const isMasterDemo = (targetUser === String(config.defaultUser || 'demo').toLowerCase() || targetUser === 'demo') &&
+                       (!cleanPass || cleanPass === String(config.defaultPass || '123456') || cleanPass === '123456');
+
+  if (isMasterDemo) {
+    return {
+      ok: true,
+      user: { Nome: 'demo', Status: 'Ativo', Limite: '1' },
+      expTimestamp: Math.floor(Date.now() / 1000) + (365 * 24 * 3600),
+      criacaoTimestamp: Math.floor(Date.now() / 1000) - 86400,
+      maxConnections: '1',
+      status: 'Active'
+    };
+  }
+
+  // 1. Busca rápida por busca no Baserow
+  let candidateUsers = await fetchBaserowRows(config.baseUrl, config.tableUsuarios, config.apiToken, 25, targetUser);
+  if (candidateUsers.length === 0) {
+    candidateUsers = await getUsuariosCached(config);
+  }
+  // Se ainda não encontrou e a tabela padrão for diferente de 889, tentar na tabela 889
+  if (candidateUsers.length === 0 && config.tableUsuarios !== '889') {
+    candidateUsers = await fetchBaserowRows(FALLBACK_CONFIG.baseUrl, '889', FALLBACK_CONFIG.tokenCanaisTv || FALLBACK_CONFIG.apiToken, 25, targetUser);
+  }
+
+  const matchedUser = candidateUsers.find(u => {
+    const uNome = String(extractField(u, ['nome', 'usuario'])).trim().toLowerCase();
+    const uEmail = String(extractField(u, ['email'])).trim().toLowerCase();
+    return uNome === targetUser || uEmail === targetUser || uNome.replace(/\s+/g, '_') === targetUser || uNome.replace(/[^a-z0-9]/g, '') === targetUser;
+  });
+
+  if (!matchedUser) {
+    return { ok: false, status: 'Disabled', message: 'Usuário não encontrado no sistema' };
+  }
+
+  // 2. Validar Senha
+  const uSenha = String(extractField(matchedUser, ['senha', 'password', 'pin'])).trim();
+  if (cleanPass && uSenha && cleanPass !== uSenha) {
+    return { ok: false, status: 'Disabled', message: 'Senha incorreta para o usuário informado' };
+  }
+
+  // 3. Validar Status do Usuário
+  const uStatus = String(extractField(matchedUser, ['status', 'ativo']) || 'Ativo').trim().toLowerCase();
+  if (['inativo', 'bloqueado', 'suspenso', 'cancelado', 'desativado'].includes(uStatus)) {
+    return {
+      ok: false,
+      status: 'Disabled',
+      message: 'Sua conta está bloqueada ou inativa no sistema. Entre em contato com o suporte.'
+    };
+  }
+
+  // 4. Validar DataCriacao e Vencimento (Suporta: 2026-01-24T01:07:45Z, 2026-06-11 04:23:42, YYYY-MM-DD, DD/MM/YYYY)
+  const rawCriacao = extractField(matchedUser, ['datacriacao', 'data_criacao', 'criado_em', 'createdat', 'data']);
+  const rawVencimento = extractField(matchedUser, ['vencimento', 'data_vencimento', 'validade', 'expiracao', 'exp_date']);
+
+  const criacaoDate = parseUserDate(rawCriacao) || new Date(Date.now() - 86400000);
+  let vencDate = parseUserDate(rawVencimento);
+
+  // Se vencimento não foi preenchido, calcular período padrão a partir da data de criação
+  if (!vencDate) {
+    if (['grátis', 'gratis', 'teste'].includes(uStatus)) {
+      vencDate = new Date(criacaoDate.getTime() + (30 * 24 * 3600 * 1000));
+    } else {
+      vencDate = new Date(criacaoDate.getTime() + (30 * 24 * 3600 * 1000));
+    }
+  }
+
+  const nowMs = Date.now();
+
+  // A. Fora da data: Se a data de criação/início for no futuro (mais de 1 min à frente)
+  if (criacaoDate && nowMs < criacaoDate.getTime() - 60000) {
+    const dataInicioFmt = criacaoDate.toLocaleDateString('pt-BR');
+    const horaInicioFmt = criacaoDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const horaStr = (horaInicioFmt && horaInicioFmt !== '00:00' && horaInicioFmt !== '23:59') ? ` às ${horaInicioFmt}` : '';
+    return {
+      ok: false,
+      status: 'NotActive',
+      message: `Acesso ainda não iniciado. Válido a partir de ${dataInicioFmt}${horaStr}.`,
+      expTimestamp: vencDate ? Math.floor(vencDate.getTime() / 1000) : 0,
+      criacaoTimestamp: Math.floor(criacaoDate.getTime() / 1000)
+    };
+  }
+
+  // B. Fora da data: Se a data de vencimento já expirou (Bloqueia login e encerra lista)
+  if (vencDate && nowMs > vencDate.getTime()) {
+    const dataVencFmt = vencDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const horaVencFmt = vencDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const horaStr = (horaVencFmt && horaVencFmt !== '00:00' && horaVencFmt !== '23:59') ? ` às ${horaVencFmt}` : '';
+    return {
+      ok: false,
+      status: 'Expired',
+      message: `Acesso expirado em ${dataVencFmt}${horaStr}. Renove sua assinatura para continuar assistindo.`,
+      expTimestamp: Math.floor(vencDate.getTime() / 1000),
+      criacaoTimestamp: Math.floor(criacaoDate.getTime() / 1000)
+    };
+  }
+
+  // C. Usuário Válido e Ativo dentro do período!
+  const expTimestamp = vencDate ? Math.floor(vencDate.getTime() / 1000) : Math.floor(Date.now() / 1000) + (30 * 86400);
+  const criacaoTimestamp = Math.floor(criacaoDate.getTime() / 1000);
+  const rawLimite = extractField(matchedUser, ['limite', 'conexoes', 'max_connections', 'telas']);
+  const maxConnections = String(rawLimite && !isNaN(Number(rawLimite)) && Number(rawLimite) > 0 ? Number(rawLimite) : 1);
+
+  return {
+    ok: true,
+    user: matchedUser,
+    status: 'Active',
+    expTimestamp,
+    criacaoTimestamp,
+    maxConnections,
+    vencDate,
+    criacaoDate
+  };
+}
+
 export default async function handler(req, res) {
   // CORS permissivo para reprodutores IPTV
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -327,9 +535,18 @@ export default async function handler(req, res) {
 
   if (liveMatch || streamType) {
     const type = liveMatch ? liveMatch[1] : streamType;
+    const streamUser = liveMatch ? decodeURIComponent(liveMatch[2]) : username;
+    const streamPass = liveMatch ? decodeURIComponent(liveMatch[3]) : password;
     const rawId = liveMatch ? liveMatch[4] : streamId.replace(/\.[a-zA-Z0-9]+$/, '');
-    const cacheKey = `${type}_${rawId}`;
 
+    // VALIDAÇÃO RIGOROSA DE EXPIRAÇÃO NO STREAM
+    const authStream = await validateUser(config, streamUser, streamPass);
+    if (!authStream.ok) {
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      return res.status(403).send(`[ACESSO NEGADO] ${authStream.message}`);
+    }
+
+    const cacheKey = `${type}_${rawId}`;
     let targetUrl = STREAM_URL_CACHE.get(cacheKey);
 
     // Se não estiver no cache em memória, carregar apenas a tabela específica
@@ -374,6 +591,8 @@ export default async function handler(req, res) {
       status: 'online',
       name: 'Painel Baserow Xtream Codes Bridge - High Performance v3.0',
       active_filter: contentFilter,
+      channels_table: config.tableCanaisTv,
+      users_table: config.tableUsuarios,
       filter_options: {
         all: 'Canais de TV + Filmes + Séries (Padrão)',
         tv: 'Apenas Canais de TV Ao Vivo (&content=tv)',
@@ -389,54 +608,44 @@ export default async function handler(req, res) {
   }
 
   // -------------------------------------------------------------
-  // AUTENTICAÇÃO DO USUÁRIO
+  // AUTENTICAÇÃO DO USUÁRIO & VALIDAÇÃO DE DATACRIACAO E VENCIMENTO
   // -------------------------------------------------------------
-  const targetUser = username.toLowerCase();
-  const isMasterDemo = (targetUser === config.defaultUser.toLowerCase() || targetUser === 'demo') &&
-                       (!password || password === config.defaultPass || password === '123456');
+  const authResult = await validateUser(config, username, password);
 
-  let matchedUser = null;
-  if (!isMasterDemo) {
-    const usuarios = await getUsuariosCached(config);
-    if (usuarios.length > 0) {
-      matchedUser = usuarios.find(u => {
-        const uNome = String(extractField(u, ['nome', 'usuario', 'email'])).trim().toLowerCase();
-        const uSenha = String(extractField(u, ['senha', 'password'])).trim();
-        const userMatches = uNome === targetUser || uNome.replace(/\s+/g, '_') === targetUser || uNome.replace(/[^a-z0-9]/g, '') === targetUser;
-        const passMatches = !password || uSenha === password;
-        return userMatches && passMatches;
-      });
+  if (!authResult.ok) {
+    if (rawUrl.includes('/get.php')) {
+      res.setHeader('Content-Type', 'audio/x-mpegurl; charset=utf-8');
+      return res.status(403).send(
+        `#EXTM3U\n` +
+        `#EXTINF:-1 tvg-id="aviso-expirado" tvg-name="[AVISO] ${authResult.status.toUpperCase()}" group-title="AVISOS",[AVISO] ${authResult.message}\n` +
+        `http://painel/aviso-expirado\n`
+      );
     }
-  }
 
-  const isAuthenticated = isMasterDemo || Boolean(matchedUser) || (username.length >= 3 && password.length >= 3);
-
-  if (!isAuthenticated && !rawUrl.includes('/get.php')) {
-    return res.status(401).json({
+    return res.status(200).json({
       user_info: {
         auth: 0,
-        status: 'Disabled',
-        message: 'Usuário ou senha incorretos'
+        status: authResult.status || 'Disabled',
+        message: authResult.message,
+        exp_date: String(authResult.expTimestamp || 0),
+        created_at: String(authResult.criacaoTimestamp || 0),
+        max_connections: '0',
+        is_trial: '0',
+        active_cons: '0'
       }
     });
   }
 
-  // Data de validade
-  let expTimestamp = Math.floor(Date.now() / 1000) + (365 * 24 * 3600);
-  if (matchedUser) {
-    const venc = extractField(matchedUser, ['vencimento', 'validade', 'expiracao']);
-    if (venc) {
-      const d = new Date(venc);
-      if (!isNaN(d.getTime())) expTimestamp = Math.floor(d.getTime() / 1000);
-    }
-  }
+  const expTimestamp = authResult.expTimestamp;
+  const criacaoTimestamp = authResult.criacaoTimestamp;
+  const maxConnections = authResult.maxConnections;
 
   const hostHeader = req.headers.host || 'tibimmanagerpainel.shop';
   const protocol = req.headers['x-forwarded-proto'] || (hostHeader.includes('localhost') ? 'http' : 'https');
   const serverPort = hostHeader.includes(':') ? hostHeader.split(':')[1] : (protocol === 'https' ? '443' : '80');
 
   // -------------------------------------------------------------
-  // 1. GERAÇÃO DE LISTA M3U DINÂMICA PROFISSIONAL (/get.php)
+  // 1. GERAÇÃO DE LISTA M3U DINÂMICA PROFISSIONAL (/get.php) COM SINOPSE
   // -------------------------------------------------------------
   if (rawUrl.includes('/get.php')) {
     res.setHeader('Content-Type', 'audio/x-mpegurl; charset=utf-8');
@@ -449,7 +658,8 @@ export default async function handler(req, res) {
 
     let m3u = `#EXTM3U name="Lista IPTV Profissional - ${filterLabel}"\n`;
     m3u += `## Gerado via Painel Xtream Codes | Servidor: ${hostHeader}\n`;
-    m3u += `## Modo de Conteudo: ${filterLabel}\n\n`;
+    m3u += `## Modo de Conteudo: ${filterLabel}\n`;
+    m3u += `## Cliente: ${username || 'demo'} | Validade: ${new Date(expTimestamp * 1000).toLocaleDateString('pt-BR')}\n\n`;
 
     // ---------------------------------------------------------
     // BLOCO 1: CANAIS DE TV AO VIVO (SOMENTE SE isTvAllowed)
@@ -460,7 +670,6 @@ export default async function handler(req, res) {
       m3u += `### [SEÇÃO 1] CANAIS DE TV AO VIVO (${canais.length})\n`;
       m3u += `### =========================================\n\n`;
 
-      // Ordenar por categoria e depois por nome
       const canaisOrdenados = [...canais].sort((a, b) => {
         const catA = formatCategory(extractField(a, ['categoria', 'canalCategoria']), 'tv');
         const catB = formatCategory(extractField(b, ['categoria', 'canalCategoria']), 'tv');
@@ -475,16 +684,20 @@ export default async function handler(req, res) {
         const link = extractStreamUrl(c);
         const capa = extractField(c, ['capa', 'canalCapa']);
         const cat = formatCategory(extractField(c, ['categoria', 'canalCategoria']), 'tv');
+        const sinopse = extractField(c, ['sinopse', 'plot', 'descricao', 'description', 'canalSinopse']);
+        const cleanSinopse = sanitizeM3uText(sinopse);
 
         if (link) {
           const logoAttr = capa ? ` tvg-logo="${capa}"` : '';
-          m3u += `#EXTINF:-1 tvg-id="${c.id}" tvg-name="${nome}"${logoAttr} group-title="${cat}",${nome}\n${link}\n\n`;
+          const plotAttr = cleanSinopse ? ` tvg-plot="${cleanSinopse}" tvg-description="${cleanSinopse}" description="${cleanSinopse}" plot="${cleanSinopse}"` : '';
+
+          m3u += `#EXTINF:-1 tvg-id="${c.id}" tvg-name="${nome}"${logoAttr}${plotAttr} group-title="${cat}",${nome}\n${link}\n\n`;
         }
       });
     }
 
     // ---------------------------------------------------------
-    // BLOCO 2: FILMES VOD (SOMENTE SE isMoviesAllowed)
+    // BLOCO 2: FILMES VOD (SOMENTE SE isMoviesAllowed) COM SINOPSE
     // ---------------------------------------------------------
     if (isMoviesAllowed) {
       const conteudos = await getConteudosCached(config);
@@ -511,18 +724,33 @@ export default async function handler(req, res) {
         const link = extractStreamUrl(f);
         const capa = extractField(f, ['capa', 'poster']);
         const cat = formatCategory(extractField(f, ['categoria', 'genero']), 'movie');
+        const sinopse = extractField(f, ['sinopse', 'plot', 'descricao', 'description', 'overview']);
+        const cleanSinopse = sanitizeM3uText(sinopse);
 
         if (link) {
           const logoAttr = capa ? ` tvg-logo="${capa}"` : '';
-          m3u += `#EXTINF:-1 tvg-id="m-${f.id}" tvg-name="${nome}"${logoAttr} group-title="${cat}",${nome}\n${link}\n\n`;
+          const plotAttr = cleanSinopse ? ` tvg-plot="${cleanSinopse}" tvg-description="${cleanSinopse}" description="${cleanSinopse}" plot="${cleanSinopse}"` : '';
+
+          m3u += `#EXTINF:-1 tvg-id="m-${f.id}" tvg-name="${nome}"${logoAttr}${plotAttr} group-title="${cat}",${nome}\n${link}\n\n`;
         }
       });
     }
 
     // ---------------------------------------------------------
-    // BLOCO 3: SÉRIES & EPISÓDIOS (SOMENTE SE isSeriesAllowed)
+    // BLOCO 3: SÉRIES & EPISÓDIOS (SOMENTE SE isSeriesAllowed) COM SINOPSE
     // ---------------------------------------------------------
     if (isSeriesAllowed) {
+      // Mapear sinopse das séries para preencher nos episódios
+      const conteudos = await getConteudosCached(config);
+      const serieSinopseMap = new Map();
+      conteudos.forEach(c => {
+        const sNome = String(extractField(c, ['nome', 'titulo']) || '').trim().toLowerCase();
+        const sSinopse = extractField(c, ['sinopse', 'plot', 'descricao', 'description', 'overview']);
+        if (sNome && sSinopse) {
+          serieSinopseMap.set(sNome, sanitizeM3uText(sSinopse));
+        }
+      });
+
       const episodios = await getEpisodiosCached(config);
 
       m3u += `### =========================================\n`;
@@ -548,6 +776,8 @@ export default async function handler(req, res) {
         const num = String(extractField(e, ['episodio', 'episodios']) || '1').padStart(2, '0');
         const link = extractStreamUrl(e);
         const capa = extractField(e, ['capa']) || '';
+        const epSinopse = extractField(e, ['sinopse', 'plot', 'descricao', 'description', 'overview']);
+        const cleanSinopse = sanitizeM3uText(epSinopse) || serieSinopseMap.get(String(serie).trim().toLowerCase()) || '';
 
         const sTag = `S${temp}E${num}`;
         const finalTitle = nomeEp && nomeEp !== serie ? `${serie} ${sTag} - ${nomeEp}` : `${serie} ${sTag}`;
@@ -555,7 +785,9 @@ export default async function handler(req, res) {
 
         if (link) {
           const logoAttr = capa ? ` tvg-logo="${capa}"` : '';
-          m3u += `#EXTINF:-1 tvg-id="ep-${e.id}" tvg-name="${finalTitle}"${logoAttr} group-title="${groupCat}",${finalTitle}\n${link}\n\n`;
+          const plotAttr = cleanSinopse ? ` tvg-plot="${cleanSinopse}" tvg-description="${cleanSinopse}" description="${cleanSinopse}" plot="${cleanSinopse}"` : '';
+
+          m3u += `#EXTINF:-1 tvg-id="ep-${e.id}" tvg-name="${finalTitle}"${logoAttr}${plotAttr} group-title="${groupCat}",${finalTitle}\n${link}\n\n`;
         }
       });
     }
@@ -577,8 +809,8 @@ export default async function handler(req, res) {
         exp_date: String(expTimestamp),
         is_trial: '0',
         active_cons: '0',
-        created_at: String(Math.floor(Date.now() / 1000) - 86400),
-        max_connections: '5',
+        created_at: String(criacaoTimestamp),
+        max_connections: maxConnections,
         allowed_output_formats: ['m3u8', 'ts', 'rtmp', 'mp4', 'mkv']
       },
       server_info: {
@@ -747,6 +979,68 @@ export default async function handler(req, res) {
   }
 
   // -------------------------------------------------------------
+  // 6.1 DETALHES DE UM FILME VOD (get_vod_info)
+  // -------------------------------------------------------------
+  if (action === 'get_vod_info') {
+    const vodId = String(query.vod_id || body.vod_id || '').trim();
+    if (!vodId) return res.status(200).json({});
+
+    const conteudos = await getConteudosCached(config);
+    const filme = conteudos.find(c => String(c.id) === vodId);
+    if (!filme) return res.status(404).json({ error: 'Filme não encontrado' });
+
+    const nome = extractField(filme, ['nome', 'titulo']) || `Filme ${filme.id}`;
+    const capa = extractField(filme, ['capa', 'poster']);
+    const sinopse = sanitizeM3uText(extractField(filme, ['sinopse', 'plot', 'descricao', 'description', 'overview']));
+    const link = extractStreamUrl(filme);
+    let ext = 'mp4';
+    if (link && link.includes('.mkv')) ext = 'mkv';
+    if (link && link.includes('.m3u8')) ext = 'm3u8';
+    const cat = formatCategory(extractField(filme, ['categoria', 'genero']), 'movie');
+
+    return res.status(200).json({
+      info: {
+        movie_image: capa,
+        name: nome,
+        o_name: nome,
+        cover_big: capa,
+        release_date: extractField(filme, ['ano', 'data']) || '2026',
+        episode_run_time: 120,
+        youtube_trailer: extractField(filme, ['trailer']) || '',
+        director: extractField(filme, ['diretor', 'director']) || '',
+        actors: extractField(filme, ['elenco', 'cast']) || '',
+        cast: extractField(filme, ['elenco', 'cast']) || '',
+        description: sinopse,
+        plot: sinopse,
+        age: '',
+        mpaa_rating: '',
+        rating_count_kinopoisk: 0,
+        country: '',
+        genre: cat,
+        backdrop_path: [extractField(filme, ['capa_de_fundo', 'backdrop']) || capa],
+        duration_secs: 7200,
+        duration: '02:00:00',
+        video: {},
+        audio: {},
+        bitrate: 0,
+        rating: String(extractField(filme, ['imdb', 'rating']) || '7.5'),
+        tmdb_id: extractField(filme, ['tmdb', 'tmdb_id']) || ''
+      },
+      movie_data: {
+        stream_id: filme.id,
+        name: nome,
+        title: nome,
+        year: extractField(filme, ['ano', 'data']) || '2026',
+        added: String(Math.floor(Date.now() / 1000)),
+        category_id: '1',
+        container_extension: ext,
+        custom_sid: '',
+        direct_source: link
+      }
+    });
+  }
+
+  // -------------------------------------------------------------
   // 7. CATEGORIAS DE SÉRIES
   // -------------------------------------------------------------
   if (action === 'get_series_categories') {
@@ -806,7 +1100,7 @@ export default async function handler(req, res) {
           name: extractField(s, ['nome', 'titulo']) || `Série ${s.id}`,
           series_id: s.id,
           cover: extractField(s, ['capa', 'poster']),
-          plot: extractField(s, ['sinopse', 'plot']),
+          plot: sanitizeM3uText(extractField(s, ['sinopse', 'plot', 'descricao', 'overview'])),
           cast: extractField(s, ['elenco', 'cast']),
           director: extractField(s, ['diretor', 'director']),
           genre: cat,
@@ -841,6 +1135,7 @@ export default async function handler(req, res) {
     const conteudos = await getConteudosCached(config);
     const serieDoc = conteudos.find(c => String(c.id) === targetSeriesId) || conteudos.find(c => String(c.id).toLowerCase() === targetSeriesId.toLowerCase());
     const serieName = serieDoc ? extractField(serieDoc, ['nome', 'titulo']) : '';
+    const serieSinopse = serieDoc ? sanitizeM3uText(extractField(serieDoc, ['sinopse', 'plot', 'descricao', 'overview'])) : '';
 
     let matchingEps = [];
     if (serieName) {
@@ -867,6 +1162,7 @@ export default async function handler(req, res) {
       const sNum = String(extractField(e, ['temporada', 'temporadas']) || '1');
       const epNum = String(extractField(e, ['episodio', 'episodios']) || '1');
       const epNome = extractField(e, ['nome', 'episodioNome']) || `Episódio ${epNum}`;
+      const epSinopse = sanitizeM3uText(extractField(e, ['sinopse', 'plot', 'descricao', 'overview'])) || serieSinopse;
       const link = extractStreamUrl(e);
       let ext = 'mp4';
       if (link && link.includes('.mkv')) ext = 'mkv';
@@ -879,7 +1175,7 @@ export default async function handler(req, res) {
           episode_count: 0,
           id: Number(sNum) || 1,
           name: `Temporada ${sNum}`,
-          overview: '',
+          overview: serieSinopse,
           season_number: Number(sNum) || 1,
           cover: serieDoc ? extractField(serieDoc, ['capa', 'poster']) : ''
         });
@@ -893,7 +1189,7 @@ export default async function handler(req, res) {
         info: {
           duration_secs: 2700,
           duration: '45 min',
-          plot: '',
+          plot: epSinopse,
           rating: '8.0'
         },
         custom_sid: '',
@@ -913,7 +1209,7 @@ export default async function handler(req, res) {
       info: {
         name: serieName || 'Série',
         cover: serieDoc ? extractField(serieDoc, ['capa', 'poster']) : '',
-        plot: serieDoc ? extractField(serieDoc, ['sinopse', 'plot']) : '',
+        plot: serieSinopse,
         genre: serieDoc ? formatCategory(extractField(serieDoc, ['categoria', 'genero']), 'series') : 'SÉRIES',
         releaseDate: serieDoc ? extractField(serieDoc, ['ano', 'data']) || '2026' : '2026'
       },

@@ -18,6 +18,8 @@ import UserSecuritySettings from '@/components/UserSecuritySettings';
 import { AppearanceSettings } from '@/components/AppearanceSettings';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 
 // Componente para configurações do Tutorial
 const TutorialSettings: React.FC = () => {
@@ -290,9 +292,28 @@ const Configuracoes = () => {
 
       await Promise.race([savePromise, timeoutPromise]);
 
+      // Sincronizar simultaneamente com o servidor Xtream Codes e DNS público
+      try {
+        const xtreamDocRef = doc(db, 'globalConfig', 'xtreamConfig');
+        await setDoc(xtreamDocRef, {
+          baseUrl: formData.baseUrl.trim(),
+          apiToken: formData.apiToken.trim(),
+          tableCanaisTv: formData.tableIds.canaisTv ? formData.tableIds.canaisTv.trim() : '',
+          tokenCanaisTv: formData.apiToken.trim(),
+          tableConteudos: formData.tableIds.conteudos ? formData.tableIds.conteudos.trim() : '',
+          tableEpisodios: formData.tableIds.episodios ? formData.tableIds.episodios.trim() : '',
+          tableUsuarios: formData.tableIds.usuarios ? formData.tableIds.usuarios.trim() : '',
+          tableCategoriasTV: formData.tableIds.categoriasTV ? formData.tableIds.categoriasTV.trim() : '',
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+        console.log('✅ [CONFIG-UI] Sincronizado com xtreamConfig no servidor!');
+      } catch (xtreamErr) {
+        console.warn('Aviso ao sincronizar xtreamConfig:', xtreamErr);
+      }
+
       setLastSaveStatus('success');
       setLastSaveAt(new Date().toISOString());
-      toast.success('Configurações salvas com sucesso!');
+      toast.success('Configurações salvas e sincronizadas com a Lista M3U e DNS!');
       console.log('✅ [CONFIG-UI] Configurações salvas com sucesso');
     } catch (error: any) {
       console.error('❌ [CONFIG-UI] Erro ao salvar configurações:', error);

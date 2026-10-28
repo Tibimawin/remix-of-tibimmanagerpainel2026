@@ -39,7 +39,10 @@ import {
   Code2,
   Terminal,
   Zap,
-  Globe
+  Globe,
+  Calendar,
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -58,6 +61,7 @@ export interface GeneratedItem {
   nome: string;
   categoria: string;
   capa?: string;
+  sinopse?: string;
   streamUrl: string;
   temporada?: string | number;
   episodio?: string | number;
@@ -152,6 +156,80 @@ export default function GeradorM3U() {
       setCustomPassword(String(senha));
     }
   };
+
+  // Usuário do Baserow atualmente selecionado ou digitado
+  const activeUserObj = useMemo(() => {
+    if (selectedUserId && selectedUserId !== 'manual') {
+      return usuarios.find(u => String(u.id) === String(selectedUserId)) || null;
+    }
+    if (customUsername) {
+      const uTarget = customUsername.trim().toLowerCase();
+      return usuarios.find(u => {
+        const nome = String(getValueByPossibleKeys(u, 'nome') || getValueByPossibleKeys(u, 'usuario') || '').trim().toLowerCase();
+        return nome === uTarget || nome.replace(/\s+/g, '_') === uTarget || nome.replace(/[^a-z0-9]/g, '') === uTarget;
+      }) || null;
+    }
+    return null;
+  }, [selectedUserId, customUsername, usuarios]);
+
+  // Cálculo detalhado de DataCriacao, Vencimento, Status e Limite de Telas
+  const parsedUserDates = useMemo(() => {
+    if (!activeUserObj) return null;
+    const rawCriacao = getValueByPossibleKeys(activeUserObj, 'dataCriacao') || getValueByPossibleKeys(activeUserObj, 'data_criacao') || getValueByPossibleKeys(activeUserObj, 'criado_em') || getValueByPossibleKeys(activeUserObj, 'data');
+    const rawVencimento = getValueByPossibleKeys(activeUserObj, 'vencimento') || getValueByPossibleKeys(activeUserObj, 'data_vencimento') || getValueByPossibleKeys(activeUserObj, 'validade');
+    const rawLimite = getValueByPossibleKeys(activeUserObj, 'limite') || getValueByPossibleKeys(activeUserObj, 'conexoes') || '1';
+    const rawStatus = String(getValueByPossibleKeys(activeUserObj, 'status') || 'Ativo').trim();
+
+    const parseDateHelper = (val: any): Date | null => {
+      if (!val) return null;
+      const s = String(typeof val === 'object' && val?.value ? val.value : val).trim();
+      if (!s) return null;
+      if (/^\d+$/.test(s)) {
+        const num = Number(s);
+        return new Date(num > 10000000000 ? num : num * 1000);
+      }
+      const brMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+      if (brMatch) {
+        const dia = brMatch[1].padStart(2, '0');
+        const mes = brMatch[2].padStart(2, '0');
+        const ano = brMatch[3];
+        const hora = (brMatch[4] || '23').padStart(2, '0');
+        const min = (brMatch[5] || '59').padStart(2, '0');
+        const seg = (brMatch[6] || '59').padStart(2, '0');
+        return new Date(`${ano}-${mes}-${dia}T${hora}:${min}:${seg}Z`);
+      }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        return new Date(`${s}T23:59:59Z`);
+      }
+      const sqlMatch = s.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{1,2}(?::\d{1,2})?)/);
+      if (sqlMatch) {
+        return new Date(`${sqlMatch[1]}T${sqlMatch[2]}Z`);
+      }
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    };
+
+    const criacaoDate = parseDateHelper(rawCriacao) || new Date();
+    let vencDate = parseDateHelper(rawVencimento);
+    if (!vencDate) {
+      vencDate = new Date(criacaoDate.getTime() + (30 * 24 * 3600 * 1000));
+    }
+
+    const now = Date.now();
+    const isExpired = vencDate ? now > vencDate.getTime() : false;
+    const isFuture = criacaoDate ? now < (criacaoDate.getTime() - 60000) : false;
+
+    return {
+      criacaoDate,
+      vencDate,
+      rawCriacao: String(rawCriacao || 'Automática'),
+      rawVencimento: String(rawVencimento || 'Calculado (30 dias)'),
+      limite: String(rawLimite && !isNaN(Number(rawLimite)) ? Number(rawLimite) : 1),
+      status: rawStatus,
+      isExpired,
+      isFuture
+    };
+  }, [activeUserObj]);
 
   // Sanitizar Host DNS (garantir protocolo e remover barra final)
   const sanitizedDns = useMemo(() => {
@@ -276,6 +354,7 @@ export default function GeradorM3U() {
     setStatusMsg('Conectando ao banco de dados Baserow...');
     const itens: GeneratedItem[] = [];
     const maxPorTipo = parseInt(limitePorTipo, 10);
+    const serieSinopseMap = new Map<string, string>();
 
     try {
       // 1. Canais de TV Ao Vivo (SOMENTE se incluirTV estiver ativo)
@@ -294,6 +373,8 @@ export default function GeradorM3U() {
             const nome = getValueByPossibleKeys(row, 'nome') || getValueByPossibleKeys(row, 'canalNome') || 'Canal Sem Nome';
             const capa = getValueByPossibleKeys(row, 'capa') || getValueByPossibleKeys(row, 'canalCapa') || '';
             const categoria = getValueByPossibleKeys(row, 'categoria') || getValueByPossibleKeys(row, 'canalCategoria') || 'Canais TV';
+            const sinopseRaw = getValueByPossibleKeys(row, 'sinopse') || getValueByPossibleKeys(row, 'canalSinopse') || getValueByPossibleKeys(row, 'descricao') || '';
+            const sinopse = typeof sinopseRaw === 'string' ? sinopseRaw : (typeof sinopseRaw === 'object' && sinopseRaw?.value ? sinopseRaw.value : '');
             const realLink = extractRealStreamUrl(row, 'tv');
 
             if (apenasComLink && !realLink) return;
@@ -304,6 +385,7 @@ export default function GeradorM3U() {
               nome: String(nome).trim(),
               categoria: typeof categoria === 'object' && categoria?.value ? categoria.value : String(categoria || 'Canais TV').trim(),
               capa: typeof capa === 'string' ? capa : (Array.isArray(capa) && capa[0]?.url ? capa[0].url : ''),
+              sinopse,
               streamUrl: realLink,
               valido: Boolean(realLink)
             });
@@ -331,15 +413,22 @@ export default function GeradorM3U() {
           );
           const results = resp.results || [];
           results.forEach(row => {
-            const tipo = String(getValueByPossibleKeys(row, 'tipo') || '').toLowerCase();
-            // Considerar Filme se tipo tiver "film" ou se não for série/anime
-            const isFilme = tipo.includes('film') || (!tipo.includes('seri') && !tipo.includes('anime'));
-            if (!isFilme) return;
-
             const nome = getValueByPossibleKeys(row, 'nome') || 'Filme Sem Nome';
             const capa = getValueByPossibleKeys(row, 'capa') || '';
             const categoria = getValueByPossibleKeys(row, 'categoria') || 'Filmes';
+            const sinopseRaw = getValueByPossibleKeys(row, 'sinopse') || getValueByPossibleKeys(row, 'descricao') || getValueByPossibleKeys(row, 'overview') || '';
+            const sinopse = typeof sinopseRaw === 'string' ? sinopseRaw : (typeof sinopseRaw === 'object' && sinopseRaw?.value ? sinopseRaw.value : '');
             const realLink = extractRealStreamUrl(row, 'filme');
+
+            // Salvar sinopse no mapa para séries
+            const sNomeLower = String(nome).trim().toLowerCase();
+            if (sNomeLower && sinopse) {
+              serieSinopseMap.set(sNomeLower, sinopse);
+            }
+
+            const tipo = String(getValueByPossibleKeys(row, 'tipo') || '').toLowerCase();
+            const isFilme = tipo.includes('film') || (!tipo.includes('seri') && !tipo.includes('anime'));
+            if (!isFilme) return;
 
             if (apenasComLink && !realLink) return;
 
@@ -349,6 +438,7 @@ export default function GeradorM3U() {
               nome: String(nome).trim(),
               categoria: typeof categoria === 'object' && categoria?.value ? categoria.value : String(categoria || 'Filmes').trim(),
               capa: typeof capa === 'string' ? capa : (Array.isArray(capa) && capa[0]?.url ? capa[0].url : ''),
+              sinopse,
               streamUrl: realLink,
               valido: Boolean(realLink)
             });
@@ -380,6 +470,8 @@ export default function GeradorM3U() {
               const nome = getValueByPossibleKeys(row, 'nome') || 'Série Sem Nome';
               const capa = getValueByPossibleKeys(row, 'capa') || '';
               const categoria = getValueByPossibleKeys(row, 'categoria') || 'Séries';
+              const sinopseRaw = getValueByPossibleKeys(row, 'sinopse') || getValueByPossibleKeys(row, 'descricao') || getValueByPossibleKeys(row, 'overview') || '';
+              const sinopse = typeof sinopseRaw === 'string' ? sinopseRaw : (typeof sinopseRaw === 'object' && sinopseRaw?.value ? sinopseRaw.value : '');
               const uEnc = encodeURIComponent(customUsername.trim() || 'demo');
               const pEnc = encodeURIComponent(customPassword.trim() || '123456');
               const streamUrl = `${sanitizedDns}/series/${uEnc}/${pEnc}/${row.id}.mp4`;
@@ -390,6 +482,7 @@ export default function GeradorM3U() {
                 nome: String(nome).trim(),
                 categoria: typeof categoria === 'object' && categoria?.value ? categoria.value : String(categoria || 'Séries').trim(),
                 capa: typeof capa === 'string' ? capa : (Array.isArray(capa) && capa[0]?.url ? capa[0].url : ''),
+                sinopse,
                 streamUrl,
                 valido: true
               });
@@ -418,6 +511,11 @@ export default function GeradorM3U() {
               const temp = getValueByPossibleKeys(row, 'temporada') || getValueByPossibleKeys(row, 'episodioTemporada') || '1';
               const num = getValueByPossibleKeys(row, 'episodio') || getValueByPossibleKeys(row, 'episodioNumero') || '1';
               const capa = getValueByPossibleKeys(row, 'capa') || '';
+              const sinopseRaw = getValueByPossibleKeys(row, 'sinopse') || getValueByPossibleKeys(row, 'descricao') || '';
+              let sinopse = typeof sinopseRaw === 'string' ? sinopseRaw : (typeof sinopseRaw === 'object' && sinopseRaw?.value ? sinopseRaw.value : '');
+              if (!sinopse && serieNome) {
+                sinopse = serieSinopseMap.get(serieNome.toLowerCase()) || '';
+              }
               const realLink = extractRealStreamUrl(row, 'serie');
 
               if (apenasComLink && !realLink) return;
@@ -434,6 +532,7 @@ export default function GeradorM3U() {
                 nome: finalNome.trim(),
                 categoria: serieNome ? `Séries: ${serieNome}` : 'Séries',
                 capa: typeof capa === 'string' ? capa : (Array.isArray(capa) && capa[0]?.url ? capa[0].url : ''),
+                sinopse,
                 streamUrl: realLink,
                 temporada: temp,
                 episodio: num,
@@ -470,8 +569,10 @@ export default function GeradorM3U() {
           const groupAttr = ` group-title="${cleanCat}"`;
           const tvgNameAttr = ` tvg-name="${item.nome.replace(/"/g, "'")}"`;
           const tvgIdAttr = ` tvg-id="${item.id}"`;
+          const cleanSinopse = item.sinopse ? String(item.sinopse).replace(/[\r\n\t]+/g, ' ').replace(/"/g, "'").replace(/\s+/g, ' ').trim() : '';
+          const plotAttr = cleanSinopse ? ` tvg-plot="${cleanSinopse}" tvg-description="${cleanSinopse}" description="${cleanSinopse}" plot="${cleanSinopse}"` : '';
 
-          m3uString += `#EXTINF:-1${tvgIdAttr}${tvgNameAttr}${logoAttr}${groupAttr},${item.nome}\n`;
+          m3uString += `#EXTINF:-1${tvgIdAttr}${tvgNameAttr}${logoAttr}${plotAttr}${groupAttr},${item.nome}\n`;
           m3uString += `${item.streamUrl}\n\n`;
         });
       }
@@ -488,8 +589,10 @@ export default function GeradorM3U() {
           const groupAttr = ` group-title="${cleanCat}"`;
           const tvgNameAttr = ` tvg-name="${item.nome.replace(/"/g, "'")}"`;
           const tvgIdAttr = ` tvg-id="${item.id}"`;
+          const cleanSinopse = item.sinopse ? String(item.sinopse).replace(/[\r\n\t]+/g, ' ').replace(/"/g, "'").replace(/\s+/g, ' ').trim() : '';
+          const plotAttr = cleanSinopse ? ` tvg-plot="${cleanSinopse}" tvg-description="${cleanSinopse}" description="${cleanSinopse}" plot="${cleanSinopse}"` : '';
 
-          m3uString += `#EXTINF:-1${tvgIdAttr}${tvgNameAttr}${logoAttr}${groupAttr},${item.nome}\n`;
+          m3uString += `#EXTINF:-1${tvgIdAttr}${tvgNameAttr}${logoAttr}${plotAttr}${groupAttr},${item.nome}\n`;
           m3uString += `${item.streamUrl}\n\n`;
         });
       }
@@ -506,8 +609,10 @@ export default function GeradorM3U() {
           const groupAttr = ` group-title="${cleanCat}"`;
           const tvgNameAttr = ` tvg-name="${item.nome.replace(/"/g, "'")}"`;
           const tvgIdAttr = ` tvg-id="${item.id}"`;
+          const cleanSinopse = item.sinopse ? String(item.sinopse).replace(/[\r\n\t]+/g, ' ').replace(/"/g, "'").replace(/\s+/g, ' ').trim() : '';
+          const plotAttr = cleanSinopse ? ` tvg-plot="${cleanSinopse}" tvg-description="${cleanSinopse}" description="${cleanSinopse}" plot="${cleanSinopse}"` : '';
 
-          m3uString += `#EXTINF:-1${tvgIdAttr}${tvgNameAttr}${logoAttr}${groupAttr},${item.nome}\n`;
+          m3uString += `#EXTINF:-1${tvgIdAttr}${tvgNameAttr}${logoAttr}${plotAttr}${groupAttr},${item.nome}\n`;
           m3uString += `${item.streamUrl}\n\n`;
         });
       }
@@ -633,13 +738,13 @@ export default function GeradorM3U() {
       const docRef = doc(db, 'globalConfig', 'xtreamConfig');
       await setDoc(docRef, {
         baseUrl: config.baseUrl || 'http://31.220.72.235:8080',
-        apiToken: config.apiToken || 'YNDJLHK1xJMjetLswXWKlbFb4agzxItL',
-        tableCanaisTv: config.tableIds.canaisTv || '960',
-        tokenCanaisTv: config.apiToken || 'J85ZVuxAYiOdSQocIk7pnvDUUMznY6og',
-        tableConteudos: config.tableIds.conteudos || '1157',
-        tableEpisodios: config.tableIds.episodios || '1158',
-        tableUsuarios: config.tableIds.usuarios || '1165',
-        tableCategoriasTV: config.tableIds.categoriasTV || '1159',
+        apiToken: config.apiToken || 'GdbNYJHQHQVLqiu6l4AmDIflycrcppPw',
+        tableCanaisTv: config.tableIds.canaisTv || '1302',
+        tokenCanaisTv: config.apiToken || 'GdbNYJHQHQVLqiu6l4AmDIflycrcppPw',
+        tableConteudos: config.tableIds.conteudos || '1295',
+        tableEpisodios: config.tableIds.episodios || '1296',
+        tableUsuarios: config.tableIds.usuarios || '1297',
+        tableCategoriasTV: config.tableIds.categoriasTV || '1310',
         defaultUser: customUsername.trim() || 'demo',
         defaultPass: customPassword.trim() || '123456',
         updatedAt: new Date().toISOString()
@@ -704,12 +809,28 @@ export default function GeradorM3U() {
       } catch (e) {}
 
       const isAuthOk = apiResp?.user_info?.auth === 1;
+      const userInfo = apiResp?.user_info || {};
+
+      const formatUnixOrIso = (val: any) => {
+        if (!val) return null;
+        if (/^\d+$/.test(String(val))) {
+          const num = Number(val);
+          return new Date(num > 10000000000 ? num : num * 1000).toLocaleString('pt-BR');
+        }
+        const d = new Date(val);
+        return isNaN(d.getTime()) ? String(val) : d.toLocaleString('pt-BR');
+      };
 
       const result = {
         sucesso: isAuthOk,
         usuario: customUsername,
         senha: customPassword,
-        status: isAuthOk ? 'Ativo' : 'Não autenticado',
+        status: userInfo.status || (isAuthOk ? 'Active' : 'Não autenticado / Bloqueado'),
+        motivo: userInfo.message || (isAuthOk ? 'Autorizado com sucesso' : 'Falha na autenticação ou fora do período de vigência'),
+        criadoEm: formatUnixOrIso(userInfo.created_at),
+        vencimentoEm: formatUnixOrIso(userInfo.exp_date),
+        limiteConexoes: userInfo.max_connections || '1',
+        isExpired: userInfo.status === 'Expired' || !isAuthOk,
         liveCount,
         vodCount,
         seriesCount,
@@ -719,7 +840,9 @@ export default function GeradorM3U() {
 
       setResultadoTeste(result);
       if (isAuthOk) {
-        toast.success(`Conexão 100% OK! ${liveCount} canais, ${vodCount} filmes e ${seriesCount} séries disponíveis.`);
+        toast.success(`Conexão 100% OK! ${liveCount} canais, ${vodCount} filmes e ${seriesCount} séries.`);
+      } else if (userInfo.status === 'Expired') {
+        toast.error(`Usuário Expirado! Data de vencimento ultrapassada.`);
       } else {
         toast.warning('O servidor respondeu, mas a autenticação falhou.');
       }
@@ -1377,6 +1500,73 @@ export default function GeradorM3U() {
                 </div>
               </div>
 
+              {/* Card de Informações e Validade do Usuário no Baserow */}
+              {parsedUserDates && (
+                <div className={`p-4 rounded-xl border text-xs space-y-3 transition-all ${
+                  parsedUserDates.isExpired
+                    ? 'bg-red-500/10 border-red-500/30 text-red-900 dark:text-red-200'
+                    : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
+                }`}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 font-semibold text-sm">
+                      <User className="w-4 h-4" />
+                      <span>Status da Conta no Baserow:</span>
+                      <Badge variant={parsedUserDates.isExpired ? "destructive" : "default"} className="text-xs">
+                        {parsedUserDates.isExpired ? '⚠️ Vencido / Expirado' : '✅ Válido / Ativo'}
+                      </Badge>
+                    </div>
+                    <Badge variant="outline" className="font-mono text-[11px] bg-background/50">
+                      Limite: {parsedUserDates.limite} {Number(parsedUserDates.limite) > 1 ? 'telas simultâneas' : 'tela'}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                    <div className="p-2.5 rounded-lg bg-background/70 border border-current/20">
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-sky-500" /> Data de Criação
+                      </p>
+                      <p className="font-mono font-bold text-xs mt-0.5 text-foreground">
+                        {parsedUserDates.criacaoDate ? parsedUserDates.criacaoDate.toLocaleString('pt-BR') : parsedUserDates.rawCriacao}
+                      </p>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-background/70 border border-current/20">
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-amber-500" /> Data de Vencimento
+                      </p>
+                      <p className="font-mono font-bold text-xs mt-0.5 text-foreground">
+                        {parsedUserDates.vencDate ? parsedUserDates.vencDate.toLocaleString('pt-BR') : parsedUserDates.rawVencimento}
+                      </p>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-background/70 border border-current/20">
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-1">
+                        <ShieldCheck className="w-3 h-3 text-emerald-500" /> Limite de Telas
+                      </p>
+                      <p className="font-mono font-bold text-xs mt-0.5 text-foreground">
+                        {parsedUserDates.limite} {Number(parsedUserDates.limite) > 1 ? 'conexões simultâneas' : 'conexão simultânea'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {parsedUserDates.isExpired ? (
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-red-500/20 text-red-800 dark:text-red-200 text-[11px] font-medium border border-red-500/30">
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-red-600 dark:text-red-400" />
+                      <span>
+                        <strong>Acesso Bloqueado:</strong> A data de vencimento foi ultrapassada. O login no app e as streams desta lista M3U/Xtream retornarão erro 403 e status &quot;Expired&quot;.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 text-[11px] font-medium border border-emerald-500/30">
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                      <span>
+                        <strong>Acesso Liberado:</strong> O cliente está dentro da vigência cadastrada e poderá reproduzir canais e VOD normalmente até o vencimento.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Seletor de Tipo de Conteúdo no DNS / M3U */}
               <div className="p-4 rounded-xl bg-card border shadow-sm space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1509,6 +1699,30 @@ export default function GeradorM3U() {
                         <span className="text-[11px] opacity-75">{resultadoTeste.timestamp}</span>
                       </div>
 
+                      {/* Informações de Autenticação, Validade e Limites */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2.5 rounded-lg bg-background/70 border border-current/20 text-xs">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase font-semibold">Status Auth</p>
+                          <Badge variant={resultadoTeste.sucesso ? "default" : "destructive"} className="text-[11px] mt-0.5">
+                            {resultadoTeste.status}
+                          </Badge>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase font-semibold">Limite de Telas</p>
+                          <p className="font-mono font-bold text-foreground mt-0.5">{resultadoTeste.limiteConexoes} {Number(resultadoTeste.limiteConexoes) > 1 ? 'conexões' : 'conexão'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase font-semibold">Data Criação</p>
+                          <p className="font-mono font-bold text-foreground mt-0.5">{resultadoTeste.criadoEm || 'Automática'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase font-semibold">Vencimento</p>
+                          <p className={`font-mono font-bold mt-0.5 ${resultadoTeste.isExpired ? 'text-destructive font-black' : 'text-foreground'}`}>
+                            {resultadoTeste.vencimentoEm || 'Calculado'}
+                          </p>
+                        </div>
+                      </div>
+
                       {resultadoTeste.sucesso ? (
                         <>
                           <div className="grid grid-cols-3 gap-2 p-2.5 rounded-lg bg-background/60 border border-emerald-500/20 text-center">
@@ -1539,9 +1753,16 @@ export default function GeradorM3U() {
                           </div>
                         </>
                       ) : (
-                        <p>
-                          O endpoint respondeu com status inválido ou erro de autenticação. Clique em &quot;Sincronizar Servidor Xtream&quot; para atualizar as credenciais do banco.
-                        </p>
+                        <div className="p-3 rounded-lg bg-destructive/15 border border-destructive/30 text-destructive text-xs space-y-1">
+                          <p className="font-semibold flex items-center gap-1.5">
+                            <AlertTriangle className="w-4 h-4 shrink-0" />
+                            Motivo do bloqueio / falha de acesso:
+                          </p>
+                          <p className="font-mono text-[11px]">{resultadoTeste.motivo}</p>
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            {resultadoTeste.isExpired ? 'Este usuário expirou a validade ou a data de criação é futura. Atualize a coluna "Vencimento" na tabela de usuários do Baserow para reativar.' : 'Verifique se o usuário e senha estão corretos na sua tabela "usuarios" do Baserow.'}
+                          </p>
+                        </div>
                       )}
 
                       <details className="text-[11px] font-mono bg-background/80 p-2 rounded border">
