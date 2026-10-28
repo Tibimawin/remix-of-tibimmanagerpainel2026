@@ -47,6 +47,30 @@
       "destination": "/api/xtream"
     },
     {
+      "source": "/u/:account/player_api.php",
+      "destination": "/api/xtream?account=:account"
+    },
+    {
+      "source": "/u/:account/get.php",
+      "destination": "/api/xtream?account=:account"
+    },
+    {
+      "source": "/u/:account/xmltv.php",
+      "destination": "/api/xtream?account=:account"
+    },
+    {
+      "source": "/u/:account/live/:path*",
+      "destination": "/api/xtream?account=:account"
+    },
+    {
+      "source": "/u/:account/movie/:path*",
+      "destination": "/api/xtream?account=:account"
+    },
+    {
+      "source": "/u/:account/series/:path*",
+      "destination": "/api/xtream?account=:account"
+    },
+    {
       "source": "/api/s/:token/:id",
       "destination": "/api/stream-proxy?token=:token&id=:id"
     },

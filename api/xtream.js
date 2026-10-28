@@ -1,30 +1,34 @@
 /**
  * Vercel Serverless Function & Standalone Bridge - Xtream Codes API
  * 
- * Versão 3.0 Profissional:
- * - Separação estrita por tipo: content=tv | content=movies | content=series | content=all
- * - Agrupamento e categorização profissional no padrão mundial IPTV (CANAIS | ..., FILMES | ..., SÉRIES | ...)
- * - Separação em blocos organizados no arquivo M3U (Canais primeiro, Filmes em seguida, Séries no final)
- * - Carregamento segmentado (Lazy Loading) sob demanda (apenas busca canais se a rota for TV, etc.)
- * - Cache em memória de alta performance com suporte a Snapshot no Firestore (escalável para +30k conteúdos)
- * - Redirecionamento 302 direto para streams reais (/live/..., /movie/..., /series/...)
+ * Versão 4.0 Multi-Tenant & Segurança Rigorosa:
+ * - ISOLAMENTO TOTAL POR CONTA: Cada conta de usuário no painel tem suas próprias tabelas Baserow exclusivas.
+ * - ZERO vazamento de conteúdo entre contas: Canais, Filmes, Séries e Usuários são rigorosamente isolados.
+ * - BLOQUEIO ESTRITO DE USUÁRIOS VENCIDOS/EXPIRADOS:
+ *   * Bloqueio imediato no handshake (player_api.php -> auth: 0, status: Disabled)
+ *   * Bloqueio em todas as ações (get_live_streams, get_vod_streams, get_series -> HTTP 403 Forbidden)
+ *   * Bloqueio em reprodução direta (/live/..., /movie/..., /series/... -> HTTP 403 Forbidden)
+ *   * Bloqueio em download de listas (/get.php -> HTTP 403 Forbidden)
+ * - Identificação inteligente de conta via:
+ *   1. Parâmetro explícito (?account={userId} ou &acc={userId})
+ *   2. Rota dedicada (/u/{userId}/player_api.php)
+ *   3. Mapeamento dinâmico no Firestore (username -> accountId)
+ * - Caches independentes segmentados por tabela (Map com chave por tabela/banco)
  */
 
 const FIREBASE_PROJECT_ID = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || 'tibimmanagerpainelvercel';
 const FIREBASE_API_KEY = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY || 'AIzaSyBN7cODHg978T4S2jPvrBsr5sqwZhGidtU';
 
-// Configurações padrão com fallback para o banco ativo do painel
+// Configurações padrão com fallback seguro
 const FALLBACK_CONFIG = {
   baseUrl: 'http://31.220.72.235:8080',
   apiToken: 'GdbNYJHQHQVLqiu6l4AmDIflycrcppPw',
-  tableCanaisTv: '1302', // Tabela ativa configurada pelo usuário (e fallback 909)
+  tableCanaisTv: '1302',
   tokenCanaisTv: 'GdbNYJHQHQVLqiu6l4AmDIflycrcppPw',
-  tableConteudos: '1295', // Tabela ativa de conteúdos (e fallback 917)
-  tableEpisodios: '1296', // Tabela ativa de episódios (e fallback 911)
-  tableUsuarios: '1297', // Tabela ativa de usuários (e fallback 889)
-  tableCategoriasTV: '1310',
-  defaultUser: 'demo',
-  defaultPass: '123456'
+  tableConteudos: '1295',
+  tableEpisodios: '1296',
+  tableUsuarios: '1297',
+  tableCategoriasTV: '1310'
 };
 
 // Sanitizador de texto para tags e metadados M3U
@@ -37,7 +41,7 @@ function sanitizeM3uText(text) {
     .trim();
 }
 
-// Parser universal de datas (ISO: 2026-01-24T01:07:45Z, SQL: 2026-06-11 04:23:42, YYYY-MM-DD e DD/MM/YYYY)
+// Parser universal de datas (ISO: 2026-01-24T01:07:45Z, SQL: 2026-06-11 04:23:42, BR: 14/02/2026, 23:59:59)
 function parseUserDate(val) {
   if (!val) return null;
   if (typeof val === 'object' && val !== null) {
@@ -47,14 +51,14 @@ function parseUserDate(val) {
   const s = String(val).trim();
   if (!s) return null;
 
-  // Timestamp numérico
+  // Timestamp numérico (ms ou segundos)
   if (/^\d+$/.test(s)) {
     const num = Number(s);
     return new Date(num > 10000000000 ? num : num * 1000);
   }
 
-  // DD/MM/YYYY ou DD/MM/YYYY HH:mm:ss
-  const brMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  // DD/MM/YYYY com ou sem vírgula e com ou sem hora (ex: 14/02/2026, 23:59:59 ou 14/02/2026 23:59:59)
+  const brMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[,\s]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
   if (brMatch) {
     const dia = brMatch[1].padStart(2, '0');
     const mes = brMatch[2].padStart(2, '0');
@@ -65,114 +69,235 @@ function parseUserDate(val) {
     return new Date(`${ano}-${mes}-${dia}T${hora}:${min}:${seg}Z`);
   }
 
-  // YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-    return new Date(`${s}T23:59:59Z`);
+  // YYYY-MM-DD com ou sem hora
+  const isoMatch = s.match(/^(\d{4}-\d{2}-\d{2})(?:[T\s]+(\d{1,2}:\d{1,2}(?::\d{1,2})?))?/);
+  if (isoMatch) {
+    const dPart = isoMatch[1];
+    const tPart = isoMatch[2] || '23:59:59';
+    return new Date(`${dPart}T${tPart}Z`);
   }
 
-  // YYYY-MM-DD HH:mm:ss
-  const sqlMatch = s.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{1,2}(?::\d{1,2})?)/);
-  if (sqlMatch) {
-    return new Date(`${sqlMatch[1]}T${sqlMatch[2]}Z`);
-  }
-
-  // ISO 8601 (ex: 2026-01-24T01:07:45Z, 2026-02-14T23:04:17.151859Z)
+  // Fallback ISO padrão
   const d = new Date(s);
   if (!isNaN(d.getTime())) return d;
   return null;
 }
 
-// Cache de configurações (60s)
-let cachedConfig = null;
-let configExpiresAt = 0;
+// Verificador rigoroso de status bloqueado/vencido/inativo
+function isStatusBlocked(statusStr) {
+  if (!statusStr) return false;
+  const norm = String(statusStr).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const blockedKeywords = [
+    'vencid', 'expirad', 'inativ', 'bloquead', 'suspens', 'cancelad', 'desativad',
+    'blocked', 'inactive', 'expired', 'disabled', 'recusad', 'rejeitad'
+  ];
+  return blockedKeywords.some(kw => norm.includes(kw));
+}
 
-// Caches individuais segmentados por tipo para alta performance (+30k conteúdos)
-const SEGMENT_CACHE = {
-  canais: { data: [], expiresAt: 0 },
-  conteudos: { data: [], expiresAt: 0 },
-  episodios: { data: [], expiresAt: 0 },
-  usuarios: { data: [], expiresAt: 0 }
-};
+// -------------------------------------------------------------
+// CACHES ISOLADOS EM MEMÓRIA POR TABELA E CONTA (Zero vazamento)
+// -------------------------------------------------------------
+const ACCOUNT_CONFIG_CACHE = new Map(); // accountId -> { config, expiresAt }
+const USER_TO_ACCOUNT_CACHE = new Map(); // username.toLowerCase() -> { config, expiresAt }
+const SEGMENT_CACHE = new Map();        // cacheKey -> { data, expiresAt }
+const SERIES_INFO_CACHE = new Map();    // cacheKey -> { data, expiresAt }
+const STREAM_URL_CACHE = new Map();     // streamKey -> targetUrl
 
-// Cache individual por série para busca sob demanda em 290ms sem sobrecarregar Baserow
-const SERIES_INFO_CACHE = new Map();
-
-// Mapa global para redirecionamento instantâneo de stream (stream_id -> real_url)
-const STREAM_URL_CACHE = new Map();
-
-// Helper para obter configuração dinâmica do Firestore ou fallback
-async function getActiveConfig() {
-  const now = Date.now();
-  if (cachedConfig && configExpiresAt > now) {
-    return cachedConfig;
-  }
-
-  let baseCfg = { ...FALLBACK_CONFIG };
-
-  try {
-    const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/globalConfig/xtreamConfig?key=${FIREBASE_API_KEY}`;
-    const resp = await fetch(url);
-    if (resp.ok) {
-      const doc = await resp.json();
-      const f = doc.fields || {};
-      if (f.baseUrl?.stringValue) baseCfg.baseUrl = f.baseUrl.stringValue;
-      if (f.apiToken?.stringValue) baseCfg.apiToken = f.apiToken.stringValue;
-      if (f.tableCanaisTv?.stringValue) baseCfg.tableCanaisTv = f.tableCanaisTv.stringValue;
-      if (f.tokenCanaisTv?.stringValue) baseCfg.tokenCanaisTv = f.tokenCanaisTv.stringValue;
-      else if (f.apiToken?.stringValue) baseCfg.tokenCanaisTv = f.apiToken.stringValue;
-      if (f.tableConteudos?.stringValue) baseCfg.tableConteudos = f.tableConteudos.stringValue;
-      if (f.tableEpisodios?.stringValue) baseCfg.tableEpisodios = f.tableEpisodios.stringValue;
-      if (f.tableUsuarios?.stringValue) baseCfg.tableUsuarios = f.tableUsuarios.stringValue;
-      if (f.tableCategoriasTV?.stringValue) baseCfg.tableCategoriasTV = f.tableCategoriasTV.stringValue;
-      if (f.defaultUser?.stringValue) baseCfg.defaultUser = f.defaultUser.stringValue;
-      if (f.defaultPass?.stringValue) baseCfg.defaultPass = f.defaultPass.stringValue;
+// Helper para parsear documento retornado do Firestore REST API
+function parseFirestoreDoc(doc) {
+  if (!doc || !doc.fields) return null;
+  const f = doc.fields;
+  const res = {};
+  for (const [key, val] of Object.entries(f)) {
+    if (val.stringValue !== undefined) res[key] = val.stringValue;
+    else if (val.booleanValue !== undefined) res[key] = val.booleanValue;
+    else if (val.integerValue !== undefined) res[key] = Number(val.integerValue);
+    else if (val.mapValue?.fields) {
+      res[key] = {};
+      for (const [mk, mv] of Object.entries(val.mapValue.fields)) {
+        if (mv.stringValue !== undefined) res[key][mk] = mv.stringValue;
+      }
     }
-  } catch (err) {
-    console.warn('[xtream-api] Erro ao carregar xtreamConfig do Firestore:', err?.message);
+  }
+  return res;
+}
+
+// -------------------------------------------------------------
+// RESOLVER MULTI-TENANT DE CONFIGURAÇÃO POR CONTA INDIVIDUAL
+// -------------------------------------------------------------
+async function resolveAccountConfig(req, targetUsername) {
+  const query = req.query || {};
+  let body = {};
+  if (req.body) {
+    if (typeof req.body === 'string') {
+      try { body = JSON.parse(req.body); } catch { body = {}; }
+    } else if (typeof req.body === 'object') {
+      body = req.body;
+    }
   }
 
-  // Se tableCanaisTv ainda for vazia, consultar userConfigs no Firestore
-  if (!baseCfg.tableCanaisTv) {
+  // 1. Extrair ID explícito da conta na query, body, cabeçalho ou URL /u/:account/
+  let explicitAccountId = String(
+    query.account || query.acc || query.user_id || query.uid || body.account || body.user_id || req.headers['x-account-id'] || ''
+  ).trim();
+
+  if (!explicitAccountId && req.url) {
+    const uMatch = req.url.match(/\/u\/([a-zA-Z0-9_-]+)/);
+    if (uMatch) explicitAccountId = uMatch[1];
+  }
+
+  const now = Date.now();
+
+  // Caso 1: ID da conta informado explicitamente
+  if (explicitAccountId) {
+    const cachedAcc = ACCOUNT_CONFIG_CACHE.get(explicitAccountId);
+    if (cachedAcc && cachedAcc.expiresAt > now) {
+      return cachedAcc.config;
+    }
+
     try {
-      const uUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/userConfigs?key=${FIREBASE_API_KEY}&pageSize=10`;
+      // Buscar em userConfigs ou xtreamAccounts no Firestore
+      let userDoc = null;
+      const uUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/userConfigs/${encodeURIComponent(explicitAccountId)}?key=${FIREBASE_API_KEY}`;
       const uResp = await fetch(uUrl);
       if (uResp.ok) {
-        const uData = await uResp.json();
-        if (uData.documents && uData.documents.length > 0) {
-          for (const uDoc of uData.documents) {
-            const uFields = uDoc.fields || {};
-            const tIds = uFields.tableIds?.mapValue?.fields || {};
-            if (tIds.canaisTv?.stringValue) {
-              baseCfg.tableCanaisTv = tIds.canaisTv.stringValue;
-              if (tIds.conteudos?.stringValue) baseCfg.tableConteudos = tIds.conteudos.stringValue;
-              if (tIds.episodios?.stringValue) baseCfg.tableEpisodios = tIds.episodios.stringValue;
-              if (tIds.usuarios?.stringValue) baseCfg.tableUsuarios = tIds.usuarios.stringValue;
-              if (uFields.baseUrl?.stringValue) baseCfg.baseUrl = uFields.baseUrl.stringValue;
-              if (uFields.apiToken?.stringValue) {
-                baseCfg.apiToken = uFields.apiToken.stringValue;
-                baseCfg.tokenCanaisTv = uFields.apiToken.stringValue;
-              }
-              break;
+        userDoc = parseFirestoreDoc(await uResp.json());
+      } else {
+        const xUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/xtreamAccounts/${encodeURIComponent(explicitAccountId)}?key=${FIREBASE_API_KEY}`;
+        const xResp = await fetch(xUrl);
+        if (xResp.ok) userDoc = parseFirestoreDoc(await xResp.json());
+      }
+
+      if (userDoc) {
+        const tIds = userDoc.tableIds || {};
+        const cfg = {
+          accountId: explicitAccountId,
+          baseUrl: userDoc.baseUrl || FALLBACK_CONFIG.baseUrl,
+          apiToken: userDoc.apiToken || FALLBACK_CONFIG.apiToken,
+          tableCanaisTv: tIds.canaisTv || userDoc.tableCanaisTv || '',
+          tokenCanaisTv: userDoc.apiToken || FALLBACK_CONFIG.tokenCanaisTv,
+          tableConteudos: tIds.conteudos || userDoc.tableConteudos || '',
+          tableEpisodios: tIds.episodios || userDoc.tableEpisodios || '',
+          tableUsuarios: tIds.usuarios || userDoc.tableUsuarios || '',
+          tableCategoriasTV: tIds.categoriasTV || userDoc.tableCategoriasTV || ''
+        };
+        ACCOUNT_CONFIG_CACHE.set(explicitAccountId, { config: cfg, expiresAt: now + 60000 });
+        return cfg;
+      }
+    } catch (err) {
+      console.warn(`[xtream-multi-tenant] Erro ao carregar conta ${explicitAccountId}:`, err?.message);
+    }
+  }
+
+  // Caso 2: Não foi informado ID de conta na URL, tentar pelo nome do usuário (IPTV Smarters padrão)
+  const cleanUsername = String(targetUsername || '').trim().toLowerCase();
+  if (cleanUsername) {
+    const cachedUserCfg = USER_TO_ACCOUNT_CACHE.get(cleanUsername);
+    if (cachedUserCfg && cachedUserCfg.expiresAt > now) {
+      return cachedUserCfg.config;
+    }
+
+    try {
+      // Verificar mapeamento individual no Firestore: xtreamUserMapping/${cleanUsername}
+      const mapUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/xtreamUserMapping/${encodeURIComponent(cleanUsername)}?key=${FIREBASE_API_KEY}`;
+      const mapResp = await fetch(mapUrl);
+      if (mapResp.ok) {
+        const mapDoc = parseFirestoreDoc(await mapResp.json());
+        if (mapDoc && (mapDoc.tableUsuarios || mapDoc.tableIds?.usuarios)) {
+          const tIds = mapDoc.tableIds || {};
+          const cfg = {
+            accountId: mapDoc.userId || 'mapped',
+            baseUrl: mapDoc.baseUrl || FALLBACK_CONFIG.baseUrl,
+            apiToken: mapDoc.apiToken || FALLBACK_CONFIG.apiToken,
+            tableCanaisTv: tIds.canaisTv || mapDoc.tableCanaisTv || '',
+            tokenCanaisTv: mapDoc.apiToken || FALLBACK_CONFIG.tokenCanaisTv,
+            tableConteudos: tIds.conteudos || mapDoc.tableConteudos || '',
+            tableEpisodios: tIds.episodios || mapDoc.tableEpisodios || '',
+            tableUsuarios: tIds.usuarios || mapDoc.tableUsuarios || '',
+            tableCategoriasTV: tIds.categoriasTV || mapDoc.tableCategoriasTV || ''
+          };
+          USER_TO_ACCOUNT_CACHE.set(cleanUsername, { config: cfg, expiresAt: now + 120000 });
+          return cfg;
+        }
+      }
+
+      // Se não encontrou no mapeamento direto, buscar nas configurações dos usuários cadastrados no painel
+      const uListUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/userConfigs?key=${FIREBASE_API_KEY}&pageSize=50`;
+      const uListResp = await fetch(uListUrl);
+      if (uListResp.ok) {
+        const uListData = await uListResp.json();
+        const docs = uListData.documents || [];
+        for (const rawD of docs) {
+          const parsed = parseFirestoreDoc(rawD);
+          const tIds = parsed?.tableIds || {};
+          const uTable = tIds.usuarios;
+          const uToken = parsed?.apiToken;
+          const uBase = parsed?.baseUrl;
+
+          if (uTable && uToken && uBase) {
+            // Verificar rapidamente no Baserow se o cliente existe nesta tabela de usuários específica
+            const foundUsers = await fetchBaserowRows(uBase, uTable, uToken, 5, cleanUsername);
+            const userMatches = foundUsers.some(u => {
+              const uNome = String(extractField(u, ['nome', 'usuario', 'email'])).trim().toLowerCase();
+              return uNome === cleanUsername || uNome.replace(/\s+/g, '_') === cleanUsername || uNome.replace(/[^a-z0-9]/g, '') === cleanUsername;
+            });
+
+            if (userMatches) {
+              const cfg = {
+                accountId: parsed.userId || rawD.name?.split('/').pop() || 'discovered',
+                baseUrl: uBase,
+                apiToken: uToken,
+                tableCanaisTv: tIds.canaisTv || '',
+                tokenCanaisTv: uToken,
+                tableConteudos: tIds.conteudos || '',
+                tableEpisodios: tIds.episodios || '',
+                tableUsuarios: uTable,
+                tableCategoriasTV: tIds.categoriasTV || ''
+              };
+              USER_TO_ACCOUNT_CACHE.set(cleanUsername, { config: cfg, expiresAt: now + 300000 });
+              return cfg;
             }
           }
         }
       }
-    } catch (uErr) {
-      console.warn('[xtream-api] Erro ao verificar userConfigs:', uErr?.message);
+    } catch (searchErr) {
+      console.warn(`[xtream-multi-tenant] Erro na busca de conta para ${cleanUsername}:`, searchErr?.message);
     }
   }
 
-  cachedConfig = baseCfg;
-  configExpiresAt = now + 60000; // 1 minuto de cache
-  return cachedConfig;
+  // Caso 3: Fallback para xtreamConfig global se existir
+  try {
+    const gUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/globalConfig/xtreamConfig?key=${FIREBASE_API_KEY}`;
+    const gResp = await fetch(gUrl);
+    if (gResp.ok) {
+      const gDoc = parseFirestoreDoc(await gResp.json());
+      if (gDoc) {
+        return {
+          accountId: 'global',
+          baseUrl: gDoc.baseUrl || FALLBACK_CONFIG.baseUrl,
+          apiToken: gDoc.apiToken || FALLBACK_CONFIG.apiToken,
+          tableCanaisTv: gDoc.tableCanaisTv || FALLBACK_CONFIG.tableCanaisTv,
+          tokenCanaisTv: gDoc.tokenCanaisTv || gDoc.apiToken || FALLBACK_CONFIG.tokenCanaisTv,
+          tableConteudos: gDoc.tableConteudos || FALLBACK_CONFIG.tableConteudos,
+          tableEpisodios: gDoc.tableEpisodios || FALLBACK_CONFIG.tableEpisodios,
+          tableUsuarios: gDoc.tableUsuarios || FALLBACK_CONFIG.tableUsuarios,
+          tableCategoriasTV: gDoc.tableCategoriasTV || FALLBACK_CONFIG.tableCategoriasTV
+        };
+      }
+    }
+  } catch {}
+
+  return { ...FALLBACK_CONFIG, accountId: 'default' };
 }
 
-// Helper otimizado com pool de concorrência paralela (em lotes de 5 páginas)
+// -------------------------------------------------------------
+// HELPER PARA CONSULTA AO BASEROW COM PAGINAÇÃO CONCORRENTE
+// -------------------------------------------------------------
 async function fetchBaserowRows(baseUrl, tableId, token, maxRows = 3000, searchTerm = '') {
-  if (!tableId || !token) return [];
+  if (!tableId || !token || !baseUrl) return [];
   try {
     const base = baseUrl.replace(/\/+$/, '');
-    const pageSize = 200; // Limite estrito da API do Baserow
+    const pageSize = 200;
     const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
     const firstUrl = `${base}/api/database/rows/table/${tableId}/?user_field_names=true&size=${pageSize}&page=1${searchParam}`;
     const resp = await fetch(firstUrl, {
@@ -189,7 +314,6 @@ async function fetchBaserowRows(baseUrl, tableId, token, maxRows = 3000, searchT
     let allRows = json.results || [];
     const totalCount = json.count || allRows.length;
 
-    // Buscar páginas adicionais em lotes paralelos (chunks de 5 páginas por vez para máxima velocidade)
     const totalPagesNeeded = Math.min(Math.ceil(totalCount / pageSize), Math.ceil(maxRows / pageSize));
     if (totalPagesNeeded > 1) {
       const remainingPages = [];
@@ -197,7 +321,6 @@ async function fetchBaserowRows(baseUrl, tableId, token, maxRows = 3000, searchT
         remainingPages.push(p);
       }
 
-      // Executar em chunks de 5 páginas para não sobrecarregar conexões
       const CHUNK_SIZE = 5;
       for (let i = 0; i < remainingPages.length; i += CHUNK_SIZE) {
         const chunk = remainingPages.slice(i, i + CHUNK_SIZE);
@@ -274,15 +397,12 @@ function formatCategory(rawCat, type) {
   }
 
   let catStr = String(rawCat).trim();
-
-  // Limpar lista separada por vírgula e selecionar tag mais descritiva
   if (catStr.includes(',')) {
     const parts = catStr.split(',').map(p => p.trim()).filter(Boolean);
     const filtered = parts.filter(p => !['filmes', 'filme', 'series', 'serie', 'tv', 'canais'].includes(p.toLowerCase()));
     catStr = filtered.length > 0 ? filtered[0] : parts[0];
   }
 
-  // Remover prefixos antigos duplicados
   catStr = catStr.replace(/^(canais|filmes|series)\s*\|\s*/i, '').trim();
   const cleanUpper = catStr.toUpperCase();
 
@@ -293,78 +413,87 @@ function formatCategory(rawCat, type) {
 }
 
 // -------------------------------------------------------------
-// FUNÇÕES DE CARREGAMENTO SEGMENTADO (LAZY LOADING)
+// FUNÇÕES DE CARREGAMENTO SEGMENTADO ISOLADO POR TABELA
 // -------------------------------------------------------------
 
-// 1. Carregar apenas Canais de TV
+// 1. Carregar Canais da tabela específica da conta
 async function getCanaisCached(config) {
+  if (!config.tableCanaisTv) return [];
+  const cacheKey = `canais_${config.baseUrl}_${config.tableCanaisTv}`;
   const now = Date.now();
-  if (SEGMENT_CACHE.canais.expiresAt > now && SEGMENT_CACHE.canais.data.length > 0) {
-    return SEGMENT_CACHE.canais.data;
+  const cached = SEGMENT_CACHE.get(cacheKey);
+  if (cached && cached.expiresAt > now && cached.data.length > 0) {
+    return cached.data;
   }
 
-  let canais = await fetchBaserowRows(config.baseUrl, config.tableCanaisTv, config.tokenCanaisTv || config.apiToken, 1500);
-  if (canais.length === 0 && config.tableCanaisTv !== FALLBACK_CONFIG.tableCanaisTv) {
-    canais = await fetchBaserowRows(FALLBACK_CONFIG.baseUrl, FALLBACK_CONFIG.tableCanaisTv, FALLBACK_CONFIG.tokenCanaisTv, 1500);
-  }
-
+  const canais = await fetchBaserowRows(config.baseUrl, config.tableCanaisTv, config.tokenCanaisTv || config.apiToken, 2000);
   canais.forEach(c => {
     const link = extractStreamUrl(c);
-    if (link) STREAM_URL_CACHE.set(`live_${c.id}`, link);
+    if (link) STREAM_URL_CACHE.set(`${config.tableCanaisTv}_live_${c.id}`, link);
   });
 
-  SEGMENT_CACHE.canais = { data: canais, expiresAt: now + 300000 }; // 5 min
+  SEGMENT_CACHE.set(cacheKey, { data: canais, expiresAt: now + 300000 }); // 5 min
   return canais;
 }
 
-// 2. Carregar apenas Conteúdos (Filmes e Séries)
+// 2. Carregar Conteúdos (Filmes e Séries) da tabela específica da conta
 async function getConteudosCached(config) {
+  if (!config.tableConteudos) return [];
+  const cacheKey = `conteudos_${config.baseUrl}_${config.tableConteudos}`;
   const now = Date.now();
-  if (SEGMENT_CACHE.conteudos.expiresAt > now && SEGMENT_CACHE.conteudos.data.length > 0) {
-    return SEGMENT_CACHE.conteudos.data;
+  const cached = SEGMENT_CACHE.get(cacheKey);
+  if (cached && cached.expiresAt > now && cached.data.length > 0) {
+    return cached.data;
   }
 
-  // Carrega até 12.000 para cobrir integralmente os 5.054 filmes e 2.712 séries
   const conteudos = await fetchBaserowRows(config.baseUrl, config.tableConteudos, config.apiToken, 12000);
   conteudos.forEach(c => {
     const link = extractStreamUrl(c);
-    if (link) STREAM_URL_CACHE.set(`movie_${c.id}`, link);
+    if (link) STREAM_URL_CACHE.set(`${config.tableConteudos}_movie_${c.id}`, link);
   });
 
-  SEGMENT_CACHE.conteudos = { data: conteudos, expiresAt: now + 600000 }; // 10 min cache
+  SEGMENT_CACHE.set(cacheKey, { data: conteudos, expiresAt: now + 600000 }); // 10 min
   return conteudos;
 }
 
-// 3. Carregar apenas Episódios de Séries
+// 3. Carregar Episódios da tabela específica da conta
 async function getEpisodiosCached(config) {
+  if (!config.tableEpisodios) return [];
+  const cacheKey = `episodios_${config.baseUrl}_${config.tableEpisodios}`;
   const now = Date.now();
-  if (SEGMENT_CACHE.episodios.expiresAt > now && SEGMENT_CACHE.episodios.data.length > 0) {
-    return SEGMENT_CACHE.episodios.data;
+  const cached = SEGMENT_CACHE.get(cacheKey);
+  if (cached && cached.expiresAt > now && cached.data.length > 0) {
+    return cached.data;
   }
 
   const episodios = await fetchBaserowRows(config.baseUrl, config.tableEpisodios, config.apiToken, 2500);
   episodios.forEach(e => {
     const link = extractStreamUrl(e);
-    if (link) STREAM_URL_CACHE.set(`series_${e.id}`, link);
+    if (link) STREAM_URL_CACHE.set(`${config.tableEpisodios}_series_${e.id}`, link);
   });
 
-  SEGMENT_CACHE.episodios = { data: episodios, expiresAt: now + 300000 };
+  SEGMENT_CACHE.set(cacheKey, { data: episodios, expiresAt: now + 300000 });
   return episodios;
 }
 
-// 4. Carregar Usuários para Autenticação
+// 4. Carregar Usuários da tabela específica da conta
 async function getUsuariosCached(config) {
+  if (!config.tableUsuarios) return [];
+  const cacheKey = `usuarios_${config.baseUrl}_${config.tableUsuarios}`;
   const now = Date.now();
-  if (SEGMENT_CACHE.usuarios.expiresAt > now && SEGMENT_CACHE.usuarios.data.length > 0) {
-    return SEGMENT_CACHE.usuarios.data;
+  const cached = SEGMENT_CACHE.get(cacheKey);
+  if (cached && cached.expiresAt > now && cached.data.length > 0) {
+    return cached.data;
   }
 
   const usuarios = await fetchBaserowRows(config.baseUrl, config.tableUsuarios, config.apiToken, 500);
-  SEGMENT_CACHE.usuarios = { data: usuarios, expiresAt: now + 180000 }; // 3 min
+  SEGMENT_CACHE.set(cacheKey, { data: usuarios, expiresAt: now + 120000 }); // 2 min
   return usuarios;
 }
 
-// 5. Validador Centralizado de Usuário com Cálculo Rigoroso de DataCriacao, Vencimento e Limite
+// -------------------------------------------------------------
+// 5. VALIDADOR RIGOROSO DE USUÁRIO (NUNCA IGNORA VENCIMENTO)
+// -------------------------------------------------------------
 async function validateUser(config, username, password) {
   const targetUser = String(username || '').trim().toLowerCase();
   const cleanPass = String(password || '').trim();
@@ -373,89 +502,67 @@ async function validateUser(config, username, password) {
     return { ok: false, status: 'Disabled', message: 'Usuário e senha são obrigatórios' };
   }
 
-  const isMasterDemo = (targetUser === String(config.defaultUser || 'demo').toLowerCase() || targetUser === 'demo') &&
-                       (!cleanPass || cleanPass === String(config.defaultPass || '123456') || cleanPass === '123456');
-
-  if (isMasterDemo) {
-    return {
-      ok: true,
-      user: { Nome: 'demo', Status: 'Ativo', Limite: '1' },
-      expTimestamp: Math.floor(Date.now() / 1000) + (365 * 24 * 3600),
-      criacaoTimestamp: Math.floor(Date.now() / 1000) - 86400,
-      maxConnections: '1',
-      status: 'Active'
-    };
+  if (!config.tableUsuarios) {
+    return { ok: false, status: 'Disabled', message: 'Tabela de usuários não configurada para esta conta.' };
   }
 
-  // 1. Busca rápida por busca no Baserow
+  // 1. Buscar usuário estritamente na tabela de usuários da conta
   let candidateUsers = await fetchBaserowRows(config.baseUrl, config.tableUsuarios, config.apiToken, 25, targetUser);
   if (candidateUsers.length === 0) {
     candidateUsers = await getUsuariosCached(config);
-  }
-  // Se ainda não encontrou e a tabela padrão for diferente de 889, tentar na tabela 889
-  if (candidateUsers.length === 0 && config.tableUsuarios !== '889') {
-    candidateUsers = await fetchBaserowRows(FALLBACK_CONFIG.baseUrl, '889', FALLBACK_CONFIG.tokenCanaisTv || FALLBACK_CONFIG.apiToken, 25, targetUser);
   }
 
   const matchedUser = candidateUsers.find(u => {
     const uNome = String(extractField(u, ['nome', 'usuario'])).trim().toLowerCase();
     const uEmail = String(extractField(u, ['email'])).trim().toLowerCase();
-    return uNome === targetUser || uEmail === targetUser || uNome.replace(/\s+/g, '_') === targetUser || uNome.replace(/[^a-z0-9]/g, '') === targetUser;
+    return uNome === targetUser || 
+           uEmail === targetUser || 
+           uNome.replace(/\s+/g, '_') === targetUser || 
+           uNome.replace(/[^a-z0-9]/g, '') === targetUser;
   });
 
   if (!matchedUser) {
-    return { ok: false, status: 'Disabled', message: 'Usuário não encontrado no sistema' };
+    return { ok: false, status: 'Disabled', message: 'Usuário não encontrado nesta conta.' };
   }
 
   // 2. Validar Senha
   const uSenha = String(extractField(matchedUser, ['senha', 'password', 'pin'])).trim();
   if (cleanPass && uSenha && cleanPass !== uSenha) {
-    return { ok: false, status: 'Disabled', message: 'Senha incorreta para o usuário informado' };
+    return { ok: false, status: 'Disabled', message: 'Senha incorreta para o usuário informado.' };
   }
 
-  // 3. Validar Status do Usuário
-  const uStatus = String(extractField(matchedUser, ['status', 'ativo']) || 'Ativo').trim().toLowerCase();
-  if (['inativo', 'bloqueado', 'suspenso', 'cancelado', 'desativado'].includes(uStatus)) {
+  // 3. Validar Status textual (Ex: Vencido, Expirado, Inativo, Bloqueado, etc.)
+  const rawStatus = extractField(matchedUser, ['status', 'ativo']);
+  if (isStatusBlocked(rawStatus)) {
     return {
       ok: false,
-      status: 'Disabled',
-      message: 'Sua conta está bloqueada ou inativa no sistema. Entre em contato com o suporte.'
+      status: 'Expired',
+      message: 'Sua conta está vencida ou bloqueada. Acesso revogado pelo painel.'
     };
   }
 
-  // 4. Validar DataCriacao e Vencimento (Suporta: 2026-01-24T01:07:45Z, 2026-06-11 04:23:42, YYYY-MM-DD, DD/MM/YYYY)
+  // 4. Validar Datas: DataCriacao e Vencimento
   const rawCriacao = extractField(matchedUser, ['datacriacao', 'data_criacao', 'criado_em', 'createdat', 'data']);
   const rawVencimento = extractField(matchedUser, ['vencimento', 'data_vencimento', 'validade', 'expiracao', 'exp_date']);
 
   const criacaoDate = parseUserDate(rawCriacao) || new Date(Date.now() - 86400000);
   let vencDate = parseUserDate(rawVencimento);
 
-  // Se vencimento não foi preenchido, calcular período padrão a partir da data de criação
+  // Se vencimento não foi preenchido, verificar Pagamento e Dias
   if (!vencDate) {
-    if (['grátis', 'gratis', 'teste'].includes(uStatus)) {
-      vencDate = new Date(criacaoDate.getTime() + (30 * 24 * 3600 * 1000));
-    } else {
-      vencDate = new Date(criacaoDate.getTime() + (30 * 24 * 3600 * 1000));
+    const rawPagamento = extractField(matchedUser, ['pagamento', 'data_pagamento']);
+    const rawDias = Number(extractField(matchedUser, ['dias', 'periodo_dias'])) || 0;
+    if (rawPagamento && rawDias > 0) {
+      const pagDate = parseUserDate(rawPagamento);
+      if (pagDate) {
+        vencDate = new Date(pagDate.getTime() + (rawDias * 24 * 3600 * 1000));
+      }
     }
   }
 
   const nowMs = Date.now();
 
-  // A. Fora da data: Se a data de criação/início for no futuro (mais de 1 min à frente)
-  if (criacaoDate && nowMs < criacaoDate.getTime() - 60000) {
-    const dataInicioFmt = criacaoDate.toLocaleDateString('pt-BR');
-    const horaInicioFmt = criacaoDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const horaStr = (horaInicioFmt && horaInicioFmt !== '00:00' && horaInicioFmt !== '23:59') ? ` às ${horaInicioFmt}` : '';
-    return {
-      ok: false,
-      status: 'NotActive',
-      message: `Acesso ainda não iniciado. Válido a partir de ${dataInicioFmt}${horaStr}.`,
-      expTimestamp: vencDate ? Math.floor(vencDate.getTime() / 1000) : 0,
-      criacaoTimestamp: Math.floor(criacaoDate.getTime() / 1000)
-    };
-  }
-
-  // B. Fora da data: Se a data de vencimento já expirou (Bloqueia login e encerra lista)
+  // A. Vencimento Ultrapassado: BLOQUEIO TOTAL E IMEDIATO
   if (vencDate && nowMs > vencDate.getTime()) {
     const dataVencFmt = vencDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const horaVencFmt = vencDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -469,7 +576,19 @@ async function validateUser(config, username, password) {
     };
   }
 
-  // C. Usuário Válido e Ativo dentro do período!
+  // B. Início no futuro
+  if (criacaoDate && nowMs < criacaoDate.getTime() - 60000) {
+    const dataInicioFmt = criacaoDate.toLocaleDateString('pt-BR');
+    return {
+      ok: false,
+      status: 'NotActive',
+      message: `Acesso ainda não iniciado. Válido a partir de ${dataInicioFmt}.`,
+      expTimestamp: vencDate ? Math.floor(vencDate.getTime() / 1000) : 0,
+      criacaoTimestamp: Math.floor(criacaoDate.getTime() / 1000)
+    };
+  }
+
+  // C. Usuário Válido e Ativo
   const expTimestamp = vencDate ? Math.floor(vencDate.getTime() / 1000) : Math.floor(Date.now() / 1000) + (30 * 86400);
   const criacaoTimestamp = Math.floor(criacaoDate.getTime() / 1000);
   const rawLimite = extractField(matchedUser, ['limite', 'conexoes', 'max_connections', 'telas']);
@@ -487,8 +606,10 @@ async function validateUser(config, username, password) {
   };
 }
 
+// -------------------------------------------------------------
+// HANDLER PRINCIPAL HTTP (Xtream Codes API)
+// -------------------------------------------------------------
 export default async function handler(req, res) {
-  // CORS permissivo para reprodutores IPTV
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
@@ -497,9 +618,6 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const config = await getActiveConfig();
-
-  // Extrair query e body
   const query = req.query || {};
   let body = {};
   if (req.body) {
@@ -515,9 +633,10 @@ export default async function handler(req, res) {
   const password = String(query.password || query.pass || body.password || body.pass || '').trim();
   const action = String(query.action || body.action || '').trim();
 
-  // -------------------------------------------------------------
-  // FILTRO DE CONTEÚDO (content=tv | content=movies | content=series | content=all)
-  // -------------------------------------------------------------
+  // 1. Resolver configuração estritamente isolada da conta do usuário
+  const config = await resolveAccountConfig(req, username);
+
+  // 2. Filtro de Conteúdo (content=tv | content=movies | content=series | content=all)
   const contentFilter = String(
     query.content || query.tipo || query.filter || body.content || body.filter || 'all'
   ).toLowerCase().trim();
@@ -531,7 +650,7 @@ export default async function handler(req, res) {
   // -------------------------------------------------------------
   const streamType = query.stream_type;
   const streamId = query.stream_id || '';
-  const liveMatch = rawUrl.match(/\/(live|movie|series)\/([^/]+)\/([^/]+)\/(\d+)(\.[a-zA-Z0-9]+)?/);
+  const liveMatch = rawUrl.match(/\/(?:u\/[^/]+\/)?(live|movie|series)\/([^/]+)\/([^/]+)\/(\d+)(\.[a-zA-Z0-9]+)?/);
 
   if (liveMatch || streamType) {
     const type = liveMatch ? liveMatch[1] : streamType;
@@ -546,10 +665,10 @@ export default async function handler(req, res) {
       return res.status(403).send(`[ACESSO NEGADO] ${authStream.message}`);
     }
 
-    const cacheKey = `${type}_${rawId}`;
+    const tableId = type === 'live' ? config.tableCanaisTv : (type === 'movie' ? config.tableConteudos : config.tableEpisodios);
+    const cacheKey = `${tableId}_${type}_${rawId}`;
     let targetUrl = STREAM_URL_CACHE.get(cacheKey);
 
-    // Se não estiver no cache em memória, carregar apenas a tabela específica
     if (!targetUrl) {
       if (type === 'live') await getCanaisCached(config);
       else if (type === 'movie') await getConteudosCached(config);
@@ -561,7 +680,7 @@ export default async function handler(req, res) {
       res.setHeader('Location', targetUrl);
       return res.status(302).end();
     } else {
-      return res.status(404).send('Stream não encontrado.');
+      return res.status(404).send('Stream não encontrado nesta conta.');
     }
   }
 
@@ -572,7 +691,7 @@ export default async function handler(req, res) {
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
     const canais = await getCanaisCached(config);
 
-    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<tv generator-info-name="Painel Baserow Xtream">\n`;
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<tv generator-info-name="Painel Xtream Codes - Conta ${config.accountId}">\n`;
     canais.forEach(c => {
       const nome = extractField(c, ['nome', 'canalNome']) || `Canal ${c.id}`;
       xml += `  <channel id="${c.id}">\n`;
@@ -589,20 +708,16 @@ export default async function handler(req, res) {
   if (!username && !password && !action && !rawUrl.includes('/get.php')) {
     return res.status(200).json({
       status: 'online',
-      name: 'Painel Baserow Xtream Codes Bridge - High Performance v3.0',
-      active_filter: contentFilter,
-      channels_table: config.tableCanaisTv,
-      users_table: config.tableUsuarios,
-      filter_options: {
-        all: 'Canais de TV + Filmes + Séries (Padrão)',
-        tv: 'Apenas Canais de TV Ao Vivo (&content=tv)',
-        movies: 'Apenas Filmes VOD (&content=movies)',
-        series: 'Apenas Séries & Episódios (&content=series)'
-      },
+      name: 'Painel Baserow Xtream Codes Bridge - Multi-Tenant v4.0',
+      account_id: config.accountId,
+      channels_table: config.tableCanaisTv || 'nao_configurada',
+      contents_table: config.tableConteudos || 'nao_configurada',
+      users_table: config.tableUsuarios || 'nao_configurada',
+      security: 'Bloqueio estrito de contas vencidas ativado',
       endpoints: {
-        player_api: '/player_api.php?username={user}&password={pass}&content={tipo}',
-        m3u_ts: '/get.php?username={user}&password={pass}&type=m3u_plus&output=ts&content={tipo}',
-        m3u_hls: '/get.php?username={user}&password={pass}&type=m3u_plus&output=m3u8&content={tipo}'
+        player_api: '/player_api.php?username={user}&password={pass}&account={accountId}',
+        m3u_ts: '/get.php?username={user}&password={pass}&account={accountId}&type=m3u_plus&output=ts',
+        dedicated_dns: `/u/${config.accountId}/player_api.php`
       }
     });
   }
@@ -612,16 +727,28 @@ export default async function handler(req, res) {
   // -------------------------------------------------------------
   const authResult = await validateUser(config, username, password);
 
+  // SE NÃO FOR AUTORIZADO (USUÁRIO EXPIRADO, BLOQUEADO OU INEXISTENTE):
   if (!authResult.ok) {
+    // 1. Download de M3U (/get.php) -> Bloqueio 403 e nenhum canal exportado
     if (rawUrl.includes('/get.php')) {
-      res.setHeader('Content-Type', 'audio/x-mpegurl; charset=utf-8');
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       return res.status(403).send(
         `#EXTM3U\n` +
-        `#EXTINF:-1 tvg-id="aviso-expirado" tvg-name="[AVISO] ${authResult.status.toUpperCase()}" group-title="AVISOS",[AVISO] ${authResult.message}\n` +
-        `http://painel/aviso-expirado\n`
+        `#EXTINF:-1 tvg-id="bloqueado" tvg-name="[ACESSO NEGADO]",[ACESSO NEGADO] ${authResult.message}\n` +
+        `http://0.0.0.0/expirado\n`
       );
     }
 
+    // 2. Requisição com Action (IPTV tentando baixar lista de canais/filmes/séries) -> HTTP 403
+    if (action) {
+      return res.status(403).json({
+        error: 'Acesso negado',
+        status: authResult.status || 'Disabled',
+        message: authResult.message
+      });
+    }
+
+    // 3. Handshake de Login (player_api.php sem action) -> auth: 0 e status: Disabled
     return res.status(200).json({
       user_info: {
         auth: 0,
@@ -645,7 +772,7 @@ export default async function handler(req, res) {
   const serverPort = hostHeader.includes(':') ? hostHeader.split(':')[1] : (protocol === 'https' ? '443' : '80');
 
   // -------------------------------------------------------------
-  // 1. GERAÇÃO DE LISTA M3U DINÂMICA PROFISSIONAL (/get.php) COM SINOPSE
+  // 1. GERAÇÃO DE LISTA M3U DINÂMICA PROFISSIONAL (/get.php)
   // -------------------------------------------------------------
   if (rawUrl.includes('/get.php')) {
     res.setHeader('Content-Type', 'audio/x-mpegurl; charset=utf-8');
@@ -658,12 +785,10 @@ export default async function handler(req, res) {
 
     let m3u = `#EXTM3U name="Lista IPTV Profissional - ${filterLabel}"\n`;
     m3u += `## Gerado via Painel Xtream Codes | Servidor: ${hostHeader}\n`;
-    m3u += `## Modo de Conteudo: ${filterLabel}\n`;
-    m3u += `## Cliente: ${username || 'demo'} | Validade: ${new Date(expTimestamp * 1000).toLocaleDateString('pt-BR')}\n\n`;
+    m3u += `## Conta Isolada: ${config.accountId} | Modo: ${filterLabel}\n`;
+    m3u += `## Cliente: ${username} | Validade: ${new Date(expTimestamp * 1000).toLocaleDateString('pt-BR')}\n\n`;
 
-    // ---------------------------------------------------------
     // BLOCO 1: CANAIS DE TV AO VIVO (SOMENTE SE isTvAllowed)
-    // ---------------------------------------------------------
     if (isTvAllowed) {
       const canais = await getCanaisCached(config);
       m3u += `### =========================================\n`;
@@ -690,15 +815,12 @@ export default async function handler(req, res) {
         if (link) {
           const logoAttr = capa ? ` tvg-logo="${capa}"` : '';
           const plotAttr = cleanSinopse ? ` tvg-plot="${cleanSinopse}" tvg-description="${cleanSinopse}" description="${cleanSinopse}" plot="${cleanSinopse}"` : '';
-
           m3u += `#EXTINF:-1 tvg-id="${c.id}" tvg-name="${nome}"${logoAttr}${plotAttr} group-title="${cat}",${nome}\n${link}\n\n`;
         }
       });
     }
 
-    // ---------------------------------------------------------
-    // BLOCO 2: FILMES VOD (SOMENTE SE isMoviesAllowed) COM SINOPSE
-    // ---------------------------------------------------------
+    // BLOCO 2: FILMES VOD (SOMENTE SE isMoviesAllowed)
     if (isMoviesAllowed) {
       const conteudos = await getConteudosCached(config);
       const filmes = conteudos.filter(f => {
@@ -730,17 +852,13 @@ export default async function handler(req, res) {
         if (link) {
           const logoAttr = capa ? ` tvg-logo="${capa}"` : '';
           const plotAttr = cleanSinopse ? ` tvg-plot="${cleanSinopse}" tvg-description="${cleanSinopse}" description="${cleanSinopse}" plot="${cleanSinopse}"` : '';
-
           m3u += `#EXTINF:-1 tvg-id="m-${f.id}" tvg-name="${nome}"${logoAttr}${plotAttr} group-title="${cat}",${nome}\n${link}\n\n`;
         }
       });
     }
 
-    // ---------------------------------------------------------
-    // BLOCO 3: SÉRIES & EPISÓDIOS (SOMENTE SE isSeriesAllowed) COM SINOPSE
-    // ---------------------------------------------------------
+    // BLOCO 3: SÉRIES & EPISÓDIOS (SOMENTE SE isSeriesAllowed)
     if (isSeriesAllowed) {
-      // Mapear sinopse das séries para preencher nos episódios
       const conteudos = await getConteudosCached(config);
       const serieSinopseMap = new Map();
       conteudos.forEach(c => {
@@ -786,7 +904,6 @@ export default async function handler(req, res) {
         if (link) {
           const logoAttr = capa ? ` tvg-logo="${capa}"` : '';
           const plotAttr = cleanSinopse ? ` tvg-plot="${cleanSinopse}" tvg-description="${cleanSinopse}" description="${cleanSinopse}" plot="${cleanSinopse}"` : '';
-
           m3u += `#EXTINF:-1 tvg-id="ep-${e.id}" tvg-name="${finalTitle}"${logoAttr}${plotAttr} group-title="${groupCat}",${finalTitle}\n${link}\n\n`;
         }
       });
@@ -796,14 +913,14 @@ export default async function handler(req, res) {
   }
 
   // -------------------------------------------------------------
-  // 2. RESPOSTA DE AUTENTICAÇÃO DO XTREAM (action vazia)
+  // 2. RESPOSTA DE AUTENTICAÇÃO DO XTREAM (action vazia - handshake)
   // -------------------------------------------------------------
   if (!action) {
     return res.status(200).json({
       user_info: {
-        username: username || 'demo',
-        password: password || '123456',
-        message: 'Autenticado com sucesso via Baserow Bridge',
+        username: username,
+        password: password,
+        message: 'Autenticado com sucesso na conta individual',
         auth: 1,
         status: 'Active',
         exp_date: String(expTimestamp),
@@ -858,8 +975,6 @@ export default async function handler(req, res) {
     if (!isTvAllowed) return res.status(200).json([]);
 
     const canais = await getCanaisCached(config);
-
-    // Mapear IDs de categoria
     const catIdMap = new Map();
     canais.forEach(c => {
       const cat = formatCategory(extractField(c, ['categoria', 'canalCategoria']), 'tv');
@@ -1126,8 +1241,8 @@ export default async function handler(req, res) {
     }
 
     const now = Date.now();
-    // Cache em memória de episódios por série (10 minutos)
-    const cachedSeries = SERIES_INFO_CACHE.get(targetSeriesId);
+    const seriesCacheKey = `${config.tableEpisodios}_${targetSeriesId}`;
+    const cachedSeries = SERIES_INFO_CACHE.get(seriesCacheKey);
     if (cachedSeries && cachedSeries.expiresAt > now) {
       return res.status(200).json(cachedSeries.data);
     }
@@ -1138,21 +1253,18 @@ export default async function handler(req, res) {
     const serieSinopse = serieDoc ? sanitizeM3uText(extractField(serieDoc, ['sinopse', 'plot', 'descricao', 'overview'])) : '';
 
     let matchingEps = [];
-    if (serieName) {
-      // Busca hiper-direcionada na tabela de episódios (+96.000 linhas) usando o índice de busca do Baserow em ~290ms!
+    if (serieName && config.tableEpisodios) {
       matchingEps = await fetchBaserowRows(config.baseUrl, config.tableEpisodios, config.apiToken, 1000, serieName);
     }
 
-    // Se a busca por nome não retornou, tenta com as primeiras palavras do título da série
-    if (matchingEps.length === 0 && serieName && serieName.includes(' ')) {
+    if (matchingEps.length === 0 && serieName && serieName.includes(' ') && config.tableEpisodios) {
       const shortName = serieName.split(' ').slice(0, 2).join(' ');
       matchingEps = await fetchBaserowRows(config.baseUrl, config.tableEpisodios, config.apiToken, 1000, shortName);
     }
 
-    // Registra links no cache global de streams
     matchingEps.forEach(e => {
       const link = extractStreamUrl(e);
-      if (link) STREAM_URL_CACHE.set(`series_${e.id}`, link);
+      if (link) STREAM_URL_CACHE.set(`${config.tableEpisodios}_series_${e.id}`, link);
     });
 
     const seasonsMap = {};
@@ -1216,7 +1328,7 @@ export default async function handler(req, res) {
       episodes: seasonsMap
     };
 
-    SERIES_INFO_CACHE.set(targetSeriesId, {
+    SERIES_INFO_CACHE.set(seriesCacheKey, {
       data: responseData,
       expiresAt: now + 600000 // 10 minutos
     });

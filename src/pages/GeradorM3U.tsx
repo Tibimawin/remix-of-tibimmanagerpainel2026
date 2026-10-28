@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useConfig } from '@/contexts/ConfigContext';
+import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
 import { useBaserowService } from '@/services/BaserowService';
 import { getValueByPossibleKeys } from '@/utils/baserowHelpers';
@@ -71,6 +72,7 @@ export interface GeneratedItem {
 export default function GeradorM3U() {
   const { config, isConfigured } = useConfig();
   const { mode } = useTypeMode();
+  const { userInfo } = useSimpleAuth();
   const baserowService = useBaserowService();
 
   // Configurações de conteúdo da lista
@@ -243,23 +245,28 @@ export default function GeradorM3U() {
     return host.replace(/\/+$/, '');
   }, [dnsHost]);
 
-  // URLs geradas do Xtream Codes com suporte a separação por tipo
+  // URLs geradas do Xtream Codes com suporte a separação por tipo e isolamento por conta
   const xtreamUrls = useMemo(() => {
     const user = encodeURIComponent(customUsername.trim() || 'demo');
     const pass = encodeURIComponent(customPassword.trim() || '123456');
     const contentParam = filtroTipoDns !== 'all' ? `&content=${filtroTipoDns}` : '';
+    const accountId = userInfo?.id || '';
+    const accountParam = accountId ? `&account=${encodeURIComponent(accountId)}` : '';
+    const dedicatedDns = accountId ? `${sanitizedDns}/u/${accountId}` : sanitizedDns;
 
     return {
       server: sanitizedDns,
+      dedicatedDns,
+      accountId,
       username: customUsername.trim() || 'demo',
       password: customPassword.trim() || '123456',
       contentMode: filtroTipoDns,
-      m3uPlusTs: `${sanitizedDns}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=ts${contentParam}`,
-      m3uPlusHls: `${sanitizedDns}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=m3u8${contentParam}`,
-      playerApi: `${sanitizedDns}/player_api.php?username=${user}&password=${pass}${contentParam}`,
-      epgXml: `${sanitizedDns}/xmltv.php?username=${user}&password=${pass}`
+      m3uPlusTs: `${sanitizedDns}/get.php?username=${user}&password=${pass}${accountParam}&type=m3u_plus&output=ts${contentParam}`,
+      m3uPlusHls: `${sanitizedDns}/get.php?username=${user}&password=${pass}${accountParam}&type=m3u_plus&output=m3u8${contentParam}`,
+      playerApi: `${sanitizedDns}/player_api.php?username=${user}&password=${pass}${accountParam}${contentParam}`,
+      epgXml: `${sanitizedDns}/xmltv.php?username=${user}&password=${pass}${accountParam}`
     };
-  }, [sanitizedDns, customUsername, customPassword, filtroTipoDns]);
+  }, [sanitizedDns, customUsername, customPassword, filtroTipoDns, userInfo?.id]);
 
   // Botões de Seleção Rápida de Filtro (Presets)
   const handleSelectPreset = (preset: 'todos' | 'tv' | 'filmes' | 'series') => {
@@ -731,25 +738,71 @@ export default function GeradorM3U() {
 
   const [sincronizandoXtream, setSincronizandoXtream] = useState(false);
 
-  // Sincronizar configuração do Xtream Codes com o Baserow no servidor
+  // Sincronizar configuração do Xtream Codes com isolamento rigoroso por conta individual
   const handleSyncXtreamConfig = async () => {
     try {
       setSincronizandoXtream(true);
-      const docRef = doc(db, 'globalConfig', 'xtreamConfig');
-      await setDoc(docRef, {
+      const accId = userInfo?.id || 'default';
+      const cleanUser = customUsername.trim().toLowerCase();
+
+      const accountPayload = {
+        userId: accId,
         baseUrl: config.baseUrl || 'http://31.220.72.235:8080',
         apiToken: config.apiToken || 'GdbNYJHQHQVLqiu6l4AmDIflycrcppPw',
-        tableCanaisTv: config.tableIds.canaisTv || '1302',
+        tableCanaisTv: config.tableIds?.canaisTv || '',
         tokenCanaisTv: config.apiToken || 'GdbNYJHQHQVLqiu6l4AmDIflycrcppPw',
-        tableConteudos: config.tableIds.conteudos || '1295',
-        tableEpisodios: config.tableIds.episodios || '1296',
-        tableUsuarios: config.tableIds.usuarios || '1297',
-        tableCategoriasTV: config.tableIds.categoriasTV || '1310',
+        tableConteudos: config.tableIds?.conteudos || '',
+        tableEpisodios: config.tableIds?.episodios || '',
+        tableUsuarios: config.tableIds?.usuarios || '',
+        tableCategoriasTV: config.tableIds?.categoriasTV || '',
         defaultUser: customUsername.trim() || 'demo',
         defaultPass: customPassword.trim() || '123456',
         updatedAt: new Date().toISOString()
+      };
+
+      // 1. Salvar na coleção dedicada da conta: xtreamAccounts/${accId}
+      await setDoc(doc(db, 'xtreamAccounts', accId), accountPayload, { merge: true });
+
+      // 2. Salvar em userConfigs/${accId}
+      await setDoc(doc(db, 'userConfigs', accId), {
+        xtreamConfig: accountPayload
       }, { merge: true });
-      toast.success('Configuração Xtream Codes sincronizada com sucesso no servidor do painel!');
+
+      // 3. Mapear o usuário ativo para esta conta (xtreamUserMapping/${cleanUser})
+      if (cleanUser) {
+        await setDoc(doc(db, 'xtreamUserMapping', cleanUser), {
+          userId: accId,
+          username: cleanUser,
+          baseUrl: accountPayload.baseUrl,
+          apiToken: accountPayload.apiToken,
+          tableIds: config.tableIds,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      }
+
+      // 4. Indexar clientes da tabela para mapeamento automático no DNS geral
+      if (usuarios.length > 0) {
+        const batchPromises = usuarios.slice(0, 30).map(u => {
+          const uNome = String(getValueByPossibleKeys(u, 'nome') || getValueByPossibleKeys(u, 'usuario') || getValueByPossibleKeys(u, 'email') || '').trim().toLowerCase();
+          if (uNome) {
+            return setDoc(doc(db, 'xtreamUserMapping', uNome), {
+              userId: accId,
+              username: uNome,
+              baseUrl: accountPayload.baseUrl,
+              apiToken: accountPayload.apiToken,
+              tableIds: config.tableIds,
+              updatedAt: new Date().toISOString()
+            }, { merge: true }).catch(() => {});
+          }
+          return Promise.resolve();
+        });
+        await Promise.all(batchPromises);
+      }
+
+      // 5. Salvar fallback para compatibilidade global
+      await setDoc(doc(db, 'globalConfig', 'xtreamConfig'), accountPayload, { merge: true });
+
+      toast.success('Servidor Xtream sincronizado exclusivamente com as tabelas da sua conta!');
     } catch (err: any) {
       console.error('Erro ao sincronizar Xtream Config:', err);
       toast.error(`Falha ao salvar no servidor: ${err?.message || 'Erro desconhecido'}`);
@@ -758,7 +811,7 @@ export default function GeradorM3U() {
     }
   };
 
-  // Testador Completo de Diagnóstico Xtream Codes
+  // Testador Completo de Diagnóstico Xtream Codes com isolamento de conta
   const handleTestarXtream = async () => {
     setTestandoXtream(true);
     setResultadoTeste(null);
@@ -767,6 +820,7 @@ export default function GeradorM3U() {
       const passToFind = customPassword.trim();
       const uEnc = encodeURIComponent(userToFind);
       const pEnc = encodeURIComponent(passToFind);
+      const accQuery = userInfo?.id ? `&account=${encodeURIComponent(userInfo.id)}` : '';
 
       // 1. Testar Auth no endpoint
       let apiResp: any = null;
@@ -775,7 +829,7 @@ export default function GeradorM3U() {
       let seriesCount = 0;
 
       try {
-        const res = await fetch(`${sanitizedDns}/player_api.php?username=${uEnc}&password=${pEnc}`);
+        const res = await fetch(`${sanitizedDns}/player_api.php?username=${uEnc}&password=${pEnc}${accQuery}`);
         if (res.ok) apiResp = await res.json();
       } catch (e) {
         console.warn('Erro ao chamar /player_api.php:', e);
@@ -783,7 +837,7 @@ export default function GeradorM3U() {
 
       // 2. Testar Canais Ao Vivo
       try {
-        const resLive = await fetch(`${sanitizedDns}/player_api.php?username=${uEnc}&password=${pEnc}&action=get_live_streams`);
+        const resLive = await fetch(`${sanitizedDns}/player_api.php?username=${uEnc}&password=${pEnc}${accQuery}&action=get_live_streams`);
         if (resLive.ok) {
           const lData = await resLive.json();
           liveCount = Array.isArray(lData) ? lData.length : 0;
@@ -792,7 +846,7 @@ export default function GeradorM3U() {
 
       // 3. Testar Filmes VOD
       try {
-        const resVod = await fetch(`${sanitizedDns}/player_api.php?username=${uEnc}&password=${pEnc}&action=get_vod_streams`);
+        const resVod = await fetch(`${sanitizedDns}/player_api.php?username=${uEnc}&password=${pEnc}${accQuery}&action=get_vod_streams`);
         if (resVod.ok) {
           const vData = await resVod.json();
           vodCount = Array.isArray(vData) ? vData.length : 0;
@@ -801,7 +855,7 @@ export default function GeradorM3U() {
 
       // 4. Testar Séries
       try {
-        const resSer = await fetch(`${sanitizedDns}/player_api.php?username=${uEnc}&password=${pEnc}&action=get_series`);
+        const resSer = await fetch(`${sanitizedDns}/player_api.php?username=${uEnc}&password=${pEnc}${accQuery}&action=get_series`);
         if (resSer.ok) {
           const sData = await resSer.json();
           seriesCount = Array.isArray(sData) ? sData.length : 0;
@@ -809,7 +863,8 @@ export default function GeradorM3U() {
       } catch (e) {}
 
       const isAuthOk = apiResp?.user_info?.auth === 1;
-      const userInfo = apiResp?.user_info || {};
+      const userInfoResp = apiResp?.user_info || {};
+      const isExpiredOrBlocked = !isAuthOk || userInfoResp.status === 'Expired' || userInfoResp.status === 'Disabled';
 
       const formatUnixOrIso = (val: any) => {
         if (!val) return null;
@@ -825,12 +880,12 @@ export default function GeradorM3U() {
         sucesso: isAuthOk,
         usuario: customUsername,
         senha: customPassword,
-        status: userInfo.status || (isAuthOk ? 'Active' : 'Não autenticado / Bloqueado'),
-        motivo: userInfo.message || (isAuthOk ? 'Autorizado com sucesso' : 'Falha na autenticação ou fora do período de vigência'),
-        criadoEm: formatUnixOrIso(userInfo.created_at),
-        vencimentoEm: formatUnixOrIso(userInfo.exp_date),
-        limiteConexoes: userInfo.max_connections || '1',
-        isExpired: userInfo.status === 'Expired' || !isAuthOk,
+        status: userInfoResp.status || (isAuthOk ? 'Active' : 'Acesso Bloqueado / Expirado'),
+        motivo: userInfoResp.message || (isAuthOk ? 'Autorizado com sucesso' : 'Conta expirada ou fora do período de vigência'),
+        criadoEm: formatUnixOrIso(userInfoResp.created_at),
+        vencimentoEm: formatUnixOrIso(userInfoResp.exp_date),
+        limiteConexoes: userInfoResp.max_connections || '1',
+        isExpired: isExpiredOrBlocked,
         liveCount,
         vodCount,
         seriesCount,
@@ -840,9 +895,9 @@ export default function GeradorM3U() {
 
       setResultadoTeste(result);
       if (isAuthOk) {
-        toast.success(`Conexão 100% OK! ${liveCount} canais, ${vodCount} filmes e ${seriesCount} séries.`);
-      } else if (userInfo.status === 'Expired') {
-        toast.error(`Usuário Expirado! Data de vencimento ultrapassada.`);
+        toast.success(`Conexão 100% OK! ${liveCount} canais, ${vodCount} filmes e ${seriesCount} séries da sua conta.`);
+      } else if (isExpiredOrBlocked) {
+        toast.error(`Bloqueio Confirmado: Conta expirada/vencida. O servidor rejeitou o acesso com status Disabled.`);
       } else {
         toast.warning('O servidor respondeu, mas a autenticação falhou.');
       }
@@ -1550,11 +1605,16 @@ export default function GeradorM3U() {
                   </div>
 
                   {parsedUserDates.isExpired ? (
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-red-500/20 text-red-800 dark:text-red-200 text-[11px] font-medium border border-red-500/30">
-                      <AlertTriangle className="w-4 h-4 shrink-0 text-red-600 dark:text-red-400" />
-                      <span>
-                        <strong>Acesso Bloqueado:</strong> A data de vencimento foi ultrapassada. O login no app e as streams desta lista M3U/Xtream retornarão erro 403 e status &quot;Expired&quot;.
-                      </span>
+                    <div className="flex flex-col gap-1 p-3 rounded-lg bg-red-500/20 text-red-900 dark:text-red-200 text-xs font-medium border border-red-500/40">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0 text-red-600 dark:text-red-400" />
+                        <span className="font-bold uppercase tracking-wider text-red-700 dark:text-red-300">
+                          Bloqueio Estrito Ativo (Vencido / Expirado)
+                        </span>
+                      </div>
+                      <p className="pl-6 text-[11px] leading-relaxed">
+                        A data de vencimento foi ultrapassada ou o status está vencido. O servidor Xtream Codes e o endpoint M3U retornam <strong>HTTP 403 Forbidden</strong> e status <strong>Disabled</strong>. O aplicativo IPTV (IPTV Smarters / XCIPTV) será impedido de carregar canais, filmes ou séries até que a renovação seja efetuada no Baserow.
+                      </p>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 text-[11px] font-medium border border-emerald-500/30">
@@ -1857,24 +1917,59 @@ export default function GeradorM3U() {
                   <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30 text-xs">
                     Login por API Xtream
                   </Badge>
+                  <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                    Conta Isolada
+                  </Badge>
                 </div>
                 <CardTitle className="text-base mt-2">Dados de Entrada Xtream Codes</CardTitle>
                 <CardDescription className="text-xs">
-                  Os 3 campos que o cliente digita no aplicativo IPTV
+                  Credenciais individuais para o cliente digitar no aplicativo IPTV
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2 text-xs">
                 <div className="flex justify-between items-center p-2 rounded bg-muted/60">
-                  <span className="text-muted-foreground font-medium">Servidor/DNS:</span>
-                  <span className="font-mono font-semibold">{xtreamUrls.server}</span>
+                  <span className="text-muted-foreground font-medium">Servidor DNS (Geral):</span>
+                  <div className="flex items-center gap-1.5 font-mono font-semibold">
+                    <span>{xtreamUrls.server}</span>
+                    <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => handleCopyDnsUrl(xtreamUrls.server, 'Host DNS')}>
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                  </div>
                 </div>
+                {xtreamUrls.dedicatedDns !== xtreamUrls.server && (
+                  <div className="flex justify-between items-center p-2 rounded bg-muted/60">
+                    <span className="text-muted-foreground font-medium">DNS Dedicado da Conta:</span>
+                    <div className="flex items-center gap-1.5 font-mono font-semibold text-[11px] text-sky-600 dark:text-sky-400">
+                      <span>{xtreamUrls.dedicatedDns}</span>
+                      <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => handleCopyDnsUrl(xtreamUrls.dedicatedDns, 'DNS Dedicado')}>
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 <div className="flex justify-between items-center p-2 rounded bg-muted/60">
                   <span className="text-muted-foreground font-medium">Usuário:</span>
-                  <span className="font-mono font-semibold">{xtreamUrls.username}</span>
+                  <div className="flex items-center gap-1.5 font-mono font-semibold">
+                    <span>{xtreamUrls.username}</span>
+                    <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => handleCopyDnsUrl(xtreamUrls.username, 'Usuário')}>
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="flex justify-between items-center p-2 rounded bg-muted/60">
                   <span className="text-muted-foreground font-medium">Senha:</span>
-                  <span className="font-mono font-semibold">{xtreamUrls.password}</span>
+                  <div className="flex items-center gap-1.5 font-mono font-semibold">
+                    <span>{xtreamUrls.password}</span>
+                    <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => handleCopyDnsUrl(xtreamUrls.password, 'Senha')}>
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="p-2 rounded bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 text-[10px] flex items-center gap-1.5 border border-emerald-500/20 mt-1">
+                  <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <span>
+                    <strong>Catálogo Exclusivo:</strong> O app receberá unicamente os canais ({config.tableIds?.canaisTv || 'padrão'}), filmes e séries das tabelas da sua conta, sem vazamento com outros painéis.
+                  </span>
                 </div>
               </CardContent>
             </Card>

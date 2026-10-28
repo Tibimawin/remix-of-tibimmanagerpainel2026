@@ -135,7 +135,10 @@ const m3uDevProxyPlugin = () => ({
         url.startsWith("/api/xtream") ||
         url.startsWith("/live/") ||
         url.startsWith("/movie/") ||
-        url.startsWith("/series/")
+        url.startsWith("/series/") ||
+        url.startsWith("/u/") ||
+        url.includes("player_api.php") ||
+        url.includes("get.php")
       ) {
         try {
           // @ts-ignore
