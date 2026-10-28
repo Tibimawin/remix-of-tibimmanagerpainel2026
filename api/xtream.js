@@ -236,21 +236,48 @@ async function resolveAccountConfig(req, targetUsername) {
       const mapResp = await fetch(mapUrl);
       if (mapResp.ok) {
         const mapDoc = parseFirestoreDoc(await mapResp.json());
-        if (mapDoc && (mapDoc.tableUsuarios || mapDoc.tableIds?.usuarios)) {
-          const tIds = mapDoc.tableIds || {};
-          const cfg = {
-            accountId: mapDoc.userId || 'mapped',
-            baseUrl: mapDoc.baseUrl || FALLBACK_CONFIG.baseUrl,
-            apiToken: mapDoc.apiToken || FALLBACK_CONFIG.apiToken,
-            tableCanaisTv: tIds.canaisTv || mapDoc.tableCanaisTv || '',
-            tokenCanaisTv: mapDoc.apiToken || FALLBACK_CONFIG.tokenCanaisTv,
-            tableConteudos: tIds.conteudos || mapDoc.tableConteudos || '',
-            tableEpisodios: tIds.episodios || mapDoc.tableEpisodios || '',
-            tableUsuarios: tIds.usuarios || mapDoc.tableUsuarios || '',
-            tableCategoriasTV: tIds.categoriasTV || mapDoc.tableCategoriasTV || ''
-          };
-          USER_TO_ACCOUNT_CACHE.set(cleanUsername, { config: cfg, expiresAt: now + 120000 });
-          return cfg;
+        if (mapDoc) {
+          if (mapDoc.tableUsuarios || mapDoc.tableIds?.usuarios) {
+            const tIds = mapDoc.tableIds || {};
+            const cfg = {
+              accountId: mapDoc.userId || 'mapped',
+              baserowUserId: mapDoc.baserowUserId || '',
+              baseUrl: mapDoc.baseUrl || FALLBACK_CONFIG.baseUrl,
+              apiToken: mapDoc.apiToken || FALLBACK_CONFIG.apiToken,
+              tableCanaisTv: tIds.canaisTv || mapDoc.tableCanaisTv || '',
+              tokenCanaisTv: mapDoc.apiToken || FALLBACK_CONFIG.tokenCanaisTv,
+              tableConteudos: tIds.conteudos || mapDoc.tableConteudos || '',
+              tableEpisodios: tIds.episodios || mapDoc.tableEpisodios || '',
+              tableUsuarios: tIds.usuarios || mapDoc.tableUsuarios || '',
+              tableCategoriasTV: tIds.categoriasTV || mapDoc.tableCategoriasTV || ''
+            };
+            USER_TO_ACCOUNT_CACHE.set(cleanUsername, { config: cfg, expiresAt: now + 120000 });
+            return cfg;
+          } else if (mapDoc.userId) {
+            // Buscar configuração da conta do usuário referenciado pelo mapeamento
+            const userDocUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/userConfigs/${encodeURIComponent(mapDoc.userId)}?key=${FIREBASE_API_KEY}`;
+            const userDocResp = await fetch(userDocUrl);
+            if (userDocResp.ok) {
+              const uDoc = parseFirestoreDoc(await userDocResp.json());
+              if (uDoc) {
+                const tIds = uDoc.tableIds || {};
+                const cfg = {
+                  accountId: mapDoc.userId,
+                  baserowUserId: mapDoc.baserowUserId || '',
+                  baseUrl: uDoc.baseUrl || FALLBACK_CONFIG.baseUrl,
+                  apiToken: uDoc.apiToken || FALLBACK_CONFIG.apiToken,
+                  tableCanaisTv: tIds.canaisTv || uDoc.tableCanaisTv || '',
+                  tokenCanaisTv: uDoc.apiToken || FALLBACK_CONFIG.tokenCanaisTv,
+                  tableConteudos: tIds.conteudos || uDoc.tableConteudos || '',
+                  tableEpisodios: tIds.episodios || uDoc.tableEpisodios || '',
+                  tableUsuarios: tIds.usuarios || uDoc.tableUsuarios || '',
+                  tableCategoriasTV: tIds.categoriasTV || uDoc.tableCategoriasTV || ''
+                };
+                USER_TO_ACCOUNT_CACHE.set(cleanUsername, { config: cfg, expiresAt: now + 120000 });
+                return cfg;
+              }
+            }
+          }
         }
       }
 
@@ -583,20 +610,84 @@ async function validateUser(config, username, password) {
   // Carrega a tabela completa (sem limite de 200) para garantir que usuários recentes ou em páginas seguintes sejam encontrados
   let candidateUsers = await fetchBaserowRows(config.baseUrl, config.tableUsuarios, config.apiToken, 3000, '', true);
 
-  const matchedUser = candidateUsers.find(u => {
+  // 1. Filtrar TODOS os registros correspondentes ao usuário (evita que uma linha antiga vencida bloqueie uma renovação válida)
+  const allMatches = candidateUsers.filter(u => {
     const uNome = String(extractField(u, ['nome', 'usuario', 'cliente', 'user'])).trim().toLowerCase();
     const uEmail = String(extractField(u, ['email'])).trim().toLowerCase();
+    const uId = String(u.id || '');
+    const mappedId = String(config.baserowUserId || '');
+
+    if (mappedId && uId === mappedId) return true;
+
     return uNome === targetUser || 
            uEmail === targetUser || 
            uNome.replace(/\s+/g, '_') === targetUser || 
            uNome.replace(/[^a-z0-9]/g, '') === targetUser;
   });
 
-  if (!matchedUser) {
+  if (allMatches.length === 0) {
     return { ok: false, status: 'Disabled', message: 'Usuário não encontrado nesta conta.' };
   }
 
-  // 2. Validar Senha
+  // 2. Se houver mais de um registro correspondente (ex: duplicatas no Baserow ou histórico):
+  // Priorizar:
+  // - Registro cujo ID é o baserowUserId mapeado
+  // - Registro cuja senha confere E que esteja com data de vencimento VÁLIDA/FUTURA!
+  // - Registro com maior data de vencimento ou mais recente
+  let matchedUser = allMatches[0];
+
+  if (allMatches.length > 1) {
+    const exactMapped = config.baserowUserId ? allMatches.find(u => String(u.id) === String(config.baserowUserId)) : null;
+    if (exactMapped) {
+      matchedUser = exactMapped;
+    } else {
+      // Filtrar os que conferem com a senha digitada
+      const matchingPassList = cleanPass 
+        ? allMatches.filter(u => {
+            const uSenha = String(extractField(u, ['senha', 'password', 'pin'])).trim();
+            return !uSenha || uSenha === cleanPass;
+          })
+        : allMatches;
+
+      const pool = matchingPassList.length > 0 ? matchingPassList : allMatches;
+
+      // Buscar se algum candidato possui data de vencimento ativa no futuro
+      const activeCandidates = pool.filter(u => {
+        const rawV = extractField(u, ['vencimento']);
+        let vDate = parseUserDate(rawV);
+        if (!vDate) {
+          const rawPag = extractField(u, ['pagamento', 'datapagamento', 'data de pagamento']);
+          const rawDias = Number(extractField(u, ['dias', 'periodo_dias', 'totaldedias', 'total de dias'])) || 0;
+          if (rawPag && rawDias > 0) {
+            const pagD = parseUserDate(rawPag);
+            if (pagD) vDate = new Date(pagD.getTime() + (rawDias * 24 * 3600 * 1000));
+          }
+        }
+        return vDate && vDate.getTime() >= Date.now();
+      });
+
+      if (activeCandidates.length > 0) {
+        // Ordenar candidatos ativos pela maior data de vencimento
+        activeCandidates.sort((a, b) => {
+          const da = parseUserDate(extractField(a, ['vencimento']))?.getTime() || 0;
+          const db = parseUserDate(extractField(b, ['vencimento']))?.getTime() || 0;
+          return db - da;
+        });
+        matchedUser = activeCandidates[0];
+      } else {
+        // Se nenhum estiver ativo, escolher o de maior ID (mais novo) ou maior vencimento
+        pool.sort((a, b) => {
+          const da = parseUserDate(extractField(a, ['vencimento']))?.getTime() || 0;
+          const db = parseUserDate(extractField(b, ['vencimento']))?.getTime() || 0;
+          if (db !== da) return db - da;
+          return Number(b.id || 0) - Number(a.id || 0);
+        });
+        matchedUser = pool[0];
+      }
+    }
+  }
+
+  // 3. Validar Senha
   const uSenha = String(extractField(matchedUser, ['senha', 'password', 'pin'])).trim();
   if (cleanPass && uSenha && cleanPass !== uSenha) {
     return { ok: false, status: 'Disabled', message: 'Senha incorreta para o usuário informado.' };
