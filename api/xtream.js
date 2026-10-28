@@ -41,15 +41,35 @@ function sanitizeM3uText(text) {
     .trim();
 }
 
-// Parser universal de datas (ISO: 2026-01-24T01:07:45Z, SQL: 2026-06-11 04:23:42, BR: 14/02/2026, 23:59:59)
+// Dicionário universal de sinônimos de colunas (Baserow)
+const COLUMN_ALIASES = {
+  vencimento: [
+    'vencimento', 'datavencimento', 'data de vencimento', 'datadevencimento', 'data_de_vencimento',
+    'data_vencimento', 'validade', 'data de validade', 'datadevalidade', 'data_validade',
+    'expirydate', 'expiry_date', 'expiracao', 'expiração', 'data de expiracao', 'data de expiração',
+    'data_expiracao', 'exp_date', 'data_fim', 'data final', 'prazo', 'termino', 'término'
+  ],
+  datacriacao: [
+    'datacriacao', 'data criacao', 'data de criacao', 'data de criação', 'datadecriacao',
+    'data_de_criacao', 'data_criacao', 'createdat', 'created_at', 'criado_em', 'criado em',
+    'datapagamento', 'data pagamento', 'data de pagamento', 'pagamento', 'data', 'inicio', 'início'
+  ],
+  status: ['status', 'situacao', 'situação', 'estado', 'ativo', 'condicao', 'condição'],
+  nome: ['nome', 'name', 'usuario', 'usuário', 'cliente', 'user', 'username', 'login'],
+  senha: ['senha', 'password', 'pass', 'pin', 'chave', 'key'],
+  limite: ['limite', 'telas', 'limitedetelas', 'limite de telas', 'conexoes', 'conexões', 'conexoes_simultaneas', 'max_connections', 'maxtelas', 'telasimultanea'],
+  email: ['email', 'e-mail', 'mail', 'contato']
+};
+
+// Parser universal de datas (ISO: 2026-01-24T01:07:45Z, SQL: 2026-06-11 04:23:42, BR: 14/02/2026, 23:59:59, 14-02-2026)
 function parseUserDate(val) {
   if (!val) return null;
   if (typeof val === 'object' && val !== null) {
     if (val.value) val = val.value;
     else if (val.date) val = val.date;
   }
-  const s = String(val).trim();
-  if (!s) return null;
+  let s = String(val).trim();
+  if (!s || s === 'null' || s === 'undefined') return null;
 
   // Timestamp numérico (ms ou segundos)
   if (/^\d+$/.test(s)) {
@@ -57,24 +77,37 @@ function parseUserDate(val) {
     return new Date(num > 10000000000 ? num : num * 1000);
   }
 
-  // DD/MM/YYYY com ou sem vírgula e com ou sem hora (ex: 14/02/2026, 23:59:59 ou 14/02/2026 23:59:59)
-  const brMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[,\s]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  // DD/MM/YYYY ou DD-MM-YYYY com ou sem vírgula e com ou sem hora
+  const brMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:[,\s]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
   if (brMatch) {
     const dia = brMatch[1].padStart(2, '0');
     const mes = brMatch[2].padStart(2, '0');
     const ano = brMatch[3];
-    const hora = (brMatch[4] || '23').padStart(2, '0');
-    const min = (brMatch[5] || '59').padStart(2, '0');
-    const seg = (brMatch[6] || '59').padStart(2, '0');
+    const hasExplicitHour = Boolean(brMatch[4]);
+    const rawH = brMatch[4] || '23';
+    const rawM = brMatch[5] || '59';
+    const rawS = brMatch[6] || '59';
+    // Se não informou hora ou hora é 00:00(:00), estende para 23:59:59 para cobrir o dia inteiro de acesso
+    const hora = (!hasExplicitHour || (rawH === '00' && rawM === '00' && (rawS === '00' || !brMatch[6]))) ? '23' : rawH.padStart(2, '0');
+    const min = (!hasExplicitHour || (rawH === '00' && rawM === '00')) ? '59' : rawM.padStart(2, '0');
+    const seg = (!hasExplicitHour || (rawH === '00' && rawM === '00')) ? '59' : rawS.padStart(2, '0');
     return new Date(`${ano}-${mes}-${dia}T${hora}:${min}:${seg}Z`);
   }
 
-  // YYYY-MM-DD com ou sem hora
-  const isoMatch = s.match(/^(\d{4}-\d{2}-\d{2})(?:[T\s]+(\d{1,2}:\d{1,2}(?::\d{1,2})?))?/);
+  // YYYY-MM-DD ou YYYY/MM/DD com ou sem hora
+  const isoMatch = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
   if (isoMatch) {
-    const dPart = isoMatch[1];
-    const tPart = isoMatch[2] || '23:59:59';
-    return new Date(`${dPart}T${tPart}Z`);
+    const ano = isoMatch[1];
+    const mes = isoMatch[2].padStart(2, '0');
+    const dia = isoMatch[3].padStart(2, '0');
+    const hasExplicitHour = Boolean(isoMatch[4]);
+    const rawH = isoMatch[4] || '23';
+    const rawM = isoMatch[5] || '59';
+    const rawS = isoMatch[6] || '59';
+    const hora = (!hasExplicitHour || (rawH === '00' && rawM === '00' && (rawS === '00' || !isoMatch[6]))) ? '23' : rawH.padStart(2, '0');
+    const min = (!hasExplicitHour || (rawH === '00' && rawM === '00')) ? '59' : rawM.padStart(2, '0');
+    const seg = (!hasExplicitHour || (rawH === '00' && rawM === '00')) ? '59' : rawS.padStart(2, '0');
+    return new Date(`${ano}-${mes}-${dia}T${hora}:${min}:${seg}Z`);
   }
 
   // Fallback ISO padrão
@@ -293,17 +326,21 @@ async function resolveAccountConfig(req, targetUsername) {
 // -------------------------------------------------------------
 // HELPER PARA CONSULTA AO BASEROW COM PAGINAÇÃO CONCORRENTE
 // -------------------------------------------------------------
-async function fetchBaserowRows(baseUrl, tableId, token, maxRows = 3000, searchTerm = '') {
+async function fetchBaserowRows(baseUrl, tableId, token, maxRows = 3000, searchTerm = '', bypassCache = false) {
   if (!tableId || !token || !baseUrl) return [];
   try {
     const base = baseUrl.replace(/\/+$/, '');
     const pageSize = 200;
     const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
-    const firstUrl = `${base}/api/database/rows/table/${tableId}/?user_field_names=true&size=${pageSize}&page=1${searchParam}`;
+    const cacheParam = bypassCache ? `&_t=${Date.now()}` : '';
+    const firstUrl = `${base}/api/database/rows/table/${tableId}/?user_field_names=true&size=${pageSize}&page=1${searchParam}${cacheParam}`;
     const resp = await fetch(firstUrl, {
+      cache: 'no-store',
       headers: {
         Authorization: `Token ${token}`,
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
       },
     });
     if (!resp.ok) {
@@ -351,23 +388,59 @@ async function fetchBaserowRows(baseUrl, tableId, token, maxRows = 3000, searchT
   }
 }
 
-// Extrair campo com flexibilidade de maiúsculas/acentos
+// Extrair campo com flexibilidade total de sinônimos, maiúsculas e acentos
 function extractField(row, possibleNames) {
   if (!row) return '';
+
+  // Expandir possibleNames com COLUMN_ALIASES se corresponder a algum grupo
+  const expandedNames = new Set();
   for (const name of possibleNames) {
-    const norm = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s_-]/g, '');
+    const raw = String(name).trim();
+    expandedNames.add(raw);
+    const lower = raw.toLowerCase();
+    for (const [group, synonyms] of Object.entries(COLUMN_ALIASES)) {
+      if (lower === group || synonyms.some(s => s.toLowerCase() === lower)) {
+        synonyms.forEach(s => expandedNames.add(s));
+      }
+    }
+  }
+
+  // 1. Match exato ou normalizado
+  for (const name of expandedNames) {
+    const norm = String(name).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s_\-\/\.]/g, '');
     for (const key of Object.keys(row)) {
-      const keyNorm = key.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s_-]/g, '');
+      const keyNorm = key.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s_\-\/\.]/g, '');
       if (keyNorm === norm) {
         const val = row[key];
-        if (val !== undefined && val !== null) {
-          if (typeof val === 'object' && val.value) return val.value;
+        if (val !== undefined && val !== null && val !== '') {
+          if (typeof val === 'object' && val.value !== undefined) return val.value;
+          if (typeof val === 'object' && val.date !== undefined) return val.date;
           if (Array.isArray(val) && val[0]?.url) return val[0].url;
           return val;
         }
       }
     }
   }
+
+  // 2. Match por substring (ex: se chave tem "vencimento" e buscamos vencimento)
+  for (const name of possibleNames) {
+    const norm = String(name).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s_\-\/\.]/g, '');
+    if (norm.length >= 4) {
+      for (const key of Object.keys(row)) {
+        const keyNorm = key.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s_\-\/\.]/g, '');
+        if (keyNorm.includes(norm) || norm.includes(keyNorm)) {
+          const val = row[key];
+          if (val !== undefined && val !== null && val !== '') {
+            if (typeof val === 'object' && val.value !== undefined) return val.value;
+            if (typeof val === 'object' && val.date !== undefined) return val.date;
+            if (Array.isArray(val) && val[0]?.url) return val[0].url;
+            return val;
+          }
+        }
+      }
+    }
+  }
+
   return '';
 }
 
@@ -492,7 +565,7 @@ async function getUsuariosCached(config) {
 }
 
 // -------------------------------------------------------------
-// 5. VALIDADOR RIGOROSO DE USUÁRIO (NUNCA IGNORA VENCIMENTO)
+// 5. VALIDADOR RIGOROSO DE USUÁRIO (VENCIMENTO É A FONTE DA VERDADE)
 // -------------------------------------------------------------
 async function validateUser(config, username, password) {
   const targetUser = String(username || '').trim().toLowerCase();
@@ -506,14 +579,12 @@ async function validateUser(config, username, password) {
     return { ok: false, status: 'Disabled', message: 'Tabela de usuários não configurada para esta conta.' };
   }
 
-  // 1. Buscar usuário estritamente na tabela de usuários da conta
-  let candidateUsers = await fetchBaserowRows(config.baseUrl, config.tableUsuarios, config.apiToken, 25, targetUser);
-  if (candidateUsers.length === 0) {
-    candidateUsers = await getUsuariosCached(config);
-  }
+  // 1. Buscar usuário SEMPRE SEM CACHE no Baserow para refletir alterações de vencimento instantaneamente
+  // Carrega a tabela completa (sem limite de 200) para garantir que usuários recentes ou em páginas seguintes sejam encontrados
+  let candidateUsers = await fetchBaserowRows(config.baseUrl, config.tableUsuarios, config.apiToken, 3000, '', true);
 
   const matchedUser = candidateUsers.find(u => {
-    const uNome = String(extractField(u, ['nome', 'usuario'])).trim().toLowerCase();
+    const uNome = String(extractField(u, ['nome', 'usuario', 'cliente', 'user'])).trim().toLowerCase();
     const uEmail = String(extractField(u, ['email'])).trim().toLowerCase();
     return uNome === targetUser || 
            uEmail === targetUser || 
@@ -531,27 +602,18 @@ async function validateUser(config, username, password) {
     return { ok: false, status: 'Disabled', message: 'Senha incorreta para o usuário informado.' };
   }
 
-  // 3. Validar Status textual (Ex: Vencido, Expirado, Inativo, Bloqueado, etc.)
-  const rawStatus = extractField(matchedUser, ['status', 'ativo']);
-  if (isStatusBlocked(rawStatus)) {
-    return {
-      ok: false,
-      status: 'Expired',
-      message: 'Sua conta está vencida ou bloqueada. Acesso revogado pelo painel.'
-    };
-  }
-
-  // 4. Validar Datas: DataCriacao e Vencimento
-  const rawCriacao = extractField(matchedUser, ['datacriacao', 'data_criacao', 'criado_em', 'createdat', 'data']);
-  const rawVencimento = extractField(matchedUser, ['vencimento', 'data_vencimento', 'validade', 'expiracao', 'exp_date']);
+  // 3. Extrair Datas: Vencimento e DataCriacao (FONTE DA VERDADE SOBERANA)
+  const rawCriacao = extractField(matchedUser, ['datacriacao']);
+  const rawVencimento = extractField(matchedUser, ['vencimento']);
+  const rawStatus = String(extractField(matchedUser, ['status']) || '').trim().toLowerCase();
 
   const criacaoDate = parseUserDate(rawCriacao) || new Date(Date.now() - 86400000);
   let vencDate = parseUserDate(rawVencimento);
 
-  // Se vencimento não foi preenchido, verificar Pagamento e Dias
+  // Se vencimento não foi preenchido diretamente, verificar Pagamento e Dias
   if (!vencDate) {
-    const rawPagamento = extractField(matchedUser, ['pagamento', 'data_pagamento']);
-    const rawDias = Number(extractField(matchedUser, ['dias', 'periodo_dias'])) || 0;
+    const rawPagamento = extractField(matchedUser, ['pagamento', 'datapagamento', 'data de pagamento']);
+    const rawDias = Number(extractField(matchedUser, ['dias', 'periodo_dias', 'totaldedias', 'total de dias'])) || 0;
     if (rawPagamento && rawDias > 0) {
       const pagDate = parseUserDate(rawPagamento);
       if (pagDate) {
@@ -562,21 +624,48 @@ async function validateUser(config, username, password) {
 
   const nowMs = Date.now();
 
-  // A. Vencimento Ultrapassado: BLOQUEIO TOTAL E IMEDIATO
-  if (vencDate && nowMs > vencDate.getTime()) {
-    const dataVencFmt = vencDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const horaVencFmt = vencDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const horaStr = (horaVencFmt && horaVencFmt !== '00:00' && horaVencFmt !== '23:59') ? ` às ${horaVencFmt}` : '';
-    return {
-      ok: false,
-      status: 'Expired',
-      message: `Acesso expirado em ${dataVencFmt}${horaStr}. Renove sua assinatura para continuar assistindo.`,
-      expTimestamp: Math.floor(vencDate.getTime() / 1000),
-      criacaoTimestamp: Math.floor(criacaoDate.getTime() / 1000)
-    };
+  // 4. REGRA DE OURO DO VENCIMENTO:
+  // Se tem data de vencimento definida no Baserow:
+  if (vencDate) {
+    // ⚠️ Se a data de vencimento foi ultrapassada: BLOQUEIO TOTAL E IMEDIATO
+    if (nowMs > vencDate.getTime()) {
+      const dataVencFmt = vencDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const horaVencFmt = vencDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const horaStr = (horaVencFmt && horaVencFmt !== '00:00' && horaVencFmt !== '23:59') ? ` às ${horaVencFmt}` : '';
+      return {
+        ok: false,
+        status: 'Expired',
+        message: `Acesso expirado em ${dataVencFmt}${horaStr}. Renove sua assinatura para continuar assistindo.`,
+        expTimestamp: Math.floor(vencDate.getTime() / 1000),
+        criacaoTimestamp: Math.floor(criacaoDate.getTime() / 1000)
+      };
+    }
+
+    // ✅ Se a data de vencimento é no FUTURO (nowMs <= vencDate.getTime()):
+    // A CONTA É 100% ATIVA E REATIVADA AUTOMATICAMENTE!
+    // Quando o administrador atualiza a data no Baserow, o acesso volta a funcionar instantaneamente,
+    // mesmo que a coluna de texto ainda contenha 'Vencido' ou 'Inativo'.
+    // Apenas banimento explícito ('banido', 'fraude') bloqueia uma conta com data de validade ativa:
+    const isExplicitlyBanned = ['banido', 'banida', 'fraude', 'bloqueado permanentemente'].some(k => rawStatus.includes(k));
+    if (isExplicitlyBanned) {
+      return {
+        ok: false,
+        status: 'Disabled',
+        message: 'Sua conta está bloqueada pela administração do sistema.'
+      };
+    }
+  } else {
+    // Se NÃO há nenhuma data de vencimento configurada, checar o status textual:
+    if (rawStatus.includes('vencid') || rawStatus.includes('expirad') || rawStatus.includes('inativ') || rawStatus.includes('bloquead') || rawStatus.includes('desativad')) {
+      return {
+        ok: false,
+        status: 'Expired',
+        message: 'Acesso expirado ou inativo. Atualize a data de vencimento para reativar.'
+      };
+    }
   }
 
-  // B. Início no futuro
+  // 5. Início no futuro
   if (criacaoDate && nowMs < criacaoDate.getTime() - 60000) {
     const dataInicioFmt = criacaoDate.toLocaleDateString('pt-BR');
     return {
@@ -588,10 +677,10 @@ async function validateUser(config, username, password) {
     };
   }
 
-  // C. Usuário Válido e Ativo
+  // 6. Conta Ativa e Válida!
   const expTimestamp = vencDate ? Math.floor(vencDate.getTime() / 1000) : Math.floor(Date.now() / 1000) + (30 * 86400);
   const criacaoTimestamp = Math.floor(criacaoDate.getTime() / 1000);
-  const rawLimite = extractField(matchedUser, ['limite', 'conexoes', 'max_connections', 'telas']);
+  const rawLimite = extractField(matchedUser, ['limite']);
   const maxConnections = String(rawLimite && !isNaN(Number(rawLimite)) && Number(rawLimite) > 0 ? Number(rawLimite) : 1);
 
   return {

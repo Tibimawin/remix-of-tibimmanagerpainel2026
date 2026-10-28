@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useConfig } from '@/contexts/ConfigContext';
@@ -127,24 +127,31 @@ export default function GeradorM3U() {
   const [qrOpen, setQrOpen] = useState(false);
   const [qrUrl, setQrUrl] = useState('');
 
-  // Carregar usuários do Baserow para vincular a credencial
-  useEffect(() => {
-    async function carregarUsuarios() {
-      if (!isConfigured || !config.tableIds?.usuarios) return;
-      try {
-        setLoadingUsuarios(true);
-        const resp = await baserowService.getAllTableData(config.tableIds.usuarios, undefined, 200);
-        if (resp && resp.results) {
-          setUsuarios(resp.results);
+  // Carregar usuários do Baserow para vincular a credencial (suporta até 2500 registros)
+  const carregarUsuarios = useCallback(async (forceRefresh = false) => {
+    if (!isConfigured || !config.tableIds?.usuarios) return;
+    try {
+      setLoadingUsuarios(true);
+      const resp = await baserowService.getAllTableData(config.tableIds.usuarios, undefined, 2500);
+      if (resp && resp.results) {
+        setUsuarios(resp.results);
+        if (forceRefresh) {
+          toast.success(`Tabela atualizada com sucesso! ${resp.results.length} usuários carregados do Baserow.`);
         }
-      } catch (err) {
-        console.warn('Não foi possível carregar lista de usuários para o DNS:', err);
-      } finally {
-        setLoadingUsuarios(false);
       }
+    } catch (err) {
+      console.warn('Não foi possível carregar lista de usuários para o DNS:', err);
+      if (forceRefresh) {
+        toast.error('Erro ao atualizar lista de usuários do Baserow.');
+      }
+    } finally {
+      setLoadingUsuarios(false);
     }
-    carregarUsuarios();
-  }, [isConfigured, config.tableIds?.usuarios]);
+  }, [isConfigured, config.tableIds?.usuarios, baserowService]);
+
+  useEffect(() => {
+    carregarUsuarios(false);
+  }, [carregarUsuarios]);
 
   // Se o usuário selecionou alguém da lista, atualizar username e senha
   const handleSelectUser = (id: string) => {
@@ -154,8 +161,19 @@ export default function GeradorM3U() {
     if (user) {
       const nome = getValueByPossibleKeys(user, 'nome') || getValueByPossibleKeys(user, 'usuario') || getValueByPossibleKeys(user, 'email') || 'usuario';
       const senha = getValueByPossibleKeys(user, 'senha') || '123456';
-      setCustomUsername(String(nome).replace(/\s+/g, '_').toLowerCase());
-      setCustomPassword(String(senha));
+      const cleanU = String(nome).replace(/\s+/g, '_').toLowerCase();
+      const cleanP = String(senha);
+      setCustomUsername(cleanU);
+      setCustomPassword(cleanP);
+
+      // Sincronizar mapeamento imediatamente para roteamento multi-tenant instantâneo
+      if (userInfo?.id) {
+        setDoc(doc(db, 'xtreamUserMapping', cleanU), {
+          userId: userInfo.id,
+          username: cleanU,
+          updatedAt: new Date().toISOString()
+        }, { merge: true }).catch(() => {});
+      }
     }
   };
 
@@ -177,35 +195,46 @@ export default function GeradorM3U() {
   // Cálculo detalhado de DataCriacao, Vencimento, Status e Limite de Telas
   const parsedUserDates = useMemo(() => {
     if (!activeUserObj) return null;
-    const rawCriacao = getValueByPossibleKeys(activeUserObj, 'dataCriacao') || getValueByPossibleKeys(activeUserObj, 'data_criacao') || getValueByPossibleKeys(activeUserObj, 'criado_em') || getValueByPossibleKeys(activeUserObj, 'data');
-    const rawVencimento = getValueByPossibleKeys(activeUserObj, 'vencimento') || getValueByPossibleKeys(activeUserObj, 'data_vencimento') || getValueByPossibleKeys(activeUserObj, 'validade');
+    const rawCriacao = getValueByPossibleKeys(activeUserObj, 'datacriacao') || getValueByPossibleKeys(activeUserObj, 'dataCriacao') || getValueByPossibleKeys(activeUserObj, 'data_criacao') || getValueByPossibleKeys(activeUserObj, 'criado_em') || getValueByPossibleKeys(activeUserObj, 'data');
+    const rawVencimento = getValueByPossibleKeys(activeUserObj, 'vencimento') || getValueByPossibleKeys(activeUserObj, 'data_vencimento') || getValueByPossibleKeys(activeUserObj, 'datadevencimento') || getValueByPossibleKeys(activeUserObj, 'validade');
     const rawLimite = getValueByPossibleKeys(activeUserObj, 'limite') || getValueByPossibleKeys(activeUserObj, 'conexoes') || '1';
     const rawStatus = String(getValueByPossibleKeys(activeUserObj, 'status') || 'Ativo').trim();
 
     const parseDateHelper = (val: any): Date | null => {
       if (!val) return null;
-      const s = String(typeof val === 'object' && val?.value ? val.value : val).trim();
-      if (!s) return null;
+      const s = String(typeof val === 'object' && val?.value ? val.value : (val?.date ? val.date : val)).trim();
+      if (!s || s === 'null' || s === 'undefined') return null;
       if (/^\d+$/.test(s)) {
         const num = Number(s);
         return new Date(num > 10000000000 ? num : num * 1000);
       }
-      const brMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+      const brMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:[,\s]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
       if (brMatch) {
         const dia = brMatch[1].padStart(2, '0');
         const mes = brMatch[2].padStart(2, '0');
         const ano = brMatch[3];
-        const hora = (brMatch[4] || '23').padStart(2, '0');
-        const min = (brMatch[5] || '59').padStart(2, '0');
-        const seg = (brMatch[6] || '59').padStart(2, '0');
+        const hasExplicitHour = Boolean(brMatch[4]);
+        const rawH = brMatch[4] || '23';
+        const rawM = brMatch[5] || '59';
+        const rawS = brMatch[6] || '59';
+        const hora = (!hasExplicitHour || (rawH === '00' && rawM === '00' && (rawS === '00' || !brMatch[6]))) ? '23' : rawH.padStart(2, '0');
+        const min = (!hasExplicitHour || (rawH === '00' && rawM === '00')) ? '59' : rawM.padStart(2, '0');
+        const seg = (!hasExplicitHour || (rawH === '00' && rawM === '00')) ? '59' : rawS.padStart(2, '0');
         return new Date(`${ano}-${mes}-${dia}T${hora}:${min}:${seg}Z`);
       }
-      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-        return new Date(`${s}T23:59:59Z`);
-      }
-      const sqlMatch = s.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{1,2}(?::\d{1,2})?)/);
-      if (sqlMatch) {
-        return new Date(`${sqlMatch[1]}T${sqlMatch[2]}Z`);
+      const isoMatch = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+      if (isoMatch) {
+        const ano = isoMatch[1];
+        const mes = isoMatch[2].padStart(2, '0');
+        const dia = isoMatch[3].padStart(2, '0');
+        const hasExplicitHour = Boolean(isoMatch[4]);
+        const rawH = isoMatch[4] || '23';
+        const rawM = isoMatch[5] || '59';
+        const rawS = isoMatch[6] || '59';
+        const hora = (!hasExplicitHour || (rawH === '00' && rawM === '00' && (rawS === '00' || !isoMatch[6]))) ? '23' : rawH.padStart(2, '0');
+        const min = (!hasExplicitHour || (rawH === '00' && rawM === '00')) ? '59' : rawM.padStart(2, '0');
+        const seg = (!hasExplicitHour || (rawH === '00' && rawM === '00')) ? '59' : rawS.padStart(2, '0');
+        return new Date(`${ano}-${mes}-${dia}T${hora}:${min}:${seg}Z`);
       }
       const d = new Date(s);
       return isNaN(d.getTime()) ? null : d;
@@ -1501,10 +1530,22 @@ export default function GeradorM3U() {
 
                 {/* Seleção de Usuário do Baserow */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium flex items-center gap-2">
-                    <User className="w-4 h-4 text-emerald-500" />
-                    Vincular Cliente da Tabela do Baserow
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <User className="w-4 h-4 text-emerald-500" />
+                      Vincular Cliente da Tabela do Baserow
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() => carregarUsuarios(true)}
+                      disabled={loadingUsuarios}
+                      className="text-[11px] text-emerald-500 hover:text-emerald-400 hover:underline flex items-center gap-1 font-medium transition-colors"
+                      title="Recarregar clientes e datas atualizadas do Baserow"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${loadingUsuarios ? 'animate-spin' : ''}`} />
+                      {loadingUsuarios ? 'Atualizando...' : 'Recarregar Baserow'}
+                    </button>
+                  </div>
                   <Select value={selectedUserId} onValueChange={handleSelectUser}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione um usuário ou modo manual" />
@@ -1523,8 +1564,9 @@ export default function GeradorM3U() {
                       })}
                     </SelectContent>
                   </Select>
-                  <p className="text-[11px] text-muted-foreground">
-                    {loadingUsuarios ? 'Carregando usuários da tabela do Baserow...' : `${usuarios.length} usuários disponíveis na sua tabela.`}
+                  <p className="text-[11px] text-muted-foreground flex items-center justify-between">
+                    <span>{loadingUsuarios ? 'Carregando usuários da tabela do Baserow...' : `${usuarios.length} usuários disponíveis na sua tabela.`}</span>
+                    <span className="text-[10px] text-muted-foreground/80">Alterações no Baserow entram na hora</span>
                   </p>
                 </div>
               </div>
