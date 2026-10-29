@@ -513,6 +513,37 @@ function formatCategory(rawCat, type) {
 }
 
 // -------------------------------------------------------------
+// CLASSIFICAÇÃO ROBUSTA: FILME x SÉRIE x CANAL
+// Registos de canal (Tipo "TV"/"Canal"/"Live") gravados por engano na
+// tabela de conteúdos NÃO podem aparecer em Filmes/Séries.
+// -------------------------------------------------------------
+const CONTEUDO_LIVE_ID_OFFSET = 1000000;
+const stripAccentsLower = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const CHANNEL_TYPE_RE = /\b(canal|canais|tv|live|ao vivo|radio|24h)\b/;
+const CHANNEL_CAT_RE = /^(canais|canal|tv|live|radio)\b/;
+
+// Detecta registos de CANAL gravados por engano na tabela de conteúdos
+function isChannelLikeRow(row) {
+  if (!row) return false;
+  const tipo = stripAccentsLower(extractField(row, ['tipo'])).trim();
+  if (tipo.includes('film') || tipo.includes('seri') || tipo.includes('anime')) return false;
+  if (CHANNEL_TYPE_RE.test(tipo)) return true;
+  // Tipo vazio/ambíguo: decide pela categoria (ex: "CANAIS 24H", "CANAIS | DESPORTO", "FILMES | CANAIS 24H")
+  const catRaw = stripAccentsLower(extractField(row, ['categoria', 'genero'])).trim();
+  if (!catRaw) return false;
+  const catStripped = catRaw.replace(/^(filmes|series|canais|canal)\s*\|\s*/g, '').trim();
+  return CHANNEL_CAT_RE.test(catRaw) || CHANNEL_CAT_RE.test(catStripped);
+}
+
+// Filme de verdade: nunca um canal
+function isFilmeRow(row) {
+  if (isChannelLikeRow(row)) return false;
+  const tipo = stripAccentsLower(extractField(row, ['tipo']));
+  return tipo.includes('film') || (!tipo.includes('seri') && !tipo.includes('anime') && !extractField(row, ['temporadas']));
+}
+
+
+// -------------------------------------------------------------
 // FUNÇÕES DE CARREGAMENTO SEGMENTADO ISOLADO POR TABELA
 // -------------------------------------------------------------
 
@@ -555,6 +586,19 @@ async function getConteudosCached(config) {
   SEGMENT_CACHE.set(cacheKey, { data: conteudos, expiresAt: now + 600000 }); // 10 min
   return conteudos;
 }
+
+// 2b. Canais gravados por engano na tabela de conteúdos (Tipo TV/Canal/Live)
+async function getChannelLikeConteudosCached(config) {
+  if (!config.tableConteudos) return [];
+  const conteudos = await getConteudosCached(config);
+  const canaisFallback = conteudos.filter(c => isChannelLikeRow(c) && extractStreamUrl(c));
+  canaisFallback.forEach(c => {
+    const link = extractStreamUrl(c);
+    if (link) STREAM_URL_CACHE.set(`${config.tableConteudos}_live_${c.id}`, link);
+  });
+  return canaisFallback;
+}
+
 
 // 3. Carregar Episódios da tabela específica da conta
 async function getEpisodiosCached(config) {
@@ -856,6 +900,13 @@ export default async function handler(req, res) {
       targetUrl = STREAM_URL_CACHE.get(cacheKey);
     }
 
+    // Canais gravados por engano na tabela de conteúdos usam IDs deslocados (+1000000)
+    if (!targetUrl && type === 'live' && Number(rawId) >= CONTEUDO_LIVE_ID_OFFSET) {
+      await getChannelLikeConteudosCached(config);
+      targetUrl = STREAM_URL_CACHE.get(`${config.tableConteudos}_live_${Number(rawId) - CONTEUDO_LIVE_ID_OFFSET}`);
+    }
+
+
     if (targetUrl) {
       res.setHeader('Location', targetUrl);
       return res.status(302).end();
@@ -998,15 +1049,28 @@ export default async function handler(req, res) {
           m3u += `#EXTINF:-1 tvg-id="${c.id}" tvg-name="${nome}"${logoAttr}${plotAttr} group-title="${cat}",${nome}\n${link}\n\n`;
         }
       });
+
+      // Canais gravados por engano na tabela de conteúdos (Tipo TV/Canal) entram na seção de CANAIS
+      const canalFallbackM3u = await getChannelLikeConteudosCached(config);
+      const canaisNomesM3u = new Set(canais.map(cc => String(extractField(cc, ['nome', 'canalNome']) || '').trim().toLowerCase()));
+      canalFallbackM3u.forEach(cf => {
+        const nomeFb = extractField(cf, ['nome', 'titulo']) || `Canal ${cf.id}`;
+        if (canaisNomesM3u.has(String(nomeFb).trim().toLowerCase())) return; // já existe na tabela de canais
+        const linkFb = extractStreamUrl(cf);
+        if (!linkFb) return;
+        const capaFb = extractField(cf, ['capa', 'poster']);
+        const catFb = formatCategory(extractField(cf, ['categoria', 'genero', 'canalCategoria']), 'tv');
+        const logoFb = capaFb ? ` tvg-logo="${capaFb}"` : '';
+        m3u += `#EXTINF:-1 tvg-id="tv-${cf.id}" tvg-name="${nomeFb}"${logoFb} group-title="${catFb}",${nomeFb}\n${linkFb}\n\n`;
+      });
     }
+
 
     // BLOCO 2: FILMES VOD (SOMENTE SE isMoviesAllowed)
     if (isMoviesAllowed) {
       const conteudos = await getConteudosCached(config);
-      const filmes = conteudos.filter(f => {
-        const tipo = String(extractField(f, ['tipo'])).toLowerCase();
-        return tipo.includes('film') || (!tipo.includes('seri') && !tipo.includes('anime') && !extractField(f, ['temporadas']));
-      });
+      const filmes = conteudos.filter(f => isFilmeRow(f));
+
 
       m3u += `### =========================================\n`;
       m3u += `### [SEÇÃO 2] FILMES VOD (${filmes.length})\n`;
