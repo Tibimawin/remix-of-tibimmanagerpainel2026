@@ -269,7 +269,7 @@ const menuItems: MenuItem[] = [
     icon: ShieldCheck,
     category: 'tools',
     description: 'Testa quais links de canais, filmes e séries estão online',
-    feature: 'verificar-links',
+    feature: 'duplicados',
     badge: { type: 'new' }
   },
   {
