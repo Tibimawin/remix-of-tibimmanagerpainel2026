@@ -65,6 +65,10 @@ export interface TMDBDetails {
     external_ids?: {
         imdb_id: string | null;
     };
+    vote_count?: number;
+    media_type?: 'movie' | 'tv';
+    original_language?: string;
+    status?: string;
 }
 
 export interface Season {

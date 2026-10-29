@@ -210,6 +210,7 @@ export const PaymentReconciliationService = {
     userEmail: string,
     userName: string,
     planInfo: {
+      planId?: string;
       planName?: string;
       planPrice?: number;
       accessDays?: number;

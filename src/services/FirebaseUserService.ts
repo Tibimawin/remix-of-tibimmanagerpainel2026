@@ -349,7 +349,7 @@ export const FirebaseUserService = {
         await UserSubscriptionNotificationService.removeExpirationWarnings(uid);
 
         // Enviar notificação de renovação
-        await UserSubscriptionNotificationService.notifySubscriptionRenewed(uid, additionalDays);
+        await UserSubscriptionNotificationService.notifySubscriptionRenewal(uid, user.email, user.name, additionalDays, finalExpiry.toISOString());
       } catch (notifError) {
         console.warn('Não foi possível enviar notificação de renovação:', notifError);
       }

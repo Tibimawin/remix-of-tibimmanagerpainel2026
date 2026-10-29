@@ -42,8 +42,16 @@ const COLUMN_ALIASES: Record<string, string[]> = {
  * Helper utility to perform case-insensitive, normalized, and synonym-aware key lookups
  * on objects returned by Baserow, ensuring casing and naming mismatches do not break the UI.
  */
-export const getValueByPossibleKeys = (item: any, column: string): any => {
+export const getValueByPossibleKeys = (item: any, column: string | string[]): any => {
   if (!item) return undefined;
+  // Suporta listas de chaves candidatas: retorna o primeiro valor encontrado
+  if (Array.isArray(column)) {
+    for (const col of column) {
+      const val = getValueByPossibleKeys(item, col);
+      if (val !== undefined && val !== null) return val;
+    }
+    return undefined;
+  }
   if (item[column] !== undefined && item[column] !== null) return item[column];
 
   const lowerCol = column.toLowerCase();
