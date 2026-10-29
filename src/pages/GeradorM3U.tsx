@@ -184,27 +184,8 @@ export default function GeradorM3U() {
     }
   };
 
-  // Sincronizar mapeamento automaticamente sempre que o usuário ativo mudar
-  useEffect(() => {
-    if (activeUserObj && userInfo?.id) {
-      const nome = getValueByPossibleKeys(activeUserObj, 'nome') || getValueByPossibleKeys(activeUserObj, 'usuario') || getValueByPossibleKeys(activeUserObj, 'email') || '';
-      const cleanU = String(nome).replace(/\s+/g, '_').toLowerCase();
-      if (cleanU) {
-        setDoc(doc(db, 'xtreamUserMapping', cleanU), {
-          userId: userInfo.id,
-          username: cleanU,
-          baserowUserId: Number(activeUserObj.id),
-          tableUsuarios: config.tableIds?.usuarios || '',
-          tableCanaisTv: config.tableIds?.canaisTv || '',
-          tableConteudos: config.tableIds?.conteudos || '',
-          tableEpisodios: config.tableIds?.episodios || '',
-          baseUrl: config.baseUrl || '',
-          apiToken: config.apiToken || '',
-          updatedAt: new Date().toISOString()
-        }, { merge: true }).catch(() => {});
-      }
-    }
-  }, [activeUserObj, userInfo?.id, config]);
+  // Placeholder: o efeito de sincronização automática foi movido para após
+  // a declaração de activeUserObj (evita erro de TDZ "Cannot access before initialization").
 
   // Usuário do Baserow atualmente selecionado ou digitado
   const activeUserObj = useMemo(() => {
