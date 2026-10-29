@@ -797,8 +797,9 @@ export const PaymentReconciliationService = {
           console.log(`Status Asaas para cobrança pendente ${paymentId}:`, asaasStatus?.status);
 
           if (asaasStatus?.status === 'RECEIVED' || asaasStatus?.status === 'CONFIRMED') {
-            const isFeatureUnlock = record.isFeatureUnlockOnly === true || 
+            const isFeatureUnlock = record.isFeatureUnlockOnly === true ||
                                     record.source === 'feature_unlock' ||
+                                    !!record.requiredFeature ||
                                     (record.planPrice !== undefined && record.planPrice <= 25 && (
                                       record.planName?.toLowerCase().includes('desbloqueio') ||
                                       record.planName?.toLowerCase().includes('unlock') ||
