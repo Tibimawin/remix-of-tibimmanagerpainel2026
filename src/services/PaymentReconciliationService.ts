@@ -306,9 +306,7 @@ export const PaymentReconciliationService = {
         normalizedName.includes('desbloqueio') ||
         normalizedName.includes('unlock') ||
         normalizedName.includes('avulso') ||
-        normalizedName.includes('liberar recurso') ||
-        // Nome é exatamente o nome de uma funcionalidade (ex: "Gerador de Lista M3U & DNS")
-        !!resolveFeatureId(planInfo.planName || '')
+        normalizedName.includes('liberar recurso')
       ));
 
     if (isFeatureUnlock) {
