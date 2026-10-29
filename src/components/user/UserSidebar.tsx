@@ -35,6 +35,7 @@ import {
   DatabaseZap,
   Key,
   Shield,
+  ShieldCheck,
   ChevronDown,
   Bell,
   AlertCircle,
