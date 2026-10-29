@@ -361,17 +361,28 @@ async function fetchBaserowRows(baseUrl, tableId, token, maxRows = 3000, searchT
     const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
     const cacheParam = bypassCache ? `&_t=${Date.now()}` : '';
     const firstUrl = `${base}/api/database/rows/table/${tableId}/?user_field_names=true&size=${pageSize}&page=1${searchParam}${cacheParam}`;
-    const resp = await fetch(firstUrl, {
-      cache: 'no-store',
-      headers: {
-        Authorization: `Token ${token}`,
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache'
-      },
-    });
-    if (!resp.ok) {
-      console.warn(`[xtream-api] Baserow table ${tableId} retornou status ${resp.status}`);
+    // Tenta até 3 vezes: falhas momentâneas (rate-limit/rede) faziam o pedido devolver
+    // lista vazia, derrubando usuários válidos com "[ACESSO NEGADO]" na reprodução
+    let resp = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        resp = await fetch(firstUrl, {
+          cache: 'no-store',
+          headers: {
+            Authorization: `Token ${token}`,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          },
+        });
+        if (resp.ok) break;
+      } catch (err) {
+        resp = null;
+      }
+      if (attempt < 3) await new Promise(r => setTimeout(r, attempt === 1 ? 200 : 500));
+    }
+    if (!resp || !resp.ok) {
+      console.warn(`[xtream-api] Baserow table ${tableId} retornou status ${resp ? resp.status : 'sem resposta'} após 3 tentativas`);
       return [];
     }
     const json = await resp.json();
@@ -408,10 +419,23 @@ async function fetchBaserowRows(baseUrl, tableId, token, maxRows = 3000, searchT
       }
     }
 
-    return allRows.slice(0, maxRows);
+  return allRows.slice(0, maxRows);
   } catch (err) {
     console.error(`[xtream-api] Falha ao consultar Baserow table ${tableId}:`, err?.message);
     return [];
+  }
+}
+
+// Busca UMA linha diretamente no Baserow (1 pedido rápido, sem baixar a tabela inteira)
+async function fetchBaserowRowById(baseUrl, tableId, rowId, token) {
+  if (!baseUrl || !tableId || !rowId) return null;
+  try {
+    const url = `${String(baseUrl).replace(/\/+$/, '')}/api/database/rows/table/${tableId}/${encodeURIComponent(String(rowId))}/?user_field_names=true`;
+    const resp = await fetch(url, { cache: 'no-store', headers: { Authorization: `Token ${token}` } });
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch {
+    return null;
   }
 }
 
