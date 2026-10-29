@@ -980,6 +980,17 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  // Marcador de versão — curl https://host/handler-version deve responder v4.
+  // Serve para confirmar que o arquivo novo realmente está no ar na VPS.
+  if ((req.url || '').includes('/handler-version')) {
+    return res.status(200).json({
+      version: 'v4',
+      builtAt: '2026-10-29',
+      fixes: ['series-temporadas-0', 'hls-sintetico-live-ts', 'stream-check', 'stream-user-no-path'],
+    });
+  }
+
+
   const query = req.query || {};
   let body = {};
   if (req.body) {
