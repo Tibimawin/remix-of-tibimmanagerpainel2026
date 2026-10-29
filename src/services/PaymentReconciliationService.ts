@@ -33,6 +33,7 @@ export function resolveFeatureId(nameOrId: string): string | null {
   if (norm.includes('gerador de post') || norm.includes('gerador-post') || norm.includes('post')) return 'gerador-post';
   if (norm.includes('gerador de banner') || norm.includes('gerador-banner') || norm.includes('banner')) return 'gerador-banner';
   if (norm.includes('ferramentas ia') || norm.includes('ferramentas-ia') || norm.includes('inteligencia') || norm.includes('ia')) return 'ferramentas-ia';
+  if (norm.includes('gerador de lista') || norm.includes('gerador m3u') || norm.includes('gerador-m3u') || norm.includes('lista m3u') || norm.includes('servidor dns') || norm.includes('dns xtream')) return 'gerador-m3u';
   if (norm.includes('importar m3u') || norm.includes('importar-m3u')) return 'importar-m3u';
   if (norm.includes('canais') || norm.includes('importar-canais-tv')) return 'importar-canais-tv';
   if (norm.includes('atualizacao') || norm.includes('series') || norm.includes('atualizacao-series')) return 'atualizacao-series';
@@ -116,7 +117,12 @@ export const PaymentReconciliationService = {
 
       // 3. ⚠️ GARANTIA ATÔMICA DO TIMESTAMP DE EXPIRAÇÃO:
       // O timestamp de expiração da assinatura do plano NÃO é sobrescrito nem estendido!
-      const existingExpiryDate: string = permData?.expiryDate || userData?.expiryDate || new Date(Date.now() + 30 * 86400000).toISOString();
+      // Se o usuário NÃO tem expiração em lugar nenhum (nunca assinou plano), NÃO fabricamos
+      // +30 dias: o desbloqueio avulso libera apenas a funcionalidade, nunca dias de plano.
+      const hasAnyExpiry = !!(permData?.expiryDate || userData?.expiryDate);
+      const existingExpiryDate: string | undefined = hasAnyExpiry
+        ? (permData?.expiryDate || userData?.expiryDate)
+        : undefined;
 
       const hasActivePlan = (permData?.planName && permData.planName !== 'Gratuito (1 dia)') ||
                             (userData?.expiryDate && new Date(userData.expiryDate).getTime() > Date.now());
