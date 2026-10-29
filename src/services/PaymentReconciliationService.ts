@@ -77,7 +77,7 @@ export const PaymentReconciliationService = {
   ): Promise<{
     planName: string;
     enabledFeatures: string[];
-    expiryDate: string;
+    expiryDate?: string;
     hasActivePlan: boolean;
   }> {
     const emailNorm = (userEmail || '').toLowerCase().trim();
