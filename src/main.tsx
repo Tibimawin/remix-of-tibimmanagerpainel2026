@@ -34,8 +34,12 @@ if (import.meta.env.DEV) {
   };
   const origJsx = JsxMod.jsx;
   const origJsxs = JsxMod.jsxs;
+  const origJsxDev = (JsxMod as any).jsxDEV;
   (JsxMod as any).jsx = (type: any, props: any, key: any) => { report('jsx', type, props); return origJsx(type, props, key); };
   (JsxMod as any).jsxs = (type: any, props: any, key: any) => { report('jsxs', type, props); return origJsxs(type, props, key); };
+  if (typeof origJsxDev === 'function') {
+    (JsxMod as any).jsxDEV = (type: any, props: any, key: any, ...rest: any[]) => { report('jsxDEV', type, props); return origJsxDev(type, props, key, ...rest); };
+  }
   const origCreate = ReactMod.createElement;
   (ReactMod as any).createElement = function (type: any, config: any, ...children: any[]) {
     if (config && config.ref != null && typeof type === 'function') {
