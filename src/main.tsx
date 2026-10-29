@@ -24,8 +24,12 @@ if (import.meta.env.PROD) {
 
 // TEMPORÁRIO (debug): rastreia refs passados para function components
 if (import.meta.env.DEV) {
-  const [ReactMod, JsxMod] = await Promise.all([import('react'), import('react/jsx-runtime')]);
-  console.log('[REF-DEBUG-INSTALLED]', typeof ReactMod.createElement, typeof JsxMod.jsx);
+  const [ReactMod, JsxMod, JsxDevMod] = await Promise.all([
+    import('react'),
+    import('react/jsx-runtime'),
+    import('react/jsx-dev-runtime').catch(() => ({} as any)),
+  ]);
+  console.log('[REF-DEBUG-INSTALLED]', typeof ReactMod.createElement, typeof JsxMod.jsx, typeof (JsxDevMod as any)?.jsxDEV);
   const report = (fnName: string, type: any, props: any) => {
     if (props && props.ref != null && typeof type === 'function') {
       const name = (type as any).displayName || (type as any).name || 'anonymous';
@@ -34,11 +38,11 @@ if (import.meta.env.DEV) {
   };
   const origJsx = JsxMod.jsx;
   const origJsxs = JsxMod.jsxs;
-  const origJsxDev = (JsxMod as any).jsxDEV;
   (JsxMod as any).jsx = (type: any, props: any, key: any) => { report('jsx', type, props); return origJsx(type, props, key); };
   (JsxMod as any).jsxs = (type: any, props: any, key: any) => { report('jsxs', type, props); return origJsxs(type, props, key); };
+  const origJsxDev = (JsxDevMod as any)?.jsxDEV;
   if (typeof origJsxDev === 'function') {
-    (JsxMod as any).jsxDEV = (type: any, props: any, key: any, ...rest: any[]) => { report('jsxDEV', type, props); return origJsxDev(type, props, key, ...rest); };
+    (JsxDevMod as any).jsxDEV = (type: any, props: any, key: any, ...rest: any[]) => { report('jsxDEV', type, props); return origJsxDev(type, props, key, ...rest); };
   }
   const origCreate = ReactMod.createElement;
   (ReactMod as any).createElement = function (type: any, config: any, ...children: any[]) {
