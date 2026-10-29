@@ -513,6 +513,39 @@ function formatCategory(rawCat, type) {
 }
 
 // -------------------------------------------------------------
+// CLASSIFICAÇÃO ROBUSTA: FILME x SÉRIE x CANAL
+// Registos de canal (Tipo "TV"/"Canal"/"Live") gravados por engano na
+// tabela de conteúdos NÃO podem aparecer em Filmes/Séries.
+// -------------------------------------------------------------
+const CONTEUDO_LIVE_ID_OFFSET = 1000000;
+const stripAccentsLower = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const CHANNEL_TYPE_RE = /\b(canal|canais|tv|live|ao vivo|radio|24h)\b/;
+const CHANNEL_CAT_RE = /^(canais|canal|tv|live|radio)\b/;
+
+// Detecta registos de CANAL gravados por engano na tabela de conteúdos
+function isChannelLikeRow(row) {
+  if (!row) return false;
+  const tipo = stripAccentsLower(extractField(row, ['tipo'])).trim();
+  if (tipo.includes('film') || tipo.includes('seri') || tipo.includes('anime')) return false;
+  if (CHANNEL_TYPE_RE.test(tipo)) return true;
+  // Tipo vazio/ambíguo: decide pela categoria (ex: "CANAIS 24H", "CANAIS | DESPORTO", "FILMES | CANAIS 24H")
+  const catRaw = stripAccentsLower(extractField(row, ['categoria', 'genero'])).trim();
+  const catStripped = catRaw.replace(/^(filmes|series|canais|canal)\s*\|\s*/g, '').trim();
+  if (CHANNEL_CAT_RE.test(catRaw) || CHANNEL_CAT_RE.test(catStripped)) return true;
+  // Tipo vazio + nome típico de canal (ex: "TV Globo", "Canal Panda")
+  const nome = stripAccentsLower(extractField(row, ['nome', 'canalNome', 'titulo'])).trim();
+  return /\b(tv|canal|canais|live)\b/.test(nome);
+}
+
+// Filme de verdade: nunca um canal
+function isFilmeRow(row) {
+  if (isChannelLikeRow(row)) return false;
+  const tipo = stripAccentsLower(extractField(row, ['tipo']));
+  return tipo.includes('film') || (!tipo.includes('seri') && !tipo.includes('anime') && !extractField(row, ['temporadas']));
+}
+
+
+// -------------------------------------------------------------
 // FUNÇÕES DE CARREGAMENTO SEGMENTADO ISOLADO POR TABELA
 // -------------------------------------------------------------
 
@@ -555,6 +588,19 @@ async function getConteudosCached(config) {
   SEGMENT_CACHE.set(cacheKey, { data: conteudos, expiresAt: now + 600000 }); // 10 min
   return conteudos;
 }
+
+// 2b. Canais gravados por engano na tabela de conteúdos (Tipo TV/Canal/Live)
+async function getChannelLikeConteudosCached(config) {
+  if (!config.tableConteudos) return [];
+  const conteudos = await getConteudosCached(config);
+  const canaisFallback = conteudos.filter(c => isChannelLikeRow(c) && extractStreamUrl(c));
+  canaisFallback.forEach(c => {
+    const link = extractStreamUrl(c);
+    if (link) STREAM_URL_CACHE.set(`${config.tableConteudos}_live_${c.id}`, link);
+  });
+  return canaisFallback;
+}
+
 
 // 3. Carregar Episódios da tabela específica da conta
 async function getEpisodiosCached(config) {
@@ -856,6 +902,13 @@ export default async function handler(req, res) {
       targetUrl = STREAM_URL_CACHE.get(cacheKey);
     }
 
+    // Canais gravados por engano na tabela de conteúdos usam IDs deslocados (+1000000)
+    if (!targetUrl && type === 'live' && Number(rawId) >= CONTEUDO_LIVE_ID_OFFSET) {
+      await getChannelLikeConteudosCached(config);
+      targetUrl = STREAM_URL_CACHE.get(`${config.tableConteudos}_live_${Number(rawId) - CONTEUDO_LIVE_ID_OFFSET}`);
+    }
+
+
     if (targetUrl) {
       res.setHeader('Location', targetUrl);
       return res.status(302).end();
@@ -998,15 +1051,28 @@ export default async function handler(req, res) {
           m3u += `#EXTINF:-1 tvg-id="${c.id}" tvg-name="${nome}"${logoAttr}${plotAttr} group-title="${cat}",${nome}\n${link}\n\n`;
         }
       });
+
+      // Canais gravados por engano na tabela de conteúdos (Tipo TV/Canal) entram na seção de CANAIS
+      const canalFallbackM3u = await getChannelLikeConteudosCached(config);
+      const canaisNomesM3u = new Set(canais.map(cc => String(extractField(cc, ['nome', 'canalNome']) || '').trim().toLowerCase()));
+      canalFallbackM3u.forEach(cf => {
+        const nomeFb = extractField(cf, ['nome', 'titulo']) || `Canal ${cf.id}`;
+        if (canaisNomesM3u.has(String(nomeFb).trim().toLowerCase())) return; // já existe na tabela de canais
+        const linkFb = extractStreamUrl(cf);
+        if (!linkFb) return;
+        const capaFb = extractField(cf, ['capa', 'poster']);
+        const catFb = formatCategory(extractField(cf, ['categoria', 'genero', 'canalCategoria']), 'tv');
+        const logoFb = capaFb ? ` tvg-logo="${capaFb}"` : '';
+        m3u += `#EXTINF:-1 tvg-id="tv-${cf.id}" tvg-name="${nomeFb}"${logoFb} group-title="${catFb}",${nomeFb}\n${linkFb}\n\n`;
+      });
     }
+
 
     // BLOCO 2: FILMES VOD (SOMENTE SE isMoviesAllowed)
     if (isMoviesAllowed) {
       const conteudos = await getConteudosCached(config);
-      const filmes = conteudos.filter(f => {
-        const tipo = String(extractField(f, ['tipo'])).toLowerCase();
-        return tipo.includes('film') || (!tipo.includes('seri') && !tipo.includes('anime') && !extractField(f, ['temporadas']));
-      });
+      const filmes = conteudos.filter(f => isFilmeRow(f));
+
 
       m3u += `### =========================================\n`;
       m3u += `### [SEÇÃO 2] FILMES VOD (${filmes.length})\n`;
@@ -1139,6 +1205,14 @@ export default async function handler(req, res) {
       }
     });
 
+    // Categorias de canais gravados por engano na tabela de conteúdos (Tipo TV/Canal)
+    const canalFallbackCats = await getChannelLikeConteudosCached(config);
+    canalFallbackCats.forEach(c => {
+      const catFormatted = formatCategory(extractField(c, ['categoria', 'genero', 'canalCategoria']), 'tv');
+      if (!catsMap.has(catFormatted)) catsMap.set(catFormatted, catsMap.size + 1);
+    });
+
+
     const result = Array.from(catsMap.entries()).map(([nome, id]) => ({
       category_id: String(id),
       category_name: nome,
@@ -1155,31 +1229,44 @@ export default async function handler(req, res) {
     if (!isTvAllowed) return res.status(200).json([]);
 
     const canais = await getCanaisCached(config);
+    // Canais gravados por engano na tabela de conteúdos (Tipo TV/Canal) também entram aqui
+    const canalFallback = await getChannelLikeConteudosCached(config);
+    const canalNomes = new Set(canais.map(c => String(extractField(c, ['nome', 'canalNome']) || '').trim().toLowerCase()));
+    const canalFallbackUnicos = canalFallback
+      .filter(c => {
+        const nomeFb = String(extractField(c, ['nome', 'titulo']) || '').trim().toLowerCase();
+        return nomeFb && !canalNomes.has(nomeFb);
+      })
+      .map(c => ({ ...c, __streamId: Number(c.id) + CONTEUDO_LIVE_ID_OFFSET }));
+
+    const allLive = [...canais, ...canalFallbackUnicos];
+
     const catIdMap = new Map();
-    canais.forEach(c => {
-      const cat = formatCategory(extractField(c, ['categoria', 'canalCategoria']), 'tv');
+    allLive.forEach(c => {
+      const cat = formatCategory(extractField(c, ['categoria', 'canalCategoria', 'genero']), 'tv');
       if (!catIdMap.has(cat)) catIdMap.set(cat, String(catIdMap.size + 1));
     });
 
     const requestedCat = query.category_id || body.category_id;
 
-    const result = canais
+    const result = allLive
       .filter(c => {
         if (!requestedCat) return true;
-        const cCat = formatCategory(extractField(c, ['categoria', 'canalCategoria']), 'tv');
+        const cCat = formatCategory(extractField(c, ['categoria', 'canalCategoria', 'genero']), 'tv');
         return catIdMap.get(cCat) === String(requestedCat);
       })
       .map((c, idx) => {
-        const nome = extractField(c, ['nome', 'canalNome']) || `Canal ${c.id}`;
+        const nome = extractField(c, ['nome', 'canalNome', 'titulo']) || `Canal ${c.id}`;
         const link = extractStreamUrl(c);
-        const capa = extractField(c, ['capa', 'canalCapa']);
-        const cat = formatCategory(extractField(c, ['categoria', 'canalCategoria']), 'tv');
+        const capa = extractField(c, ['capa', 'canalCapa', 'poster']);
+        const cat = formatCategory(extractField(c, ['categoria', 'canalCategoria', 'genero']), 'tv');
+        const streamId = c.__streamId !== undefined ? c.__streamId : c.id;
 
         return {
           num: idx + 1,
           name: String(nome).trim(),
           stream_type: 'live',
-          stream_id: c.id,
+          stream_id: streamId,
           stream_icon: capa,
           epg_channel_id: String(c.id),
           added: String(Math.floor(Date.now() / 1000)),
@@ -1195,6 +1282,7 @@ export default async function handler(req, res) {
     return res.status(200).json(result);
   }
 
+
   // -------------------------------------------------------------
   // 5. CATEGORIAS DE FILMES (VOD)
   // -------------------------------------------------------------
@@ -1205,13 +1293,12 @@ export default async function handler(req, res) {
     const catsMap = new Map();
 
     conteudos.forEach(c => {
-      const tipo = String(extractField(c, ['tipo'])).toLowerCase();
-      const isFilme = tipo.includes('film') || (!tipo.includes('seri') && !tipo.includes('anime') && !extractField(c, ['temporadas']));
-      if (isFilme) {
+      if (isFilmeRow(c)) {
         const cat = formatCategory(extractField(c, ['categoria', 'genero']), 'movie');
         if (!catsMap.has(cat)) catsMap.set(cat, catsMap.size + 1);
       }
     });
+
 
     const result = Array.from(catsMap.entries()).map(([c, i]) => ({
       category_id: String(i),
@@ -1229,17 +1316,14 @@ export default async function handler(req, res) {
     if (!isMoviesAllowed) return res.status(200).json([]);
 
     const conteudos = await getConteudosCached(config);
+    const filmes = conteudos.filter(c => isFilmeRow(c));
     const catIdMap = new Map();
 
-    const filmes = conteudos.filter(c => {
-      const tipo = String(extractField(c, ['tipo'])).toLowerCase();
-      const isFilme = tipo.includes('film') || (!tipo.includes('seri') && !tipo.includes('anime') && !extractField(c, ['temporadas']));
-      if (isFilme) {
-        const cat = formatCategory(extractField(c, ['categoria', 'genero']), 'movie');
-        if (!catIdMap.has(cat)) catIdMap.set(cat, String(catIdMap.size + 1));
-      }
-      return isFilme;
+    filmes.forEach(f => {
+      const cat = formatCategory(extractField(f, ['categoria', 'genero']), 'movie');
+      if (!catIdMap.has(cat)) catIdMap.set(cat, String(catIdMap.size + 1));
     });
+
 
     const requestedCat = query.category_id || body.category_id;
 
