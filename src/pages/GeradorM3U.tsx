@@ -1552,10 +1552,10 @@ export default function GeradorM3U() {
                     </Label>
                     <button
                       type="button"
-                      onClick={() => setDnsHost(typeof window !== 'undefined' ? window.location.origin : 'http://meuservidor.vip:8080')}
+                      onClick={() => setDnsHost(DNS_PADRAO_VPS)}
                       className="text-[11px] text-primary hover:underline flex items-center gap-1"
                     >
-                      <Globe className="w-3 h-3" /> Usar URL deste painel
+                       <Globe className="w-3 h-3" /> Usar VPS (api.tibimmanagerpainel.shop)
                     </button>
                   </div>
                   <Input
