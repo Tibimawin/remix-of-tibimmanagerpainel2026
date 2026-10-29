@@ -1195,14 +1195,17 @@ export default function GeradorM3U() {
 
                 <div>
                   <Label className="text-xs font-medium text-muted-foreground">Formato do Stream</Label>
-                  <Select value={formatoSaida} onValueChange={(v: any) => setFormatoSaida(v)}>
+                  <Select value={formatoSaida} onValueChange={(v: any) => {
+                    setFormatoSaida(v);
+                    if (typeof window !== 'undefined') window.localStorage.setItem(FORMATO_STORAGE_KEY, v);
+                  }}>
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Selecione o formato" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="original">Link Original do Baserow (Recomendado)</SelectItem>
-                      <SelectItem value="ts">Transport Stream (.ts / MPEG-TS)</SelectItem>
+                      <SelectItem value="ts">Transport Stream (.ts / MPEG-TS) — Padrão</SelectItem>
                       <SelectItem value="m3u8">HLS Stream (.m3u8)</SelectItem>
+                      <SelectItem value="original">Link Original do Baserow</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
