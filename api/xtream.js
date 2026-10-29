@@ -504,11 +504,42 @@ function extractStreamUrl(row) {
   ];
   const url = extractField(row, possible);
   if (!url) return '';
-  const trimmed = String(url).trim();
+  let trimmed = String(url).trim();
+  // Links gravados sem esquema (ex.: "46.151.196.223:14609") — assume HTTP
+  if (/^[a-zA-Z0-9][a-zA-Z0-9.-]+:\d+(\/.*)?$/.test(trimmed)) {
+    trimmed = `http://${trimmed}`;
+  }
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('rtmp://')) {
     return trimmed;
   }
   return '';
+}
+
+// Fonte bruta de TS (http://ip:porta sem caminho .m3u8) — precisa de playlist HLS sintética
+// para players que pedem .m3u8 (HLS), sem proxyar o vídeo (largura de banda zero).
+function isRawTsSource(url) {
+  const u = String(url || '').trim();
+  if (!u) return false;
+  if (/\.m3u8(\?|$)/i.test(u)) return false;
+  return /^https?:\/\//i.test(u);
+}
+
+// Cache curto da playlist HLS sintética por usuário/canal (evita 1 busca no Baserow
+// a cada refresh do player, que acontece a cada ~20s). TTL 60s.
+const HLS_PLAYLIST_CACHE = new Map(); // key -> { playlist, expiresAt }
+
+function buildHlsPlaylist(targetUrl) {
+  const seg = String(targetUrl || '').trim();
+  return [
+    '#EXTM3U',
+    '#EXT-X-VERSION:3',
+    '#EXT-X-TARGETDURATION:20',
+    '#EXT-X-MEDIA-SEQUENCE:0',
+    '#EXT-X-PLAYLIST-TYPE:EVENT',
+    '#EXTINF:20.0,',
+    seg,
+    ''
+  ].join('\n');
 }
 
 // Normalizador de Categorias Profissional IPTV
@@ -988,12 +1019,24 @@ export default async function handler(req, res) {
   const streamType = query.stream_type;
   const streamId = query.stream_id || '';
   const liveMatch = rawUrl.match(/\/(?:u\/[^/]+\/)?(live|movie|series)\/([^/]+)\/([^/]+)\/(\d+)(\.[a-zA-Z0-9]+)?/);
+  const streamExt = (liveMatch && liveMatch[5]) ? liveMatch[5].toLowerCase() : '';
 
   if (liveMatch || streamType) {
     const type = liveMatch ? liveMatch[1] : streamType;
     const streamUser = liveMatch ? decodeURIComponent(liveMatch[2]) : username;
     const streamPass = liveMatch ? decodeURIComponent(liveMatch[3]) : password;
     const rawId = liveMatch ? liveMatch[4] : streamId.replace(/\.[a-zA-Z0-9]+$/, '');
+
+    // Playlist HLS sintética: players HLS voltam a buscar esta URL a cada ~20s.
+    // Serve direto do cache por 60s sem revalidar no Baserow (1 busca/min no máximo).
+    const hlsCacheKey = `${type}_${streamUser}|${streamPass}_${rawId}${streamExt}`;
+    const hlsCached = HLS_PLAYLIST_CACHE.get(hlsCacheKey);
+    if (streamExt === '.m3u8' && hlsCached && hlsCached.expiresAt > Date.now()) {
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(200).send(hlsCached.playlist);
+    }
 
     // VALIDAÇÃO RIGOROSA DE EXPIRAÇÃO NO STREAM
     const authStream = await validateUser(config, streamUser, streamPass);
@@ -1038,6 +1081,17 @@ export default async function handler(req, res) {
 
 
     if (targetUrl) {
+      // Player pediu HLS (.m3u8) mas a fonte é TS bruto (ex.: http://ip:porta):
+      // devolve uma playlist HLS sintética apontando direto para a fonte
+      // (zero proxy/banda), em vez de 302 que players HLS não conseguem tocar.
+      if (streamExt === '.m3u8' && isRawTsSource(targetUrl)) {
+        const playlist = buildHlsPlaylist(targetUrl);
+        HLS_PLAYLIST_CACHE.set(hlsCacheKey, { playlist, expiresAt: Date.now() + 60000 });
+        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).send(playlist);
+      }
       res.setHeader('Location', targetUrl);
       return res.status(302).end();
     } else {
