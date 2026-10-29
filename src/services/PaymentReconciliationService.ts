@@ -33,6 +33,7 @@ export function resolveFeatureId(nameOrId: string): string | null {
   if (norm.includes('gerador de post') || norm.includes('gerador-post') || norm.includes('post')) return 'gerador-post';
   if (norm.includes('gerador de banner') || norm.includes('gerador-banner') || norm.includes('banner')) return 'gerador-banner';
   if (norm.includes('ferramentas ia') || norm.includes('ferramentas-ia') || norm.includes('inteligencia') || norm.includes('ia')) return 'ferramentas-ia';
+  if (norm.includes('gerador de lista') || norm.includes('gerador m3u') || norm.includes('gerador-m3u') || norm.includes('lista m3u') || norm.includes('servidor dns') || norm.includes('dns xtream')) return 'gerador-m3u';
   if (norm.includes('importar m3u') || norm.includes('importar-m3u')) return 'importar-m3u';
   if (norm.includes('canais') || norm.includes('importar-canais-tv')) return 'importar-canais-tv';
   if (norm.includes('atualizacao') || norm.includes('series') || norm.includes('atualizacao-series')) return 'atualizacao-series';
@@ -76,7 +77,7 @@ export const PaymentReconciliationService = {
   ): Promise<{
     planName: string;
     enabledFeatures: string[];
-    expiryDate: string;
+    expiryDate?: string;
     hasActivePlan: boolean;
   }> {
     const emailNorm = (userEmail || '').toLowerCase().trim();
@@ -116,7 +117,12 @@ export const PaymentReconciliationService = {
 
       // 3. ⚠️ GARANTIA ATÔMICA DO TIMESTAMP DE EXPIRAÇÃO:
       // O timestamp de expiração da assinatura do plano NÃO é sobrescrito nem estendido!
-      const existingExpiryDate: string = permData?.expiryDate || userData?.expiryDate || new Date(Date.now() + 30 * 86400000).toISOString();
+      // Se o usuário NÃO tem expiração em lugar nenhum (nunca assinou plano), NÃO fabricamos
+      // +30 dias: o desbloqueio avulso libera apenas a funcionalidade, nunca dias de plano.
+      const hasAnyExpiry = !!(permData?.expiryDate || userData?.expiryDate);
+      const existingExpiryDate: string | undefined = hasAnyExpiry
+        ? (permData?.expiryDate || userData?.expiryDate)
+        : undefined;
 
       const hasActivePlan = (permData?.planName && permData.planName !== 'Gratuito (1 dia)') ||
                             (userData?.expiryDate && new Date(userData.expiryDate).getTime() > Date.now());
@@ -133,8 +139,9 @@ export const PaymentReconciliationService = {
       ]));
 
       // ESCRITAS ATÔMICAS
-      // Atualizar userPermissions preservando 100% dos dados de plano e validade
-      transaction.set(permissionsRef, {
+      // Atualizar userPermissions preservando 100% dos dados de plano e validade.
+      // Se não existia expiração, NÃO gravamos expiryDate (nunca inventar dias de plano).
+      const permWrite: any = {
         userId,
         userEmail: emailNorm,
         userName: cleanUserName,
@@ -144,10 +151,11 @@ export const PaymentReconciliationService = {
         enabledFeatures: mergedFeatures,
         currentMonthUsage: existingUsage,
         lastUpdated: new Date().toISOString(),
-        // 🛡️ TIMESTAMP PRESERVADO INTACTO (Não estendido e não sobrescrito)
-        expiryDate: existingExpiryDate,
         isActive: existingIsActive
-      }, { merge: true });
+      };
+      if (hasAnyExpiry) permWrite.expiryDate = existingExpiryDate;
+      if (paymentId) permWrite.processedPaymentIds = arrayUnion(paymentId);
+      transaction.set(permissionsRef, permWrite, { merge: true });
 
       // Registrar o desbloqueio permanente na coleção featureUnlocks
       transaction.set(unlockDocRef, {
@@ -288,9 +296,12 @@ export const PaymentReconciliationService = {
     // - Adiciona a funcionalidade à lista de features permitidas sem duplicatas.
     // - Garante que o timestamp de expiração da assinatura do plano NÃO seja sobrescrito ou estendido.
     // ─────────────────────────────────────────────────────────────
-    const isFeatureUnlock = 
+    const isFeatureUnlock =
       planInfo.isFeatureUnlockOnly === true ||
       planInfo.source === 'feature_unlock' ||
+      // Se veio explicitamente uma funcionalidade alvo, é desbloqueio avulso por definição:
+      // nunca pode cair no fluxo de plano e adicionar dias de assinatura.
+      !!planInfo.requiredFeature ||
       (planInfo.planPrice !== undefined && planInfo.planPrice <= 25 && (
         normalizedName.includes('desbloqueio') ||
         normalizedName.includes('unlock') ||
@@ -750,13 +761,27 @@ export const PaymentReconciliationService = {
       }
 
       // ── PASSO 1: Verificar financialRecords pendentes no Firestore ──
-      const qPending = query(
-        collection(db, 'financialRecords'),
-        where('userEmail', '==', emailNorm),
-        where('status', '==', 'pending')
-      );
-      const pendingSnap = await getDocs(qPending);
-      console.log(`📋 Encontrados ${pendingSnap.docs.length} registros pendentes no Firestore para ${emailNorm}`);
+      // Busca também com o e-mail exatamente como o usuário digitou (o Asaas e alguns
+      // registros antigos guardam o e-mail com maiúsculas; a busca anterior só achava
+      // registros em minúsculas e pagamentos legítimos ficavam sem ativar).
+      const emailVariants = Array.from(new Set(
+        [emailNorm, (userEmail || '').trim()].filter(e => !!e)
+      ));
+      const pendingStatuses = ['pending', 'waiting_payment', 'processing', 'aguardando'];
+      const pendingDocsMap = new Map<string, any>();
+      for (const emailVariant of emailVariants) {
+        const qPending = query(
+          collection(db, 'financialRecords'),
+          where('userEmail', '==', emailVariant),
+          where('status', 'in', pendingStatuses)
+        );
+        const pendingSnap = await getDocs(qPending);
+        console.log(`📋 Encontrados ${pendingSnap.docs.length} registros pendentes no Firestore para ${emailVariant}`);
+        pendingSnap.docs.forEach(d => pendingDocsMap.set(d.id, d));
+      }
+      const pendingDocs = Array.from(pendingDocsMap.values());
+      const pendingSnap = { docs: pendingDocs };
+      console.log(`📋 Total de registros pendentes únicos: ${pendingDocs.length}`);
 
       for (const docSnap of pendingSnap.docs) {
         const record = docSnap.data();
@@ -772,8 +797,9 @@ export const PaymentReconciliationService = {
           console.log(`Status Asaas para cobrança pendente ${paymentId}:`, asaasStatus?.status);
 
           if (asaasStatus?.status === 'RECEIVED' || asaasStatus?.status === 'CONFIRMED') {
-            const isFeatureUnlock = record.isFeatureUnlockOnly === true || 
+            const isFeatureUnlock = record.isFeatureUnlockOnly === true ||
                                     record.source === 'feature_unlock' ||
+                                    !!record.requiredFeature ||
                                     (record.planPrice !== undefined && record.planPrice <= 25 && (
                                       record.planName?.toLowerCase().includes('desbloqueio') ||
                                       record.planName?.toLowerCase().includes('unlock') ||
@@ -828,8 +854,20 @@ export const PaymentReconciliationService = {
 
       // ── PASSO 2: Consultar pagamentos diretos no Asaas por Email (Fallback de Segurança) ──
       try {
-        const customerPayments = await AsaasPaymentService.getCustomerPaymentsByEmail(emailNorm);
-        console.log(`💳 Asaas retornou ${customerPayments.length} pagamentos para ${emailNorm}`);
+        // Tenta todas as variantes do e-mail (minúsculas e como o usuário digitou):
+        // o cliente Asaas pode ter sido criado com o e-mail em maiúsculas, e a busca
+        // exata do Asaas falhava — pagamento pago nunca era localizado.
+        const emailVariants2 = Array.from(new Set(
+          [emailNorm, (userEmail || '').trim()].filter(e => !!e)
+        ));
+        let customerPayments: any[] = [];
+        for (const emailVariant of emailVariants2) {
+          const found = await AsaasPaymentService.getCustomerPaymentsByEmail(emailVariant);
+          console.log(`💳 Asaas retornou ${found.length} pagamentos para ${emailVariant}`);
+          const seen = new Set(customerPayments.map(p => p.id));
+          customerPayments.push(...found.filter(p => !seen.has(p.id)));
+          if (customerPayments.length > 0) break;
+        }
 
         const now = Date.now();
         const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
@@ -852,33 +890,58 @@ export const PaymentReconciliationService = {
             const finDoc = await getDoc(doc(db, 'financialRecords', payment.id));
             if (!finDoc.exists() || finDoc.data()?.status !== 'confirmed') {
               console.log(`⚡ Pagamento confirmado encontrado diretamente no Asaas que não estava no Firestore! ID: ${payment.id}`);
-              
-              const description = payment.description || '';
-              const descNorm = description.toLowerCase();
-              const isUnlock = payment.value <= 25 && (
-                descNorm.includes('desbloqueio') || 
-                descNorm.includes('unlock') ||
-                descNorm.includes('avulso')
-              );
-              
-              const resolvedFeature = isUnlock ? (resolveFeatureId(description) || 'jogos-dia') : undefined;
 
-              let calcDays = 0;
-              if (!isUnlock) {
-                calcDays = payment.value >= 200 ? 365 : (payment.value >= 130 ? 180 : (payment.value >= 65 ? 90 : 30));
+              // 🎯 O registro financeiro criado no momento da compra é a fonte da verdade:
+              // usa os flags dele (isFeatureUnlockOnly / requiredFeature / dias) antes de
+              // qualquer heurística — evita desbloqueio avulso virar "plano" com +30 dias
+              // e evita plano legítimo ser tratado como desbloqueio.
+              const finRecord: any = finDoc.exists() ? finDoc.data() : null;
+
+              const description = finRecord?.planName || payment.description || '';
+              const descNorm = (payment.description || '').toLowerCase();
+
+              let isUnlock: boolean;
+              let resolvedFeature: string | undefined;
+              let calcDays: number;
+
+              if (finRecord && (finRecord.isFeatureUnlockOnly === true || finRecord.source === 'feature_unlock' || !!finRecord.requiredFeature)) {
+                isUnlock = true;
+                resolvedFeature = finRecord.requiredFeature || resolveFeatureId(finRecord.planName || description) || undefined;
+                calcDays = 0;
+              } else if (finRecord && !finRecord.isFeatureUnlockOnly && (finRecord.accessDays || finRecord.durationDays)) {
+                isUnlock = false;
+                calcDays = Number(finRecord.accessDays || finRecord.durationDays) || 30;
+              } else {
+                // Sem registro confiável: usa heurística por valor/descrição
+                isUnlock = payment.value <= 25 && (
+                  descNorm.includes('desbloqueio') ||
+                  descNorm.includes('unlock') ||
+                  descNorm.includes('avulso') ||
+                  (finRecord?.planPrice !== undefined && !!resolveFeatureId(finRecord.planName || '') && finRecord.planPrice <= 25)
+                );
+                resolvedFeature = isUnlock ? (resolveFeatureId(finRecord?.planName || description) || 'jogos-dia') : undefined;
+                calcDays = 0;
+                if (!isUnlock) {
+                  calcDays = payment.value >= 200 ? 365 : (payment.value >= 130 ? 180 : (payment.value >= 65 ? 90 : 30));
+                }
               }
 
               const { planName, accessDays } = await this.activatePaidPlanOrProduct(
                 userId,
                 emailNorm,
-                userName || '',
+                userName || finRecord?.userName || '',
                 {
-                  planName: description.replace('Assinatura ', '').trim() || (isUnlock ? 'Desbloqueio de Recurso' : 'Plano Painel'),
+                  planId: finRecord?.planId,
+                  planName: (description || '').replace('Assinatura ', '').replace('Plano ', '').trim() || (isUnlock ? 'Desbloqueio de Recurso' : 'Plano Painel'),
                   planPrice: payment.value,
                   accessDays: calcDays,
                   durationDays: calcDays,
                   isFeatureUnlockOnly: isUnlock,
                   requiredFeature: resolvedFeature,
+                  items: finRecord?.items,
+                  source: finRecord?.source,
+                  isUpgrade: finRecord?.isUpgrade,
+                  upgradeFrom: finRecord?.upgradeFrom,
                   paymentDate
                 },
                 payment.id

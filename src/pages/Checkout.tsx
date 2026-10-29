@@ -166,7 +166,7 @@ const Checkout = () => {
               await SourceExportService.recordPurchase({
                 paymentId: `${payment.id}_${item.product.id}`,
                 userId: userInfo?.id || 'unknown',
-                userEmail: email.trim(),
+                userEmail: email.trim().toLowerCase(),
                 userName: name.trim(),
                 amount: item.product.preco * item.quantity,
                 productId: item.product.id,

@@ -217,7 +217,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
         try {
           await setDoc(doc(db, 'financialRecords', pId), {
             userId: userInfo?.id || 'unknown',
-            userEmail: email,
+            userEmail: (email || '').trim().toLowerCase(),
             userName: name,
             planId: planId || undefined,
             planName: isUnlock ? `Desbloqueio: ${requiredFeature || planName}` : (isUpgrade ? `${upgradeFromPlan} + API` : planName),
@@ -342,7 +342,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
           const endDate = new Date(startDate.getTime() + (calculatedDays || 30) * 24 * 60 * 60 * 1000);
           await setDoc(doc(db, 'financialRecords', firstPaymentId), {
             userId: userInfo?.id || 'unknown',
-            userEmail: email,
+            userEmail: (email || '').trim().toLowerCase(),
             userName: name,
             planId: planId || undefined,
             planName: isUnlock ? `Desbloqueio: ${requiredFeature || planName}` : (isUpgrade ? `${upgradeFromPlan} + API` : planName),
@@ -497,7 +497,7 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
           const endDate = new Date(startDate.getTime() + (calculatedDays || 30) * 24 * 60 * 60 * 1000);
           await setDoc(doc(db, 'financialRecords', payment.id), {
             userId: userInfo?.id || 'unknown',
-            userEmail: email,
+            userEmail: (email || '').trim().toLowerCase(),
             userName: name,
             planId: planId || undefined,
             planName: isUnlock ? `Desbloqueio: ${requiredFeature || planName}` : (isUpgrade ? `${upgradeFromPlan} + API` : planName),
