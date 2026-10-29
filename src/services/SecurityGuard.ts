@@ -61,10 +61,12 @@ class SecurityGuardService {
           return;
         }
 
-        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+        // navigator.platform pode ser undefined em alguns navegadores;
+        // e.key pode ser undefined em eventos de teclado sintéticos.
+        const isMac = (navigator.platform || navigator.userAgent || '').toUpperCase().indexOf('MAC') >= 0;
         const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
         const shift = e.shiftKey;
-        const key = e.key.toUpperCase();
+        const key = (e.key || '').toUpperCase();
 
         // 1. F12 (DevTools)
         if (e.key === 'F12') {

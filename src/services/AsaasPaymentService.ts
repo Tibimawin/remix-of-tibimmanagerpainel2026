@@ -1,5 +1,5 @@
 
-const VERCEL_PROXY_BASE = import.meta.env.VITE_VERCEL_PROXY_BASE || 'https://tibimmanagerpainel2026.vercel.app';
+const VERCEL_PROXY_BASE = import.meta.env.VITE_VERCEL_PROXY_BASE || 'https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app';
 
 const getProxyUrl = (): string => {
   if (typeof window === 'undefined') return '/api/asaas-proxy';

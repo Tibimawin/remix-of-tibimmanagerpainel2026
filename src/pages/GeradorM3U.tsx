@@ -184,6 +184,24 @@ export default function GeradorM3U() {
     }
   };
 
+  // Placeholder: o efeito de sincronização automática foi movido para após
+  // a declaração de activeUserObj (evita erro de TDZ "Cannot access before initialization").
+
+  // Usuário do Baserow atualmente selecionado ou digitado
+  const activeUserObj = useMemo(() => {
+    if (selectedUserId && selectedUserId !== 'manual') {
+      return usuarios.find(u => String(u.id) === String(selectedUserId)) || null;
+    }
+    if (customUsername) {
+      const uTarget = customUsername.trim().toLowerCase();
+      return usuarios.find(u => {
+        const nome = String(getValueByPossibleKeys(u, 'nome') || getValueByPossibleKeys(u, 'usuario') || '').trim().toLowerCase();
+        return nome === uTarget || nome.replace(/\s+/g, '_') === uTarget || nome.replace(/[^a-z0-9]/g, '') === uTarget;
+      }) || null;
+    }
+    return null;
+  }, [selectedUserId, customUsername, usuarios]);
+
   // Sincronizar mapeamento automaticamente sempre que o usuário ativo mudar
   useEffect(() => {
     if (activeUserObj && userInfo?.id) {
@@ -206,20 +224,6 @@ export default function GeradorM3U() {
     }
   }, [activeUserObj, userInfo?.id, config]);
 
-  // Usuário do Baserow atualmente selecionado ou digitado
-  const activeUserObj = useMemo(() => {
-    if (selectedUserId && selectedUserId !== 'manual') {
-      return usuarios.find(u => String(u.id) === String(selectedUserId)) || null;
-    }
-    if (customUsername) {
-      const uTarget = customUsername.trim().toLowerCase();
-      return usuarios.find(u => {
-        const nome = String(getValueByPossibleKeys(u, 'nome') || getValueByPossibleKeys(u, 'usuario') || '').trim().toLowerCase();
-        return nome === uTarget || nome.replace(/\s+/g, '_') === uTarget || nome.replace(/[^a-z0-9]/g, '') === uTarget;
-      }) || null;
-    }
-    return null;
-  }, [selectedUserId, customUsername, usuarios]);
 
   // Cálculo detalhado de DataCriacao, Vencimento, Status e Limite de Telas
   const parsedUserDates = useMemo(() => {
