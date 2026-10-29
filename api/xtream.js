@@ -888,6 +888,56 @@ async function validateUser(config, username, password) {
 }
 
 // -------------------------------------------------------------
+// VERIFICADOR DE LINKS DE STREAM
+// Testa cada link no próprio servidor (VPS) — o navegador não consegue
+// testar links http:// diretamente por causa do mixed content.
+// -------------------------------------------------------------
+const STREAM_CHECK_CACHE = new Map();
+
+// Abre a conexão, lê o primeiro pedaço do stream e encerra.
+async function probeStreamUrl(link, timeoutMs = 7000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(link, {
+      signal: controller.signal,
+      redirect: 'follow',
+      headers: { 'User-Agent': 'VLC/3.0.20 LibVLC/3.0.20', Range: 'bytes=0-1' }
+    });
+    if (!resp.ok && resp.status !== 206) return resp.status || 0;
+    if (resp.body) {
+      try {
+        const reader = resp.body.getReader();
+        await reader.read();
+        await reader.cancel();
+      } catch { /* ignora falha ao encerrar o corpo */ }
+    }
+    return resp.status === 206 ? 200 : resp.status;
+  } catch {
+    return 0;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Varre a lista com vários testes em paralelo (12 por vez)
+async function probeStreams(alvos, concurrency = 12) {
+  const resultados = new Array(alvos.length);
+  let idx = 0;
+  const worker = async () => {
+    while (idx < alvos.length) {
+      const i = idx++;
+      const alvo = alvos[i];
+      const code = await probeStreamUrl(alvo.link);
+      resultados[i] = { ...alvo, status: code === 200 ? 'ok' : 'off', http: code };
+    }
+  };
+  const n = Math.min(concurrency, alvos.length || 1);
+  await Promise.all(Array.from({ length: n }, worker));
+  return resultados;
+}
+
+// -------------------------------------------------------------
 // HANDLER PRINCIPAL HTTP (Xtream Codes API)
 // -------------------------------------------------------------
 export default async function handler(req, res) {
@@ -993,6 +1043,74 @@ export default async function handler(req, res) {
     } else {
       return res.status(404).send('Stream não encontrado nesta conta.');
     }
+  }
+
+  // -------------------------------------------------------------
+  // VERIFICADOR DE LINKS (/stream-check?username=&password=&type=live|movie|series)
+  // Devolve quais links estão online e quais estão offline na conta.
+  // -------------------------------------------------------------
+  if (rawUrl.includes('/stream-check')) {
+    const checkType = String(query.type || body.type || 'live').toLowerCase();
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Informe username e password.' });
+    }
+    const authCheck = await validateUser(config, username, password);
+    if (!authCheck.ok) {
+      return res.status(403).json({ error: authCheck.message });
+    }
+
+    let tableId = '';
+    if (checkType === 'live') tableId = config.tableCanaisTv;
+    else if (checkType === 'movie') tableId = config.tableConteudos;
+    else if (checkType === 'series') tableId = config.tableEpisodios;
+    else return res.status(400).json({ error: 'type inválido (live | movie | series).' });
+    if (!tableId) {
+      return res.status(400).json({ error: `Tabela de ${checkType} não configurada nesta conta.` });
+    }
+
+    // Reaproveita o resultado completo por 3 minutos (não martela os provedores)
+    const checkCacheKey = `streamcheck_${tableId}_${checkType}`;
+    const checkCached = STREAM_CHECK_CACHE.get(checkCacheKey);
+    const limit = Math.max(0, parseInt(String(query.limit || body.limit || ''), 10) || 0);
+    if (!limit && checkCached && Date.now() - checkCached.at < 180000) {
+      return res.status(200).json({ ...checkCached.data, cached: true });
+    }
+
+    let itens = [];
+    if (checkType === 'live') {
+      itens = await getCanaisCached(config);
+      const canaisNaConteudos = await getChannelLikeConteudosCached(config);
+      itens = itens.concat(canaisNaConteudos.map(c => ({ ...c, __offsetId: Number(c.id) + CONTEUDO_LIVE_ID_OFFSET })));
+    } else if (checkType === 'movie') {
+      itens = await getConteudosCached(config);
+    } else {
+      itens = await getEpisodiosCached(config);
+    }
+
+    let alvos = [];
+    for (const item of itens) {
+      const link = extractStreamUrl(item);
+      if (!link) continue;
+      alvos.push({
+        id: item.__offsetId || item.id,
+        nome: extractField(item, ['nome', 'canalNome', 'titulo', 'title', 'Nome']) || `ID ${item.id}`,
+        categoria: extractField(item, ['categoria', 'cat', 'Categoria']) || '',
+        link
+      });
+    }
+    if (limit > 0) alvos = alvos.slice(0, limit);
+
+    const resultados = await probeStreams(alvos);
+    const okCount = resultados.filter(r => r.status === 'ok').length;
+    const data = {
+      tipo: checkType,
+      total: resultados.length,
+      online: okCount,
+      offline: resultados.length - okCount,
+      resultados
+    };
+    if (!limit) STREAM_CHECK_CACHE.set(checkCacheKey, { at: Date.now(), data });
+    return res.status(200).json(data);
   }
 
   // -------------------------------------------------------------
