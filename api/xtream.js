@@ -504,11 +504,42 @@ function extractStreamUrl(row) {
   ];
   const url = extractField(row, possible);
   if (!url) return '';
-  const trimmed = String(url).trim();
+  let trimmed = String(url).trim();
+  // Links gravados sem esquema (ex.: "46.151.196.223:14609") — assume HTTP
+  if (/^[a-zA-Z0-9][a-zA-Z0-9.-]+:\d+(\/.*)?$/.test(trimmed)) {
+    trimmed = `http://${trimmed}`;
+  }
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('rtmp://')) {
     return trimmed;
   }
   return '';
+}
+
+// Fonte bruta de TS (http://ip:porta sem caminho .m3u8) — precisa de playlist HLS sintética
+// para players que pedem .m3u8 (HLS), sem proxyar o vídeo (largura de banda zero).
+function isRawTsSource(url) {
+  const u = String(url || '').trim();
+  if (!u) return false;
+  if (/\.m3u8(\?|$)/i.test(u)) return false;
+  return /^https?:\/\//i.test(u);
+}
+
+// Cache curto da playlist HLS sintética por usuário/canal (evita 1 busca no Baserow
+// a cada refresh do player, que acontece a cada ~20s). TTL 60s.
+const HLS_PLAYLIST_CACHE = new Map(); // key -> { playlist, expiresAt }
+
+function buildHlsPlaylist(targetUrl) {
+  const seg = String(targetUrl || '').trim();
+  return [
+    '#EXTM3U',
+    '#EXT-X-VERSION:3',
+    '#EXT-X-TARGETDURATION:20',
+    '#EXT-X-MEDIA-SEQUENCE:0',
+    '#EXT-X-PLAYLIST-TYPE:EVENT',
+    '#EXTINF:20.0,',
+    seg,
+    ''
+  ].join('\n');
 }
 
 // Normalizador de Categorias Profissional IPTV
