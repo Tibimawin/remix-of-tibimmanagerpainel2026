@@ -361,17 +361,28 @@ async function fetchBaserowRows(baseUrl, tableId, token, maxRows = 3000, searchT
     const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
     const cacheParam = bypassCache ? `&_t=${Date.now()}` : '';
     const firstUrl = `${base}/api/database/rows/table/${tableId}/?user_field_names=true&size=${pageSize}&page=1${searchParam}${cacheParam}`;
-    const resp = await fetch(firstUrl, {
-      cache: 'no-store',
-      headers: {
-        Authorization: `Token ${token}`,
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache'
-      },
-    });
-    if (!resp.ok) {
-      console.warn(`[xtream-api] Baserow table ${tableId} retornou status ${resp.status}`);
+    // Tenta até 3 vezes: falhas momentâneas (rate-limit/rede) faziam o pedido devolver
+    // lista vazia, derrubando usuários válidos com "[ACESSO NEGADO]" na reprodução
+    let resp = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        resp = await fetch(firstUrl, {
+          cache: 'no-store',
+          headers: {
+            Authorization: `Token ${token}`,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          },
+        });
+        if (resp.ok) break;
+      } catch (err) {
+        resp = null;
+      }
+      if (attempt < 3) await new Promise(r => setTimeout(r, attempt === 1 ? 200 : 500));
+    }
+    if (!resp || !resp.ok) {
+      console.warn(`[xtream-api] Baserow table ${tableId} retornou status ${resp ? resp.status : 'sem resposta'} após 3 tentativas`);
       return [];
     }
     const json = await resp.json();
@@ -408,10 +419,23 @@ async function fetchBaserowRows(baseUrl, tableId, token, maxRows = 3000, searchT
       }
     }
 
-    return allRows.slice(0, maxRows);
+  return allRows.slice(0, maxRows);
   } catch (err) {
     console.error(`[xtream-api] Falha ao consultar Baserow table ${tableId}:`, err?.message);
     return [];
+  }
+}
+
+// Busca UMA linha diretamente no Baserow (1 pedido rápido, sem baixar a tabela inteira)
+async function fetchBaserowRowById(baseUrl, tableId, rowId, token) {
+  if (!baseUrl || !tableId || !rowId) return null;
+  try {
+    const url = `${String(baseUrl).replace(/\/+$/, '')}/api/database/rows/table/${tableId}/${encodeURIComponent(String(rowId))}/?user_field_names=true`;
+    const resp = await fetch(url, { cache: 'no-store', headers: { Authorization: `Token ${token}` } });
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch {
+    return null;
   }
 }
 
@@ -653,11 +677,8 @@ async function validateUser(config, username, password) {
   }
 
   // 1. Buscar usuário SEMPRE SEM CACHE no Baserow para refletir alterações de vencimento instantaneamente
-  // Carrega a tabela completa (sem limite de 200) para garantir que usuários recentes ou em páginas seguintes sejam encontrados
-  let candidateUsers = await fetchBaserowRows(config.baseUrl, config.tableUsuarios, config.apiToken, 3000, '', true);
-
-  // 1. Filtrar TODOS os registros correspondentes ao usuário (evita que uma linha antiga vencida bloqueie uma renovação válida)
-  const allMatches = candidateUsers.filter(u => {
+  // Caminho rápido: busca apenas pelas linhas que contêm o nome do usuário (1 página em vez da tabela inteira)
+  const matchesTargetUser = (u) => {
     const uNome = String(extractField(u, ['nome', 'usuario', 'cliente', 'user'])).trim().toLowerCase();
     const uEmail = String(extractField(u, ['email'])).trim().toLowerCase();
     const uId = String(u.id || '');
@@ -665,11 +686,25 @@ async function validateUser(config, username, password) {
 
     if (mappedId && uId === mappedId) return true;
 
-    return uNome === targetUser || 
-           uEmail === targetUser || 
-           uNome.replace(/\s+/g, '_') === targetUser || 
+    return uNome === targetUser ||
+           uEmail === targetUser ||
+           uNome.replace(/\s+/g, '_') === targetUser ||
            uNome.replace(/[^a-z0-9]/g, '') === targetUser;
-  });
+  };
+
+  let candidateUsers = null;
+  const searchTokens = targetUser.split(/[^a-z0-9]+/).filter(t => t.length >= 3);
+  if (searchTokens.length > 0) {
+    const foundBySearch = await fetchBaserowRows(config.baseUrl, config.tableUsuarios, config.apiToken, 200, searchTokens[0], true);
+    if (foundBySearch.some(matchesTargetUser)) candidateUsers = foundBySearch;
+  }
+  // Fallback: carrega a tabela completa para garantir que usuários recentes ou em páginas seguintes sejam encontrados
+  if (!candidateUsers) {
+    candidateUsers = await fetchBaserowRows(config.baseUrl, config.tableUsuarios, config.apiToken, 3000, '', true);
+  }
+
+  // 2. Filtrar TODOS os registros correspondentes ao usuário (evita que uma linha antiga vencida bloqueie uma renovação válida)
+  const allMatches = candidateUsers.filter(matchesTargetUser);
 
   if (allMatches.length === 0) {
     return { ok: false, status: 'Disabled', message: 'Usuário não encontrado nesta conta.' };
@@ -906,6 +941,23 @@ export default async function handler(req, res) {
     if (!targetUrl && type === 'live' && Number(rawId) >= CONTEUDO_LIVE_ID_OFFSET) {
       await getChannelLikeConteudosCached(config);
       targetUrl = STREAM_URL_CACHE.get(`${config.tableConteudos}_live_${Number(rawId) - CONTEUDO_LIVE_ID_OFFSET}`);
+    }
+
+    // Último recurso: buscar a linha do stream diretamente no Baserow
+    // (1 pedido rápido; evita timeouts ao baixar tabelas inteiras em instâncias frias)
+    if (!targetUrl) {
+      const lookupId = (type === 'live' && Number(rawId) >= CONTEUDO_LIVE_ID_OFFSET)
+        ? String(Number(rawId) - CONTEUDO_LIVE_ID_OFFSET)
+        : String(rawId);
+      const tokenRow = type === 'live' ? (config.tokenCanaisTv || config.apiToken) : config.apiToken;
+      const streamRow = await fetchBaserowRowById(config.baseUrl, tableId, lookupId, tokenRow);
+      if (streamRow) {
+        const link = extractStreamUrl(streamRow);
+        if (link) {
+          targetUrl = link;
+          STREAM_URL_CACHE.set(cacheKey, link);
+        }
+      }
     }
 
 
