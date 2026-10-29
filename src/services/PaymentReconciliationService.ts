@@ -854,8 +854,20 @@ export const PaymentReconciliationService = {
 
       // ── PASSO 2: Consultar pagamentos diretos no Asaas por Email (Fallback de Segurança) ──
       try {
-        const customerPayments = await AsaasPaymentService.getCustomerPaymentsByEmail(emailNorm);
-        console.log(`💳 Asaas retornou ${customerPayments.length} pagamentos para ${emailNorm}`);
+        // Tenta todas as variantes do e-mail (minúsculas e como o usuário digitou):
+        // o cliente Asaas pode ter sido criado com o e-mail em maiúsculas, e a busca
+        // exata do Asaas falhava — pagamento pago nunca era localizado.
+        const emailVariants2 = Array.from(new Set(
+          [emailNorm, (userEmail || '').trim()].filter(e => !!e)
+        ));
+        let customerPayments: any[] = [];
+        for (const emailVariant of emailVariants2) {
+          const found = await AsaasPaymentService.getCustomerPaymentsByEmail(emailVariant);
+          console.log(`💳 Asaas retornou ${found.length} pagamentos para ${emailVariant}`);
+          const seen = new Set(customerPayments.map(p => p.id));
+          customerPayments.push(...found.filter(p => !seen.has(p.id)));
+          if (customerPayments.length > 0) break;
+        }
 
         const now = Date.now();
         const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
