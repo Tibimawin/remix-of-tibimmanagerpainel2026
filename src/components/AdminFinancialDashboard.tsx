@@ -129,11 +129,15 @@ const AdminFinancialDashboard: React.FC = () => {
             console.log(`✅ Pagamento confirmado para ${record.userName} (ID: ${record.paymentId})`);
 
             const { PaymentReconciliationService, resolveFeatureId } = await import('@/services/PaymentReconciliationService');
-            const isUnlock = record.isFeatureUnlockOnly || 
-                             (record.planPrice !== undefined && record.planPrice <= 25) || 
+            // Igual à lógica da reconciliação automática: só é desbloqueio avulso
+            // quando há sinal explícito. Preço baixo sozinho NÃO caracteriza
+            // desbloqueio (planos baratos perderiam os dias de acesso).
+            const isUnlock = record.isFeatureUnlockOnly ||
+                             record.source === 'feature_unlock' ||
+                             !!record.requiredFeature ||
                              (record.planName?.toLowerCase().includes('desbloqueio')) ||
                              (record.planName?.toLowerCase().includes('unlock')) ||
-                             (record.source === 'feature_unlock');
+                             (record.planName?.toLowerCase().includes('avulso'));
 
             await PaymentReconciliationService.activatePaidPlanOrProduct(
               record.userId,
