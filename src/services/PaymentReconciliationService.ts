@@ -139,8 +139,9 @@ export const PaymentReconciliationService = {
       ]));
 
       // ESCRITAS ATÔMICAS
-      // Atualizar userPermissions preservando 100% dos dados de plano e validade
-      transaction.set(permissionsRef, {
+      // Atualizar userPermissions preservando 100% dos dados de plano e validade.
+      // Se não existia expiração, NÃO gravamos expiryDate (nunca inventar dias de plano).
+      const permWrite: any = {
         userId,
         userEmail: emailNorm,
         userName: cleanUserName,
@@ -150,10 +151,11 @@ export const PaymentReconciliationService = {
         enabledFeatures: mergedFeatures,
         currentMonthUsage: existingUsage,
         lastUpdated: new Date().toISOString(),
-        // 🛡️ TIMESTAMP PRESERVADO INTACTO (Não estendido e não sobrescrito)
-        expiryDate: existingExpiryDate,
         isActive: existingIsActive
-      }, { merge: true });
+      };
+      if (hasAnyExpiry) permWrite.expiryDate = existingExpiryDate;
+      if (paymentId) permWrite.processedPaymentIds = arrayUnion(paymentId);
+      transaction.set(permissionsRef, permWrite, { merge: true });
 
       // Registrar o desbloqueio permanente na coleção featureUnlocks
       transaction.set(unlockDocRef, {
