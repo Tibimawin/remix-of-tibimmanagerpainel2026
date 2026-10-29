@@ -568,7 +568,9 @@ const App = () => {
                               <Route path="/gerar-m3u" element={
                                 <SimpleProtectedRoute>
                                   <Layout>
-                                    <GeradorM3U />
+                                    <PermissionGate feature="gerador-m3u">
+                                      <GeradorM3U />
+                                    </PermissionGate>
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />

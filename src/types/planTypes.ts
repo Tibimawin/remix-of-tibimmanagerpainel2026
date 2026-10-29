@@ -69,6 +69,7 @@ export const AVAILABLE_FEATURES: FeatureAccess[] = [
   { id: 'importacao-automatica', name: 'Importação Auto', description: 'Importar conteúdos manualmente da tabela origem' },
   { id: 'automacao', name: 'Automação', description: 'Importação automática agendada de conteúdos' },
   { id: 'substituicao-urls', name: 'Substituição de URLs', description: 'Substituição em massa de URLs' },
+  { id: 'gerador-m3u', name: 'Gerador de Lista M3U & DNS', description: 'Gerar listas M3U e servidor DNS Xtream Codes para os clientes' },
   { id: 'importar-m3u', name: 'Importar M3U', description: 'Importar listas M3U manualmente' },
   { id: 'adicionar-conteudo', name: 'Adicionar Conteúdo', description: 'Adicionar novos conteúdos manualmente' },
   { id: 'importar-canais-tv', name: 'Importar Canais TV', description: 'Importar canais de TV da tabela origem' },

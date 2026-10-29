@@ -480,6 +480,7 @@ const menuItems: MenuItem[] = [
     icon: Radio,
     category: 'tools',
     description: 'Gerador de listas M3U e DNS Xtream Codes',
+    feature: 'gerador-m3u',
     badge: { type: 'new', text: 'NOVO' }
   },
   {
