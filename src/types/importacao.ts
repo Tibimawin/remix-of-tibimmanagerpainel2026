@@ -68,6 +68,7 @@ export interface TMDBDetails {
     vote_count?: number;
     media_type?: 'movie' | 'tv';
     original_language?: string;
+    status?: string;
 }
 
 export interface Season {

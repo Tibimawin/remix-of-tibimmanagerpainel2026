@@ -205,7 +205,6 @@ const AsaasPixPaymentDialog: React.FC<AsaasPixPaymentDialogProps> = ({
             planName: isUnlock ? `Desbloqueio: ${requiredFeature || planName}` : planName,
             planPrice,
             accessDays: isUnlock ? 0 : calculatedDays,
-            durationDays: isUnlock ? 0 : calculatedDays,
             isUpgrade,
             upgradeFrom: upgradeFromPlan,
             isFeatureUnlockOnly: isUnlock,
