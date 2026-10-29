@@ -65,6 +65,10 @@ interface FinancialRecord {
   confirmedAt: string;
   source: string;
   isUpgrade?: boolean;
+  isFeatureUnlockOnly?: boolean;
+  upgradeFrom?: string;
+  requiredFeature?: string;
+  items?: { id: string; name: string; price: number; qty?: number }[];
   createdAt?: string;
 }
 

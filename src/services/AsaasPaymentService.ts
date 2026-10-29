@@ -58,6 +58,10 @@ export interface AsaasPayment {
   invoiceUrl?: string;
   bankSlipUrl?: string;
   dueDate?: string;
+  paymentDate?: string;
+  clientPaymentDate?: string;
+  dateCreated?: string;
+  description?: string;
 }
 
 const proxyFetch = async (endpoint: string, method = 'GET', body?: any) => {
