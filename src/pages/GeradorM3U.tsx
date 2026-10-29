@@ -202,6 +202,29 @@ export default function GeradorM3U() {
     return null;
   }, [selectedUserId, customUsername, usuarios]);
 
+  // Sincronizar mapeamento automaticamente sempre que o usuário ativo mudar
+  useEffect(() => {
+    if (activeUserObj && userInfo?.id) {
+      const nome = getValueByPossibleKeys(activeUserObj, 'nome') || getValueByPossibleKeys(activeUserObj, 'usuario') || getValueByPossibleKeys(activeUserObj, 'email') || '';
+      const cleanU = String(nome).replace(/\s+/g, '_').toLowerCase();
+      if (cleanU) {
+        setDoc(doc(db, 'xtreamUserMapping', cleanU), {
+          userId: userInfo.id,
+          username: cleanU,
+          baserowUserId: Number(activeUserObj.id),
+          tableUsuarios: config.tableIds?.usuarios || '',
+          tableCanaisTv: config.tableIds?.canaisTv || '',
+          tableConteudos: config.tableIds?.conteudos || '',
+          tableEpisodios: config.tableIds?.episodios || '',
+          baseUrl: config.baseUrl || '',
+          apiToken: config.apiToken || '',
+          updatedAt: new Date().toISOString()
+        }, { merge: true }).catch(() => {});
+      }
+    }
+  }, [activeUserObj, userInfo?.id, config]);
+
+
   // Cálculo detalhado de DataCriacao, Vencimento, Status e Limite de Telas
   const parsedUserDates = useMemo(() => {
     if (!activeUserObj) return null;
