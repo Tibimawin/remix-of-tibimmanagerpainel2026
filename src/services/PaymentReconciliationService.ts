@@ -296,14 +296,19 @@ export const PaymentReconciliationService = {
     // - Adiciona a funcionalidade à lista de features permitidas sem duplicatas.
     // - Garante que o timestamp de expiração da assinatura do plano NÃO seja sobrescrito ou estendido.
     // ─────────────────────────────────────────────────────────────
-    const isFeatureUnlock = 
+    const isFeatureUnlock =
       planInfo.isFeatureUnlockOnly === true ||
       planInfo.source === 'feature_unlock' ||
+      // Se veio explicitamente uma funcionalidade alvo, é desbloqueio avulso por definição:
+      // nunca pode cair no fluxo de plano e adicionar dias de assinatura.
+      !!planInfo.requiredFeature ||
       (planInfo.planPrice !== undefined && planInfo.planPrice <= 25 && (
         normalizedName.includes('desbloqueio') ||
         normalizedName.includes('unlock') ||
         normalizedName.includes('avulso') ||
-        normalizedName.includes('liberar recurso')
+        normalizedName.includes('liberar recurso') ||
+        // Nome é exatamente o nome de uma funcionalidade (ex: "Gerador de Lista M3U & DNS")
+        !!resolveFeatureId(planInfo.planName || '')
       ));
 
     if (isFeatureUnlock) {
