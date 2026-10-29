@@ -41,6 +41,7 @@ export interface MaxPlusContentDetails {
   total_seasons?: number;
   seasons_details?: MaxPlusSeasonDetail[];
   idioma?: string | null;
+  link?: string;
 }
 
 export interface MaxPlusEpisodeResult {

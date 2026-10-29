@@ -88,7 +88,7 @@ export const DataTable: React.FC<DataTableProps & {
   const { config, isConfigured } = useConfig();
   const baserowService = useBaserowService();
   const { addLog } = useSystemLogs();
-  const { notifyDelete } = useAutoNotifyCRUD(tableKey);
+  const { notifyDelete, notifyImport } = useAutoNotifyCRUD(tableKey);
   const itemsPerPage = 20;
 
   const dataRef = useRef<any[]>(data);

@@ -83,7 +83,8 @@ const AdminUsers: React.FC<AdminUsersProps> = ({ onUserCreated }) => {
         email: '',
         senha: '',
         dias: '30',
-        pagamento: new Date().toISOString().split('T')[0]
+        pagamento: new Date().toISOString().split('T')[0],
+        app_id: ''
       });
 
       // Notificar o componente pai para atualizar a lista
