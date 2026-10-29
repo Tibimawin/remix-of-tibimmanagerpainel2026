@@ -1203,6 +1203,14 @@ export default async function handler(req, res) {
       }
     });
 
+    // Categorias de canais gravados por engano na tabela de conteúdos (Tipo TV/Canal)
+    const canalFallbackCats = await getChannelLikeConteudosCached(config);
+    canalFallbackCats.forEach(c => {
+      const catFormatted = formatCategory(extractField(c, ['categoria', 'genero', 'canalCategoria']), 'tv');
+      if (!catsMap.has(catFormatted)) catsMap.set(catFormatted, catsMap.size + 1);
+    });
+
+
     const result = Array.from(catsMap.entries()).map(([nome, id]) => ({
       category_id: String(id),
       category_name: nome,
@@ -1219,31 +1227,44 @@ export default async function handler(req, res) {
     if (!isTvAllowed) return res.status(200).json([]);
 
     const canais = await getCanaisCached(config);
+    // Canais gravados por engano na tabela de conteúdos (Tipo TV/Canal) também entram aqui
+    const canalFallback = await getChannelLikeConteudosCached(config);
+    const canalNomes = new Set(canais.map(c => String(extractField(c, ['nome', 'canalNome']) || '').trim().toLowerCase()));
+    const canalFallbackUnicos = canalFallback
+      .filter(c => {
+        const nomeFb = String(extractField(c, ['nome', 'titulo']) || '').trim().toLowerCase();
+        return nomeFb && !canalNomes.has(nomeFb);
+      })
+      .map(c => ({ ...c, __streamId: Number(c.id) + CONTEUDO_LIVE_ID_OFFSET }));
+
+    const allLive = [...canais, ...canalFallbackUnicos];
+
     const catIdMap = new Map();
-    canais.forEach(c => {
-      const cat = formatCategory(extractField(c, ['categoria', 'canalCategoria']), 'tv');
+    allLive.forEach(c => {
+      const cat = formatCategory(extractField(c, ['categoria', 'canalCategoria', 'genero']), 'tv');
       if (!catIdMap.has(cat)) catIdMap.set(cat, String(catIdMap.size + 1));
     });
 
     const requestedCat = query.category_id || body.category_id;
 
-    const result = canais
+    const result = allLive
       .filter(c => {
         if (!requestedCat) return true;
-        const cCat = formatCategory(extractField(c, ['categoria', 'canalCategoria']), 'tv');
+        const cCat = formatCategory(extractField(c, ['categoria', 'canalCategoria', 'genero']), 'tv');
         return catIdMap.get(cCat) === String(requestedCat);
       })
       .map((c, idx) => {
-        const nome = extractField(c, ['nome', 'canalNome']) || `Canal ${c.id}`;
+        const nome = extractField(c, ['nome', 'canalNome', 'titulo']) || `Canal ${c.id}`;
         const link = extractStreamUrl(c);
-        const capa = extractField(c, ['capa', 'canalCapa']);
-        const cat = formatCategory(extractField(c, ['categoria', 'canalCategoria']), 'tv');
+        const capa = extractField(c, ['capa', 'canalCapa', 'poster']);
+        const cat = formatCategory(extractField(c, ['categoria', 'canalCategoria', 'genero']), 'tv');
+        const streamId = c.__streamId !== undefined ? c.__streamId : c.id;
 
         return {
           num: idx + 1,
           name: String(nome).trim(),
           stream_type: 'live',
-          stream_id: c.id,
+          stream_id: streamId,
           stream_icon: capa,
           epg_channel_id: String(c.id),
           added: String(Math.floor(Date.now() / 1000)),
@@ -1259,6 +1280,7 @@ export default async function handler(req, res) {
     return res.status(200).json(result);
   }
 
+
   // -------------------------------------------------------------
   // 5. CATEGORIAS DE FILMES (VOD)
   // -------------------------------------------------------------
@@ -1269,13 +1291,12 @@ export default async function handler(req, res) {
     const catsMap = new Map();
 
     conteudos.forEach(c => {
-      const tipo = String(extractField(c, ['tipo'])).toLowerCase();
-      const isFilme = tipo.includes('film') || (!tipo.includes('seri') && !tipo.includes('anime') && !extractField(c, ['temporadas']));
-      if (isFilme) {
+      if (isFilmeRow(c)) {
         const cat = formatCategory(extractField(c, ['categoria', 'genero']), 'movie');
         if (!catsMap.has(cat)) catsMap.set(cat, catsMap.size + 1);
       }
     });
+
 
     const result = Array.from(catsMap.entries()).map(([c, i]) => ({
       category_id: String(i),
@@ -1293,17 +1314,14 @@ export default async function handler(req, res) {
     if (!isMoviesAllowed) return res.status(200).json([]);
 
     const conteudos = await getConteudosCached(config);
+    const filmes = conteudos.filter(c => isFilmeRow(c));
     const catIdMap = new Map();
 
-    const filmes = conteudos.filter(c => {
-      const tipo = String(extractField(c, ['tipo'])).toLowerCase();
-      const isFilme = tipo.includes('film') || (!tipo.includes('seri') && !tipo.includes('anime') && !extractField(c, ['temporadas']));
-      if (isFilme) {
-        const cat = formatCategory(extractField(c, ['categoria', 'genero']), 'movie');
-        if (!catIdMap.has(cat)) catIdMap.set(cat, String(catIdMap.size + 1));
-      }
-      return isFilme;
+    filmes.forEach(f => {
+      const cat = formatCategory(extractField(f, ['categoria', 'genero']), 'movie');
+      if (!catIdMap.has(cat)) catIdMap.set(cat, String(catIdMap.size + 1));
     });
+
 
     const requestedCat = query.category_id || body.category_id;
 
