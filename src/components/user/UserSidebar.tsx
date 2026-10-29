@@ -262,6 +262,16 @@ const menuItems: MenuItem[] = [
     badge: { type: 'new' }
   },
   {
+    id: 'verificar-links',
+    label: 'Verificar Links',
+    href: '/verificar-links',
+    icon: ShieldCheck,
+    category: 'tools',
+    description: 'Testa quais links de canais, filmes e séries estão online',
+    feature: 'verificar-links',
+    badge: { type: 'new' }
+  },
+  {
     id: 'ferramentas-ia',
     label: 'Ferramentas IA',
     href: '/ferramentas-ia',
