@@ -761,13 +761,27 @@ export const PaymentReconciliationService = {
       }
 
       // ── PASSO 1: Verificar financialRecords pendentes no Firestore ──
-      const qPending = query(
-        collection(db, 'financialRecords'),
-        where('userEmail', '==', emailNorm),
-        where('status', '==', 'pending')
-      );
-      const pendingSnap = await getDocs(qPending);
-      console.log(`📋 Encontrados ${pendingSnap.docs.length} registros pendentes no Firestore para ${emailNorm}`);
+      // Busca também com o e-mail exatamente como o usuário digitou (o Asaas e alguns
+      // registros antigos guardam o e-mail com maiúsculas; a busca anterior só achava
+      // registros em minúsculas e pagamentos legítimos ficavam sem ativar).
+      const emailVariants = Array.from(new Set(
+        [emailNorm, (userEmail || '').trim()].filter(e => !!e)
+      ));
+      const pendingStatuses = ['pending', 'waiting_payment', 'processing', 'aguardando'];
+      const pendingDocsMap = new Map<string, any>();
+      for (const emailVariant of emailVariants) {
+        const qPending = query(
+          collection(db, 'financialRecords'),
+          where('userEmail', '==', emailVariant),
+          where('status', 'in', pendingStatuses)
+        );
+        const pendingSnap = await getDocs(qPending);
+        console.log(`📋 Encontrados ${pendingSnap.docs.length} registros pendentes no Firestore para ${emailVariant}`);
+        pendingSnap.docs.forEach(d => pendingDocsMap.set(d.id, d));
+      }
+      const pendingDocs = Array.from(pendingDocsMap.values());
+      const pendingSnap = { docs: pendingDocs };
+      console.log(`📋 Total de registros pendentes únicos: ${pendingDocs.length}`);
 
       for (const docSnap of pendingSnap.docs) {
         const record = docSnap.data();
