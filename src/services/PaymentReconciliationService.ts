@@ -878,33 +878,58 @@ export const PaymentReconciliationService = {
             const finDoc = await getDoc(doc(db, 'financialRecords', payment.id));
             if (!finDoc.exists() || finDoc.data()?.status !== 'confirmed') {
               console.log(`⚡ Pagamento confirmado encontrado diretamente no Asaas que não estava no Firestore! ID: ${payment.id}`);
-              
-              const description = payment.description || '';
-              const descNorm = description.toLowerCase();
-              const isUnlock = payment.value <= 25 && (
-                descNorm.includes('desbloqueio') || 
-                descNorm.includes('unlock') ||
-                descNorm.includes('avulso')
-              );
-              
-              const resolvedFeature = isUnlock ? (resolveFeatureId(description) || 'jogos-dia') : undefined;
 
-              let calcDays = 0;
-              if (!isUnlock) {
-                calcDays = payment.value >= 200 ? 365 : (payment.value >= 130 ? 180 : (payment.value >= 65 ? 90 : 30));
+              // 🎯 O registro financeiro criado no momento da compra é a fonte da verdade:
+              // usa os flags dele (isFeatureUnlockOnly / requiredFeature / dias) antes de
+              // qualquer heurística — evita desbloqueio avulso virar "plano" com +30 dias
+              // e evita plano legítimo ser tratado como desbloqueio.
+              const finRecord: any = finDoc.exists() ? finDoc.data() : null;
+
+              const description = finRecord?.planName || payment.description || '';
+              const descNorm = (payment.description || '').toLowerCase();
+
+              let isUnlock: boolean;
+              let resolvedFeature: string | undefined;
+              let calcDays: number;
+
+              if (finRecord && (finRecord.isFeatureUnlockOnly === true || finRecord.source === 'feature_unlock' || !!finRecord.requiredFeature)) {
+                isUnlock = true;
+                resolvedFeature = finRecord.requiredFeature || resolveFeatureId(finRecord.planName || description) || undefined;
+                calcDays = 0;
+              } else if (finRecord && !finRecord.isFeatureUnlockOnly && (finRecord.accessDays || finRecord.durationDays)) {
+                isUnlock = false;
+                calcDays = Number(finRecord.accessDays || finRecord.durationDays) || 30;
+              } else {
+                // Sem registro confiável: usa heurística por valor/descrição
+                isUnlock = payment.value <= 25 && (
+                  descNorm.includes('desbloqueio') ||
+                  descNorm.includes('unlock') ||
+                  descNorm.includes('avulso') ||
+                  (finRecord?.planPrice !== undefined && !!resolveFeatureId(finRecord.planName || '') && finRecord.planPrice <= 25)
+                );
+                resolvedFeature = isUnlock ? (resolveFeatureId(finRecord?.planName || description) || 'jogos-dia') : undefined;
+                calcDays = 0;
+                if (!isUnlock) {
+                  calcDays = payment.value >= 200 ? 365 : (payment.value >= 130 ? 180 : (payment.value >= 65 ? 90 : 30));
+                }
               }
 
               const { planName, accessDays } = await this.activatePaidPlanOrProduct(
                 userId,
                 emailNorm,
-                userName || '',
+                userName || finRecord?.userName || '',
                 {
-                  planName: description.replace('Assinatura ', '').trim() || (isUnlock ? 'Desbloqueio de Recurso' : 'Plano Painel'),
+                  planId: finRecord?.planId,
+                  planName: (description || '').replace('Assinatura ', '').replace('Plano ', '').trim() || (isUnlock ? 'Desbloqueio de Recurso' : 'Plano Painel'),
                   planPrice: payment.value,
                   accessDays: calcDays,
                   durationDays: calcDays,
                   isFeatureUnlockOnly: isUnlock,
                   requiredFeature: resolvedFeature,
+                  items: finRecord?.items,
+                  source: finRecord?.source,
+                  isUpgrade: finRecord?.isUpgrade,
+                  upgradeFrom: finRecord?.upgradeFrom,
                   paymentDate
                 },
                 payment.id
