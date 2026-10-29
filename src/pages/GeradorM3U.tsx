@@ -87,13 +87,21 @@ export default function GeradorM3U() {
   const [formatoSaida, setFormatoSaida] = useState<'original' | 'ts' | 'm3u8'>('original');
   const [nomeLista, setNomeLista] = useState('MinhaListaIPTV');
 
-  // Configuração DNS / Xtream Codes
+  // Configuração DNS / Xtream Codes — padrão: API dedicada na VPS (persistido no localStorage)
+  const DNS_PADRAO_VPS = 'https://api.tibimmanagerpainel.shop';
+  const DNS_STORAGE_KEY = 'tibim_xtream_dns_host';
   const [dnsHost, setDnsHost] = useState(() => {
-    if (typeof window !== 'undefined' && window.location.origin) {
-      return window.location.origin;
+    if (typeof window !== 'undefined') {
+      const salvo = window.localStorage.getItem(DNS_STORAGE_KEY);
+      if (salvo && salvo.trim()) return salvo.trim();
     }
-    return 'http://meuservidor.vip:8080';
+    return DNS_PADRAO_VPS;
   });
+  useEffect(() => {
+    if (typeof window !== 'undefined' && dnsHost?.trim()) {
+      window.localStorage.setItem(DNS_STORAGE_KEY, dnsHost.trim());
+    }
+  }, [dnsHost]);
   const [selectedUserId, setSelectedUserId] = useState<string>('manual');
   const [customUsername, setCustomUsername] = useState('demo');
   const [customPassword, setCustomPassword] = useState('123456');
