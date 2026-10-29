@@ -83,8 +83,15 @@ export default function GeradorM3U() {
   const [limitePorTipo, setLimitePorTipo] = useState<string>('0'); // 0 = sem limite (Filmes e TV 100%)
   const [limiteSeries, setLimiteSeries] = useState<string>('2500'); // 2500, 5000, 10000, 25000, 0 ou series_vod
 
-  // Formato da M3U
-  const [formatoSaida, setFormatoSaida] = useState<'original' | 'ts' | 'm3u8'>('original');
+  // Formato da M3U — padrão automático: MPEG-TS (.ts), persistido no localStorage
+  const FORMATO_STORAGE_KEY = 'tibim_formato_saida';
+  const [formatoSaida, setFormatoSaida] = useState<'original' | 'ts' | 'm3u8'>(() => {
+    if (typeof window !== 'undefined') {
+      const salvo = window.localStorage.getItem(FORMATO_STORAGE_KEY);
+      if (salvo === 'original' || salvo === 'ts' || salvo === 'm3u8') return salvo;
+    }
+    return 'ts';
+  });
   const [nomeLista, setNomeLista] = useState('MinhaListaIPTV');
 
   // Configuração DNS / Xtream Codes — padrão: API dedicada na VPS (persistido no localStorage)
