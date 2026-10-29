@@ -1533,8 +1533,7 @@ export default async function handler(req, res) {
     const catIdMap = new Map();
 
     const seriesList = conteudos.filter(c => {
-      const tipo = String(extractField(c, ['tipo'])).toLowerCase();
-      const isSerie = tipo.includes('seri') || tipo.includes('anime') || Boolean(extractField(c, ['temporadas']));
+      const isSerie = isSerieRow(c);
       if (isSerie) {
         const cat = formatCategory(extractField(c, ['categoria', 'genero']), 'series');
         if (!catIdMap.has(cat)) catIdMap.set(cat, String(catIdMap.size + 1));
