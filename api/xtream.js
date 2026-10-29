@@ -1508,7 +1508,7 @@ export default async function handler(req, res) {
 
     conteudos.forEach(c => {
       const tipo = String(extractField(c, ['tipo'])).toLowerCase();
-      if (tipo.includes('seri') || tipo.includes('anime') || extractField(c, ['temporadas'])) {
+      if (isSerieRow(c)) {
         const cat = formatCategory(extractField(c, ['categoria', 'genero']), 'series');
         if (!catsMap.has(cat)) catsMap.set(cat, catsMap.size + 1);
       }
