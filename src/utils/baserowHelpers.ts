@@ -48,7 +48,7 @@ export const getValueByPossibleKeys = (item: any, column: string | string[]): an
   if (Array.isArray(column)) {
     for (const col of column) {
       const val = getValueByPossibleKeys(item, col);
-      if (val !== undefined && val !== null && val !== '') return val;
+      if (val !== undefined && val !== null) return val;
     }
     return undefined;
   }
