@@ -561,11 +561,31 @@ function isChannelLikeRow(row) {
   return /\b(tv|canal|canais|live)\b/.test(nome);
 }
 
+// Temporadas só indica SÉRIE quando é um valor real (> 0 ou texto).
+// O valor "0" (string) é gravado em milhares de FILMES — "0" NÃO é temporada.
+function hasRealSeasons(row) {
+  if (!row) return false;
+  const raw = extractField(row, ['temporadas', 'seasons']);
+  if (raw === null || raw === undefined) return false;
+  const s = String(raw).trim();
+  if (!s || s === '0') return false;
+  const n = Number(s.replace(',', '.'));
+  if (Number.isFinite(n)) return n > 0;
+  return true; // texto não numérico não vazio conta como temporadas
+}
+
 // Filme de verdade: nunca um canal
 function isFilmeRow(row) {
   if (isChannelLikeRow(row)) return false;
   const tipo = stripAccentsLower(extractField(row, ['tipo']));
-  return tipo.includes('film') || (!tipo.includes('seri') && !tipo.includes('anime') && !extractField(row, ['temporadas']));
+  return tipo.includes('film') || (!tipo.includes('seri') && !tipo.includes('anime') && !hasRealSeasons(row));
+}
+
+// Série de verdade: nunca um canal e nunca um filme com Temporadas="0"
+function isSerieRow(row) {
+  if (isChannelLikeRow(row)) return false;
+  const tipo = stripAccentsLower(extractField(row, ['tipo']));
+  return tipo.includes('seri') || tipo.includes('anime') || hasRealSeasons(row);
 }
 
 
