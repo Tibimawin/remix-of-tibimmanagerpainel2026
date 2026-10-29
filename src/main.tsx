@@ -36,14 +36,20 @@ if (import.meta.env.DEV) {
       console.warn(`[REF-DEBUG] ref no function component "${name}" via ${fnName}\n`, new Error().stack);
     }
   };
-  const origJsx = JsxMod.jsx;
-  const origJsxs = JsxMod.jsxs;
-  (JsxMod as any).jsx = (type: any, props: any, key: any) => { report('jsx', type, props); return origJsx(type, props, key); };
-  (JsxMod as any).jsxs = (type: any, props: any, key: any) => { report('jsxs', type, props); return origJsxs(type, props, key); };
-  const origJsxDev = (JsxDevMod as any)?.jsxDEV;
-  if (typeof origJsxDev === 'function') {
-    (JsxDevMod as any).jsxDEV = (type: any, props: any, key: any, ...rest: any[]) => { report('jsxDEV', type, props); return origJsxDev(type, props, key, ...rest); };
-  }
+  const patchCjs = (modNs: any, fns: string[], fnName: string) => {
+    const target = modNs?.default;
+    if (!target) return;
+    for (const f of fns) {
+      const orig = target[f];
+      if (typeof orig !== 'function') continue;
+      target[f] = (type: any, props: any, key: any, ...rest: any[]) => {
+        report(`${fnName}.${f}`, type, props);
+        return orig(type, props, key, ...rest);
+      };
+    }
+  };
+  patchCjs(JsxMod, ['jsx', 'jsxs', 'jsxDEV'], 'jsx-runtime');
+  patchCjs(JsxDevMod, ['jsx', 'jsxs', 'jsxDEV'], 'jsx-dev-runtime');
   const origCreate = ReactMod.createElement;
   (ReactMod as any).createElement = function (type: any, config: any, ...children: any[]) {
     if (config && config.ref != null && typeof type === 'function') {
