@@ -67,6 +67,7 @@ interface JogoDia {
   'Link 1'?: string;
   'Link 2'?: string;
   imported?: boolean;
+  [key: string]: unknown;
 }
 
 const JogosDia = () => {

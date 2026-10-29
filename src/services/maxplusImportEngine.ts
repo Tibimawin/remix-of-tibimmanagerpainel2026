@@ -8,7 +8,8 @@ import {
   MaxPlusContentDetails, 
   MaxPlusCatalogItem,
   MaxPlusSeasonDetail,
-  MaxPlusEpisodeDetail
+  MaxPlusEpisodeDetail,
+  MaxPlusEpisodeResult
 } from '@/services/maxplusApi';
 import { mapToDatabaseKeys } from '@/utils/baserowHelpers';
 import { tmdbService } from '@/services/TmdbService';
