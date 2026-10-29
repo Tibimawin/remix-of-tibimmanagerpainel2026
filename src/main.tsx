@@ -43,6 +43,17 @@ if (import.meta.env.DEV) {
     }
     return (origCreate as any)(type, config, ...children);
   };
+  const origClone = (ReactMod as any).cloneElement;
+  if (typeof origClone === 'function') {
+    (ReactMod as any).cloneElement = function (element: any, config: any, ...children: any[]) {
+      const newRef = config && config.ref != null ? config.ref : (element?.ref ?? null);
+      if (newRef != null) {
+        const name = element?.type?.displayName || element?.type?.name || 'anonymous';
+        console.warn(`[REF-DEBUG-CLONE] ref em "${name}" via cloneElement (config.ref=${config && config.ref != null ? 'sim' : 'herdado'})\n`, new Error().stack);
+      }
+      return origClone(element, config, ...children);
+    };
+  }
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
