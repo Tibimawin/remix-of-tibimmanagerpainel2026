@@ -22,4 +22,27 @@ if (import.meta.env.PROD) {
   console.groupCollapsed = noop;
 }
 
+// TEMPORÁRIO (debug): rastreia refs passados para function components
+if (import.meta.env.DEV) {
+  const [ReactMod, JsxMod] = await Promise.all([import('react'), import('react/jsx-runtime')]);
+  const report = (fnName: string, type: any, props: any) => {
+    if (props && props.ref != null && typeof type === 'function') {
+      const name = (type as any).displayName || (type as any).name || 'anonymous';
+      console.warn(`[REF-DEBUG] ref no function component "${name}" via ${fnName}\n`, new Error().stack);
+    }
+  };
+  const origJsx = JsxMod.jsx;
+  const origJsxs = JsxMod.jsxs;
+  (JsxMod as any).jsx = (type: any, props: any, key: any) => { report('jsx', type, props); return origJsx(type, props, key); };
+  (JsxMod as any).jsxs = (type: any, props: any, key: any) => { report('jsxs', type, props); return origJsxs(type, props, key); };
+  const origCreate = ReactMod.createElement;
+  (ReactMod as any).createElement = function (type: any, config: any, ...children: any[]) {
+    if (config && config.ref != null && typeof type === 'function') {
+      const name = type.displayName || type.name || 'anonymous';
+      console.warn(`[REF-DEBUG] ref no function component "${name}" via createElement\n`, new Error().stack);
+    }
+    return (origCreate as any)(type, config, ...children);
+  };
+}
+
 createRoot(document.getElementById("root")!).render(<App />);
