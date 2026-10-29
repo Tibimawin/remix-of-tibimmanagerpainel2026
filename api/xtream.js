@@ -894,8 +894,14 @@ export default async function handler(req, res) {
   const password = String(query.password || query.pass || body.password || body.pass || '').trim();
   const action = String(query.action || body.action || '').trim();
 
+  // Para /live/..., /movie/..., /series/... o usuário/senha vêm no CAMINHO da URL, não na query.
+  // Extraí-los ANTES de resolver a configuração da conta: sem isso o multi-tenant não encontra
+  // o usuário e cai no fallback global, validando o cliente na tabela errada ("Usuário não encontrado").
+  const preStreamMatch = rawUrl.match(/\/(?:u\/[^/]+\/)?(live|movie|series)\/([^/]+)\/([^/]+)\/(\d+)(\.[a-zA-Z0-9]+)?/);
+  const preStreamUser = preStreamMatch ? decodeURIComponent(preStreamMatch[2]) : '';
+
   // 1. Resolver configuração estritamente isolada da conta do usuário
-  const config = await resolveAccountConfig(req, username);
+  const config = await resolveAccountConfig(req, username || preStreamUser);
 
   // 2. Filtro de Conteúdo (content=tv | content=movies | content=series | content=all)
   const contentFilter = String(
