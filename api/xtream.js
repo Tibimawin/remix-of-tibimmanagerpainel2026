@@ -530,9 +530,11 @@ function isChannelLikeRow(row) {
   if (CHANNEL_TYPE_RE.test(tipo)) return true;
   // Tipo vazio/ambíguo: decide pela categoria (ex: "CANAIS 24H", "CANAIS | DESPORTO", "FILMES | CANAIS 24H")
   const catRaw = stripAccentsLower(extractField(row, ['categoria', 'genero'])).trim();
-  if (!catRaw) return false;
   const catStripped = catRaw.replace(/^(filmes|series|canais|canal)\s*\|\s*/g, '').trim();
-  return CHANNEL_CAT_RE.test(catRaw) || CHANNEL_CAT_RE.test(catStripped);
+  if (CHANNEL_CAT_RE.test(catRaw) || CHANNEL_CAT_RE.test(catStripped)) return true;
+  // Tipo vazio + nome típico de canal (ex: "TV Globo", "Canal Panda")
+  const nome = stripAccentsLower(extractField(row, ['nome', 'canalNome', 'titulo'])).trim();
+  return /\b(tv|canal|canais|live)\b/.test(nome);
 }
 
 // Filme de verdade: nunca um canal
