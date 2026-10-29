@@ -35,6 +35,7 @@ import {
   DatabaseZap,
   Key,
   Shield,
+  ShieldCheck,
   ChevronDown,
   Bell,
   AlertCircle,
@@ -259,6 +260,16 @@ const menuItems: MenuItem[] = [
     category: 'tools',
     description: 'Busca otimizada de episódios duplicados',
     feature: 'duplicados-episodios-otimizado',
+    badge: { type: 'new' }
+  },
+  {
+    id: 'verificar-links',
+    label: 'Verificar Links',
+    href: '/verificar-links',
+    icon: ShieldCheck,
+    category: 'tools',
+    description: 'Testa quais links de canais, filmes e séries estão online',
+    feature: 'duplicados',
     badge: { type: 'new' }
   },
   {

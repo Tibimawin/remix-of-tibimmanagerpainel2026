@@ -85,6 +85,7 @@ const MeusAplicativos = lazy(() => import("./pages/MeusAplicativos"));
 const MeusApp = lazy(() => import("./pages/MeusApp"));
 const RelatoriosVisualizacao = lazy(() => import("./pages/RelatoriosVisualizacao"));
 const ImportarCanaisTV = lazy(() => import("./pages/ImportarCanaisTV"));
+const VerificarLinks = lazy(() => import("./pages/VerificarLinks"));
 const Ofertas = lazy(() => import("./pages/Ofertas"));
 const LimpezaDados = lazy(() => import("./pages/LimpezaDados"));
 const MaxPlus = lazy(() => import("./pages/MaxPlus"));
@@ -593,6 +594,14 @@ const App = () => {
                                 <SimpleProtectedRoute>
                                   <Layout>
                                     <ImportarCanaisTV />
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
+                              <Route path="/verificar-links" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <VerificarLinks />
                                   </Layout>
                                 </SimpleProtectedRoute>
                               } />

@@ -55,6 +55,11 @@ const routeTitles: Record<string, { title: string; subtitle: string; icon?: Reac
     subtitle: 'Gerenciar conteúdos do sistema',
     icon: Menu
   },
+  '/verificar-links': { 
+    title: 'Verificar Links', 
+    subtitle: 'Testa quais links de canais, filmes e séries estão online',
+    icon: Menu
+  },
   '/episodios': { 
     title: 'Episódios', 
     subtitle: 'Gerenciar episódios',
