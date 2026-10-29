@@ -25,6 +25,7 @@ if (import.meta.env.PROD) {
 // TEMPORÁRIO (debug): rastreia refs passados para function components
 if (import.meta.env.DEV) {
   const [ReactMod, JsxMod] = await Promise.all([import('react'), import('react/jsx-runtime')]);
+  console.log('[REF-DEBUG-INSTALLED]', typeof ReactMod.createElement, typeof JsxMod.jsx);
   const report = (fnName: string, type: any, props: any) => {
     if (props && props.ref != null && typeof type === 'function') {
       const name = (type as any).displayName || (type as any).name || 'anonymous';
