@@ -1019,12 +1019,24 @@ export default async function handler(req, res) {
   const streamType = query.stream_type;
   const streamId = query.stream_id || '';
   const liveMatch = rawUrl.match(/\/(?:u\/[^/]+\/)?(live|movie|series)\/([^/]+)\/([^/]+)\/(\d+)(\.[a-zA-Z0-9]+)?/);
+  const streamExt = (liveMatch && liveMatch[5]) ? liveMatch[5].toLowerCase() : '';
 
   if (liveMatch || streamType) {
     const type = liveMatch ? liveMatch[1] : streamType;
     const streamUser = liveMatch ? decodeURIComponent(liveMatch[2]) : username;
     const streamPass = liveMatch ? decodeURIComponent(liveMatch[3]) : password;
     const rawId = liveMatch ? liveMatch[4] : streamId.replace(/\.[a-zA-Z0-9]+$/, '');
+
+    // Playlist HLS sintética: players HLS voltam a buscar esta URL a cada ~20s.
+    // Serve direto do cache por 60s sem revalidar no Baserow (1 busca/min no máximo).
+    const hlsCacheKey = `${type}_${streamUser}|${streamPass}_${rawId}${streamExt}`;
+    const hlsCached = HLS_PLAYLIST_CACHE.get(hlsCacheKey);
+    if (streamExt === '.m3u8' && hlsCached && hlsCached.expiresAt > Date.now()) {
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(200).send(hlsCached.playlist);
+    }
 
     // VALIDAÇÃO RIGOROSA DE EXPIRAÇÃO NO STREAM
     const authStream = await validateUser(config, streamUser, streamPass);
