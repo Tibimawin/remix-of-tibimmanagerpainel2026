@@ -1081,6 +1081,17 @@ export default async function handler(req, res) {
 
 
     if (targetUrl) {
+      // Player pediu HLS (.m3u8) mas a fonte é TS bruto (ex.: http://ip:porta):
+      // devolve uma playlist HLS sintética apontando direto para a fonte
+      // (zero proxy/banda), em vez de 302 que players HLS não conseguem tocar.
+      if (streamExt === '.m3u8' && isRawTsSource(targetUrl)) {
+        const playlist = buildHlsPlaylist(targetUrl);
+        HLS_PLAYLIST_CACHE.set(hlsCacheKey, { playlist, expiresAt: Date.now() + 60000 });
+        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).send(playlist);
+      }
       res.setHeader('Location', targetUrl);
       return res.status(302).end();
     } else {
