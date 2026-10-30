@@ -138,6 +138,10 @@ export default function GeradorM3U() {
   const [testandoXtream, setTestandoXtream] = useState(false);
   const [resultadoTeste, setResultadoTeste] = useState<any>(null);
 
+  // Gerador de Usuário de Teste (validade de 1 hora)
+  const [gerandoTeste, setGerandoTeste] = useState(false);
+  const [testeGerado, setTesteGerado] = useState<{ username: string; password: string; rowId: string; vencimento: Date } | null>(null);
+
   // QR Code Modal
   const [qrOpen, setQrOpen] = useState(false);
   const [qrUrl, setQrUrl] = useState('');
@@ -309,6 +313,86 @@ export default function GeradorM3U() {
       isFuture
     };
   }, [activeUserObj]);
+
+  // ============ Gerador de Usuário de Teste (1 hora) ============
+  const handleGerarTeste1h = async () => {
+    if (!isConfigured || !config.tableIds?.usuarios) {
+      toast.error('Configure a conexão com o Baserow e a tabela de usuários antes de gerar um teste.');
+      return;
+    }
+    setGerandoTeste(true);
+    try {
+      const agora = new Date();
+      const venc = new Date(agora.getTime() + 60 * 60 * 1000); // 1 hora
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const toIso = (d: Date) =>
+        `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}Z`;
+      const sufixo = Math.random().toString(36).slice(2, 8).toLowerCase();
+      const testeUser = `teste_${sufixo}`;
+      const testePass = String(Math.floor(100000 + Math.random() * 900000));
+
+      // Descobrir os nomes reais das colunas a partir de uma linha existente
+      let sampleKeys: string[] = usuarios.length > 0 ? Object.keys(usuarios[0]) : [];
+      if (sampleKeys.length === 0) {
+        try {
+          const sample = await baserowService.getAllTableData(config.tableIds.usuarios, undefined, 1);
+          const first = Array.isArray(sample) ? sample[0] : sample?.results?.[0];
+          if (first) sampleKeys = Object.keys(first);
+        } catch { /* usa fallback */ }
+      }
+      const norm = (k: string) => k.toLowerCase().replace(/[\s_-]/g, '');
+      const findKey = (candidates: string[], fallback: string) =>
+        sampleKeys.find(k => candidates.includes(norm(k))) || fallback;
+
+      const nomeKey = findKey(['nome', 'name', 'usuario'], 'Nome');
+      const senhaKey = findKey(['senha', 'password', 'pass', 'pin'], 'Senha');
+      const statusKey = findKey(['status', 'situacao'], 'Status');
+      const vencKey = findKey(['vencimento', 'datavencimento', 'expirydate', 'validade', 'expiracao'], 'Vencimento');
+      const pagamentoKey = sampleKeys.find(k => ['datapagamento', 'pagamento', 'datacriacao', 'startdate'].includes(norm(k)));
+      const limiteKey = sampleKeys.find(k => ['limite', 'conexoes', 'telas', 'limitetelas'].includes(norm(k)));
+
+      const payload: Record<string, any> = {
+        [nomeKey]: testeUser,
+        [statusKey]: 'Ativo',
+        [vencKey]: toIso(venc)
+      };
+      if (senhaKey) payload[senhaKey] = testePass;
+      if (pagamentoKey) payload[pagamentoKey] = toIso(agora);
+      if (limiteKey) payload[limiteKey] = 1;
+
+      const created = await baserowService.createRow(config.tableIds.usuarios, payload);
+      const createdId = String(created?.id ?? '');
+
+      setTesteGerado({ username: testeUser, password: testePass, rowId: createdId, vencimento: venc });
+      setCustomUsername(testeUser);
+      setCustomPassword(testePass);
+      if (createdId) setSelectedUserId(createdId);
+
+      // Mapear imediatamente no roteamento multi-tenant para autenticar na hora
+      if (userInfo?.id) {
+        setDoc(doc(db, 'xtreamUserMapping', testeUser), {
+          userId: userInfo.id,
+          username: testeUser,
+          baserowUserId: created?.id ?? null,
+          tableUsuarios: config.tableIds?.usuarios || '',
+          tableCanaisTv: config.tableIds?.canaisTv || '',
+          tableConteudos: config.tableIds?.conteudos || '',
+          tableEpisodios: config.tableIds?.episodios || '',
+          baseUrl: config.baseUrl || '',
+          apiToken: config.apiToken || '',
+          updatedAt: new Date().toISOString()
+        }, { merge: true }).catch(() => {});
+      }
+
+      await carregarUsuarios(true);
+      toast.success(`Usuário de teste criado: ${testeUser} — válido por 1 hora.`);
+    } catch (err: any) {
+      console.error('Erro ao gerar usuário de teste:', err);
+      toast.error(`Falha ao criar teste: ${err?.message || 'Erro desconhecido'}`);
+    } finally {
+      setGerandoTeste(false);
+    }
+  };
 
   // Sanitizar Host DNS (garantir protocolo e remover barra final)
   const sanitizedDns = useMemo(() => {
@@ -1641,6 +1725,66 @@ export default function GeradorM3U() {
                 </div>
               </div>
 
+              {/* Gerador de Teste Rápido (1 hora) */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-semibold flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-500" />
+                    Teste Rápido para Cliente (1 hora)
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Cria automaticamente um usuário de teste na tabela de usuários do Baserow com validade de 1 hora e preenche as credenciais acima. O acesso expira sozinho — sem precisar apagar nada depois.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleGerarTeste1h}
+                  disabled={gerandoTeste}
+                  className="gap-2 bg-amber-500 hover:bg-amber-600 text-black font-semibold shrink-0"
+                >
+                  {gerandoTeste ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                  {gerandoTeste ? 'Gerando teste...' : 'Gerar Teste 1h'}
+                </Button>
+              </div>
+
+              {/* Resultado do Teste Gerado */}
+              {testeGerado && (
+                <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-bold flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-amber-600" />
+                      Usuário de Teste Ativo
+                    </p>
+                    <Badge variant="outline" className="font-mono text-[11px] bg-background/60">
+                      <Clock className="w-3 h-3 mr-1" />
+                      Expira: {testeGerado.vencimento.toLocaleString('pt-BR')}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-background/70 border">
+                      <div>
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground">Usuário</p>
+                        <p className="font-mono font-bold text-xs">{testeGerado.username}</p>
+                      </div>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleCopyDnsUrl(testeGerado.username, 'Usuário de teste')}>
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-background/70 border">
+                      <div>
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground">Senha</p>
+                        <p className="font-mono font-bold text-xs">{testeGerado.password}</p>
+                      </div>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleCopyDnsUrl(testeGerado.password, 'Senha de teste')}>
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Os links DNS e Xtream Codes abaixo já estão gerados com essas credenciais. Após 1 hora, o servidor recusa automaticamente o acesso (status Expirado) e você pode apagar a linha no Baserow.
+                  </p>
+                </div>
+              )}
+
               {/* Card de Informações e Validade do Usuário no Baserow */}
               {parsedUserDates && (
                 <div className={`p-4 rounded-xl border text-xs space-y-3 transition-all ${
@@ -2013,6 +2157,20 @@ export default function GeradorM3U() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2 text-xs">
+                <Button
+                  size="sm"
+                  onClick={handleGerarTeste1h}
+                  disabled={gerandoTeste}
+                  className="w-full gap-2 bg-amber-500 hover:bg-amber-600 text-black font-semibold"
+                >
+                  {gerandoTeste ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                  {gerandoTeste ? 'Gerando teste...' : 'Gerar Teste 1h'}
+                </Button>
+                {testeGerado && (
+                  <div className="p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-800 dark:text-amber-200">
+                    <strong>Teste ativo:</strong> {testeGerado.username} / {testeGerado.password} — expira {testeGerado.vencimento.toLocaleTimeString('pt-BR')}
+                  </div>
+                )}
                 <div className="flex justify-between items-center p-2 rounded bg-muted/60">
                   <span className="text-muted-foreground font-medium">Servidor DNS (Geral):</span>
                   <div className="flex items-center gap-1.5 font-mono font-semibold">
