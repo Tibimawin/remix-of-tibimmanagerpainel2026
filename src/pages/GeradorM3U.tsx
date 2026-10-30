@@ -138,6 +138,10 @@ export default function GeradorM3U() {
   const [testandoXtream, setTestandoXtream] = useState(false);
   const [resultadoTeste, setResultadoTeste] = useState<any>(null);
 
+  // Gerador de Usuário de Teste (validade de 1 hora)
+  const [gerandoTeste, setGerandoTeste] = useState(false);
+  const [testeGerado, setTesteGerado] = useState<{ username: string; password: string; rowId: string; vencimento: Date } | null>(null);
+
   // QR Code Modal
   const [qrOpen, setQrOpen] = useState(false);
   const [qrUrl, setQrUrl] = useState('');
@@ -309,6 +313,86 @@ export default function GeradorM3U() {
       isFuture
     };
   }, [activeUserObj]);
+
+  // ============ Gerador de Usuário de Teste (1 hora) ============
+  const handleGerarTeste1h = async () => {
+    if (!isConfigured || !config.tableIds?.usuarios) {
+      toast.error('Configure a conexão com o Baserow e a tabela de usuários antes de gerar um teste.');
+      return;
+    }
+    setGerandoTeste(true);
+    try {
+      const agora = new Date();
+      const venc = new Date(agora.getTime() + 60 * 60 * 1000); // 1 hora
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const toIso = (d: Date) =>
+        `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}Z`;
+      const sufixo = Math.random().toString(36).slice(2, 8).toLowerCase();
+      const testeUser = `teste_${sufixo}`;
+      const testePass = String(Math.floor(100000 + Math.random() * 900000));
+
+      // Descobrir os nomes reais das colunas a partir de uma linha existente
+      let sampleKeys: string[] = usuarios.length > 0 ? Object.keys(usuarios[0]) : [];
+      if (sampleKeys.length === 0) {
+        try {
+          const sample = await baserowService.getAllTableData(config.tableIds.usuarios, undefined, 1);
+          const first = Array.isArray(sample) ? sample[0] : sample?.results?.[0];
+          if (first) sampleKeys = Object.keys(first);
+        } catch { /* usa fallback */ }
+      }
+      const norm = (k: string) => k.toLowerCase().replace(/[\s_-]/g, '');
+      const findKey = (candidates: string[], fallback: string) =>
+        sampleKeys.find(k => candidates.includes(norm(k))) || fallback;
+
+      const nomeKey = findKey(['nome', 'name', 'usuario'], 'Nome');
+      const senhaKey = findKey(['senha', 'password', 'pass', 'pin'], 'Senha');
+      const statusKey = findKey(['status', 'situacao'], 'Status');
+      const vencKey = findKey(['vencimento', 'datavencimento', 'expirydate', 'validade', 'expiracao'], 'Vencimento');
+      const pagamentoKey = sampleKeys.find(k => ['datapagamento', 'pagamento', 'datacriacao', 'startdate'].includes(norm(k)));
+      const limiteKey = sampleKeys.find(k => ['limite', 'conexoes', 'telas', 'limitetelas'].includes(norm(k)));
+
+      const payload: Record<string, any> = {
+        [nomeKey]: testeUser,
+        [statusKey]: 'Ativo',
+        [vencKey]: toIso(venc)
+      };
+      if (senhaKey) payload[senhaKey] = testePass;
+      if (pagamentoKey) payload[pagamentoKey] = toIso(agora);
+      if (limiteKey) payload[limiteKey] = 1;
+
+      const created = await baserowService.createRow(config.tableIds.usuarios, payload);
+      const createdId = String(created?.id ?? '');
+
+      setTesteGerado({ username: testeUser, password: testePass, rowId: createdId, vencimento: venc });
+      setCustomUsername(testeUser);
+      setCustomPassword(testePass);
+      if (createdId) setSelectedUserId(createdId);
+
+      // Mapear imediatamente no roteamento multi-tenant para autenticar na hora
+      if (userInfo?.id) {
+        setDoc(doc(db, 'xtreamUserMapping', testeUser), {
+          userId: userInfo.id,
+          username: testeUser,
+          baserowUserId: created?.id ?? null,
+          tableUsuarios: config.tableIds?.usuarios || '',
+          tableCanaisTv: config.tableIds?.canaisTv || '',
+          tableConteudos: config.tableIds?.conteudos || '',
+          tableEpisodios: config.tableIds?.episodios || '',
+          baseUrl: config.baseUrl || '',
+          apiToken: config.apiToken || '',
+          updatedAt: new Date().toISOString()
+        }, { merge: true }).catch(() => {});
+      }
+
+      await carregarUsuarios(true);
+      toast.success(`Usuário de teste criado: ${testeUser} — válido por 1 hora.`);
+    } catch (err: any) {
+      console.error('Erro ao gerar usuário de teste:', err);
+      toast.error(`Falha ao criar teste: ${err?.message || 'Erro desconhecido'}`);
+    } finally {
+      setGerandoTeste(false);
+    }
+  };
 
   // Sanitizar Host DNS (garantir protocolo e remover barra final)
   const sanitizedDns = useMemo(() => {
