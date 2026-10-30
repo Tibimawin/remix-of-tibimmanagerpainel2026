@@ -2157,6 +2157,20 @@ export default function GeradorM3U() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2 text-xs">
+                <Button
+                  size="sm"
+                  onClick={handleGerarTeste1h}
+                  disabled={gerandoTeste}
+                  className="w-full gap-2 bg-amber-500 hover:bg-amber-600 text-black font-semibold"
+                >
+                  {gerandoTeste ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                  {gerandoTeste ? 'Gerando teste...' : 'Gerar Teste 1h'}
+                </Button>
+                {testeGerado && (
+                  <div className="p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-800 dark:text-amber-200">
+                    <strong>Teste ativo:</strong> {testeGerado.username} / {testeGerado.password} — expira {testeGerado.vencimento.toLocaleTimeString('pt-BR')}
+                  </div>
+                )}
                 <div className="flex justify-between items-center p-2 rounded bg-muted/60">
                   <span className="text-muted-foreground font-medium">Servidor DNS (Geral):</span>
                   <div className="flex items-center gap-1.5 font-mono font-semibold">
