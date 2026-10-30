@@ -1725,6 +1725,66 @@ export default function GeradorM3U() {
                 </div>
               </div>
 
+              {/* Gerador de Teste Rápido (1 hora) */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-semibold flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-500" />
+                    Teste Rápido para Cliente (1 hora)
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Cria automaticamente um usuário de teste na tabela de usuários do Baserow com validade de 1 hora e preenche as credenciais acima. O acesso expira sozinho — sem precisar apagar nada depois.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleGerarTeste1h}
+                  disabled={gerandoTeste}
+                  className="gap-2 bg-amber-500 hover:bg-amber-600 text-black font-semibold shrink-0"
+                >
+                  {gerandoTeste ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                  {gerandoTeste ? 'Gerando teste...' : 'Gerar Teste 1h'}
+                </Button>
+              </div>
+
+              {/* Resultado do Teste Gerado */}
+              {testeGerado && (
+                <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-bold flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-amber-600" />
+                      Usuário de Teste Ativo
+                    </p>
+                    <Badge variant="outline" className="font-mono text-[11px] bg-background/60">
+                      <Clock className="w-3 h-3 mr-1" />
+                      Expira: {testeGerado.vencimento.toLocaleString('pt-BR')}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-background/70 border">
+                      <div>
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground">Usuário</p>
+                        <p className="font-mono font-bold text-xs">{testeGerado.username}</p>
+                      </div>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleCopyDnsUrl(testeGerado.username, 'Usuário de teste')}>
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-background/70 border">
+                      <div>
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground">Senha</p>
+                        <p className="font-mono font-bold text-xs">{testeGerado.password}</p>
+                      </div>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleCopyDnsUrl(testeGerado.password, 'Senha de teste')}>
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Os links DNS e Xtream Codes abaixo já estão gerados com essas credenciais. Após 1 hora, o servidor recusa automaticamente o acesso (status Expirado) e você pode apagar a linha no Baserow.
+                  </p>
+                </div>
+              )}
+
               {/* Card de Informações e Validade do Usuário no Baserow */}
               {parsedUserDates && (
                 <div className={`p-4 rounded-xl border text-xs space-y-3 transition-all ${
