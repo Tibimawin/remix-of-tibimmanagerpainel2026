@@ -239,7 +239,7 @@ const MinimalistTemplate: React.FC<TemplateProps> = ({
       </div>
 
       {/* Bottom Editorial Credits Strip */}
-      <div className="relative z-20 pt-3 border-t border-white/10 mt-auto flex items-center justify-between text-neutral-400">
+      <div className="relative z-20 pt-3 border-t border-white/10 mt-auto flex items-center justify-between" style={{ color: availableColor }}>
         <div className="flex items-center gap-3 text-[10px] uppercase font-bold tracking-widest">
           <span className="flex items-center gap-1 text-white">
             <Video size={13} style={{ color: accentColor }} />

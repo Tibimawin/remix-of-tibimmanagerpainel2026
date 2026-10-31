@@ -657,6 +657,75 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                     </div>
                   </div>
 
+                  {/* Cores dos Textos Inferiores */}
+                  <div className="space-y-3 p-3.5 rounded-lg border border-border/50 bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="font-semibold text-sm">Cores dos Textos Inferiores</Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Título, informações, sinopse e rodapé (independente da cor de destaque)
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                        onClick={() => {
+                          setTitlecolor(BOTTOM_TEXT_COLOR_DEFAULTS.titleColor);
+                          setInfoColor(BOTTOM_TEXT_COLOR_DEFAULTS.infoColor);
+                          setSynopsisColor(BOTTOM_TEXT_COLOR_DEFAULTS.synopsisColor);
+                          setAvailableColor(BOTTOM_TEXT_COLOR_DEFAULTS.availableColor);
+                        }}
+                        title="Voltar todas as cores dos textos para o padrão"
+                      >
+                        <RotateCcw className="w-3 h-3 mr-1" />
+                        Restaurar
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {[
+                        { label: 'Título', value: titleColor, setValue: setTitlecolor },
+                        { label: 'Informações (ano / gêneros)', value: infoColor, setValue: setInfoColor },
+                        { label: 'Sinopse', value: synopsisColor, setValue: setSynopsisColor },
+                        { label: 'Rodapé (Disponível em)', value: availableColor, setValue: setAvailableColor }
+                      ].map((row) => (
+                        <div key={row.label} className="flex items-center gap-2">
+                          <div className="relative group flex-shrink-0">
+                            <input
+                              type="color"
+                              value={row.value.startsWith('#') && row.value.length === 7 ? row.value : '#FFFFFF'}
+                              onChange={(e) => row.setValue(e.target.value)}
+                              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                              title={`Cor do texto: ${row.label}`}
+                            />
+                            <div
+                              className="w-10 h-8 rounded-lg border-2 border-border/60 shadow-sm flex items-center justify-center cursor-pointer transition-transform group-hover:scale-105"
+                              style={{ backgroundColor: row.value }}
+                            >
+                              <Type className="w-3.5 h-3.5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]" />
+                            </div>
+                          </div>
+                          <Input
+                            type="text"
+                            value={row.value}
+                            onChange={(e) => {
+                              let val = e.target.value;
+                              if (val && !val.startsWith('#') && !val.startsWith('rgb')) {
+                                val = '#' + val;
+                              }
+                              row.setValue(val);
+                            }}
+                            className="bg-muted/50 font-mono text-xs uppercase flex-1"
+                            placeholder="#FFFFFF"
+                          />
+                          <span className="text-[11px] text-muted-foreground w-[120px] flex-shrink-0 truncate">{row.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <Label>Blur do Fundo ({backgroundBlur}px)</Label>
