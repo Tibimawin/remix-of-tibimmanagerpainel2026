@@ -556,6 +556,8 @@ export default function GeradorM3U() {
     const itens: GeneratedItem[] = [];
     const maxPorTipo = parseInt(limitePorTipo, 10);
     const serieSinopseMap = new Map<string, string>();
+    // Nomes de séries adultas (+18) — usados para esconder também os episódios delas
+    const seriesAdultasNomes = new Set<string>();
 
     try {
       // 1. Canais de TV Ao Vivo (SOMENTE se incluirTV estiver ativo)
@@ -579,6 +581,9 @@ export default function GeradorM3U() {
             const realLink = extractRealStreamUrl(row, 'tv');
 
             if (apenasComLink && !realLink) return;
+
+            const categoriaTvStr = typeof categoria === 'object' && categoria?.value ? categoria.value : String(categoria || 'Canais TV').trim();
+            if (bloquearAdulto && isItemAdulto(categoriaTvStr, String(nome).trim())) return;
 
             itens.push({
               id: `tv-${row.id}`,
@@ -633,6 +638,9 @@ export default function GeradorM3U() {
 
             if (apenasComLink && !realLink) return;
 
+            const categoriaFilmeStr = typeof categoria === 'object' && categoria?.value ? categoria.value : String(categoria || 'Filmes').trim();
+            if (bloquearAdulto && isItemAdulto(categoriaFilmeStr, String(nome).trim())) return;
+
             itens.push({
               id: `filme-${row.id}`,
               tipo: 'filme',
@@ -677,6 +685,13 @@ export default function GeradorM3U() {
               const pEnc = encodeURIComponent(customPassword.trim() || '123456');
               const streamUrl = `${sanitizedDns}/series/${uEnc}/${pEnc}/${row.id}.mp4`;
 
+              const categoriaSerieStr = typeof categoria === 'object' && categoria?.value ? categoria.value : String(categoria || 'Séries').trim();
+              if (bloquearAdulto && isItemAdulto(categoriaSerieStr, String(nome).trim())) {
+                // Série adulta: registrar para esconder também os episódios dela
+                seriesAdultasNomes.add(String(nome).trim().toLowerCase());
+                return;
+              }
+
               itens.push({
                 id: `serie-${row.id}`,
                 tipo: 'serie',
@@ -720,6 +735,12 @@ export default function GeradorM3U() {
               const realLink = extractRealStreamUrl(row, 'serie');
 
               if (apenasComLink && !realLink) return;
+
+              if (bloquearAdulto) {
+                if (seriesAdultasNomes.has(String(serieNome).trim().toLowerCase())) return;
+                const catEpStr = String(getValueByPossibleKeys(row, 'categoria') || '');
+                if (isItemAdulto(catEpStr, String(epNome || serieNome))) return;
+              }
 
               // Formatação padrão IPTV: "Nome da Série S01 E01 - Título"
               const tempFormatted = String(temp).padStart(2, '0');
@@ -821,7 +842,7 @@ export default function GeradorM3U() {
       setItensGerados(itens);
       setM3uContent(m3uString);
       setProgresso(100);
-      setStatusMsg(`Lista gerada com sucesso! ${itens.length} canais/conteúdos reais exportados.`);
+      setStatusMsg(`Lista gerada com sucesso! ${itens.length} itens reais exportados${bloquearAdulto ? ' (conteúdo adulto +18 bloqueado)' : ''}.`);
       toast.success(`Lista M3U gerada com sucesso! (${itens.length} itens reais)`);
     } catch (error: any) {
       console.error('Erro geral ao gerar lista M3U:', error);
@@ -1952,6 +1973,30 @@ export default function GeradorM3U() {
                     {filtroTipoDns === 'movies' && 'Exclusivamente Filmes VOD serão entregues. Canais e séries ficarão ocultos no app.'}
                     {filtroTipoDns === 'series' && 'Exclusivamente Séries & Episódios serão entregues. Canais e filmes ficarão ocultos no app.'}
                   </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      <ShieldOff className="w-4 h-4 text-rose-500" />
+                      Bloquear Conteúdo Adulto (+18)
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {bloquearAdulto
+                        ? 'Canais +18, Filmes +18 e Séries +18 ficarão ocultos nesta lista e nos links gerados.'
+                        : 'O conteúdo adulto (+18) será incluído normalmente nesta lista e nos links gerados.'}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={bloquearAdulto ? 'default' : 'outline'}
+                    onClick={() => setBloquearAdulto(v => !v)}
+                    className={bloquearAdulto ? 'text-xs h-8 shrink-0 bg-rose-600 hover:bg-rose-700 text-white' : 'text-xs h-8 shrink-0'}
+                  >
+                    {bloquearAdulto ? <ShieldOff className="w-3.5 h-3.5 mr-1" /> : <ShieldCheck className="w-3.5 h-3.5 mr-1" />}
+                    {bloquearAdulto ? 'Adulto +18 BLOQUEADO' : 'Adulto +18 Liberado'}
+                  </Button>
                 </div>
               </div>
 
