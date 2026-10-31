@@ -1381,6 +1381,10 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                           statusAlign={statusAlign}
                           showSynopsis={showSynopsis}
                           synopsisLength={synopsisLength}
+                          titleColor={titleColor}
+                          infoColor={infoColor}
+                          synopsisColor={synopsisColor}
+                          availableColor={availableColor}
                         />
                       )}
                       {selectedTemplate === 'cinematic' && (
