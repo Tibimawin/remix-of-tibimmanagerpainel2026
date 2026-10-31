@@ -1059,6 +1059,14 @@ export default async function handler(req, res) {
   const isMoviesAllowed = contentFilter === 'all' || contentFilter === 'movies' || contentFilter === 'filmes' || contentFilter === 'vod';
   const isSeriesAllowed = contentFilter === 'all' || contentFilter === 'series' || contentFilter === 'serie';
 
+  // 2.1 Bloqueio de conteúdo adulto (+18) — opcional por link:
+  // noadulto=1 / semadulto=1 (ou adulto=0) esconde Canais+18, Filmes+18 e Séries+18
+  const noAdultRaw = String(query.noadulto || query['no-adulto'] || query.semadulto || body.noadulto || '').toLowerCase().trim();
+  const adultRaw = String(query.adulto || body.adulto || '').toLowerCase().trim();
+  const blockAdult =
+    ['1', 'true', 'sim', 'yes'].includes(noAdultRaw) ||
+    ['0', 'false', 'nao', 'não', 'no'].includes(adultRaw);
+
   // -------------------------------------------------------------
   // TRATAMENTO DE REQUISIÇÕES DE STREAM (/live/..., /movie/..., /series/...)
   // -------------------------------------------------------------
