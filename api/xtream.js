@@ -568,6 +568,41 @@ function formatCategory(rawCat, type) {
 }
 
 // -------------------------------------------------------------
+// BLOQUEIO DE CONTEÚDO ADULTO (+18) — opcional por link
+// Ativado na lista/link com: noadulto=1 (ou adulto=0).
+// Filtra por CATEGORIA (+18 / Adulto / XXX / Pornô / Erótico / Playboy…)
+// e, no título, apenas por marcadores inequívocos (+18 / Porn*) para não
+// bloquear conteúdo legítimo por engano (ex.: filme "xXx", canal "Adult Swim").
+// -------------------------------------------------------------
+const ADULT_CATEGORY_TOKENS = [
+  '+18', '18+', 'adulto', 'adult', 'xxx', 'porn', 'sexo', 'eroti',
+  'playboy', 'brazzers', 'hustler', 'penthouse', 'venus'
+];
+const ADULT_TITLE_TOKENS = ['+18', '18+', 'porn'];
+
+const normalizeAdultText = (t) => String(t || '')
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '');
+
+const isAdultText = (t) => {
+  const s = normalizeAdultText(t).trim();
+  if (!s) return false;
+  return ADULT_CATEGORY_TOKENS.some(tok => s.includes(tok));
+};
+
+// row: linha do Baserow; catFields/nomeFields: colunas de categoria e título
+const isAdultContentRow = (row, catFields, nomeFields) => {
+  if (!row) return false;
+  if (isAdultText(extractField(row, catFields))) return true;
+  const nome = normalizeAdultText(extractField(row, nomeFields));
+  return ADULT_TITLE_TOKENS.some(tok => nome.includes(tok));
+};
+
+// Export de teste (não afeta o handler em produção)
+export const __adultFilter = { isAdultText, isAdultContentRow };
+
+// -------------------------------------------------------------
 // CLASSIFICAÇÃO ROBUSTA: FILME x SÉRIE x CANAL
 // Registos de canal (Tipo "TV"/"Canal"/"Live") gravados por engano na
 // tabela de conteúdos NÃO podem aparecer em Filmes/Séries.
@@ -980,13 +1015,13 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // Marcador de versão — curl https://host/handler-version deve responder v4.
+  // Marcador de versão — curl https://host/handler-version deve responder v5.
   // Serve para confirmar que o arquivo novo realmente está no ar na VPS.
   if ((req.url || '').includes('/handler-version')) {
     return res.status(200).json({
-      version: 'v4',
-      builtAt: '2026-10-29',
-      fixes: ['series-temporadas-0', 'hls-sintetico-live-ts', 'stream-check', 'stream-user-no-path'],
+      version: 'v5',
+      builtAt: '2026-10-31',
+      fixes: ['series-temporadas-0', 'hls-sintetico-live-ts', 'stream-check', 'stream-user-no-path', 'bloqueio-adulto-noadulto'],
     });
   }
 
@@ -1023,6 +1058,14 @@ export default async function handler(req, res) {
   const isTvAllowed = contentFilter === 'all' || contentFilter === 'tv' || contentFilter === 'canais';
   const isMoviesAllowed = contentFilter === 'all' || contentFilter === 'movies' || contentFilter === 'filmes' || contentFilter === 'vod';
   const isSeriesAllowed = contentFilter === 'all' || contentFilter === 'series' || contentFilter === 'serie';
+
+  // 2.1 Bloqueio de conteúdo adulto (+18) — opcional por link:
+  // noadulto=1 / semadulto=1 (ou adulto=0) esconde Canais+18, Filmes+18 e Séries+18
+  const noAdultRaw = String(query.noadulto || query['no-adulto'] || query.semadulto || body.noadulto || '').toLowerCase().trim();
+  const adultRaw = String(query.adulto || body.adulto || '').toLowerCase().trim();
+  const blockAdult =
+    ['1', 'true', 'sim', 'yes'].includes(noAdultRaw) ||
+    ['0', 'false', 'nao', 'não', 'no'].includes(adultRaw);
 
   // -------------------------------------------------------------
   // TRATAMENTO DE REQUISIÇÕES DE STREAM (/live/..., /movie/..., /series/...)
@@ -1282,9 +1325,16 @@ export default async function handler(req, res) {
     m3u += `## Conta Isolada: ${config.accountId} | Modo: ${filterLabel}\n`;
     m3u += `## Cliente: ${username} | Validade: ${new Date(expTimestamp * 1000).toLocaleDateString('pt-BR')}\n\n`;
 
+    if (blockAdult) {
+      m3u += `## Conteúdo adulto (+18): BLOQUEADO nesta lista\n\n`;
+    }
+
     // BLOCO 1: CANAIS DE TV AO VIVO (SOMENTE SE isTvAllowed)
     if (isTvAllowed) {
-      const canais = await getCanaisCached(config);
+      let canais = await getCanaisCached(config);
+      if (blockAdult) {
+        canais = canais.filter(c => !isAdultContentRow(c, ['categoria', 'canalCategoria'], ['nome', 'canalNome']));
+      }
       m3u += `### =========================================\n`;
       m3u += `### [SEÇÃO 1] CANAIS DE TV AO VIVO (${canais.length})\n`;
       m3u += `### =========================================\n\n`;
@@ -1316,7 +1366,9 @@ export default async function handler(req, res) {
       // Canais gravados por engano na tabela de conteúdos (Tipo TV/Canal) entram na seção de CANAIS
       const canalFallbackM3u = await getChannelLikeConteudosCached(config);
       const canaisNomesM3u = new Set(canais.map(cc => String(extractField(cc, ['nome', 'canalNome']) || '').trim().toLowerCase()));
-      canalFallbackM3u.forEach(cf => {
+      canalFallbackM3u
+        .filter(cf => !(blockAdult && isAdultContentRow(cf, ['categoria', 'genero', 'canalCategoria'], ['nome', 'titulo'])))
+        .forEach(cf => {
         const nomeFb = extractField(cf, ['nome', 'titulo']) || `Canal ${cf.id}`;
         if (canaisNomesM3u.has(String(nomeFb).trim().toLowerCase())) return; // já existe na tabela de canais
         const linkFb = extractStreamUrl(cf);
@@ -1332,7 +1384,7 @@ export default async function handler(req, res) {
     // BLOCO 2: FILMES VOD (SOMENTE SE isMoviesAllowed)
     if (isMoviesAllowed) {
       const conteudos = await getConteudosCached(config);
-      const filmes = conteudos.filter(f => isFilmeRow(f));
+      const filmes = conteudos.filter(f => isFilmeRow(f) && !(blockAdult && isAdultContentRow(f, ['categoria', 'genero'], ['nome', 'titulo'])));
 
 
       m3u += `### =========================================\n`;
@@ -1376,7 +1428,20 @@ export default async function handler(req, res) {
         }
       });
 
-      const episodios = await getEpisodiosCached(config);
+      let episodios = await getEpisodiosCached(config);
+      if (blockAdult) {
+        // Séries adultas (categoria/título +18) escondem os episódios inteiros
+        const seriesAdultas = new Set(
+          conteudos
+            .filter(c => isSerieRow(c) && isAdultContentRow(c, ['categoria', 'genero'], ['nome', 'titulo']))
+            .map(c => String(extractField(c, ['nome', 'titulo']) || '').trim().toLowerCase())
+        );
+        episodios = episodios.filter(e => {
+          const serieNomeEp = String(extractField(e, ['serie', 'serieNome']) || '').trim().toLowerCase();
+          if (serieNomeEp && seriesAdultas.has(serieNomeEp)) return false;
+          return !isAdultContentRow(e, ['categoria', 'genero'], ['nome', 'episodioNome']);
+        });
+      }
 
       m3u += `### =========================================\n`;
       m3u += `### [SEÇÃO 3] SÉRIES & EPISÓDIOS (${episodios.length})\n`;
@@ -1456,7 +1521,10 @@ export default async function handler(req, res) {
   if (action === 'get_live_categories') {
     if (!isTvAllowed) return res.status(200).json([]);
 
-    const canais = await getCanaisCached(config);
+    let canais = await getCanaisCached(config);
+    if (blockAdult) {
+      canais = canais.filter(c => !isAdultContentRow(c, ['categoria', 'canalCategoria'], ['nome', 'canalNome']));
+    }
     const catsMap = new Map();
 
     canais.forEach(c => {
@@ -1467,7 +1535,10 @@ export default async function handler(req, res) {
     });
 
     // Categorias de canais gravados por engano na tabela de conteúdos (Tipo TV/Canal)
-    const canalFallbackCats = await getChannelLikeConteudosCached(config);
+    let canalFallbackCats = await getChannelLikeConteudosCached(config);
+    if (blockAdult) {
+      canalFallbackCats = canalFallbackCats.filter(c => !isAdultContentRow(c, ['categoria', 'genero', 'canalCategoria'], ['nome', 'titulo']));
+    }
     canalFallbackCats.forEach(c => {
       const catFormatted = formatCategory(extractField(c, ['categoria', 'genero', 'canalCategoria']), 'tv');
       if (!catsMap.has(catFormatted)) catsMap.set(catFormatted, catsMap.size + 1);
@@ -1489,9 +1560,15 @@ export default async function handler(req, res) {
   if (action === 'get_live_streams') {
     if (!isTvAllowed) return res.status(200).json([]);
 
-    const canais = await getCanaisCached(config);
+    let canais = await getCanaisCached(config);
+    if (blockAdult) {
+      canais = canais.filter(c => !isAdultContentRow(c, ['categoria', 'canalCategoria'], ['nome', 'canalNome']));
+    }
     // Canais gravados por engano na tabela de conteúdos (Tipo TV/Canal) também entram aqui
-    const canalFallback = await getChannelLikeConteudosCached(config);
+    let canalFallback = await getChannelLikeConteudosCached(config);
+    if (blockAdult) {
+      canalFallback = canalFallback.filter(c => !isAdultContentRow(c, ['categoria', 'genero', 'canalCategoria'], ['nome', 'titulo']));
+    }
     const canalNomes = new Set(canais.map(c => String(extractField(c, ['nome', 'canalNome']) || '').trim().toLowerCase()));
     const canalFallbackUnicos = canalFallback
       .filter(c => {
@@ -1554,7 +1631,7 @@ export default async function handler(req, res) {
     const catsMap = new Map();
 
     conteudos.forEach(c => {
-      if (isFilmeRow(c)) {
+      if (isFilmeRow(c) && !(blockAdult && isAdultContentRow(c, ['categoria', 'genero'], ['nome', 'titulo']))) {
         const cat = formatCategory(extractField(c, ['categoria', 'genero']), 'movie');
         if (!catsMap.has(cat)) catsMap.set(cat, catsMap.size + 1);
       }
@@ -1577,7 +1654,7 @@ export default async function handler(req, res) {
     if (!isMoviesAllowed) return res.status(200).json([]);
 
     const conteudos = await getConteudosCached(config);
-    const filmes = conteudos.filter(c => isFilmeRow(c));
+    const filmes = conteudos.filter(c => isFilmeRow(c) && !(blockAdult && isAdultContentRow(c, ['categoria', 'genero'], ['nome', 'titulo'])));
     const catIdMap = new Map();
 
     filmes.forEach(f => {
@@ -1691,7 +1768,7 @@ export default async function handler(req, res) {
 
     conteudos.forEach(c => {
       const tipo = String(extractField(c, ['tipo'])).toLowerCase();
-      if (isSerieRow(c)) {
+      if (isSerieRow(c) && !(blockAdult && isAdultContentRow(c, ['categoria', 'genero'], ['nome', 'titulo']))) {
         const cat = formatCategory(extractField(c, ['categoria', 'genero']), 'series');
         if (!catsMap.has(cat)) catsMap.set(cat, catsMap.size + 1);
       }
@@ -1717,6 +1794,7 @@ export default async function handler(req, res) {
 
     const seriesList = conteudos.filter(c => {
       const isSerie = isSerieRow(c);
+      if (isSerie && blockAdult && isAdultContentRow(c, ['categoria', 'genero'], ['nome', 'titulo'])) return false;
       if (isSerie) {
         const cat = formatCategory(extractField(c, ['categoria', 'genero']), 'series');
         if (!catIdMap.has(cat)) catIdMap.set(cat, String(catIdMap.size + 1));
