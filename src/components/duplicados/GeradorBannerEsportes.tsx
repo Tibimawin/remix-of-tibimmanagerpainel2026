@@ -128,6 +128,29 @@ const GeradorBannerEsportes = () => {
     }
   };
 
+  // Carrega o escudo a partir de um link: baixa e converte para base64
+  // (garante que a exportação PNG funcione mesmo com imagens de outros sites)
+  const applyLogoUrl = async (id: string, side: 'Home' | 'Away', url: string) => {
+    toast.loading('Carregando escudo do link...', { id: 'logo-url' });
+    try {
+      const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
+      if (!res.ok) throw new Error('fetch falhou');
+      const blob = await res.blob();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onloadend = () => resolve(r.result as string);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+      updateMatch(id, side === 'Home' ? 'logoHome' : 'logoAway', base64);
+      toast.success('Escudo carregado!', { id: 'logo-url' });
+    } catch {
+      // Sem CORS: usa o link direto (a imagem aparece, mas pode falhar no download)
+      updateMatch(id, side === 'Home' ? 'logoHome' : 'logoAway', url);
+      toast.warning('Escudo carregado pelo link direto. Se o download do banner falhar, baixe a imagem e envie por upload.', { id: 'logo-url', duration: 8000 });
+    }
+  };
+
   const downloadBanner = async () => {
     if (!previewRef.current) return;
     try {
