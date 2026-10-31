@@ -1325,6 +1325,10 @@ export default async function handler(req, res) {
     m3u += `## Conta Isolada: ${config.accountId} | Modo: ${filterLabel}\n`;
     m3u += `## Cliente: ${username} | Validade: ${new Date(expTimestamp * 1000).toLocaleDateString('pt-BR')}\n\n`;
 
+    if (blockAdult) {
+      m3u += `## Conteúdo adulto (+18): BLOQUEADO nesta lista\n\n`;
+    }
+
     // BLOCO 1: CANAIS DE TV AO VIVO (SOMENTE SE isTvAllowed)
     if (isTvAllowed) {
       let canais = await getCanaisCached(config);
@@ -1380,7 +1384,7 @@ export default async function handler(req, res) {
     // BLOCO 2: FILMES VOD (SOMENTE SE isMoviesAllowed)
     if (isMoviesAllowed) {
       const conteudos = await getConteudosCached(config);
-      const filmes = conteudos.filter(f => isFilmeRow(f));
+      const filmes = conteudos.filter(f => isFilmeRow(f) && !(blockAdult && isAdultContentRow(f, ['categoria', 'genero'], ['nome', 'titulo'])));
 
 
       m3u += `### =========================================\n`;
@@ -1424,7 +1428,20 @@ export default async function handler(req, res) {
         }
       });
 
-      const episodios = await getEpisodiosCached(config);
+      let episodios = await getEpisodiosCached(config);
+      if (blockAdult) {
+        // Séries adultas (categoria/título +18) escondem os episódios inteiros
+        const seriesAdultas = new Set(
+          conteudos
+            .filter(c => isSerieRow(c) && isAdultContentRow(c, ['categoria', 'genero'], ['nome', 'titulo']))
+            .map(c => String(extractField(c, ['nome', 'titulo']) || '').trim().toLowerCase())
+        );
+        episodios = episodios.filter(e => {
+          const serieNomeEp = String(extractField(e, ['serie', 'serieNome']) || '').trim().toLowerCase();
+          if (serieNomeEp && seriesAdultas.has(serieNomeEp)) return false;
+          return !isAdultContentRow(e, ['categoria', 'genero'], ['nome', 'episodioNome']);
+        });
+      }
 
       m3u += `### =========================================\n`;
       m3u += `### [SEÇÃO 3] SÉRIES & EPISÓDIOS (${episodios.length})\n`;
