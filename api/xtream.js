@@ -1521,7 +1521,10 @@ export default async function handler(req, res) {
   if (action === 'get_live_categories') {
     if (!isTvAllowed) return res.status(200).json([]);
 
-    const canais = await getCanaisCached(config);
+    let canais = await getCanaisCached(config);
+    if (blockAdult) {
+      canais = canais.filter(c => !isAdultContentRow(c, ['categoria', 'canalCategoria'], ['nome', 'canalNome']));
+    }
     const catsMap = new Map();
 
     canais.forEach(c => {
@@ -1532,7 +1535,10 @@ export default async function handler(req, res) {
     });
 
     // Categorias de canais gravados por engano na tabela de conteúdos (Tipo TV/Canal)
-    const canalFallbackCats = await getChannelLikeConteudosCached(config);
+    let canalFallbackCats = await getChannelLikeConteudosCached(config);
+    if (blockAdult) {
+      canalFallbackCats = canalFallbackCats.filter(c => !isAdultContentRow(c, ['categoria', 'genero', 'canalCategoria'], ['nome', 'titulo']));
+    }
     canalFallbackCats.forEach(c => {
       const catFormatted = formatCategory(extractField(c, ['categoria', 'genero', 'canalCategoria']), 'tv');
       if (!catsMap.has(catFormatted)) catsMap.set(catFormatted, catsMap.size + 1);
@@ -1554,9 +1560,15 @@ export default async function handler(req, res) {
   if (action === 'get_live_streams') {
     if (!isTvAllowed) return res.status(200).json([]);
 
-    const canais = await getCanaisCached(config);
+    let canais = await getCanaisCached(config);
+    if (blockAdult) {
+      canais = canais.filter(c => !isAdultContentRow(c, ['categoria', 'canalCategoria'], ['nome', 'canalNome']));
+    }
     // Canais gravados por engano na tabela de conteúdos (Tipo TV/Canal) também entram aqui
-    const canalFallback = await getChannelLikeConteudosCached(config);
+    let canalFallback = await getChannelLikeConteudosCached(config);
+    if (blockAdult) {
+      canalFallback = canalFallback.filter(c => !isAdultContentRow(c, ['categoria', 'genero', 'canalCategoria'], ['nome', 'titulo']));
+    }
     const canalNomes = new Set(canais.map(c => String(extractField(c, ['nome', 'canalNome']) || '').trim().toLowerCase()));
     const canalFallbackUnicos = canalFallback
       .filter(c => {
@@ -1619,7 +1631,7 @@ export default async function handler(req, res) {
     const catsMap = new Map();
 
     conteudos.forEach(c => {
-      if (isFilmeRow(c)) {
+      if (isFilmeRow(c) && !(blockAdult && isAdultContentRow(c, ['categoria', 'genero'], ['nome', 'titulo']))) {
         const cat = formatCategory(extractField(c, ['categoria', 'genero']), 'movie');
         if (!catsMap.has(cat)) catsMap.set(cat, catsMap.size + 1);
       }
@@ -1642,7 +1654,7 @@ export default async function handler(req, res) {
     if (!isMoviesAllowed) return res.status(200).json([]);
 
     const conteudos = await getConteudosCached(config);
-    const filmes = conteudos.filter(c => isFilmeRow(c));
+    const filmes = conteudos.filter(c => isFilmeRow(c) && !(blockAdult && isAdultContentRow(c, ['categoria', 'genero'], ['nome', 'titulo'])));
     const catIdMap = new Map();
 
     filmes.forEach(f => {
@@ -1756,7 +1768,7 @@ export default async function handler(req, res) {
 
     conteudos.forEach(c => {
       const tipo = String(extractField(c, ['tipo'])).toLowerCase();
-      if (isSerieRow(c)) {
+      if (isSerieRow(c) && !(blockAdult && isAdultContentRow(c, ['categoria', 'genero'], ['nome', 'titulo']))) {
         const cat = formatCategory(extractField(c, ['categoria', 'genero']), 'series');
         if (!catsMap.has(cat)) catsMap.set(cat, catsMap.size + 1);
       }
@@ -1782,6 +1794,7 @@ export default async function handler(req, res) {
 
     const seriesList = conteudos.filter(c => {
       const isSerie = isSerieRow(c);
+      if (isSerie && blockAdult && isAdultContentRow(c, ['categoria', 'genero'], ['nome', 'titulo'])) return false;
       if (isSerie) {
         const cat = formatCategory(extractField(c, ['categoria', 'genero']), 'series');
         if (!catIdMap.has(cat)) catIdMap.set(cat, String(catIdMap.size + 1));
