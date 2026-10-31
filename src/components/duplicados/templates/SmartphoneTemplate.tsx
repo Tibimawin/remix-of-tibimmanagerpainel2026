@@ -28,6 +28,10 @@ interface TemplateProps {
   statusAlign?: 'left' | 'center' | 'right';
   showSynopsis: boolean;
   synopsisLength: number;
+  titleColor?: string;
+  infoColor?: string;
+  synopsisColor?: string;
+  availableColor?: string;
 }
 
 const SmartphoneTemplate = ({

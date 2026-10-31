@@ -29,7 +29,8 @@ import {
   Flame,
   Film,
   Pipette,
-  Check
+  Check,
+  RotateCcw
 } from 'lucide-react';
 import { tmdbService } from '@/services/TmdbService';
 import { TMDBSearchResult, TMDBDetails } from '@/types/importacao';
