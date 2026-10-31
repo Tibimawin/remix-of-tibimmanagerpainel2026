@@ -33,6 +33,30 @@ interface Match {
   channel: string;
 }
 
+// Small inline input to paste a logo URL instead of uploading a file
+const LogoUrlInput = ({ onApply }: { onApply: (url: string) => void }) => {
+  const [value, setValue] = useState('');
+  const apply = () => {
+    if (!value.trim()) return;
+    onApply(value.trim());
+    setValue('');
+  };
+  return (
+    <div className="flex gap-1 mt-1">
+      <Input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="Ou cole o link do escudo"
+        className="h-7 text-[10px]"
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } }}
+      />
+      <Button size="sm" variant="outline" className="h-7 px-2 text-[10px] shrink-0" onClick={apply}>
+        OK
+      </Button>
+    </div>
+  );
+};
+
 const GeradorBannerEsportes = () => {
   const [logo, setLogo] = useState<string | null>(localStorage.getItem('gerador-post-logo'));
   const [date, setDate] = useState('SÁBADO - 22 DE AGOSTO');
@@ -101,6 +125,29 @@ const GeradorBannerEsportes = () => {
         updateMatch(id, side === 'Home' ? 'logoHome' : 'logoAway', base64);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  // Carrega o escudo a partir de um link: baixa e converte para base64
+  // (garante que a exportação PNG funcione mesmo com imagens de outros sites)
+  const applyLogoUrl = async (id: string, side: 'Home' | 'Away', url: string) => {
+    toast.loading('Carregando escudo do link...', { id: 'logo-url' });
+    try {
+      const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
+      if (!res.ok) throw new Error('fetch falhou');
+      const blob = await res.blob();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onloadend = () => resolve(r.result as string);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+      updateMatch(id, side === 'Home' ? 'logoHome' : 'logoAway', base64);
+      toast.success('Escudo carregado!', { id: 'logo-url' });
+    } catch {
+      // Sem CORS: usa o link direto (a imagem aparece, mas pode falhar no download)
+      updateMatch(id, side === 'Home' ? 'logoHome' : 'logoAway', url);
+      toast.warning('Escudo carregado pelo link direto. Se o download do banner falhar, baixe a imagem e envie por upload.', { id: 'logo-url', duration: 8000 });
     }
   };
 
@@ -200,16 +247,18 @@ const GeradorBannerEsportes = () => {
                         <div className="space-y-1">
                           <Label className="text-[10px]">Time Mandante</Label>
                           <Input value={match.teamHome} onChange={(e) => updateMatch(match.id, 'teamHome', e.target.value.toUpperCase())} className="h-8 text-xs" />
-                          <label className="text-[9px] cursor-pointer text-primary hover:underline block">Logo Mandante
+                          <label className="text-[9px] cursor-pointer text-primary hover:underline block">Logo Mandante (upload)
                             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleTeamLogoUpload(match.id, 'Home', e)} />
                           </label>
+                          <LogoUrlInput onApply={(url) => applyLogoUrl(match.id, 'Home', url)} />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px]">Time Visitante</Label>
                           <Input value={match.teamAway} onChange={(e) => updateMatch(match.id, 'teamAway', e.target.value.toUpperCase())} className="h-8 text-xs" />
-                          <label className="text-[9px] cursor-pointer text-primary hover:underline block">Logo Visitante
+                          <label className="text-[9px] cursor-pointer text-primary hover:underline block">Logo Visitante (upload)
                             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleTeamLogoUpload(match.id, 'Away', e)} />
                           </label>
+                          <LogoUrlInput onApply={(url) => applyLogoUrl(match.id, 'Away', url)} />
                         </div>
                       </div>
                       <Input placeholder="Onde Assistir" value={match.channel} onChange={(e) => updateMatch(match.id, 'channel', e.target.value.toUpperCase())} className="h-8 text-xs" />
