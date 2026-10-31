@@ -1327,7 +1327,10 @@ export default async function handler(req, res) {
 
     // BLOCO 1: CANAIS DE TV AO VIVO (SOMENTE SE isTvAllowed)
     if (isTvAllowed) {
-      const canais = await getCanaisCached(config);
+      let canais = await getCanaisCached(config);
+      if (blockAdult) {
+        canais = canais.filter(c => !isAdultContentRow(c, ['categoria', 'canalCategoria'], ['nome', 'canalNome']));
+      }
       m3u += `### =========================================\n`;
       m3u += `### [SEÇÃO 1] CANAIS DE TV AO VIVO (${canais.length})\n`;
       m3u += `### =========================================\n\n`;
@@ -1359,7 +1362,9 @@ export default async function handler(req, res) {
       // Canais gravados por engano na tabela de conteúdos (Tipo TV/Canal) entram na seção de CANAIS
       const canalFallbackM3u = await getChannelLikeConteudosCached(config);
       const canaisNomesM3u = new Set(canais.map(cc => String(extractField(cc, ['nome', 'canalNome']) || '').trim().toLowerCase()));
-      canalFallbackM3u.forEach(cf => {
+      canalFallbackM3u
+        .filter(cf => !(blockAdult && isAdultContentRow(cf, ['categoria', 'genero', 'canalCategoria'], ['nome', 'titulo'])))
+        .forEach(cf => {
         const nomeFb = extractField(cf, ['nome', 'titulo']) || `Canal ${cf.id}`;
         if (canaisNomesM3u.has(String(nomeFb).trim().toLowerCase())) return; // já existe na tabela de canais
         const linkFb = extractStreamUrl(cf);
