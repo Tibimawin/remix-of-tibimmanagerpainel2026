@@ -28,6 +28,10 @@ interface TemplateProps {
   statusAlign?: 'left' | 'center' | 'right';
   showSynopsis: boolean;
   synopsisLength: number;
+  titleColor?: string;
+  infoColor?: string;
+  synopsisColor?: string;
+  availableColor?: string;
 }
 
 const SmartphoneTemplate = ({
@@ -53,7 +57,11 @@ const SmartphoneTemplate = ({
   statusY = 0,
   statusAlign = 'center',
   showSynopsis,
-  synopsisLength
+  synopsisLength,
+  titleColor = '#FFFFFF',
+  infoColor = '#D1D5DB',
+  synopsisColor = '#D1D5DB',
+  availableColor = '#9CA3AF'
 }: TemplateProps) => {
   const renderStars = (vote: number) => {
     const stars = Math.round(vote / 2);
@@ -196,26 +204,26 @@ const SmartphoneTemplate = ({
             {renderStars(selectedContent.vote_average)}
           </div>
 
-          <h1 className="text-4xl font-black uppercase tracking-widest leading-none drop-shadow-xl">
+          <h1 className="text-4xl font-black uppercase tracking-widest leading-none drop-shadow-xl" style={{ color: titleColor }}>
             {selectedContent.title || selectedContent.name}
           </h1>
 
-          <div className="flex items-center justify-center gap-3 text-sm text-gray-300 font-medium">
+          <div className="flex items-center justify-center gap-3 text-sm font-medium" style={{ color: infoColor }}>
             <span>{selectedContent.genres?.slice(0, 3).map(g => g.name).join(' • ')}</span>
             <span>•</span>
             <span>{new Date(selectedContent.release_date || selectedContent.first_air_date || '').getFullYear()}</span>
           </div>
 
           {showSynopsis && (
-            <p className="text-sm text-gray-300 leading-relaxed max-w-[90%] mx-auto font-medium">
+            <p className="text-sm leading-relaxed max-w-[90%] mx-auto font-medium" style={{ color: synopsisColor }}>
               {truncateSynopsis(selectedContent.overview, synopsisLength)}
             </p>
           )}
 
           <div className="pt-6 border-t border-white/10 flex flex-col items-center gap-4">
             <div className="flex items-center gap-2">
-              <span className="text-white/40 font-bold">|</span>
-              <span className="text-[11px] font-black tracking-[0.3em] uppercase">Disponível em</span>
+              <span className="font-bold" style={{ color: availableColor }}>|</span>
+              <span className="text-[11px] font-black tracking-[0.3em] uppercase" style={{ color: availableColor }}>Disponível em</span>
             </div>
             <div className="flex gap-4 items-center">
               <div className="flex items-center justify-center border border-white/30 rounded-md w-10 h-8">

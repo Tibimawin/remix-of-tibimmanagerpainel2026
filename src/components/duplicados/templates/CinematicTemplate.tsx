@@ -28,6 +28,10 @@ interface TemplateProps {
   statusAlign?: 'left' | 'center' | 'right';
   showSynopsis: boolean;
   synopsisLength: number;
+  titleColor?: string;
+  infoColor?: string;
+  synopsisColor?: string;
+  availableColor?: string;
 }
 
 const CinematicTemplate = ({
@@ -53,7 +57,11 @@ const CinematicTemplate = ({
   statusY = 0,
   statusAlign = 'right',
   showSynopsis,
-  synopsisLength
+  synopsisLength,
+  titleColor = '#FFFFFF',
+  infoColor = 'rgba(255,255,255,0.8)',
+  synopsisColor = '#D1D5DB',
+  availableColor = 'rgba(255,255,255,0.4)'
 }: TemplateProps) => {
   const renderStars = (vote: number) => {
     const stars = Math.round(vote / 2);
@@ -125,11 +133,11 @@ const CinematicTemplate = ({
             </Badge>
           ) : null}
 
-          <h1 className="text-5xl font-black uppercase tracking-tight leading-none drop-shadow-2xl">
+          <h1 className="text-5xl font-black uppercase tracking-tight leading-none drop-shadow-2xl" style={{ color: titleColor }}>
             {selectedContent.title || selectedContent.name}
           </h1>
 
-          <div className="flex items-center gap-4 text-sm font-bold text-white/80">
+          <div className="flex items-center gap-4 text-sm font-bold" style={{ color: infoColor }}>
             {renderStars(selectedContent.vote_average)}
             <span>•</span>
             <span>{new Date(selectedContent.release_date || selectedContent.first_air_date || '').getFullYear()}</span>
@@ -138,7 +146,7 @@ const CinematicTemplate = ({
           </div>
 
           {showSynopsis && (
-            <p className="text-base text-gray-300 leading-relaxed max-w-lg font-medium">
+            <p className="text-base leading-relaxed max-w-lg font-medium" style={{ color: synopsisColor }}>
               {truncateSynopsis(selectedContent.overview, synopsisLength)}
             </p>
           )}
@@ -150,7 +158,7 @@ const CinematicTemplate = ({
                  <Laptop size={16} className="text-white/60" />
                  <Tv size={16} className="text-white/60" />
                </div>
-               <span className="text-[10px] font-black tracking-widest uppercase text-white/40">Disponível agora</span>
+               <span className="text-[10px] font-black tracking-widest uppercase" style={{ color: availableColor }}>Disponível agora</span>
              </div>
           </div>
         </div>

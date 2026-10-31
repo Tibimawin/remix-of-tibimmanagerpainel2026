@@ -28,6 +28,10 @@ interface TemplateProps {
   statusAlign?: 'left' | 'center' | 'right';
   showSynopsis: boolean;
   synopsisLength: number;
+  titleColor?: string;
+  infoColor?: string;
+  synopsisColor?: string;
+  availableColor?: string;
 }
 
 const MinimalistTemplate: React.FC<TemplateProps> = ({
@@ -54,6 +58,10 @@ const MinimalistTemplate: React.FC<TemplateProps> = ({
   statusAlign = 'center',
   showSynopsis,
   synopsisLength,
+  titleColor = '#FFFFFF',
+  infoColor = '#D4D4D4',
+  synopsisColor = 'rgba(212,212,216,0.8)',
+  availableColor = '#A1A1AA'
 }) => {
   const renderStars = (vote: number) => {
     const stars = Math.round(vote / 2);
@@ -194,7 +202,7 @@ const MinimalistTemplate: React.FC<TemplateProps> = ({
             </span>
           </div>
 
-          <h1 className="text-2xl font-black uppercase tracking-tight text-white leading-tight drop-shadow-md">
+          <h1 className="text-2xl font-black uppercase tracking-tight leading-tight drop-shadow-md" style={{ color: titleColor }}>
             {selectedContent.title || selectedContent.name}
           </h1>
 
@@ -202,14 +210,15 @@ const MinimalistTemplate: React.FC<TemplateProps> = ({
             {selectedContent.genres?.slice(0, 3).map((g) => (
               <span
                 key={g.id}
-                className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-white/10 text-white/90 border border-white/5"
+                className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-white/10 border border-white/5"
+                style={{ color: infoColor }}
               >
                 {g.name}
               </span>
             ))}
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-neutral-300 font-mono">
+          <div className="flex items-center gap-3 text-xs font-mono" style={{ color: infoColor }}>
             <span className="flex items-center gap-1">
               <Calendar size={12} style={{ color: accentColor }} />
               {releaseYear}
@@ -222,7 +231,7 @@ const MinimalistTemplate: React.FC<TemplateProps> = ({
           </div>
 
           {showSynopsis && (
-            <p className="text-xs text-neutral-300/80 leading-relaxed line-clamp-4 border-l-2 pl-2.5" style={{ borderColor: accentColor }}>
+            <p className="text-xs leading-relaxed line-clamp-4 border-l-2 pl-2.5" style={{ color: synopsisColor, borderColor: accentColor }}>
               {truncateSynopsis(selectedContent.overview, synopsisLength)}
             </p>
           )}
@@ -230,7 +239,7 @@ const MinimalistTemplate: React.FC<TemplateProps> = ({
       </div>
 
       {/* Bottom Editorial Credits Strip */}
-      <div className="relative z-20 pt-3 border-t border-white/10 mt-auto flex items-center justify-between text-neutral-400">
+      <div className="relative z-20 pt-3 border-t border-white/10 mt-auto flex items-center justify-between" style={{ color: availableColor }}>
         <div className="flex items-center gap-3 text-[10px] uppercase font-bold tracking-widest">
           <span className="flex items-center gap-1 text-white">
             <Video size={13} style={{ color: accentColor }} />
