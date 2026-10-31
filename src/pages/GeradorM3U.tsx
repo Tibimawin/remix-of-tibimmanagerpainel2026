@@ -23,6 +23,7 @@ import {
   User,
   ExternalLink,
   ShieldCheck,
+  ShieldOff,
   SlidersHorizontal,
   FileText,
   Play,
@@ -68,6 +69,28 @@ export interface GeneratedItem {
   episodio?: string | number;
   valido: boolean;
 }
+
+// =============================================================
+// Bloqueio de conteúdo adulto (+18) — comparação por categoria/título.
+// Categorias: +18, Adulto, XXX, Pornô, Erótico, Playboy…
+// Títulos: apenas marcadores inequívocos (+18 / Porn*) para não
+// bloquear conteúdo legítimo (ex.: filme "xXx", canal "Adult Swim").
+// =============================================================
+const ADULTO_STORAGE_KEY = 'tibim_bloquear_adulto';
+const ADULTO_TOKENS_CATEGORIA = ['+18', '18+', 'adulto', 'adult', 'xxx', 'porn', 'sexo', 'eroti', 'playboy', 'brazzers', 'hustler', 'penthouse', 'venus'];
+const ADULTO_TOKENS_TITULO = ['+18', '18+', 'porn'];
+
+const normalizaTextoAdulto = (t: any) => String(t || '')
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '');
+
+const isItemAdulto = (categoria: string, nome: string) => {
+  const cat = normalizaTextoAdulto(categoria).trim();
+  if (cat && ADULTO_TOKENS_CATEGORIA.some(t => cat.includes(t))) return true;
+  const tit = normalizaTextoAdulto(nome);
+  return ADULTO_TOKENS_TITULO.some(t => tit.includes(t));
+};
 
 export default function GeradorM3U() {
   const { config, isConfigured } = useConfig();
@@ -115,6 +138,15 @@ export default function GeradorM3U() {
 
   // Filtro de conteúdo no DNS (all | tv | movies | series)
   const [filtroTipoDns, setFiltroTipoDns] = useState<'all' | 'tv' | 'movies' | 'series'>('all');
+
+  // Bloqueio de conteúdo adulto (+18) — aplica na geração da lista e nos links DNS/Xtream
+  const [bloquearAdulto, setBloquearAdulto] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return window.localStorage.getItem(ADULTO_STORAGE_KEY) === '1';
+    return false;
+  });
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem(ADULTO_STORAGE_KEY, bloquearAdulto ? '1' : '0');
+  }, [bloquearAdulto]);
 
   // Lista de usuários carregados do Baserow para seleção
   const [usuarios, setUsuarios] = useState<any[]>([]);
@@ -411,6 +443,7 @@ export default function GeradorM3U() {
     const user = encodeURIComponent(customUsername.trim() || 'demo');
     const pass = encodeURIComponent(customPassword.trim() || '123456');
     const contentParam = filtroTipoDns !== 'all' ? `&content=${filtroTipoDns}` : '';
+    const adultoParam = bloquearAdulto ? '&noadulto=1' : '';
     const accountId = userInfo?.id || '';
     const accountParam = accountId ? `&account=${encodeURIComponent(accountId)}` : '';
     const dedicatedDns = accountId ? `${sanitizedDns}/u/${accountId}` : sanitizedDns;
@@ -422,12 +455,12 @@ export default function GeradorM3U() {
       username: customUsername.trim() || 'demo',
       password: customPassword.trim() || '123456',
       contentMode: filtroTipoDns,
-      m3uPlusTs: `${sanitizedDns}/get.php?username=${user}&password=${pass}${accountParam}&type=m3u_plus&output=ts${contentParam}`,
-      m3uPlusHls: `${sanitizedDns}/get.php?username=${user}&password=${pass}${accountParam}&type=m3u_plus&output=m3u8${contentParam}`,
-      playerApi: `${sanitizedDns}/player_api.php?username=${user}&password=${pass}${accountParam}${contentParam}`,
+      m3uPlusTs: `${sanitizedDns}/get.php?username=${user}&password=${pass}${accountParam}&type=m3u_plus&output=ts${contentParam}${adultoParam}`,
+      m3uPlusHls: `${sanitizedDns}/get.php?username=${user}&password=${pass}${accountParam}&type=m3u_plus&output=m3u8${contentParam}${adultoParam}`,
+      playerApi: `${sanitizedDns}/player_api.php?username=${user}&password=${pass}${accountParam}${contentParam}${adultoParam}`,
       epgXml: `${sanitizedDns}/xmltv.php?username=${user}&password=${pass}${accountParam}`
     };
-  }, [sanitizedDns, customUsername, customPassword, filtroTipoDns, userInfo?.id]);
+  }, [sanitizedDns, customUsername, customPassword, filtroTipoDns, bloquearAdulto, userInfo?.id]);
 
   // Botões de Seleção Rápida de Filtro (Presets)
   const handleSelectPreset = (preset: 'todos' | 'tv' | 'filmes' | 'series') => {
