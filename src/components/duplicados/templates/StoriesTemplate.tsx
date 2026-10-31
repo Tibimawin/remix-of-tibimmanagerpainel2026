@@ -58,6 +58,10 @@ const StoriesTemplate: React.FC<TemplateProps> = ({
   statusAlign = 'center',
   showSynopsis,
   synopsisLength,
+  titleColor = '#FFFFFF',
+  infoColor = '#D4D4D4',
+  synopsisColor = 'rgba(212,212,216,0.9)',
+  availableColor = '#FFFFFF'
 }) => {
   const renderStars = (vote: number) => {
     const stars = Math.round(vote / 2);
