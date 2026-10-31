@@ -568,6 +568,41 @@ function formatCategory(rawCat, type) {
 }
 
 // -------------------------------------------------------------
+// BLOQUEIO DE CONTEÚDO ADULTO (+18) — opcional por link
+// Ativado na lista/link com: noadulto=1 (ou adulto=0).
+// Filtra por CATEGORIA (+18 / Adulto / XXX / Pornô / Erótico / Playboy…)
+// e, no título, apenas por marcadores inequívocos (+18 / Porn*) para não
+// bloquear conteúdo legítimo por engano (ex.: filme "xXx", canal "Adult Swim").
+// -------------------------------------------------------------
+const ADULT_CATEGORY_TOKENS = [
+  '+18', '18+', 'adulto', 'adult', 'xxx', 'porn', 'sexo', 'eroti',
+  'playboy', 'brazzers', 'hustler', 'penthouse', 'venus'
+];
+const ADULT_TITLE_TOKENS = ['+18', '18+', 'porn'];
+
+const normalizeAdultText = (t) => String(t || '')
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '');
+
+const isAdultText = (t) => {
+  const s = normalizeAdultText(t).trim();
+  if (!s) return false;
+  return ADULT_CATEGORY_TOKENS.some(tok => s.includes(tok));
+};
+
+// row: linha do Baserow; catFields/nomeFields: colunas de categoria e título
+const isAdultContentRow = (row, catFields, nomeFields) => {
+  if (!row) return false;
+  if (isAdultText(extractField(row, catFields))) return true;
+  const nome = normalizeAdultText(extractField(row, nomeFields));
+  return ADULT_TITLE_TOKENS.some(tok => nome.includes(tok));
+};
+
+// Export de teste (não afeta o handler em produção)
+export const __adultFilter = { isAdultText, isAdultContentRow };
+
+// -------------------------------------------------------------
 // CLASSIFICAÇÃO ROBUSTA: FILME x SÉRIE x CANAL
 // Registos de canal (Tipo "TV"/"Canal"/"Live") gravados por engano na
 // tabela de conteúdos NÃO podem aparecer em Filmes/Séries.
