@@ -247,16 +247,18 @@ const GeradorBannerEsportes = () => {
                         <div className="space-y-1">
                           <Label className="text-[10px]">Time Mandante</Label>
                           <Input value={match.teamHome} onChange={(e) => updateMatch(match.id, 'teamHome', e.target.value.toUpperCase())} className="h-8 text-xs" />
-                          <label className="text-[9px] cursor-pointer text-primary hover:underline block">Logo Mandante
+                          <label className="text-[9px] cursor-pointer text-primary hover:underline block">Logo Mandante (upload)
                             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleTeamLogoUpload(match.id, 'Home', e)} />
                           </label>
+                          <LogoUrlInput onApply={(url) => applyLogoUrl(match.id, 'Home', url)} />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px]">Time Visitante</Label>
                           <Input value={match.teamAway} onChange={(e) => updateMatch(match.id, 'teamAway', e.target.value.toUpperCase())} className="h-8 text-xs" />
-                          <label className="text-[9px] cursor-pointer text-primary hover:underline block">Logo Visitante
+                          <label className="text-[9px] cursor-pointer text-primary hover:underline block">Logo Visitante (upload)
                             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleTeamLogoUpload(match.id, 'Away', e)} />
                           </label>
+                          <LogoUrlInput onApply={(url) => applyLogoUrl(match.id, 'Away', url)} />
                         </div>
                       </div>
                       <Input placeholder="Onde Assistir" value={match.channel} onChange={(e) => updateMatch(match.id, 'channel', e.target.value.toUpperCase())} className="h-8 text-xs" />
