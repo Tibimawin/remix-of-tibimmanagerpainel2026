@@ -219,14 +219,14 @@ const StoriesTemplate: React.FC<TemplateProps> = ({
       <div className="relative z-20 mt-auto pt-4 space-y-3">
         {/* Título Principal */}
         <div className="text-center space-y-1">
-          <h1 className="text-3xl font-black uppercase tracking-tight leading-tight drop-shadow-md text-white">
+          <h1 className="text-3xl font-black uppercase tracking-tight leading-tight drop-shadow-md" style={{ color: titleColor }}>
             {selectedContent.title || selectedContent.name}
           </h1>
 
-          <div className="flex items-center justify-center gap-2 text-xs text-neutral-300 font-semibold">
+          <div className="flex items-center justify-center gap-2 text-xs font-semibold" style={{ color: infoColor }}>
             <span>{releaseYear}</span>
             <span>•</span>
-            <span className="text-primary font-bold" style={{ color: accentColor }}>
+            <span className="font-bold" style={{ color: accentColor }}>
               {selectedContent.genres?.slice(0, 2).map((g) => g.name).join(' / ') || 'Ação'}
             </span>
             {selectedContent.runtime && (
@@ -245,7 +245,7 @@ const StoriesTemplate: React.FC<TemplateProps> = ({
 
         {/* Sinopse */}
         {showSynopsis && (
-          <p className="text-xs text-neutral-300/90 leading-relaxed text-center line-clamp-3 max-w-[92%] mx-auto bg-black/40 backdrop-blur-md p-2.5 rounded-xl border border-white/5">
+          <p className="text-xs leading-relaxed text-center line-clamp-3 max-w-[92%] mx-auto bg-black/40 backdrop-blur-md p-2.5 rounded-xl border border-white/5" style={{ color: synopsisColor }}>
             {truncateSynopsis(selectedContent.overview, synopsisLength)}
           </p>
         )}
@@ -256,7 +256,7 @@ const StoriesTemplate: React.FC<TemplateProps> = ({
             className="w-full py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-between shadow-xl border border-white/20"
             style={{
               backgroundColor: accentColor,
-              color: '#ffffff',
+              color: availableColor,
             }}
           >
             <div className="flex items-center gap-2">

@@ -202,7 +202,7 @@ const MinimalistTemplate: React.FC<TemplateProps> = ({
             </span>
           </div>
 
-          <h1 className="text-2xl font-black uppercase tracking-tight text-white leading-tight drop-shadow-md">
+          <h1 className="text-2xl font-black uppercase tracking-tight leading-tight drop-shadow-md" style={{ color: titleColor }}>
             {selectedContent.title || selectedContent.name}
           </h1>
 
@@ -210,14 +210,15 @@ const MinimalistTemplate: React.FC<TemplateProps> = ({
             {selectedContent.genres?.slice(0, 3).map((g) => (
               <span
                 key={g.id}
-                className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-white/10 text-white/90 border border-white/5"
+                className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-white/10 border border-white/5"
+                style={{ color: infoColor }}
               >
                 {g.name}
               </span>
             ))}
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-neutral-300 font-mono">
+          <div className="flex items-center gap-3 text-xs font-mono" style={{ color: infoColor }}>
             <span className="flex items-center gap-1">
               <Calendar size={12} style={{ color: accentColor }} />
               {releaseYear}
@@ -230,7 +231,7 @@ const MinimalistTemplate: React.FC<TemplateProps> = ({
           </div>
 
           {showSynopsis && (
-            <p className="text-xs text-neutral-300/80 leading-relaxed line-clamp-4 border-l-2 pl-2.5" style={{ borderColor: accentColor }}>
+            <p className="text-xs leading-relaxed line-clamp-4 border-l-2 pl-2.5" style={{ color: synopsisColor, borderColor: accentColor }}>
               {truncateSynopsis(selectedContent.overview, synopsisLength)}
             </p>
           )}
