@@ -57,7 +57,11 @@ const CinematicTemplate = ({
   statusY = 0,
   statusAlign = 'right',
   showSynopsis,
-  synopsisLength
+  synopsisLength,
+  titleColor = '#FFFFFF',
+  infoColor = 'rgba(255,255,255,0.8)',
+  synopsisColor = '#D1D5DB',
+  availableColor = 'rgba(255,255,255,0.4)'
 }: TemplateProps) => {
   const renderStars = (vote: number) => {
     const stars = Math.round(vote / 2);
