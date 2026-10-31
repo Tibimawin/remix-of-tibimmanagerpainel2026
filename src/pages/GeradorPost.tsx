@@ -194,6 +194,12 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
   const [synopsisLength, setSynopsisLength] = useState(250);
   const [backgroundBlur, setBackgroundBlur] = useState(8);
   const [overlayOpacity, setOverlayOpacity] = useState(0.7);
+  // Cores dos textos inferiores (título, informações, sinopse e rodapé)
+  const [titleColor, setTitlecolor] = useState('#FFFFFF');
+  const [infoColor, setInfoColor] = useState('#D1D5DB');
+  const [synopsisColor, setSynopsisColor] = useState('#D1D5DB');
+  const [availableColor, setAvailableColor] = useState('#9CA3AF');
+  const BOTTOM_TEXT_COLOR_DEFAULTS = { titleColor: '#FFFFFF', infoColor: '#D1D5DB', synopsisColor: '#D1D5DB', availableColor: '#9CA3AF' };
 
   const previewRef = useRef<HTMLDivElement>(null);
 

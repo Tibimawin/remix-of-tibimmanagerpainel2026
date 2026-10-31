@@ -57,7 +57,11 @@ const SmartphoneTemplate = ({
   statusY = 0,
   statusAlign = 'center',
   showSynopsis,
-  synopsisLength
+  synopsisLength,
+  titleColor = '#FFFFFF',
+  infoColor = '#D1D5DB',
+  synopsisColor = '#D1D5DB',
+  availableColor = '#9CA3AF'
 }: TemplateProps) => {
   const renderStars = (vote: number) => {
     const stars = Math.round(vote / 2);
