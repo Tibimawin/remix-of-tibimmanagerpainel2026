@@ -33,6 +33,30 @@ interface Match {
   channel: string;
 }
 
+// Small inline input to paste a logo URL instead of uploading a file
+const LogoUrlInput = ({ onApply }: { onApply: (url: string) => void }) => {
+  const [value, setValue] = useState('');
+  const apply = () => {
+    if (!value.trim()) return;
+    onApply(value.trim());
+    setValue('');
+  };
+  return (
+    <div className="flex gap-1 mt-1">
+      <Input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="Ou cole o link do escudo"
+        className="h-7 text-[10px]"
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } }}
+      />
+      <Button size="sm" variant="outline" className="h-7 px-2 text-[10px] shrink-0" onClick={apply}>
+        OK
+      </Button>
+    </div>
+  );
+};
+
 const GeradorBannerEsportes = () => {
   const [logo, setLogo] = useState<string | null>(localStorage.getItem('gerador-post-logo'));
   const [date, setDate] = useState('SÁBADO - 22 DE AGOSTO');
