@@ -46,6 +46,24 @@ export interface GlobalMiniseriesConfig {
   updatedAt: string;
 }
 
+export interface ResellerCreditPackage {
+  credits: number;
+  price: number;
+  label?: string;
+}
+
+// Módulo de Revendas (créditos): configuração do master para o portal de revendas
+export interface ResellerSettings {
+  enabled: boolean;
+  asaasApiKey: string;
+  asaasBaseUrl?: string;
+  creditPrice: number;
+  packages: ResellerCreditPackage[];
+  dnsHost: string;
+  whatsapp: string;
+  updatedAt?: string;
+}
+
 export interface UserConfig {
   userId: string;
   apiToken: string;
