@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { ConfigProvider } from "./contexts/ConfigContext";
 import { AdminConfigProvider } from "./contexts/AdminConfigContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -758,45 +758,36 @@ const App = () => {
 
                               <Route path="/maxplus-import" element={<Navigate to="/maxplus" replace />} />
 
-                              {/* ===== Módulo de Revendas (créditos): roda própria, fora do painel ===== */}
-                              <Route path="/revendas-creditos/login" element={
+                              {/* ===== Módulo de Revendas (créditos): rota própria, fora do painel ===== */}
+                              <Route path="/revendas-creditos" element={
                                 <ResellerAuthProvider>
-                                  <ResellerLogin />
+                                  <Outlet />
                                 </ResellerAuthProvider>
-                              } />
-                              <Route path="/revendas-creditos/cadastro" element={
-                                <ResellerAuthProvider>
-                                  <ResellerCadastro />
-                                </ResellerAuthProvider>
-                              } />
-                              <Route path="/revendas-creditos/dashboard" element={
-                                <ResellerAuthProvider>
+                              }>
+                                <Route path="login" element={<ResellerLogin />} />
+                                <Route path="cadastro" element={<ResellerCadastro />} />
+                                <Route path="dashboard" element={
                                   <ResellerLayout>
                                     <ResellerDashboard />
                                   </ResellerLayout>
-                                </ResellerAuthProvider>
-                              } />
-                              <Route path="/revendas-creditos/comprar-creditos" element={
-                                <ResellerAuthProvider>
+                                } />
+                                <Route path="comprar-creditos" element={
                                   <ResellerLayout>
                                     <ResellerComprarCreditos />
                                   </ResellerLayout>
-                                </ResellerAuthProvider>
-                              } />
-                              <Route path="/revendas-creditos/linhas" element={
-                                <ResellerAuthProvider>
+                                } />
+                                <Route path="linhas" element={
                                   <ResellerLayout>
                                     <ResellerLinhas />
                                   </ResellerLayout>
-                                </ResellerAuthProvider>
-                              } />
-                              <Route path="/revendas-creditos/gerar-linha" element={
-                                <ResellerAuthProvider>
+                                } />
+                                <Route path="gerar-linha" element={
                                   <ResellerLayout>
                                     <ResellerGerarLinha />
                                   </ResellerLayout>
-                                </ResellerAuthProvider>
-                              } />
+                                } />
+                                <Route index element={<Navigate to="/revendas-creditos/dashboard" replace />} />
+                              </Route>
 
                               {/* Minhas Revendas — aba do master no painel (permissão de plano) */}
                               <Route path="/minhas-revendas" element={

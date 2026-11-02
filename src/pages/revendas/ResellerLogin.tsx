@@ -13,13 +13,15 @@ import { ResellerService } from '@/services/ResellerService';
  * totalmente isolada do painel master.
  */
 export const ResellerLogin: React.FC = () => {
-  const { isAuthenticated, isLoading, login } = useResellerAuth();
+  const { user, isAuthenticated, isLoading, isResellerAccount, login, logout } = useResellerAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  if (isAuthenticated && !isLoading) return <Navigate to="/revendas-creditos/dashboard" replace />;
+  if (isAuthenticated && !isLoading && isResellerAccount) {
+    return <Navigate to="/revendas-creditos/dashboard" replace />;
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +29,7 @@ export const ResellerLogin: React.FC = () => {
     setBusy(true);
     try {
       await login(email, password);
-      // Sincroniza o vínculo de indicação pendente (ex.: saiu do fluxo de cadastro)
+      // Sincroniza o vínculo de indicação pendente caso haja
       try {
         const ref = localStorage.getItem('reseller-pending-ref') || '';
         if (ref) await ResellerService.signup({ ref });
@@ -42,6 +44,12 @@ export const ResellerLogin: React.FC = () => {
     }
   };
 
+  const handleSwitchAccount = async () => {
+    await logout();
+    setEmail('');
+    setPassword('');
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-10 text-slate-100">
       <div className="w-full max-w-sm">
@@ -54,6 +62,22 @@ export const ResellerLogin: React.FC = () => {
             <p className="text-sm text-slate-400">Acesse sua carteira de créditos</p>
           </div>
         </div>
+
+        {isAuthenticated && (
+          <div className="mb-4 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-200">
+            <p className="font-semibold">Conectado como {user?.email}</p>
+            <p className="mt-1 text-slate-400">Para entrar como revendedor, faça login abaixo ou saia da conta atual.</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSwitchAccount}
+              className="mt-2 w-full border-amber-400/40 text-amber-300 hover:bg-amber-400/20"
+            >
+              Entrar com outra conta
+            </Button>
+          </div>
+        )}
 
         <form onSubmit={submit} className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
           {error && (

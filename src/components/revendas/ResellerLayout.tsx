@@ -20,13 +20,23 @@ export const ResellerLayout: React.FC<{ children: React.ReactNode }> = ({ childr
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [state, setState] = useState<ResellerState | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
     if (isAuthenticated) {
       ResellerService.state()
-        .then(s => { if (alive) setState(s); })
-        .catch(() => { /* página mostra erro própria */ });
+        .then(s => {
+          if (alive) {
+            setState(s);
+            setLoadError(null);
+          }
+        })
+        .catch(err => {
+          if (alive) {
+            setLoadError(err?.message || 'Erro ao carregar conta de revenda.');
+          }
+        });
     }
     return () => { alive = false; };
   }, [isAuthenticated, location.pathname]);
@@ -43,6 +53,45 @@ export const ResellerLayout: React.FC<{ children: React.ReactNode }> = ({ childr
   }
 
   if (!isAuthenticated) return <Navigate to="/revendas-creditos/login" replace />;
+
+  if (loadError && loadError.includes('não encontrada')) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-12 text-slate-100">
+        <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/60 p-6 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400">
+            <Sparkles className="h-7 w-7" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-100">Conta de Revenda Não Encontrada</h2>
+          <p className="mt-2 text-sm text-slate-400">
+            Você está conectado como <strong className="text-slate-200">{user?.email}</strong>, mas este e-mail ainda não possui um cadastro de revendedor vinculado a um indicador.
+          </p>
+          <div className="mt-6 flex flex-col gap-2">
+            <NavLink
+              to="/revendas-creditos/cadastro"
+              className="rounded-xl bg-gradient-to-r from-amber-400 to-amber-600 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:from-amber-300 hover:to-amber-500"
+            >
+              Cadastrar com Link de Indicação
+            </NavLink>
+            <button
+              onClick={async () => {
+                await logout();
+                window.location.assign('/revendas-creditos/login');
+              }}
+              className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-800"
+            >
+              Entrar com outra conta
+            </button>
+            <NavLink
+              to="/dashboard"
+              className="mt-2 text-xs text-slate-500 hover:text-slate-400 hover:underline"
+            >
+              Voltar ao Painel Master
+            </NavLink>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const saldo = state?.reseller.creditBalance ?? 0;
   const masterName = state?.master.name || 'Portal de Revendas';

@@ -34,39 +34,36 @@ export const ResellerCadastro: React.FC = () => {
   const [linked, setLinked] = useState(false);
 
   useEffect(() => {
-    if (!ref || loadingRef) return;
-    let alive = true;
-    ResellerService.signupInfo(ref)
-      .then(info => { if (alive) setMasterName(info.masterName); })
-      .catch(err => { if (alive) setRefError(err?.message || 'Link de indicação inválido.'); })
-      .finally(() => { if (alive) setLoadingRef(false); });
-    return () => { alive = false; };
-  }, [ref, loadingRef]);
+    const targetRef = ref || localStorage.getItem('reseller-pending-ref') || '';
+    if (!targetRef) {
+      setLoadingRef(false);
+      setRefError('Nenhum link de indicação informado. Peça o link de revenda a quem te indicou.');
+      return;
+    }
+    localStorage.setItem('reseller-pending-ref', targetRef);
 
-  // Após cadastrar/entrar, garante o vínculo com o master do link
-  useEffect(() => {
-    if (!isAuthenticated || !ref || linked || isLoading) return;
     let alive = true;
-    ResellerService.signup({ ref, nome, whatsapp })
-      .then(() => {
+    setLoadingRef(true);
+    setRefError('');
+    ResellerService.signupInfo(targetRef)
+      .then(info => {
         if (alive) {
-          setLinked(true);
-          toast.success('Conta vinculada! Você já pode comprar créditos e criar linhas.');
+          setMasterName(info.masterName);
+          setRefError('');
         }
       })
       .catch(err => {
-        if (alive) toast.error(err?.message || 'Não foi possível vincular sua conta ao indicador.');
+        if (alive) setRefError(err?.message || 'Link de indicação inválido ou não encontrado.');
+      })
+      .finally(() => {
+        if (alive) setLoadingRef(false);
       });
     return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, ref, linked, isLoading]);
+  }, [ref]);
 
-  if (isAuthenticated && !isLoading) {
-    return linked ? (
-      <Navigate to="/revendas-creditos/dashboard" replace />
-    ) : (
-      <Navigate to="/revendas-creditos/dashboard" replace />
-    );
+  // Se já estiver logado e já tiver vínculo de revenda, redireciona para o dashboard
+  if (isAuthenticated && !isLoading && linked) {
+    return <Navigate to="/revendas-creditos/dashboard" replace />;
   }
 
   const finalRef = ref || localStorage.getItem('reseller-pending-ref') || '';
@@ -74,14 +71,21 @@ export const ResellerCadastro: React.FC = () => {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!finalRef) {
+      setError('Código do indicador ausente. Abra a página através do link de indicação recebido.');
+      return;
+    }
     setBusy(true);
     try {
       await register(email, password, nome);
-      if (finalRef) localStorage.setItem('reseller-pending-ref', finalRef);
-      toast.success('Conta criada! Finalizando seu vínculo com o indicador…');
+      // Garantir o vínculo no Firestore / API de revendas imediatamente
+      await ResellerService.signup({ ref: finalRef, nome, whatsapp });
+      localStorage.removeItem('reseller-pending-ref');
+      setLinked(true);
+      toast.success('Conta criada e vinculada com sucesso!');
+      window.location.assign('/revendas-creditos/dashboard');
     } catch (err: any) {
       setError(err?.message || 'Não foi possível criar a conta.');
-    } finally {
       setBusy(false);
     }
   };

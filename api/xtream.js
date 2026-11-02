@@ -1332,9 +1332,10 @@ async function handleResellerEndpoint(req, res, rawUrl, body) {
     if (route === 'reseller-signup-info') {
       const ref = String(req.query?.ref || '').trim();
       if (!ref) return sendJson(res, 400, { error: 'Indicação ausente' });
-      const master = await fsGet(`users/${encodeURIComponent(ref)}`);
+      let master = await fsGet(`users/${encodeURIComponent(ref)}`);
+      if (!master) master = await fsGet(`userConfigs/${encodeURIComponent(ref)}`);
       if (!master) return sendJson(res, 404, { error: 'Indicador não encontrado. Confirme o link com quem indicou você.' });
-      return sendJson(res, 200, { ok: true, masterName: String(master.name || master.appStoreName || 'Seu indicador') });
+      return sendJson(res, 200, { ok: true, masterName: String(master.appStoreName || master.name || master.userName || 'Seu indicador') });
     }
 
     if (route === 'reseller-signup') {
@@ -1347,7 +1348,8 @@ async function handleResellerEndpoint(req, res, rawUrl, body) {
         if (String(existing.masterId) !== ref) return sendJson(res, 200, { ok: true, alreadyLinked: true });
         return sendJson(res, 200, { ok: true, alreadyLinked: true });
       }
-      const master = await fsGet(`users/${encodeURIComponent(ref)}`);
+      let master = await fsGet(`users/${encodeURIComponent(ref)}`);
+      if (!master) master = await fsGet(`userConfigs/${encodeURIComponent(ref)}`);
       if (!master) return sendJson(res, 404, { error: 'Indicador não encontrado. Confirme o link com quem indicou você.' });
       await fsCreate('resellers', auth.uid, {
         uid: auth.uid,
@@ -1717,29 +1719,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // Marcador de versão — curl https://host/handler-version deve responder v5.
-  // Serve para confirmar que o arquivo novo realmente está no ar na VPS.
-  if ((req.url || '').includes('/handler-version')) {
-    return res.status(200).json({
-      version: 'v6',
-      builtAt: '2026-11-02',
-      fixes: ['series-temporadas-0', 'hls-sintetico-live-ts', 'stream-check', 'stream-user-no-path', 'bloqueio-adulto-noadulto', 'modulo-revendas-creditos'],
-    });
-  }
-
-  // ---------------- MÓDULO REVENDAS (créditos) ----------------
-  // Tudo em /reseller-* é atendido pelo módulo próprio, antes da resolução
-  // multi-tenant (que é cara e irrelevante para estas rotas).
-  if (rawUrl.includes('/reseller')) {
-    const resellerBody = req.body
-      ? (typeof req.body === 'string'
-        ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })()
-        : req.body)
-      : {};
-    return handleResellerEndpoint(req, res, rawUrl, resellerBody);
-  }
-
-
+  const rawUrl = req.url || '';
   const query = req.query || {};
   let body = {};
   if (req.body) {
@@ -1750,7 +1730,22 @@ export default async function handler(req, res) {
     }
   }
 
-  const rawUrl = req.url || '';
+  // Marcador de versão — curl https://host/handler-version deve responder v7.
+  // Serve para confirmar que o arquivo novo realmente está no ar na VPS.
+  if (rawUrl.includes('/handler-version')) {
+    return res.status(200).json({
+      version: 'v7',
+      builtAt: '2026-11-02',
+      fixes: ['series-temporadas-0', 'hls-sintetico-live-ts', 'stream-check', 'stream-user-no-path', 'bloqueio-adulto-noadulto', 'modulo-revendas-creditos', 'fix-rawUrl-tdz'],
+    });
+  }
+
+  // ---------------- MÓDULO REVENDAS (créditos) ----------------
+  // Tudo em /reseller-* é atendido pelo módulo próprio, antes da resolução
+  // multi-tenant (que é cara e irrelevante para estas rotas).
+  if (rawUrl.includes('/reseller') || rawUrl.includes('reseller-')) {
+    return handleResellerEndpoint(req, res, rawUrl, body);
+  }
   const username = String(query.username || query.user || body.username || body.user || '').trim();
   const password = String(query.password || query.pass || body.password || body.pass || '').trim();
   const action = String(query.action || body.action || '').trim();

@@ -133,6 +133,8 @@ const m3uDevProxyPlugin = () => ({
         url.startsWith("/get.php") ||
         url.startsWith("/xmltv.php") ||
         url.startsWith("/api/xtream") ||
+        url.startsWith("/reseller-") ||
+        url.includes("reseller-") ||
         url.startsWith("/live/") ||
         url.startsWith("/movie/") ||
         url.startsWith("/series/") ||
