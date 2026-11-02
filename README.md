@@ -71,3 +71,78 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Running the panel in another environment (AI Studio, Vercel, local)
+
+The panel already ships with default values for Firebase and the Vercel proxy
+(`src/config/firebase.ts` and `src/config/proxyConfig.ts`), so it runs without any
+`.env`. To point it at a different backend, follow the steps below.
+
+### 1. Create the `.env` file
+
+```sh
+cp .env.example .env
+```
+
+`.env.example` documents every variable, which ones are required vs. optional,
+and where each value comes from.
+
+### 2. Fill in the variables
+
+**Firebase (public keys, used by the panel)** — see `.lovable/plan.md` for the
+current values in use:
+
+```sh
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+VITE_DEBUG_ERRORS=false
+```
+
+**Vercel proxy** — when the panel runs outside Vercel (AI Studio, Lovable,
+local), the serverless routes `/api/*` (baserow-proxy, stream-proxy,
+m3u-proxy, asaas-proxy) don't exist on that host. Point
+`VITE_VERCEL_PROXY_BASE` at the existing Vercel deploy so the panel keeps
+talking to those routes via absolute URLs. On Vercel itself (or a custom
+domain hosted on Vercel) this variable is not needed — `/api/*` works
+natively.
+
+**Supabase / Lovable Cloud backend** — `VITE_SUPABASE_URL`,
+`VITE_SUPABASE_PUBLISHABLE_KEY` and `VITE_SUPABASE_PROJECT_ID` are managed
+by this project. Copy them from the project's `.env` (Files tab). Without
+them, screens that rely on the backend (chat, functions, storage) break.
+
+### 3. Install and run locally
+
+```sh
+bun install
+bun run dev
+```
+
+For a production build:
+
+```sh
+bun run build
+bun run preview
+```
+
+### 4. Deploy to Vercel
+
+The same `VITE_*` variables must be set in **Project Settings →
+Environment Variables** on Vercel. Remember that Vite injects `VITE_*` at
+**build time**: changing a variable requires a new build, not just a restart.
+
+### Fallbacks that already exist
+
+- **Firebase**: hardcoded defaults in `src/config/firebase.ts` for the panel's
+  own Firebase project.
+- **Proxy**: hardcoded default `VITE_VERCEL_PROXY_BASE` in
+  `src/config/proxyConfig.ts` pointing to the panel's Vercel deploy.
+- **Persistence**: `authReady` in `src/config/firebase.ts` falls back
+  localStorage → sessionStorage → in-memory (Safari ITP / private mode).
+
+No business-logic changes: this is environment configuration and
+documentation only.
