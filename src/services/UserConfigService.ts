@@ -46,6 +46,24 @@ export interface GlobalMiniseriesConfig {
   updatedAt: string;
 }
 
+export interface ResellerCreditPackage {
+  credits: number;
+  price: number;
+  label?: string;
+}
+
+// Módulo de Revendas (créditos): configuração do master para o portal de revendas
+export interface ResellerSettings {
+  enabled: boolean;
+  asaasApiKey: string;
+  asaasBaseUrl?: string;
+  creditPrice: number;
+  packages: ResellerCreditPackage[];
+  dnsHost: string;
+  whatsapp: string;
+  updatedAt?: string;
+}
+
 export interface UserConfig {
   userId: string;
   apiToken: string;
@@ -67,6 +85,7 @@ export interface UserConfig {
     tmdb?: string;
     omdb?: string;
   };
+  resellerSettings?: ResellerSettings;
   importConfig?: {
     sourceToken: string;
     sourceBaseUrl: string;
@@ -167,6 +186,22 @@ export const UserConfigService = {
       logger.error('Erro ao atualizar configurações', error);
       throw error;
     }
+  },
+
+  // ===== Módulo de Revendas (créditos) — configuração do master =====
+  async getResellerSettings(userId: string): Promise<ResellerSettings | null> {
+    try {
+      const config = await this.getUserConfig(userId);
+      return config?.resellerSettings ?? null;
+    } catch {
+      return null;
+    }
+  },
+
+  async saveResellerSettings(userId: string, settings: ResellerSettings): Promise<void> {
+    await this.updateUserConfig(userId, {
+      resellerSettings: { ...settings, updatedAt: new Date().toISOString() },
+    });
   },
 
   // Listener em tempo real para configurações do usuário

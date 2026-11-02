@@ -73,6 +73,13 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // OTIMIZADO: Usa APENAS Firebase Auth + localStorage (ZERO writes no Firestore)
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
+        // Portal de Revendas (/revendas-creditos/*) tem sessão própria (ResellerAuthContext).
+        // Nesta rota o painel NÃO deve criar/restaurar sessão de usuário — as duas rodas
+        // são independentes por design.
+        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/revendas-creditos')) {
+          setIsLoading(false);
+          return;
+        }
         // Se há usuário autenticado no Firebase
         if (firebaseUser) {
           // Verificar se não é admin
