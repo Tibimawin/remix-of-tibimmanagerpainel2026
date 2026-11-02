@@ -1,6 +1,6 @@
 import { BaserowService } from './BaserowService';
 import { db } from '@/config/firebase';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { logger } from '@/utils/logger';
 
 export interface BaserowSyncUserData {
