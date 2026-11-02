@@ -27,99 +27,63 @@ export interface ResolvedBaserowConfig {
 }
 
 // Cache em memória para não precisar buscar em múltiplos lugares a cada clique
-let cachedBaserowConfig: ResolvedBaserowConfig | null = null;
+let cachedBaserowConfig: (ResolvedBaserowConfig & { ownerId?: string }) | null = null;
 
 export const BaserowUserSyncService = {
   /**
-   * Resolve as credenciais do Baserow a partir de múltiplos locais com fallback:
-   * 1. Parâmetro explícito (do ConfigContext do componente)
-   * 2. Cache em memória
-   * 3. localStorage (admin-config / user-baserow-config)
-   * 4. Firestore (coleção userConfigs / systemConfig)
+   * Resolve as credenciais do Baserow APENAS da própria conta do usuário logado:
+   * 1. Parâmetro explícito (config do componente, já do usuário logado)
+   * 2. Cache em memória — somente se for do MESMO usuário
+   * 3. Firestore: userConfigs/<uid> (configuração pessoal do usuário)
+   *
+   * ⚠️ ISOLAMENTO POR CONTA: nunca usa o localStorage global ('admin-config'),
+   * o 'systemConfig/baserow' compartilhado nem as configs de outros usuários.
    */
-  async resolveBaserowConfig(overrideConfig?: any): Promise<ResolvedBaserowConfig | null> {
-    // 1. Tentar parâmetro explícito
+  async resolveBaserowConfig(overrideConfig?: any, opts?: { userId?: string }): Promise<ResolvedBaserowConfig | null> {
+    const uid = opts?.userId || '';
+
+    // 1. Parâmetro explícito (config do usuário logado passada pelo componente)
     if (overrideConfig?.apiToken && overrideConfig?.baseUrl && overrideConfig?.tableIds?.usuarios) {
       const resolved: ResolvedBaserowConfig = {
         apiToken: overrideConfig.apiToken.trim(),
         baseUrl: overrideConfig.baseUrl.trim(),
         usuariosTableId: String(overrideConfig.tableIds.usuarios).trim()
       };
-      cachedBaserowConfig = resolved;
+      cachedBaserowConfig = { ...resolved, ownerId: uid || undefined };
       return resolved;
     }
 
-    // 2. Cache em memória válido
+    // 2. Cache em memória — válido apenas para o MESMO usuário
     if (cachedBaserowConfig?.apiToken && cachedBaserowConfig?.baseUrl && cachedBaserowConfig?.usuariosTableId) {
-      return cachedBaserowConfig;
+      if (!uid || !cachedBaserowConfig.ownerId || cachedBaserowConfig.ownerId === uid) {
+        return cachedBaserowConfig;
+      }
+      cachedBaserowConfig = null;
     }
 
-    // 3. Tentar localStorage
-    try {
-      const localAdminConfig = localStorage.getItem('admin-config');
-      if (localAdminConfig) {
-        const parsed = JSON.parse(localAdminConfig);
-        if (parsed.apiToken && parsed.baseUrl && parsed.tableIds?.usuarios) {
-          const resolved: ResolvedBaserowConfig = {
-            apiToken: parsed.apiToken.trim(),
-            baseUrl: parsed.baseUrl.trim(),
-            usuariosTableId: String(parsed.tableIds.usuarios).trim()
-          };
-          cachedBaserowConfig = resolved;
-          return resolved;
+    // 3. Firestore: configuração pessoal do PRÓPRIO usuário (userConfigs/<uid>)
+    if (uid) {
+      try {
+        const snap = await getDoc(doc(db, 'userConfigs', uid));
+        if (snap.exists()) {
+          const data: any = snap.data();
+          if (data.userId && data.userId !== uid) {
+            console.error('⚠️ [BaserowUserSync] Configuração não pertence ao usuário logado; ignorando.');
+            return null;
+          }
+          if (data.apiToken && data.baseUrl && data.tableIds?.usuarios) {
+            const resolved: ResolvedBaserowConfig = {
+              apiToken: String(data.apiToken).trim(),
+              baseUrl: String(data.baseUrl).trim(),
+              usuariosTableId: String(data.tableIds.usuarios).trim()
+            };
+            cachedBaserowConfig = { ...resolved, ownerId: uid };
+            return resolved;
+          }
         }
+      } catch (e) {
+        console.warn('⚠️ [BaserowUserSync] Erro ao buscar a configuração do próprio usuário no Firestore:', e);
       }
-
-      const localUserConfig = localStorage.getItem('user-baserow-config');
-      if (localUserConfig) {
-        const parsed = JSON.parse(localUserConfig);
-        if (parsed.apiToken && parsed.baseUrl && parsed.tableIds?.usuarios) {
-          const resolved: ResolvedBaserowConfig = {
-            apiToken: parsed.apiToken.trim(),
-            baseUrl: parsed.baseUrl.trim(),
-            usuariosTableId: String(parsed.tableIds.usuarios).trim()
-          };
-          cachedBaserowConfig = resolved;
-          return resolved;
-        }
-      }
-    } catch (e) {
-      console.warn('⚠️ Erro ao ler configuração local do Baserow:', e);
-    }
-
-    // 4. Tentar Firestore
-    try {
-      // Verificar se há configuração em systemConfig/baserow
-      const sysDoc = await getDoc(doc(db, 'systemConfig', 'baserow'));
-      if (sysDoc.exists()) {
-        const data = sysDoc.data();
-        if (data.apiToken && data.baseUrl && (data.usuariosTableId || data.tableIds?.usuarios)) {
-          const resolved: ResolvedBaserowConfig = {
-            apiToken: data.apiToken.trim(),
-            baseUrl: data.baseUrl.trim(),
-            usuariosTableId: String(data.usuariosTableId || data.tableIds?.usuarios).trim()
-          };
-          cachedBaserowConfig = resolved;
-          return resolved;
-        }
-      }
-
-      // Buscar na coleção userConfigs
-      const userConfigsSnap = await getDocs(collection(db, 'userConfigs'));
-      for (const configDoc of userConfigsSnap.docs) {
-        const data = configDoc.data();
-        if (data.apiToken && data.baseUrl && data.tableIds?.usuarios) {
-          const resolved: ResolvedBaserowConfig = {
-            apiToken: data.apiToken.trim(),
-            baseUrl: data.baseUrl.trim(),
-            usuariosTableId: String(data.tableIds.usuarios).trim()
-          };
-          cachedBaserowConfig = resolved;
-          return resolved;
-        }
-      }
-    } catch (e) {
-      console.warn('⚠️ Erro ao buscar configuração do Baserow no Firestore:', e);
     }
 
     return null;
@@ -130,7 +94,8 @@ export const BaserowUserSyncService = {
    */
   async syncUserToBaserow(
     user: BaserowSyncUserData,
-    configOverride?: any
+    configOverride?: any,
+    opts?: { userId?: string }
   ): Promise<BaserowSyncResult> {
     try {
       if (!user.email) {
