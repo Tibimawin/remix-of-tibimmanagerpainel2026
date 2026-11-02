@@ -1721,10 +1721,22 @@ export default async function handler(req, res) {
   // Serve para confirmar que o arquivo novo realmente está no ar na VPS.
   if ((req.url || '').includes('/handler-version')) {
     return res.status(200).json({
-      version: 'v5',
-      builtAt: '2026-10-31',
-      fixes: ['series-temporadas-0', 'hls-sintetico-live-ts', 'stream-check', 'stream-user-no-path', 'bloqueio-adulto-noadulto'],
+      version: 'v6',
+      builtAt: '2026-11-02',
+      fixes: ['series-temporadas-0', 'hls-sintetico-live-ts', 'stream-check', 'stream-user-no-path', 'bloqueio-adulto-noadulto', 'modulo-revendas-creditos'],
     });
+  }
+
+  // ---------------- MÓDULO REVENDAS (créditos) ----------------
+  // Tudo em /reseller-* é atendido pelo módulo próprio, antes da resolução
+  // multi-tenant (que é cara e irrelevante para estas rotas).
+  if (rawUrl.includes('/reseller')) {
+    const resellerBody = req.body
+      ? (typeof req.body === 'string'
+        ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })()
+        : req.body)
+      : {};
+    return handleResellerEndpoint(req, res, rawUrl, resellerBody);
   }
 
 
