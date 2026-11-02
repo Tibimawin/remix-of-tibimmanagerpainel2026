@@ -47,9 +47,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const hasNoFeatures = !permLoading && (!permissions?.enabledFeatures || permissions.enabledFeatures.length === 0);
 
-  // Pergunta o nome do app do cliente no primeiro acesso e o exibe no topo do painel
-  const app = useAppName();
-
   // Hook para rastrear ações do usuário para a IA
   useAITracking();
 
