@@ -16,6 +16,8 @@ import { useEnhancedActionHistory } from '@/hooks/useEnhancedActionHistory';
 import { useActionNotifier } from '@/hooks/useActionNotifier';
 import { useAITracking } from '@/hooks/useAITracking';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
+import { AppNameProvider, useAppName } from '@/contexts/AppNameContext';
+import { AppNamingDialog } from './AppNamingDialog';
 import { Button } from '@/components/ui/button';
 import { Crown, X, Sparkles, Zap } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -44,6 +46,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { zoom } = useZoom();
 
   const hasNoFeatures = !permLoading && (!permissions?.enabledFeatures || permissions.enabledFeatures.length === 0);
+
+  // Pergunta o nome do app do cliente no primeiro acesso e o exibe no topo do painel
+  const app = useAppName();
 
   // Hook para rastrear ações do usuário para a IA
   useAITracking();
