@@ -1006,6 +1006,708 @@ async function probeStreams(alvos, concurrency = 12) {
 // -------------------------------------------------------------
 // HANDLER PRINCIPAL HTTP (Xtream Codes API)
 // -------------------------------------------------------------
+// =============================================================
+// MÓDULO REVENDAS (créditos) — servidor dos portais de revenda
+// 1 crédito = 1 linha de 30 dias criada na tabela 'usuarios' do Baserow do master.
+// Identidade da revenda validada por Firebase ID token (identitytoolkit).
+// Docs usados: resellers/{uid}, resellerTransactions/{id}, xtreamUserMapping/{usuario},
+// leitura de userConfigs/{masterId} (Baserow + resellerSettings) e users/{masterId}.
+// =============================================================
+
+const RESELLER_FS_BASE = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
+const RESELLER_FS_KEY = `key=${FIREBASE_API_KEY}`;
+const RESELLER_DEFAULT_DNS = 'https://api.tibimmanagerpainel.shop';
+const RESELLER_DAYS_PER_CREDIT = 30;
+
+function fsValue(v) {
+  if (v === null || v === undefined) return { nullValue: null };
+  if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  if (typeof v === 'boolean') return { booleanValue: v };
+  return { stringValue: String(v) };
+}
+
+function fsFieldsOf(obj) {
+  const fields = {};
+  for (const [k, v] of Object.entries(obj || {})) fields[k] = fsValue(v);
+  return { fields };
+}
+
+// Parser completo (mapas aninhados, doubles, arrays) — parseFirestoreDoc só cobre o básico
+function parseFsValue(v) {
+  if (!v || typeof v !== 'object') return v;
+  if (v.stringValue !== undefined) return v.stringValue;
+  if (v.integerValue !== undefined) return Number(v.integerValue);
+  if (v.doubleValue !== undefined) return Number(v.doubleValue);
+  if (v.booleanValue !== undefined) return v.booleanValue;
+  if (v.nullValue !== undefined) return null;
+  if (v.arrayValue?.values) return v.arrayValue.values.map(parseFsValue);
+  if (v.mapValue?.fields) {
+    const out = {};
+    for (const [k, mv] of Object.entries(v.mapValue.fields)) out[k] = parseFsValue(mv);
+    return out;
+  }
+  return null;
+}
+
+function parseFsDocument(doc) {
+  if (!doc || !doc.fields) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(doc.fields)) out[k] = parseFsValue(v);
+  return out;
+}
+
+function fsDocIdFromName(name) {
+  const parts = String(name || '').split('/');
+  return parts[parts.length - 1] || '';
+}
+
+async function fsGet(path) {
+  try {
+    const resp = await fetch(`${RESELLER_FS_BASE}/${path}?${RESELLER_FS_KEY}`, { cache: 'no-store' });
+    if (resp.status === 404) return null;
+    if (!resp.ok) { console.warn('[reseller] fsGet', path, resp.status); return null; }
+    return parseFsDocument(await resp.json());
+  } catch (e) {
+    console.warn('[reseller] fsGet erro:', e?.message);
+    return null;
+  }
+}
+
+async function fsCreate(collectionPath, docId, obj) {
+  const sep = collectionPath.includes('?') ? '&' : '?';
+  const url = docId
+    ? `${RESELLER_FS_BASE}/${collectionPath}${sep}documentId=${encodeURIComponent(docId)}&${RESELLER_FS_KEY}`
+    : `${RESELLER_FS_BASE}/${collectionPath}${sep}${RESELLER_FS_KEY}`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fsFieldsOf(obj)),
+  });
+  if (!resp.ok) throw new Error(`Firestore create falhou (${resp.status}): ${await resp.text().catch(() => '')}`);
+  const json = await resp.json();
+  return { id: fsDocIdFromName(json.name), ...parseFsDocument(json) };
+}
+
+// PATCH de campos específicos (updateMask) — NUNCA substituir o doc inteiro de userConfigs
+async function fsPatchFields(docPath, updates) {
+  const masks = Object.keys(updates).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
+  const resp = await fetch(`${RESELLER_FS_BASE}/${docPath}?${masks}&${RESELLER_FS_KEY}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fsFieldsOf(updates)),
+  });
+  if (!resp.ok) throw new Error(`Firestore patch falhou (${resp.status})`);
+  return parseFsDocument(await resp.json());
+}
+
+async function fsRunQueryEq(collectionId, fieldPath, value, limit = 10) {
+  const body = {
+    structuredQuery: {
+      from: [{ collectionId, allDescendants: false }],
+      where: { fieldFilter: { field: { fieldPath }, op: 'EQUAL', value: fsValue(value) } },
+      limit,
+    },
+  };
+  try {
+    const resp = await fetch(`${RESELLER_FS_BASE}:runQuery?${RESELLER_FS_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) return [];
+    const rows = await resp.json();
+    return (rows || [])
+      .filter(r => r.document)
+      .map(r => ({ id: fsDocIdFromName(r.document.name), ...parseFsDocument(r.document) }));
+  } catch {
+    return [];
+  }
+}
+
+// Valida o ID token Firebase da revenda e devolve uid + email
+async function verifyResellerToken(idToken) {
+  if (!idToken) return null;
+  try {
+    const resp = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken: String(idToken) }),
+    });
+    if (!resp.ok) return null;
+    const json = await resp.json();
+    const u = (json.users || [])[0];
+    return u ? { uid: u.localId, email: (u.email || '').trim() } : null;
+  } catch (e) {
+    console.warn('[reseller] verifyResellerToken erro:', e?.message);
+    return null;
+  }
+}
+
+const RESELLER_TOKEN_CACHE = new Map(); // idToken -> { auth, expiresAt }
+async function requireResellerAuth(req) {
+  const token = String(req.headers['x-reseller-token'] || req.query?.token || req.body?.token || '').trim();
+  if (!token) return null;
+  const cached = RESELLER_TOKEN_CACHE.get(token);
+  if (cached && cached.expiresAt > Date.now()) return cached.auth;
+  const auth = await verifyResellerToken(token);
+  if (auth) RESELLER_TOKEN_CACHE.set(token, { auth, expiresAt: Date.now() + 5 * 60 * 1000 });
+  if (RESELLER_TOKEN_CACHE.size > 500) RESELLER_TOKEN_CACHE.clear();
+  return auth;
+}
+
+function normFieldName(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s_\-\/\.]/g, '');
+}
+
+function pickRealFieldName(realNames, candidates, fallback) {
+  for (const c of candidates) {
+    const hit = realNames.find(n => normFieldName(n) === normFieldName(c));
+    if (hit) return hit;
+  }
+  return fallback && realNames.find(n => normFieldName(n) === normFieldName(fallback)) ? fallback : null;
+}
+
+function mapUserTableFields(fieldNames) {
+  return {
+    nome: pickRealFieldName(fieldNames, ['nome', 'name', 'cliente', 'client', 'contato'], null),
+    usuario: pickRealFieldName(fieldNames, ['usuario', 'usuário', 'username', 'user', 'login'], null),
+    senha: pickRealFieldName(fieldNames, ['senha', 'password', 'pass', 'pin', 'chave'], null),
+    status: pickRealFieldName(fieldNames, ['status', 'situacao', 'situação', 'estado', 'ativo'], null),
+    vencimento: pickRealFieldName(fieldNames, ['vencimento', 'datavencimento', 'validade', 'expiracao', 'expirydate', 'expdate', 'datafim', 'datadevencimento'], null),
+    datacriacao: pickRealFieldName(fieldNames, ['datacriacao', 'datapagamento', 'pagamento', 'startdate', 'createdat', 'criacao', 'data', 'inicio'], null),
+    limite: pickRealFieldName(fieldNames, ['limite', 'telas', 'conexoes', 'limitedetelas', 'maxconnections'], null),
+    revenda: pickRealFieldName(fieldNames, ['revenda', 'revendaid', 'reseller', 'resellerid', 'indicadopor', 'indicacao', 'vendedor', 'seller', 'observacao', 'observacoes', 'obs', 'nota', 'notas', 'descricao', 'comentario'], null),
+  };
+}
+
+async function baserowGetFieldNames(baseUrl, tableId, token) {
+  try {
+    const url = `${String(baseUrl).replace(/\/+$/, '')}/api/database/fields/table/${tableId}/`;
+    const resp = await fetch(url, { cache: 'no-store', headers: { Authorization: `Token ${token}` } });
+    if (!resp.ok) return [];
+    const list = await resp.json();
+    return Array.isArray(list) ? list.map(f => f.name).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function baserowCreateUserRow(baseUrl, tableId, token, payload) {
+  const url = `${String(baseUrl).replace(/\/+$/, '')}/api/database/rows/table/${tableId}/?user_field_names=true`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!resp.ok) throw new Error(`Baserow create falhou (${resp.status}): ${await resp.text().catch(() => '')}`);
+  return resp.json();
+}
+
+async function baserowUpdateUserRow(baseUrl, tableId, rowId, token, payload) {
+  const url = `${String(baseUrl).replace(/\/+$/, '')}/api/database/rows/table/${tableId}/${encodeURIComponent(String(rowId))}/?user_field_names=true`;
+  const resp = await fetch(url, {
+    method: 'PATCH',
+    headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!resp.ok) throw new Error(`Baserow update falhou (${resp.status})`);
+  return resp.json();
+}
+
+function revendaTag(resellerUid) {
+  return `revenda:${resellerUid}`;
+}
+
+// Linha pertence à revenda se algum campo guarda a tag ou o próprio uid
+function isOwnLine(row, resellerUid) {
+  const tag = revendaTag(resellerUid);
+  return Object.values(row || {}).some(v => {
+    const s = typeof v === 'object' && v !== null ? String(v.value ?? v.date ?? '') : String(v ?? '');
+    return s === tag || s === resellerUid || (s.includes(tag));
+  });
+}
+
+function normalizeOwnLine(row) {
+  const venc = parseUserDate(extractField(row, ['vencimento']));
+  return {
+    id: String(row.id ?? ''),
+    nome: String(extractField(row, ['nome', 'cliente', 'name']) || ''),
+    usuario: String(extractField(row, ['usuario', 'username', 'user', 'login']) || ''),
+    senha: String(extractField(row, ['senha', 'password', 'pass', 'pin']) || ''),
+    vencimento: venc ? venc.toISOString() : '',
+    status: String(extractField(row, ['status', 'situacao']) || ''),
+  };
+}
+
+// ===== Lógica pura de créditos (coberta por scripts/test-reseller-credits.mjs) =====
+function calcNewBalance(balance, creditsSpent) {
+  return Math.max(0, Math.max(0, Number(balance) || 0) - Math.max(1, Number(creditsSpent) || 1));
+}
+
+function canCreateLine(reseller, credits = 1) {
+  if (!reseller) return false;
+  if (String(reseller.status || 'ativo').toLowerCase() === 'bloqueado') return false;
+  return (Number(reseller.creditBalance) || 0) >= Math.max(1, Number(credits) || 1);
+}
+
+// Renovação: conta a partir do maior entre "agora" e o vencimento atual (nunca encurta)
+function calcRenewalExpiry(currentVencMs, nowMs, days = RESELLER_DAYS_PER_CREDIT) {
+  const base = Math.max(Number(nowMs) || 0, Number(currentVencMs) || 0);
+  return new Date(base + (Number(days) || 30) * 24 * 60 * 60 * 1000);
+}
+
+function resolvePurchaseValue(credits, settings) {
+  const c = Math.max(1, Number(credits) || 1);
+  const s = settings || {};
+  const packs = Array.isArray(s.packages) ? s.packages : [];
+  const pack = packs.find(p => Number(p?.credits) === c && Number(p?.price) > 0);
+  if (pack) return { value: Number(pack.price), label: pack.label || `${c} créditos` };
+  const price = Number(s.creditPrice) > 0 ? Number(s.creditPrice) : 5;
+  return { value: Number((c * price).toFixed(2)), label: `${c} crédito${c > 1 ? 's' : ''}` };
+}
+
+function buildLineLinks(dnsHost, masterId, username, password) {
+  const host = String(dnsHost || RESELLER_DEFAULT_DNS).replace(/\/+$/, '');
+  const u = encodeURIComponent(username);
+  const p = encodeURIComponent(password);
+  const acct = masterId ? `&account=${encodeURIComponent(masterId)}` : '';
+  return {
+    dns_host: host,
+    m3u_ts: `${host}/get.php?username=${u}&password=${p}${acct}&type=m3u_plus&output=ts`,
+    m3u_hls: `${host}/get.php?username=${u}&password=${p}${acct}&type=m3u_plus&output=m3u8`,
+    player_api: `${host}/player_api.php?username=${u}&password=${p}${acct}`,
+  };
+}
+
+export const __reseller = {
+  calcNewBalance, canCreateLine, calcRenewalExpiry, resolvePurchaseValue,
+  buildLineLinks, isOwnLine, revendaTag, mapUserTableFields, pickRealFieldName,
+};
+
+// ===== Fluxo do endpoint =====
+async function loadResellerContext(uid) {
+  const reseller = await fsGet(`resellers/${encodeURIComponent(uid)}`);
+  if (!reseller) return { reseller: null };
+  const masterId = String(reseller.masterId || '');
+  const masterConfig = masterId ? await fsGet(`userConfigs/${encodeURIComponent(masterId)}`) : null;
+  const masterUser = masterId ? await fsGet(`users/${encodeURIComponent(masterId)}`) : null;
+  return { reseller, masterId, masterConfig, masterUser };
+}
+
+function masterBaserowFromConfig(masterConfig) {
+  const tableIds = masterConfig?.tableIds || {};
+  return {
+    baseUrl: String(masterConfig?.baseUrl || FALLBACK_CONFIG.baseUrl),
+    apiToken: String(masterConfig?.apiToken || FALLBACK_CONFIG.apiToken),
+    tableUsuarios: String(tableIds.usuarios || FALLBACK_CONFIG.tableUsuarios || ''),
+    tableCanaisTv: String(tableIds.canaisTv || FALLBACK_CONFIG.tableCanaisTv || ''),
+    tableConteudos: String(tableIds.conteudos || FALLBACK_CONFIG.tableConteudos || ''),
+    tableEpisodios: String(tableIds.episodios || FALLBACK_CONFIG.tableEpisodios || ''),
+  };
+}
+
+function settingsOf(masterConfig) {
+  const s = (masterConfig && masterConfig.resellerSettings) || {};
+  return {
+    enabled: s.enabled !== false,
+    asaasApiKey: String(s.asaasApiKey || ''),
+    asaasBaseUrl: String(s.asaasBaseUrl || 'https://api.asaas.com/v3'),
+    creditPrice: Number(s.creditPrice) > 0 ? Number(s.creditPrice) : 5,
+    packages: Array.isArray(s.packages) ? s.packages : [],
+    dnsHost: String(s.dnsHost || RESELLER_DEFAULT_DNS),
+    whatsapp: String(s.whatsapp || ''),
+  };
+}
+
+function sendJson(res, status, payload) {
+  return res.status(status).json(payload);
+}
+
+async function handleResellerEndpoint(req, res, rawUrl, body) {
+  const pathname = String(rawUrl || '').split('?')[0].replace(/\/+$/, '');
+  const route = pathname.split('/').pop();
+
+  try {
+    // ---------- Cadastro / info pública ----------
+    if (route === 'reseller-signup-info') {
+      const ref = String(req.query?.ref || '').trim();
+      if (!ref) return sendJson(res, 400, { error: 'Indicação ausente' });
+      const master = await fsGet(`users/${encodeURIComponent(ref)}`);
+      if (!master) return sendJson(res, 404, { error: 'Indicador não encontrado. Confirme o link com quem indicou você.' });
+      return sendJson(res, 200, { ok: true, masterName: String(master.name || master.appStoreName || 'Seu indicador') });
+    }
+
+    if (route === 'reseller-signup') {
+      const auth = await requireResellerAuth(req);
+      if (!auth) return sendJson(res, 401, { error: 'Sessão inválida. Entre novamente.' });
+      const ref = String(body.ref || '').trim();
+      if (!ref) return sendJson(res, 400, { error: 'Link de indicação inválido' });
+      const existing = await fsGet(`resellers/${encodeURIComponent(auth.uid)}`);
+      if (existing) {
+        if (String(existing.masterId) !== ref) return sendJson(res, 200, { ok: true, alreadyLinked: true });
+        return sendJson(res, 200, { ok: true, alreadyLinked: true });
+      }
+      const master = await fsGet(`users/${encodeURIComponent(ref)}`);
+      if (!master) return sendJson(res, 404, { error: 'Indicador não encontrado. Confirme o link com quem indicou você.' });
+      await fsCreate('resellers', auth.uid, {
+        uid: auth.uid,
+        masterId: ref,
+        email: (auth.email || body.email || '').toLowerCase(),
+        nome: String(body.nome || '').trim() || (auth.email || '').split('@')[0],
+        whatsapp: String(body.whatsapp || '').trim(),
+        creditBalance: 0,
+        status: 'ativo',
+        createdAt: new Date().toISOString(),
+      });
+      return sendJson(res, 200, { ok: true });
+    }
+
+    // ---------- Webhook do Asaas (sem token; valida pelo paymentId) ----------
+    if (route === 'reseller-webhook') {
+      const event = String(body.event || '');
+      const paymentId = String(body.payment?.id || body.paymentId || '');
+      if (['PAYMENT_RECEIVED', 'PAYMENT_CONFIRMED'].includes(event) && paymentId) {
+        const txs = await fsRunQueryEq('resellerTransactions', 'asaasPaymentId', paymentId, 5);
+        const tx = txs.find(t => String(t.status) === 'pendente');
+        if (tx) {
+          const reseller = await fsGet(`resellers/${encodeURIComponent(tx.resellerId)}`);
+          if (reseller) {
+            const novoSaldo = calcNewBalance(reseller.creditBalance, 0) + (Number(tx.credits) || 0);
+            await fsPatchFields(`resellers/${encodeURIComponent(tx.resellerId)}`, { creditBalance: novoSaldo });
+          }
+          await fsPatchFields(`resellerTransactions/${tx.id}`, { status: 'pago', paidAt: new Date().toISOString() });
+        }
+      }
+      return sendJson(res, 200, { received: true });
+    }
+
+    // ---------- Demais rotas exigem token ----------
+    const auth = await requireResellerAuth(req);
+    if (!auth) return sendJson(res, 401, { error: 'Sessão inválida. Entre novamente.' });
+    const ctx = await loadResellerContext(auth.uid);
+    if (!ctx.reseller) return sendJson(res, 403, { error: 'Conta de revenda não encontrada. Faça o cadastro com o link de indicação.' });
+    if (String(ctx.reseller.status || 'ativo').toLowerCase() === 'bloqueado') {
+      return sendJson(res, 403, { error: 'Conta bloqueada. Fale com quem te indicou.' });
+    }
+    const settings = settingsOf(ctx.masterConfig);
+    const baserow = masterBaserowFromConfig(ctx.masterConfig);
+    const masterName = String(ctx.masterUser?.appStoreName || ctx.masterUser?.name || 'Painel');
+
+    if (route === 'reseller-state') {
+      return sendJson(res, 200, {
+        reseller: {
+          uid: auth.uid,
+          email: ctx.reseller.email || auth.email,
+          nome: ctx.reseller.nome || '',
+          whatsapp: ctx.reseller.whatsapp || '',
+          creditBalance: Number(ctx.reseller.creditBalance) || 0,
+          status: ctx.reseller.status || 'ativo',
+          createdAt: ctx.reseller.createdAt || '',
+        },
+        settings: {
+          enabled: settings.enabled,
+          creditPrice: settings.creditPrice,
+          packages: settings.packages,
+          dnsHost: settings.dnsHost,
+          whatsapp: settings.whatsapp,
+          asaasConfigured: Boolean(settings.asaasApiKey),
+        },
+        master: { id: ctx.masterId, name: masterName },
+        creditsPerLine: RESELLER_DAYS_PER_CREDIT,
+      });
+    }
+
+    if (route === 'reseller-lines') {
+      if (!baserow.tableUsuarios) return sendJson(res, 400, { error: 'Tabela de usuários do indicador não configurada' });
+      let rows = await fetchBaserowRows(baserow.baseUrl, baserow.tableUsuarios, baserow.apiToken, 500, auth.uid, true);
+      if (rows.length === 0) {
+        rows = await fetchBaserowRows(baserow.baseUrl, baserow.tableUsuarios, baserow.apiToken, 2000, '', true);
+      }
+      const own = rows.filter(r => isOwnLine(r, auth.uid)).map(normalizeOwnLine)
+        .sort((a, b) => String(b.vencimento || '').localeCompare(String(a.vencimento || '')));
+      return sendJson(res, 200, { ok: true, lines: own, dnsHost: settings.dnsHost, masterId: ctx.masterId });
+    }
+
+    if (route === 'reseller-transactions') {
+      const txs = await fsRunQueryEq('resellerTransactions', 'resellerId', auth.uid, 50);
+      const sorted = txs.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+      return sendJson(res, 200, { ok: true, transactions: sorted });
+    }
+
+    if (route === 'reseller-line' || route === 'reseller-renew') {
+      const isRenew = route === 'reseller-renew';
+      if (!baserow.tableUsuarios) return sendJson(res, 400, { error: 'Tabela de usuários do indicador não configurada' });
+      if (!settings.enabled) return sendJson(res, 403, { error: 'Revendas estão temporariamente desativadas.' });
+
+      const fieldNames = await baserowGetFieldNames(baserow.baseUrl, baserow.tableUsuarios, baserow.apiToken);
+      const fields = mapUserTableFields(fieldNames);
+      if (!fields.usuario && !fields.nome) return sendJson(res, 400, { error: 'Tabela de usuários sem colunas conhecidas (Nome/Usuário)' });
+
+      const agora = new Date();
+
+      if (isRenew) {
+        const rowId = String(body.rowId || '').trim();
+        if (!rowId) return sendJson(res, 400, { error: 'Linha não informada' });
+        const row = await fetchBaserowRowById(baserow.baseUrl, baserow.tableUsuarios, rowId, baserow.apiToken);
+        if (!row || !isOwnLine(row, auth.uid)) return sendJson(res, 404, { error: 'Linha não encontrada na sua carteira' });
+        if (!canCreateLine(ctx.reseller, 1)) return sendJson(res, 402, { error: 'Sem créditos. Compre créditos para renovar esta linha.' });
+        const vencFields = mapUserTableFields(Object.keys(row));
+        const atual = parseUserDate(extractField(row, ['vencimento']));
+        const novoVenc = calcRenewalExpiry(atual ? atual.getTime() : Date.now(), agora.getTime());
+        const pad = (n) => String(n).padStart(2, '0');
+        const toIso = (d) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}Z`;
+        const patch = {};
+        if (vencFields.vencimento) patch[vencFields.vencimento] = toIso(novoVenc);
+        if (vencFields.status) patch[vencFields.status] = 'Ativo';
+        await baserowUpdateUserRow(baserow.baseUrl, baserow.tableUsuarios, rowId, baserow.apiToken, patch);
+        const novoSaldo = calcNewBalance(ctx.reseller.creditBalance, 1);
+        await fsPatchFields(`resellers/${encodeURIComponent(auth.uid)}`, { creditBalance: novoSaldo });
+        await fsCreate('resellerTransactions', null, {
+          type: 'renovacao',
+          resellerId: auth.uid,
+          resellerEmail: (ctx.reseller.email || auth.email || '').toLowerCase(),
+          masterId: ctx.masterId,
+          credits: 1,
+          descricao: `Renovação de linha ${normalizeOwnLine(row).usuario || rowId} (+30 dias)`,
+          createdAt: agora.toISOString(),
+        });
+        return sendJson(res, 200, { ok: true, creditBalance: novoSaldo, vencimento: toIso(novoVenc) });
+      }
+
+      // Criar linha nova (1 crédito) ou teste de 1h (0 créditos)
+      const tipo = String(body.tipo || 'linha').toLowerCase();
+      const isTest = tipo === 'teste';
+      let usuario = String(body.usuario || '').trim();
+      let senha = String(body.senha || '').trim();
+      const nome = String(body.nome || '').trim() || usuario || 'Cliente';
+      if (!usuario) {
+        usuario = isTest ? `teste_${Math.random().toString(36).slice(2, 8).toLowerCase()}` : `rev_${Math.random().toString(36).slice(2, 8).toLowerCase()}`;
+      }
+      if (!senha) senha = String(Math.floor(100000 + Math.random() * 900000));
+
+      // Usuário duplicado? (procura na tabela)
+      const dupRows = await fetchBaserowRows(baserow.baseUrl, baserow.tableUsuarios, baserow.apiToken, 100, usuario, true);
+      const duplicado = dupRows.some(r => {
+        const u = String(extractField(r, ['usuario', 'username', 'user', 'login'])).toLowerCase();
+        return u === usuario.toLowerCase();
+      });
+      if (duplicado) return sendJson(res, 409, { error: 'Este usuário já existe na lista. Escolha outro.' });
+
+      if (!isTest && !canCreateLine(ctx.reseller, 1)) {
+        return sendJson(res, 402, { error: 'Sem créditos. Compre créditos para criar uma nova linha.' });
+      }
+
+      const vencimento = isTest
+        ? new Date(agora.getTime() + 60 * 60 * 1000)
+        : calcRenewalExpiry(0, agora.getTime()); // agora + 30 dias
+      const pad = (n) => String(n).padStart(2, '0');
+      const toIso = (d) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}Z`;
+
+      const payload = {};
+      const nomeKey = fields.nome || fields.usuario;
+      if (nomeKey) payload[nomeKey] = nome;
+      if (fields.usuario && fields.usuario !== nomeKey) payload[fields.usuario] = usuario;
+      else if (nomeKey && !fields.usuario) { /* usuário vai na coluna Nome */ }
+      if (fields.senha) payload[fields.senha] = senha;
+      if (fields.status) payload[fields.status] = 'Ativo';
+      if (fields.vencimento) payload[fields.vencimento] = toIso(vencimento);
+      if (fields.datacriacao) payload[fields.datacriacao] = toIso(agora);
+      if (fields.limite) payload[fields.limite] = 1;
+      if (fields.revenda) payload[fields.revenda] = revendaTag(auth.uid);
+
+      const createdRow = await baserowCreateUserRow(baserow.baseUrl, baserow.tableUsuarios, baserow.apiToken, payload);
+
+      // Roteamento imediato na DNS multi-tenant (como o teste 1h do painel faz)
+      try {
+        await fsCreate('xtreamUserMapping', usuario, {
+          userId: ctx.masterId,
+          username: usuario,
+          baserowUserId: createdRow?.id ?? null,
+          tableUsuarios: baserow.tableUsuarios,
+          tableCanaisTv: baserow.tableCanaisTv,
+          tableConteudos: baserow.tableConteudos,
+          tableEpisodios: baserow.tableEpisodios,
+          baseUrl: baserow.baseUrl,
+          apiToken: baserow.apiToken,
+          updatedAt: agora.toISOString(),
+        });
+      } catch (e) { console.warn('[reseller] mapping não gravado:', e?.message); }
+
+      let creditBalance = Number(ctx.reseller.creditBalance) || 0;
+      if (!isTest) {
+        creditBalance = calcNewBalance(ctx.reseller.creditBalance, 1);
+        await fsPatchFields(`resellers/${encodeURIComponent(auth.uid)}`, { creditBalance });
+        await fsCreate('resellerTransactions', null, {
+          type: 'linha',
+          resellerId: auth.uid,
+          resellerEmail: (ctx.reseller.email || auth.email || '').toLowerCase(),
+          masterId: ctx.masterId,
+          credits: 1,
+          descricao: `Linha criada: ${usuario} (30 dias)`,
+          createdAt: agora.toISOString(),
+        });
+      } else {
+        await fsCreate('resellerTransactions', null, {
+          type: 'teste',
+          resellerId: auth.uid,
+          resellerEmail: (ctx.reseller.email || auth.email || '').toLowerCase(),
+          masterId: ctx.masterId,
+          credits: 0,
+          descricao: `Teste 1h criado: ${usuario}`,
+          createdAt: agora.toISOString(),
+        });
+      }
+
+      return sendJson(res, 200, {
+        ok: true,
+        tipo,
+        username: usuario,
+        password: senha,
+        vencimento: toIso(vencimento),
+        creditBalance,
+        links: buildLineLinks(settings.dnsHost, ctx.masterId, usuario, senha),
+        masterName,
+      });
+    }
+
+    if (route === 'reseller-pix') {
+      if (!settings.enabled) return sendJson(res, 403, { error: 'Revendas estão temporariamente desativadas.' });
+      if (!settings.asaasApiKey) return sendJson(res, 400, { error: 'Pagamentos ainda não configurados por quem te indicou. Tente mais tarde.' });
+      const credits = Math.max(1, Number(body.credits) || 1);
+      const { value, label } = resolvePurchaseValue(credits, settings);
+      if (!(value > 0)) return sendJson(res, 400, { error: 'Preço dos créditos não configurado.' });
+      const cpf = String(body.cpf || '').replace(/\D/g, '');
+      if (cpf.length !== 11) return sendJson(res, 400, { error: 'Informe um CPF válido (11 números) para o PIX.' });
+
+      const base = settings.asaasBaseUrl.replace(/\/+$/, '');
+      const asaasHeaders = { 'access_token': settings.asaasApiKey, 'Content-Type': 'application/json' };
+
+      // Cliente Asaas: procura por CPF, cria se não existir
+      let customerId = '';
+      try {
+        const q = await fetch(`${base}/customers?cpfCnpj=${cpf}`, { headers: { 'access_token': settings.asaasApiKey } });
+        if (q.ok) {
+          const jq = await q.json();
+          const found = (jq.data || [])[0];
+          if (found) customerId = found.id;
+        }
+      } catch { /* segue para criar */ }
+      if (!customerId) {
+        const cResp = await fetch(`${base}/customers`, {
+          method: 'POST',
+          headers: asaasHeaders,
+          body: JSON.stringify({
+            name: ctx.reseller.nome || (auth.email || 'Revenda').split('@')[0],
+            email: (ctx.reseller.email || auth.email || '').toLowerCase(),
+            cpfCnpj: cpf,
+          }),
+        });
+        if (!cResp.ok) {
+          const errTxt = await cResp.text().catch(() => '');
+          return sendJson(res, 502, { error: 'Falha ao registrar cliente no Asaas.', details: errTxt.slice(0, 300) });
+        }
+        const cj = await cResp.json();
+        customerId = cj.id;
+      }
+
+      const pResp = await fetch(`${base}/payments`, {
+        method: 'POST',
+        headers: asaasHeaders,
+        body: JSON.stringify({
+          customer: customerId,
+          billingType: 'PIX',
+          value,
+          dueDate: new Date().toISOString().slice(0, 10),
+          description: `${label} — ${masterName}`,
+          externalReference: `reseller:${auth.uid}:${credits}`,
+        }),
+      });
+      if (!pResp.ok) {
+        const errTxt = await pResp.text().catch(() => '');
+        return sendJson(res, 502, { error: 'Falha ao gerar cobrança PIX no Asaas.', details: errTxt.slice(0, 300) });
+      }
+      const payment = await pResp.json();
+
+      let qrPayload = '', qrImage = '', expiresAt = '';
+      try {
+        const qrResp = await fetch(`${base}/payments/${payment.id}/pixQrCode`, { headers: { 'access_token': settings.asaasApiKey } });
+        if (qrResp.ok) {
+          const qr = await qrResp.json();
+          qrPayload = qr.payload || '';
+          qrImage = qr.encodedImage ? `data:image/png;base64,${qr.encodedImage}` : '';
+          expiresAt = qr.expirationDate || '';
+        }
+      } catch { /* QR opcional; copia e cola pode faltar */ }
+
+      const tx = await fsCreate('resellerTransactions', null, {
+        type: 'compra',
+        resellerId: auth.uid,
+        resellerEmail: (ctx.reseller.email || auth.email || '').toLowerCase(),
+        masterId: ctx.masterId,
+        credits,
+        value,
+        status: 'pendente',
+        asaasPaymentId: payment.id,
+        descricao: `${label} — PIX`,
+        createdAt: new Date().toISOString(),
+      });
+
+      return sendJson(res, 200, {
+        ok: true,
+        paymentId: payment.id,
+        value,
+        credits,
+        transactionId: tx.id,
+        qrPayload,
+        qrImage,
+        expiresAt,
+      });
+    }
+
+    if (route === 'reseller-pix-status') {
+      const paymentId = String(req.query?.paymentId || '').trim();
+      if (!paymentId) return sendJson(res, 400, { error: 'Cobrança não informada' });
+      if (!settings.asaasApiKey) return sendJson(res, 400, { error: 'Pagamentos não configurados.' });
+      const txs = await fsRunQueryEq('resellerTransactions', 'asaasPaymentId', paymentId, 5);
+      const tx = txs.find(t => String(t.resellerId) === auth.uid);
+      if (!tx) return sendJson(res, 404, { error: 'Cobrança não encontrada' });
+
+      let status = String(tx.status || 'pendente');
+      let credited = false;
+      if (status === 'pendente') {
+        try {
+          const resp = await fetch(`${settings.asaasBaseUrl.replace(/\/+$/, '')}/payments/${paymentId}`, {
+            headers: { 'access_token': settings.asaasApiKey },
+          });
+          if (resp.ok) {
+            const payment = await resp.json();
+            const asaasStatus = String(payment.status || '');
+            if (['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH'].includes(asaasStatus)) {
+              const reseller = await fsGet(`resellers/${encodeURIComponent(auth.uid)}`);
+              if (reseller) {
+                const novoSaldo = calcNewBalance(reseller.creditBalance, 0) + (Number(tx.credits) || 0);
+                await fsPatchFields(`resellers/${encodeURIComponent(auth.uid)}`, { creditBalance: novoSaldo });
+                credited = true;
+              }
+              await fsPatchFields(`resellerTransactions/${tx.id}`, { status: 'pago', paidAt: new Date().toISOString() });
+              status = 'pago';
+            }
+          }
+        } catch (e) {
+          console.warn('[reseller] pix-status erro:', e?.message);
+        }
+      }
+      const resellerNow = await fsGet(`resellers/${encodeURIComponent(auth.uid)}`);
+      return sendJson(res, 200, { status, credited, creditBalance: Number(resellerNow?.creditBalance) || 0 });
+    }
+
+    return sendJson(res, 404, { error: 'Rota de revenda desconhecida' });
+  } catch (e) {
+    console.error('[reseller] erro no endpoint', route, e);
+    return sendJson(res, 500, { error: 'Erro interno no módulo de revendas', details: String(e?.message || '').slice(0, 300) });
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
