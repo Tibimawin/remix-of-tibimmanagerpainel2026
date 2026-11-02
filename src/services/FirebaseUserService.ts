@@ -370,7 +370,7 @@ export const FirebaseUserService = {
           startDate: subscriptionStart.toISOString(),
           expiryDate: finalExpiry.toISOString(),
           isActive: true
-        });
+        }, undefined, { userId: uid });
         console.log('🌐 [FirebaseUserService] Sincronização Baserow:', syncResult);
       } catch (baserowError) {
         console.warn('⚠️ [FirebaseUserService] Erro ao sincronizar com Baserow (não impeditivo):', baserowError);
@@ -443,7 +443,7 @@ export const FirebaseUserService = {
           startDate: safeStartDate,
           expiryDate: safeExpiryDate,
           isActive: true
-        });
+        }, undefined, { userId: uid });
       } catch (baserowErr) {
         console.warn('Aviso ao sincronizar normalização no Baserow:', baserowErr);
       }

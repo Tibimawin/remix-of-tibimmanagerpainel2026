@@ -680,7 +680,7 @@ export const PaymentReconciliationService = {
         startDate: safeStartDate,
         expiryDate: safeExpiryDate,
         isActive: true
-      });
+      }, undefined, { userId });
     } catch (bErr) {
       console.warn('Aviso ao sincronizar Baserow no pagamento:', bErr);
     }
