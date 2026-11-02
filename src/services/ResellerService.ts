@@ -137,8 +137,15 @@ async function call<T>(
 export const ResellerService = {
   getApiBase: getResellerApiBase,
 
-  signupInfo: (ref: string) =>
-    call<{ ok: boolean; masterName: string }>(`reseller-signup-info?ref=${encodeURIComponent(ref)}`),
+  // Rota pública: consulta o indicador ANTES de existir sessão de revenda
+  async signupInfo(ref: string): Promise<{ ok: boolean; masterName: string }> {
+    const base = getResellerApiBase().replace(/\/+$/, '');
+    const resp = await fetch(`${base}/reseller-signup-info?ref=${encodeURIComponent(ref)}`);
+    let json: any = {};
+    try { json = await resp.json(); } catch { /* vazio */ }
+    if (!resp.ok) throw new Error(json?.error || `Falha na comunicação com o servidor (${resp.status})`);
+    return json as { ok: boolean; masterName: string };
+  },
 
   signup: (payload: { ref: string; nome: string; whatsapp: string; email?: string }) =>
     call<{ ok: boolean; alreadyLinked?: boolean }>('reseller-signup', { method: 'POST', body: payload }),
