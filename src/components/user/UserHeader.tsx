@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
+import { useAppName } from '@/contexts/AppNameContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { 
   Menu, 
@@ -186,6 +187,7 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
   const { isDark, toggleTheme } = useTheme();
   const { mode, setMode } = useTypeMode();
   const { userInfo } = useSimpleAuth();
+  const { appDisplayName } = useAppName();
   const { hasPrioritySupport } = useUserPermissions();
   const navigate = useNavigate();
   const location = useLocation();
@@ -222,9 +224,9 @@ export const UserHeader: React.FC<UserHeaderProps> = ({ onToggleSidebar, isColla
   }, []);
 
   // Obter informações da rota atual
-  const currentRoute = routeTitles[location.pathname] || { 
-    title: 'StreamFlix', 
-    subtitle: 'Management Panel' 
+  const currentRoute = routeTitles[location.pathname] || {
+    title: appDisplayName,
+    subtitle: 'Management Panel'
   };
 
   // Atalho de teclado para pesquisa (Ctrl+K ou Cmd+K)

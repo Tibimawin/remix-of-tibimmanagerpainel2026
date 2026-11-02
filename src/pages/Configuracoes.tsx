@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import UserSecuritySettings from '@/components/UserSecuritySettings';
 import { AppearanceSettings } from '@/components/AppearanceSettings';
+import { AppNameSettings } from '@/components/AppNameSettings';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { doc, setDoc } from 'firebase/firestore';
@@ -1093,7 +1094,8 @@ const Configuracoes = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="appearance" className="mt-6">
+          <TabsContent value="appearance" className="mt-6 space-y-6">
+            <AppNameSettings />
             <AppearanceSettings />
           </TabsContent>
 

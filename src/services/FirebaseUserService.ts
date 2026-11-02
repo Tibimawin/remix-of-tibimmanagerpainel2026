@@ -16,6 +16,7 @@ export interface FirebaseUser {
   createdBy: string;
   lastLogin?: string;
   app_id?: string;
+  appStoreName?: string;
   deviceInfo?: {
     imei: string;
     dispositivo: string;

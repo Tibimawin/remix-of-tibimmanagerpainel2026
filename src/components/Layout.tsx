@@ -16,6 +16,8 @@ import { useEnhancedActionHistory } from '@/hooks/useEnhancedActionHistory';
 import { useActionNotifier } from '@/hooks/useActionNotifier';
 import { useAITracking } from '@/hooks/useAITracking';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
+import { AppNameProvider, useAppName } from '@/contexts/AppNameContext';
+import { AppNamingDialog } from './AppNamingDialog';
 import { Button } from '@/components/ui/button';
 import { Crown, X, Sparkles, Zap } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -83,6 +85,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   return (
+    <AppNameProvider>
     <ErrorBoundary>
       <div 
         className="min-h-screen bg-background transition-all duration-200"
@@ -222,11 +225,21 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <M3UProgressBar />
 
         {/* 📱 Barra de navegação inferior mobile */}
-        <UserMobileNav 
-          onToggleSidebar={handleToggleSidebar} 
-          isSidebarOpen={!isCollapsed && isMobile} 
+        <UserMobileNav
+          onToggleSidebar={handleToggleSidebar}
+          isSidebarOpen={!isCollapsed && isMobile}
         />
+
+        {/* Pergunta o nome do app do cliente no primeiro acesso */}
+        <AppNameGate />
       </div>
     </ErrorBoundary>
+    </AppNameProvider>
   );
+};
+
+/** Diálogo que pergunta o nome do app quando o cliente ainda não definiu um. */
+const AppNameGate: React.FC = () => {
+  const { needsAsk } = useAppName();
+  return <AppNamingDialog open={needsAsk} onClose={() => {}} />;
 };
