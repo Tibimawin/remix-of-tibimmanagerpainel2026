@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
+import { useAppName } from '@/contexts/AppNameContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { 
   Menu, 

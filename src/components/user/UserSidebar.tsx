@@ -706,6 +706,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
   const location = useLocation();
   const { logout } = useSimpleAuth();
   const { hasPrioritySupport, hasFeature } = useUserPermissions();
+  const { appDisplayName } = useAppName();
   const { mode } = useTypeMode();
   const { currentTheme } = useCustomization();
   const withdrawalUnread = useWithdrawalNotifications();
