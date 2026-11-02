@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAppName } from '@/contexts/AppNameContext';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -843,7 +844,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
               {(!effectiveCollapsed || isMobile) && (
                 <div className="min-w-0">
                   <h1 className="text-lg sm:text-xl font-bold text-foreground bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent truncate">
-                    StreamFlix
+                    {appDisplayName}
                   </h1>
                   <p className="text-xs text-muted-foreground font-medium truncate">Management Panel</p>
                 </div>
