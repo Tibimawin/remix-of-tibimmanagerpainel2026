@@ -88,8 +88,90 @@ export type ResellerLineLinks = {
   dns_host: string;
   m3u_ts: string;
   m3u_hls: string;
+  epg_xmltv: string;
   player_api: string;
+  port: string;
 };
+
+export function buildResellerLineLinks(
+  dnsHost: string | undefined,
+  masterId: string | undefined,
+  username: string,
+  password: string
+): ResellerLineLinks {
+  const host = String(dnsHost || 'https://api.tibimmanagerpainel.shop').replace(/\/+$/, '');
+  const u = encodeURIComponent(username);
+  const p = encodeURIComponent(password);
+  const acct = masterId ? `&account=${encodeURIComponent(masterId)}` : '';
+  let port = '80';
+  try {
+    const parsed = new URL(host);
+    port = parsed.port || (parsed.protocol === 'https:' ? '443' : '80');
+  } catch {}
+  return {
+    dns_host: host,
+    port,
+    m3u_ts: `${host}/get.php?username=${u}&password=${p}${acct}&type=m3u_plus&output=ts`,
+    m3u_hls: `${host}/get.php?username=${u}&password=${p}${acct}&type=m3u_plus&output=m3u8`,
+    epg_xmltv: `${host}/xmltv.php?username=${u}&password=${p}${acct}`,
+    player_api: `${host}/player_api.php?username=${u}&password=${p}${acct}`,
+  };
+}
+
+export function buildEnterpriseShareMessage(params: {
+  nomeCliente?: string;
+  usuario: string;
+  senha: string;
+  vencimento?: string;
+  tipo?: 'linha' | 'teste' | string;
+  links: ResellerLineLinks;
+  masterName?: string;
+  customHeader?: string;
+}): string {
+  const { nomeCliente, usuario, senha, vencimento, tipo, links, masterName, customHeader } = params;
+  const brand = masterName || 'Central IPTV';
+  const isTest = tipo === 'teste' || /teste/i.test(tipo || '');
+  const greeting = nomeCliente ? `Olá, *${nomeCliente}*!` : 'Olá!';
+  const title = isTest ? 'SEU TESTE GRÁTIS ESTÁ LIBERADO!' : 'SEU ACESSO ESTÁ LIBERADO!';
+  
+  let dataFmt = '';
+  if (vencimento) {
+    const d = new Date(vencimento);
+    if (!isNaN(d.getTime())) {
+      dataFmt = d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+  }
+
+  return (
+    `🎬 *${title}* 🎬\n` +
+    `${greeting} Seja muito bem-vindo(a) ao *${brand}*.\n` +
+    (customHeader ? `${customHeader}\n\n` : `Aqui estão as credenciais para você aproveitar o melhor da programação em alta definição:\n\n`) +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `📡 *DADOS XTREAM CODES (App IPTV)*\n` +
+    `• *Servidor / URL:* ${links.dns_host}\n` +
+    `• *Porta:* ${links.port}\n` +
+    `• *Usuário:* ${usuario}\n` +
+    `• *Senha:* ${senha}\n` +
+    (dataFmt ? `• *Vencimento:* ${dataFmt}\n` : '') +
+    `━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `🔗 *LINKS DIRETOS DE REPRODUÇÃO*\n` +
+    `• *Lista M3U Plus (Formato TS - Recomendado):*\n${links.m3u_ts}\n\n` +
+    `• *Lista M3U8 (Formato HLS - iOS/Safari/Web):*\n${links.m3u_hls}\n\n` +
+    `• *Guia de Programação (EPG XMLTV):*\n${links.epg_xmltv}\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `📱 *ONDE ASSISTIR (APLICATIVOS RECOMENDADOS)*\n` +
+    `• *Smart TV (Samsung/LG):* IPTV Smarters Pro, SmartOne, SS IPTV\n` +
+    `• *TV Box / Celular Android:* IPTV Smarters Pro, XCIPTV, TiviMate\n` +
+    `• *iPhone / iPad / Apple TV:* Smarters Player Lite, GSE IPTV\n` +
+    `• *Computador:* VLC Media Player ou WebPlayer\n\n` +
+    `💡 *COMO CONECTAR NO IPTV SMARTERS:*\n` +
+    `1. Abra o app e clique em "Adicionar Usuário" → "Xtream Codes API".\n` +
+    `2. No primeiro campo, digite qualquer nome.\n` +
+    `3. Preencha o *Usuário*, *Senha* e a *URL do Servidor* informados acima.\n` +
+    `4. Clique em "Adicionar Usuário" e bons momentos de lazer!\n\n` +
+    `Desejamos um excelente entretenimento! 🍿📺`
+  );
+}
 
 export type ResellerLine = {
   id: string;

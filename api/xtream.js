@@ -1271,10 +1271,17 @@ function buildLineLinks(dnsHost, masterId, username, password) {
   const u = encodeURIComponent(username);
   const p = encodeURIComponent(password);
   const acct = masterId ? `&account=${encodeURIComponent(masterId)}` : '';
+  let port = '80';
+  try {
+    const parsed = new URL(host);
+    port = parsed.port || (parsed.protocol === 'https:' ? '443' : '80');
+  } catch {}
   return {
     dns_host: host,
+    port,
     m3u_ts: `${host}/get.php?username=${u}&password=${p}${acct}&type=m3u_plus&output=ts`,
     m3u_hls: `${host}/get.php?username=${u}&password=${p}${acct}&type=m3u_plus&output=m3u8`,
+    epg_xmltv: `${host}/xmltv.php?username=${u}&password=${p}${acct}`,
     player_api: `${host}/player_api.php?username=${u}&password=${p}${acct}`,
   };
 }

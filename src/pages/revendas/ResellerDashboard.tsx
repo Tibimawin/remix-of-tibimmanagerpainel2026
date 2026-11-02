@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Coins, Users, ListPlus, Timer, Loader2, AlertTriangle, Receipt,
-  ShoppingCart, Check, ArrowRight,
+  ShoppingCart, Check, ArrowRight, Server, Copy,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
@@ -138,6 +138,37 @@ export const ResellerDashboard: React.FC = () => {
           <div className="flex items-center gap-2 text-xs text-slate-400"><Timer className="h-4 w-4" /> Testes grátis</div>
           <p className="mt-2 text-4xl font-bold text-slate-100">{txs.filter(t => t.type === 'teste').length}</p>
           <p className="mt-1 text-xs text-slate-500">testes de 1h gerados</p>
+        </div>
+      </div>
+
+      {/* Servidor DNS e Configurações M3U */}
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-sm">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
+            <Server className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase font-medium tracking-wider text-slate-400">Servidor DNS IPTV dos Seus Clientes</p>
+            <p className="font-mono text-sm font-semibold text-amber-300 truncate">{state?.settings.dnsHost || 'https://api.tibimmanagerpainel.shop'}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              navigator.clipboard.writeText(state?.settings.dnsHost || 'https://api.tibimmanagerpainel.shop');
+              toast.success('URL do servidor DNS copiada!');
+            }}
+            className="border-slate-700 bg-slate-950 text-slate-200 hover:bg-slate-800 text-xs"
+          >
+            <Copy className="mr-1.5 h-3.5 w-3.5" /> Copiar Servidor
+          </Button>
+          <Link to="/revendas-creditos/linhas">
+            <Button size="sm" className="bg-amber-500 text-slate-950 hover:bg-amber-400 text-xs font-semibold">
+              Configurações M3U
+            </Button>
+          </Link>
         </div>
       </div>
 
