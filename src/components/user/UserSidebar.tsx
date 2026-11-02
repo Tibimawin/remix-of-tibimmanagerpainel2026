@@ -485,6 +485,16 @@ const menuItems: MenuItem[] = [
     badge: { type: 'new', text: 'NOVO' }
   },
   {
+    id: 'minhas-revendas',
+    label: 'Minhas Revendas',
+    href: '/minhas-revendas',
+    icon: CreditCard,
+    category: 'settings',
+    description: 'Revendas com créditos, link de indicação e PIX Asaas',
+    feature: 'minhas-revendas',
+    badge: { type: 'new', text: 'NOVO' }
+  },
+  {
     id: 'importar-canais-tv',
     label: 'Importar Canais TV',
     href: '/importar-canais-tv',
