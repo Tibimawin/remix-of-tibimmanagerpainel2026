@@ -2,10 +2,13 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { BaserowService } from '@/services/BaserowService';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useTypeMode } from '@/contexts/TypeModeContext';
+import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 
-const METRICS_CACHE_KEY = 'dashboard:system-metrics-cache';
+// ⚠️ ISOLAMENTO POR CONTA: o cache de métricas é sempre por usuário logado.
+// Nunca reutilizar métricas de um usuário para outro.
+const metricsKeyFor = (uid: string) => `dashboard:system-metrics-cache:${uid || 'anon'}`;
 const METRICS_TTL_MS = 3 * 60 * 1000; // 3 minutos de cache em memória
-let memoryCache: { metrics: SystemMetrics; signature: string; timestamp: number } | null = null;
+let memoryCache: { metrics: SystemMetrics; signature: string; uid: string; timestamp: number } | null = null;
 
 interface SystemMetrics {
   totalFilmes: number;
@@ -40,40 +43,47 @@ interface SystemMetrics {
   totalMeusAplicativos: number;
 }
 
+const defaultMetrics = (): SystemMetrics => ({
+  totalFilmes: 0,
+  totalSeries: 0,
+  totalTV: 0,
+  totalEpisodios: 0,
+  totalConteudos: 0,
+  totalBanners: 0,
+  totalCategorias: 0,
+  totalSessoes: 0,
+  totalPlataformas: 0,
+  totalUsuarios: 0,
+  totalCategoriasTV: 0,
+  totalCategoriasAnime: 0,
+  totalCanaisTv: 0,
+  totalPlanos: 0,
+  totalPlanos2: 0,
+  totalCarrossel: 0,
+  totalVersao: 0,
+  totalPedido: 0,
+  totalAvaliacao: 0,
+  totalPerfil: 0,
+  totalCategoriaFilmes: 0,
+  totalCategoriaSeries: 0,
+  totalCategoriaDorama: 0,
+  totalCategoriaAnimes: 0,
+  totalCategoriaNovelas: 0,
+  totalMeusAplicativos: 0,
+});
+
 export const useSystemMetrics = () => {
+  const { userInfo } = useSimpleAuth();
+  const userId = userInfo?.id || '';
+
   const [metrics, setMetrics] = useState<SystemMetrics>(() => {
-    const defaults = {
-      totalFilmes: 0,
-      totalSeries: 0,
-      totalTV: 0,
-      totalEpisodios: 0,
-      totalConteudos: 0,
-      totalBanners: 0,
-      totalCategorias: 0,
-      totalSessoes: 0,
-      totalPlataformas: 0,
-      totalUsuarios: 0,
-      totalCategoriasTV: 0,
-      totalCategoriasAnime: 0,
-      totalCanaisTv: 0,
-      totalPlanos: 0,
-      totalPlanos2: 0,
-      totalCarrossel: 0,
-      totalVersao: 0,
-      totalPedido: 0,
-      totalAvaliacao: 0,
-      totalPerfil: 0,
-      totalCategoriaFilmes: 0,
-      totalCategoriaSeries: 0,
-      totalCategoriaDorama: 0,
-      totalCategoriaAnimes: 0,
-      totalCategoriaNovelas: 0,
-      totalMeusAplicativos: 0,
-    };
+    const defaults = defaultMetrics();
     try {
-      const cached = sessionStorage.getItem(METRICS_CACHE_KEY);
-      if (cached) {
-        return { ...defaults, ...JSON.parse(cached) } as SystemMetrics;
+      if (userId) {
+        const cached = sessionStorage.getItem(metricsKeyFor(userId));
+        if (cached) {
+          return { ...defaults, ...JSON.parse(cached) } as SystemMetrics;
+        }
       }
     } catch {
       // noop
@@ -82,30 +92,39 @@ export const useSystemMetrics = () => {
   });
   const [loading, setLoading] = useState(() => {
     try {
-      return !sessionStorage.getItem(METRICS_CACHE_KEY);
+      return !(userId && sessionStorage.getItem(metricsKeyFor(userId)));
     } catch {
       return true;
     }
   });
   const [error, setError] = useState<string | null>(null);
+  const [configured, setConfigured] = useState(true);
 
   const { config } = useConfig();
   const { mode } = useTypeMode();
   const configSignature = useMemo(() => JSON.stringify({
+    uid: userId,
     token: config?.apiToken || '',
     baseUrl: config?.baseUrl || '',
     tableIds: config?.tableIds || {},
     mode: mode,
-  }), [config?.apiToken, config?.baseUrl, config?.tableIds, mode]);
+  }), [userId, config?.apiToken, config?.baseUrl, config?.tableIds, mode]);
   const inFlightRef = useRef(false);
   const lastLoadedSignatureRef = useRef<string | null>(null);
 
   const fetchMetrics = useCallback(async (force = false) => {
+    if (!userId) return;
     if (inFlightRef.current) return;
 
     const now = Date.now();
-    // Se temos cache em memória válido e não é forçado, reutilizar imediatamente sem requisição de rede
-    if (!force && memoryCache && memoryCache.signature === configSignature && (now - memoryCache.timestamp < METRICS_TTL_MS)) {
+    // Cache em memória válido apenas para o MESMO usuário e MESMA configuração
+    if (
+      !force &&
+      memoryCache &&
+      memoryCache.uid === userId &&
+      memoryCache.signature === configSignature &&
+      (now - memoryCache.timestamp < METRICS_TTL_MS)
+    ) {
       setMetrics(memoryCache.metrics);
       setLoading(false);
       return;
@@ -113,19 +132,29 @@ export const useSystemMetrics = () => {
 
     if (!force && lastLoadedSignatureRef.current === configSignature) return;
 
-    // Se não há configuração de Baserow válida, usar métricas padrão
+    // ⚠️ ISOLAMENTO: sem a configuração do PRÓPRIO usuário, zerar as métricas —
+    // nunca mostrar números de outro usuário nem dados antigos em cache.
     if (!config?.tableIds || !config.apiToken || !config.baseUrl) {
-      console.log('⚠️ Configuração do Baserow incompleta');
+      setMetrics(defaultMetrics());
+      setConfigured(false);
+      setError(null);
+      try {
+        sessionStorage.removeItem(metricsKeyFor(userId));
+      } catch {
+        // noop
+      }
+      lastLoadedSignatureRef.current = configSignature;
       setLoading(false);
       return;
     }
+    setConfigured(true);
 
     try {
       console.time('⏱️ Métricas carregadas em');
       inFlightRef.current = true;
       const hasCache = (() => {
         try {
-          return !!sessionStorage.getItem(METRICS_CACHE_KEY);
+          return !!sessionStorage.getItem(metricsKeyFor(userId));
         } catch {
           return false;
         }
@@ -135,34 +164,7 @@ export const useSystemMetrics = () => {
 
       const tableIds = config.tableIds;
       const baserowService = new BaserowService(config.apiToken, config.baseUrl);
-      const newMetrics: SystemMetrics = {
-        totalFilmes: 0,
-        totalSeries: 0,
-        totalTV: 0,
-        totalEpisodios: 0,
-        totalConteudos: 0,
-        totalBanners: 0,
-        totalCategorias: 0,
-        totalSessoes: 0,
-        totalPlataformas: 0,
-        totalUsuarios: 0,
-        totalCategoriasTV: 0,
-        totalCategoriasAnime: 0,
-        totalCanaisTv: 0,
-        totalPlanos: 0,
-        totalPlanos2: 0,
-        totalCarrossel: 0,
-        totalVersao: 0,
-        totalPedido: 0,
-        totalAvaliacao: 0,
-        totalPerfil: 0,
-        totalCategoriaFilmes: 0,
-        totalCategoriaSeries: 0,
-        totalCategoriaDorama: 0,
-        totalCategoriaAnimes: 0,
-        totalCategoriaNovelas: 0,
-        totalMeusAplicativos: 0,
-      };
+      const newMetrics: SystemMetrics = defaultMetrics();
 
       // 🚀 OTIMIZAÇÃO: Buscar apenas 1 página para pegar o count (muito mais rápido)
       const fetchCount = async (tableId: string) => {
@@ -339,10 +341,11 @@ export const useSystemMetrics = () => {
       memoryCache = {
         metrics: newMetrics,
         signature: configSignature,
+        uid: userId,
         timestamp: Date.now(),
       };
       try {
-        sessionStorage.setItem(METRICS_CACHE_KEY, JSON.stringify(newMetrics));
+        sessionStorage.setItem(metricsKeyFor(userId), JSON.stringify(newMetrics));
       } catch {
         // noop
       }
@@ -354,11 +357,11 @@ export const useSystemMetrics = () => {
       inFlightRef.current = false;
       setLoading(false);
     }
-  }, [config?.tableIds, config?.apiToken, config?.baseUrl, configSignature, mode]);
+  }, [userId, config?.tableIds, config?.apiToken, config?.baseUrl, configSignature, mode]);
 
   useEffect(() => {
     fetchMetrics();
   }, [fetchMetrics]);
 
-  return { metrics, loading, error, refetch: () => fetchMetrics(true) };
+  return { metrics, loading, error, configured, refetch: () => fetchMetrics(true) };
 };
