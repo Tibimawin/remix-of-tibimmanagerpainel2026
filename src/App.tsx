@@ -56,6 +56,7 @@ const ResellerLayout = lazy(() => import("./components/revendas/ResellerLayout")
 const ResellerDashboard = lazy(() => import("./pages/revendas/ResellerDashboard"));
 const ResellerComprarCreditos = lazy(() => import("./pages/revendas/ResellerComprarCreditos"));
 const ResellerLinhas = lazy(() => import("./pages/revendas/ResellerLinhas"));
+const ResellerGerarLinha = lazy(() => import("./pages/revendas/ResellerGerarLinha"));
 const ImportacaoAutomatica = lazy(() => import("./pages/ImportacaoAutomatica"));
 const Miniseries = lazy(() => import("./pages/Miniseries"));
 const AtualizacaoSeries = lazy(() => import("./pages/AtualizacaoSeries"));
@@ -786,6 +787,13 @@ const App = () => {
                                 <ResellerAuthProvider>
                                   <ResellerLayout>
                                     <ResellerLinhas />
+                                  </ResellerLayout>
+                                </ResellerAuthProvider>
+                              } />
+                              <Route path="/revendas-creditos/gerar-linha" element={
+                                <ResellerAuthProvider>
+                                  <ResellerLayout>
+                                    <ResellerGerarLinha />
                                   </ResellerLayout>
                                 </ResellerAuthProvider>
                               } />

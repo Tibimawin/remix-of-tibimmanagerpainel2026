@@ -79,6 +79,46 @@
       "destination": "/api/:path*"
     },
     {
+      "source": "/reseller-signup-info",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-signup",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-state",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-lines",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-transactions",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-line",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-renew",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-pix",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-pix-status",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-webhook",
+      "destination": "/api/xtream"
+    },
+    {
       "source": "/((?!assets/|api/).*)",
       "destination": "/index.html"
     }

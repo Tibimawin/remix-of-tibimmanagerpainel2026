@@ -1,141 +1,123 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { auth, authReady } from '@/config/firebase';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
+  createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  updateProfile,
   signOut,
+  updateProfile,
 } from 'firebase/auth';
-import { ResellerService } from '@/services/ResellerService';
+import { auth, authReady } from '@/config/firebase';
 
-export interface ResellerAuthUser {
+export interface ResellerUser {
   uid: string;
   email: string;
-  displayName: string;
+  nome: string;
 }
 
 interface ResellerAuthContextType {
-  user: ResellerAuthUser | null;
-  isLoading: boolean;
+  user: ResellerUser | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
-  signup: (data: { nome: string; email: string; password: string; ref: string; whatsapp: string }) => Promise<{ success: boolean; message?: string }>;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, nome: string) => Promise<ResellerUser>;
   logout: () => Promise<void>;
 }
 
 const ResellerAuthContext = createContext<ResellerAuthContextType | undefined>(undefined);
-const STORAGE_KEY = 'revenda-auth-user';
+
+const FRIENDLY_ERRORS: Record<string, string> = {
+  'auth/invalid-credential': 'E-mail ou senha incorretos.',
+  'auth/invalid-login-credentials': 'E-mail ou senha incorretos.',
+  'auth/user-not-found': 'E-mail ou senha incorretos.',
+  'auth/wrong-password': 'E-mail ou senha incorretos.',
+  'auth/email-already-in-use': 'Este e-mail já possui conta. Faça login.',
+  'auth/invalid-email': 'E-mail inválido.',
+  'auth/weak-password': 'A senha precisa ter pelo menos 6 caracteres.',
+  'auth/too-many-requests': 'Muitas tentativas. Aguarde um instante e tente novamente.',
+  'auth/network-request-failed': 'Falha de conexão. Verifique sua internet.',
+};
+
+const friendly = (err: any) =>
+  FRIENDLY_ERRORS[err?.code] || err?.message?.replace('Firebase: ', '') || 'Não foi possível concluir a operação.';
 
 export const ResellerAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<ResellerAuthUser | null>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      const status = localStorage.getItem('revenda-auth-status');
-      if (saved && status === 'authenticated') return JSON.parse(saved);
-    } catch { /* ignora */ }
-    return null;
-  });
+  const [user, setUser] = useState<ResellerUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
-      if (fbUser) {
-        const u: ResellerAuthUser = {
-          uid: fbUser.uid,
-          email: fbUser.email || '',
-          displayName: fbUser.displayName || (fbUser.email || '').split('@')[0],
-        };
-        setUser(u);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-        localStorage.setItem('revenda-auth-status', 'authenticated');
-      } else {
-        setUser(null);
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem('revenda-auth-status');
-      }
-      setIsLoading(false);
-    });
-    return () => unsubscribe();
+    let alive = true;
+    const boot = async () => {
+      await authReady;
+      if (!alive) return;
+      const unsub = onAuthStateChanged(auth, firebaseUser => {
+        if (!alive) return;
+        if (firebaseUser) {
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            nome: firebaseUser.displayName || (firebaseUser.email || '').split('@')[0],
+          });
+        } else {
+          setUser(null);
+        }
+        setIsLoading(false);
+      });
+      return unsub;
+    };
+    let unsub: (() => void) | undefined;
+    boot().then(u => { unsub = u; });
+    return () => {
+      alive = false;
+      unsub?.();
+    };
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    if (!email || !password) return { success: false, message: 'Informe email e senha.' };
+    await authReady;
     try {
-      setIsLoading(true);
-      await authReady;
-      const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
-      // Confirma que a conta está vinculada a uma revenda (servidor valida o vínculo)
-      try {
-        await ResellerService.state();
-      } catch (err: any) {
-        await signOut(auth);
-        return {
-          success: false,
-          message: err?.message?.includes('não encontrada')
-            ? 'Esta conta não está vinculada a uma revenda. Use o link de indicação de quem te indicou.'
-            : (err?.message || 'Não foi possível entrar.'),
-        };
-      }
-      return { success: true };
+      await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
     } catch (err: any) {
-      const code = err?.code || '';
-      let message = 'Email ou senha incorretos.';
-      if (code === 'auth/user-not-found') message = 'Conta não encontrada. Faça o cadastro com o link de indicação.';
-      else if (code === 'auth/wrong-password') message = 'Senha incorreta.';
-      else if (code === 'auth/too-many-requests') message = 'Muitas tentativas. Aguarde alguns minutos.';
-      else if (code === 'auth/network-request-failed') message = 'Erro de conexão. Verifique sua internet.';
-      return { success: false, message };
-    } finally {
-      setIsLoading(false);
+      throw new Error(friendly(err));
     }
   }, []);
 
-  const signup = useCallback(async ({ nome, email, password, ref, whatsapp }: { nome: string; email: string; password: string; ref: string; whatsapp: string }) => {
-    if (!ref) return { success: false, message: 'Link de indicação inválido. Peça o link a quem te indicou.' };
-    if (!email || !password) return { success: false, message: 'Informe email e senha.' };
-    if (password.length < 6) return { success: false, message: 'A senha precisa de pelo menos 6 caracteres.' };
+  const register = useCallback(async (email: string, password: string, nome: string) => {
+    await authReady;
     try {
-      setIsLoading(true);
-      await authReady;
-      const emailNorm = email.trim().toLowerCase();
-      const cred = await createUserWithEmailAndPassword(auth, emailNorm, password);
-      try { await updateProfile(cred.user, { displayName: nome.trim() || emailNorm.split('@')[0] }); } catch { /* opcional */ }
-      try {
-        await ResellerService.signup({ ref, nome: nome.trim(), whatsapp: whatsapp.trim(), email: emailNorm });
-      } catch (err: any) {
-        await signOut(auth);
-        return { success: false, message: err?.message || 'Não foi possível vincular sua conta à indicação.' };
+      const cred = await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
+      if (nome.trim()) {
+        try { await updateProfile(cred.user, { displayName: nome.trim() }); } catch { /* perfil é opcional */ }
       }
-      return { success: true };
+      return {
+        uid: cred.user.uid,
+        email: cred.user.email || '',
+        nome: nome.trim() || (cred.user.email || '').split('@')[0],
+      };
     } catch (err: any) {
-      const code = err?.code || '';
-      let message = 'Não foi possível criar a conta.';
-      if (code === 'auth/email-already-in-use') message = 'Já existe uma conta com este email. Faça login.';
-      else if (code === 'auth/weak-password') message = 'A senha precisa de pelo menos 6 caracteres.';
-      else if (code === 'auth/invalid-email') message = 'Email inválido.';
-      return { success: false, message };
-    } finally {
-      setIsLoading(false);
+      throw new Error(friendly(err));
     }
   }, []);
 
   const logout = useCallback(async () => {
-    await signOut(auth);
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem('revenda-auth-status');
-    window.location.href = '/revendas-creditos/login';
+    try { await signOut(auth); } catch { /* ignora falha de rede no logout */ }
   }, []);
 
-  return (
-    <ResellerAuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, signup, logout }}>
-      {children}
-    </ResellerAuthContext.Provider>
-  );
+  const value = useMemo<ResellerAuthContextType>(() => ({
+    user,
+    isAuthenticated: !!user,
+    isLoading,
+    login,
+    register,
+    logout,
+  }), [user, isLoading, login, register, logout]);
+
+  return <ResellerAuthContext.Provider value={value}>{children}</ResellerAuthContext.Provider>;
 };
 
 export const useResellerAuth = () => {
   const ctx = useContext(ResellerAuthContext);
-  if (!ctx) throw new Error('useResellerAuth deve ser usado dentro de ResellerAuthProvider');
+  if (!ctx) throw new Error('useResellerAuth precisa estar dentro de ResellerAuthProvider');
   return ctx;
 };
+
+export default ResellerAuthProvider;

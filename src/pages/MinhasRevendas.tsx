@@ -103,7 +103,10 @@ export const MinhasRevendas: React.FC = () => {
     }
   }, [uid]);
 
-  useEffect(() => { loadConfig(); loadResellers(); }, [loadConfig, loadResellers]);
+  useEffect(() => {
+    loadConfig();
+    loadResellers();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const referralLink = uid
     ? `${typeof window !== 'undefined' ? window.location.origin : 'https://tibimmanagerpainel.shop'}/revendas-creditos/cadastro?ref=${uid}`

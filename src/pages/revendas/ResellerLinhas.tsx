@@ -25,6 +25,20 @@ const isExpired = (line: ResellerLine) => {
   return !isNaN(t) && t < Date.now();
 };
 
+const buildLinks = (state: ResellerState | null, u: string, p: string): ResellerLineLinks => {
+  const dnsHost = state?.settings.dnsHost || 'https://api.tibimmanagerpainel.shop';
+  const masterId = state?.master.id || '';
+  const acct = masterId ? `&account=${encodeURIComponent(masterId)}` : '';
+  const eU = encodeURIComponent(u);
+  const eP = encodeURIComponent(p);
+  return {
+    dns_host: dnsHost,
+    m3u_ts: `${dnsHost}/get.php?username=${eU}&password=${eP}${acct}&type=m3u_plus&output=ts`,
+    m3u_hls: `${dnsHost}/get.php?username=${eU}&password=${eP}${acct}&type=m3u_plus&output=m3u8`,
+    player_api: `${dnsHost}/player_api.php?username=${eU}&password=${eP}${acct}`,
+  };
+};
+
 const buildShareMessage = (line: { usuario: string; senha: string }, links: ResellerLineLinks, masterName: string) =>
   `🎬 Seu acesso chegou!\n\n` +
   `📱 App: Xtream Codes / IPTV Smarters\n` +
@@ -37,7 +51,6 @@ const buildShareMessage = (line: { usuario: string; senha: string }, links: Rese
 export const ResellerLinhas: React.FC = () => {
   const [state, setState] = useState<ResellerState | null>(null);
   const [lines, setLines] = useState<ResellerLine[]>([]);
-  const [linksByUser, setLinksByUser] = useState<Record<string, ResellerLineLinks>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -56,7 +69,6 @@ export const ResellerLinhas: React.FC = () => {
       const [s, l] = await Promise.all([ResellerService.state(), ResellerService.lines()]);
       setState(s);
       setLines(l.lines || []);
-      setLinksByUser(prev => (Object.keys(prev).length ? prev : prev));
       setError('');
     } catch (err: any) {
       setError(err?.message || 'Erro ao carregar linhas.');
@@ -104,20 +116,7 @@ export const ResellerLinhas: React.FC = () => {
     }
   };
 
-  const linksOf = (line: ResellerLine): ResellerLineLinks => {
-    if (linksByUser[line.usuario]) return linksByUser[line.usuario];
-    const dnsHost = state?.settings.dnsHost || 'https://api.tibimmanagerpainel.shop';
-    const masterId = state?.master.id || '';
-    const acct = masterId ? `&account=${encodeURIComponent(masterId)}` : '';
-    const u = encodeURIComponent(line.usuario);
-    const p = encodeURIComponent(line.senha);
-    return {
-      dns_host: dnsHost,
-      m3u_ts: `${dnsHost}/get.php?username=${u}&password=${p}${acct}&type=m3u_plus&output=ts`,
-      m3u_hls: `${dnsHost}/get.php?username=${u}&password=${p}${acct}&type=m3u_plus&output=m3u8`,
-      player_api: `${dnsHost}/player_api.php?username=${u}&password=${p}${acct}`,
-    };
-  };
+  const linksOf = (line: ResellerLine): ResellerLineLinks => buildLinks(state, line.usuario, line.senha);
 
   const saldo = state?.reseller.creditBalance ?? 0;
 

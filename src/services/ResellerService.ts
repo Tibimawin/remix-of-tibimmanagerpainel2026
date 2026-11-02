@@ -1,95 +1,119 @@
 /**
- * Serviço do Módulo de Revendas (créditos).
- * Fala com os endpoints /reseller-* no servidor da DNS (api/xtream.js handler v6).
- * A identidade da revenda é validada no servidor via Firebase ID token (x-reseller-token).
+ * Cliente HTTP do portal de revendas — fala com a API serverless /reseller-*
+ * (rewritten para api/xtream.js na Vercel). A sessão é o ID token Firebase,
+ * enviado no header x-reseller-token; o backend valida via identitytoolkit.
  */
-import { auth } from '@/config/firebase';
 
-const DEFAULT_API_BASE = 'https://api.tibimmanagerpainel.shop';
+import { auth, authReady } from '@/config/firebase';
+import { getIdToken, onIdTokenChanged } from 'firebase/auth';
 
-export const getResellerApiBase = (): string => {
-  try {
-    return localStorage.getItem('tibim_reseller_api_base') || DEFAULT_API_BASE;
-  } catch {
-    return DEFAULT_API_BASE;
+type Json = any;
+
+const API_BASE = typeof window !== 'undefined' ? `${window.location.origin}/` : '';
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+let authUnsub: (() => void) | null = null;
+let cachedToken: string | null = null;
+
+async function getToken(): Promise<string> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Sessão de revenda expirada. Faça login novamente.');
+  const fresh = await getIdToken(user, true);
+  cachedToken = fresh;
+  return fresh;
+}
+
+function ensureTokenListener() {
+  if (authUnsub || typeof window === 'undefined') return;
+  authUnsub = onIdTokenChanged(auth, user => {
+    cachedToken = null;
+    if (user) getIdToken(user, false).then(t => { cachedToken = t; }).catch(() => {});
+  });
+}
+
+async function api(path: string, method: 'GET' | 'POST' = 'GET', body?: Json): Promise<Json> {
+  await authReady;
+  ensureTokenListener();
+  const token = cachedToken ? await getIdToken(auth.currentUser!, false) : await getToken();
+  const lastErr: { message?: string } = { message: 'Não foi possível conectar ao portal de revendas.' };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const resp = await fetch(`${API_BASE}${path}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-reseller-token': token,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (resp.ok) return json;
+      if (resp.status === 401) throw new Error(json?.error || 'Sessão inválida. Entre novamente.');
+      const msg = String(json?.error || '').slice(0, 200);
+      throw new Error(msg || `Erro ${resp.status} no portal de revendas.`);
+    } catch (err: any) {
+      const isNetwork = !err?.message?.includes('Sessão inválida');
+      if (err?.message?.startsWith('Erro 4') || !isNetwork) throw err;
+      lastErr.message = err?.message || lastErr.message;
+      await sleep(attempt === 0 ? 500 : 1200);
+    }
   }
+  throw new Error(lastErr.message || 'Sem conexão com o portal de revendas.');
+}
+
+export type ResellerCreditPackage = { credits: number; price: number; label?: string };
+
+export type ResellerLineLinks = {
+  dns_host: string;
+  m3u_ts: string;
+  m3u_hls: string;
+  player_api: string;
 };
 
-export interface ResellerCreditPackage {
-  credits: number;
-  price: number;
-  label?: string;
-}
-
-export interface ResellerSettingsPublic {
-  enabled: boolean;
-  creditPrice: number;
-  packages: ResellerCreditPackage[];
-  dnsHost: string;
-  whatsapp: string;
-  asaasConfigured: boolean;
-}
-
-export interface ResellerProfile {
-  uid: string;
-  email: string;
-  nome: string;
-  whatsapp: string;
-  creditBalance: number;
-  status: string;
-  createdAt: string;
-}
-
-export interface ResellerState {
-  reseller: ResellerProfile;
-  settings: ResellerSettingsPublic;
-  master: { id: string; name: string };
-  creditsPerLine: number;
-}
-
-export interface ResellerLine {
+export type ResellerLine = {
   id: string;
   nome: string;
   usuario: string;
   senha: string;
   vencimento: string;
   status: string;
-}
+};
 
-export interface ResellerLineLinks {
-  dns_host: string;
-  m3u_ts: string;
-  m3u_hls: string;
-  player_api: string;
-}
+export type ResellerState = {
+  reseller: {
+    uid: string;
+    email: string;
+    nome: string;
+    whatsapp: string;
+    creditBalance: number;
+    status: string;
+    createdAt: string;
+  };
+  settings: {
+    enabled: boolean;
+    creditPrice: number;
+    packages: ResellerCreditPackage[];
+    dnsHost: string;
+    whatsapp: string;
+    asaasConfigured: boolean;
+  };
+  master: { id: string; name: string };
+  creditsPerLine: number;
+};
 
-export interface ResellerTransaction {
-  id: string;
-  type: string;
-  resellerId: string;
-  resellerEmail: string;
-  masterId: string;
-  credits: number;
-  value?: number;
-  status?: string;
-  asaasPaymentId?: string;
-  descricao?: string;
-  createdAt: string;
-  paidAt?: string;
-}
-
-export interface CreateLineResult {
+export type CreateLineResult = {
   ok: boolean;
-  tipo: 'linha' | 'teste';
+  tipo: string;
   username: string;
   password: string;
   vencimento: string;
   creditBalance: number;
   links: ResellerLineLinks;
   masterName: string;
-}
+};
 
-export interface PixResult {
+export type PixResult = {
   ok: boolean;
   paymentId: string;
   value: number;
@@ -98,73 +122,63 @@ export interface PixResult {
   qrPayload: string;
   qrImage: string;
   expiresAt: string;
-}
+};
 
-export interface PixStatusResult {
-  status: 'pendente' | 'pago';
-  credited: boolean;
-  creditBalance: number;
-}
-
-async function getIdToken(): Promise<string> {
-  const user = auth.currentUser;
-  if (!user) throw new Error('Sessão da revenda expirada. Entre novamente.');
-  return user.getIdToken();
-}
-
-async function call<T>(
-  route: string,
-  options: { method?: 'GET' | 'POST'; body?: Record<string, unknown> } = {}
-): Promise<T> {
-  const token = await getIdToken();
-  const base = getResellerApiBase().replace(/\/+$/, '');
-  const resp = await fetch(`${base}/${route}`, {
-    method: options.method || 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-reseller-token': token,
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-  let json: any = {};
-  try { json = await resp.json(); } catch { /* resposta vazia */ }
-  if (!resp.ok) {
-    throw new Error(json?.error || `Falha na comunicação com o servidor (${resp.status})`);
-  }
-  return json as T;
-}
+export type ResellerTransaction = {
+  id: string;
+  type: string;
+  resellerId: string;
+  masterId: string;
+  credits: number;
+  value?: number;
+  status?: string;
+  descricao?: string;
+  createdAt: string;
+};
 
 export const ResellerService = {
-  getApiBase: getResellerApiBase,
-
-  // Rota pública: consulta o indicador ANTES de existir sessão de revenda
-  async signupInfo(ref: string): Promise<{ ok: boolean; masterName: string }> {
-    const base = getResellerApiBase().replace(/\/+$/, '');
-    const resp = await fetch(`${base}/reseller-signup-info?ref=${encodeURIComponent(ref)}`);
-    let json: any = {};
-    try { json = await resp.json(); } catch { /* vazio */ }
-    if (!resp.ok) throw new Error(json?.error || `Falha na comunicação com o servidor (${resp.status})`);
-    return json as { ok: boolean; masterName: string };
+  signupInfo(ref: string): Promise<{ ok: boolean; masterName: string }> {
+    const url = `${API_BASE}reseller-signup-info?ref=${encodeURIComponent(ref)}`;
+    return fetch(url)
+      .then(r => r.json())
+      .then(j => { if (!j?.ok) throw new Error(j?.error || 'Indicação inválida.'); return j; });
   },
 
-  signup: (payload: { ref: string; nome: string; whatsapp: string; email?: string }) =>
-    call<{ ok: boolean; alreadyLinked?: boolean }>('reseller-signup', { method: 'POST', body: payload }),
+  signup(payload: { ref: string; nome?: string; whatsapp?: string }): Promise<{ ok: boolean; alreadyLinked?: boolean }> {
+    return api('reseller-signup', 'POST', payload);
+  },
 
-  state: () => call<ResellerState>('reseller-state'),
+  state(): Promise<ResellerState> {
+    return api('reseller-state', 'GET') as unknown as Promise<ResellerState>;
+  },
 
-  lines: () => call<{ ok: boolean; lines: ResellerLine[]; dnsHost: string; masterId: string }>('reseller-lines'),
+  lines(): Promise<{ ok: boolean; lines: ResellerLine[]; dnsHost: string; masterId: string }> {
+    return api('reseller-lines', 'GET');
+  },
 
-  transactions: () => call<{ ok: boolean; transactions: ResellerTransaction[] }>('reseller-transactions'),
+  createLine(payload: {
+    tipo: 'linha' | 'teste';
+    nome?: string;
+    usuario?: string;
+    senha?: string;
+    whatsapp?: string;
+  }): Promise<CreateLineResult> {
+    return api('reseller-line', 'POST', payload) as unknown as Promise<CreateLineResult>;
+  },
 
-  createLine: (payload: { tipo: 'linha' | 'teste'; nome?: string; usuario?: string; senha?: string; whatsapp?: string }) =>
-    call<CreateLineResult>('reseller-line', { method: 'POST', body: payload }),
+  renewLine(rowId: string): Promise<{ ok: boolean; creditBalance: number; vencimento: string }> {
+    return api('reseller-renew', 'POST', { rowId });
+  },
 
-  renewLine: (rowId: string) =>
-    call<{ ok: boolean; creditBalance: number; vencimento: string }>('reseller-renew', { method: 'POST', body: { rowId } }),
+  createPix(payload: { credits: number; cpf: string }): Promise<PixResult> {
+    return api('reseller-pix', 'POST', payload) as unknown as Promise<PixResult>;
+  },
 
-  createPix: (payload: { credits: number; cpf: string }) =>
-    call<PixResult>('reseller-pix', { method: 'POST', body: payload }),
+  pixStatus(paymentId: string): Promise<{ status: string; credited: boolean; creditBalance: number }> {
+    return api(`reseller-pix-status?paymentId=${encodeURIComponent(paymentId)}`, 'GET');
+  },
 
-  pixStatus: (paymentId: string) =>
-    call<PixStatusResult>(`reseller-pix-status?paymentId=${encodeURIComponent(paymentId)}`),
+  transactions(): Promise<{ ok: boolean; transactions: ResellerTransaction[] }> {
+    return api('reseller-transactions', 'GET');
+  },
 };

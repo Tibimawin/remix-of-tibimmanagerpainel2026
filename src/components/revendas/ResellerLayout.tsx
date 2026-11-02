@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Navigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, Users, LogOut, Coins, Menu, X, Sparkles } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Users, LogOut, Coins, Menu, X, Sparkles, ListPlus } from 'lucide-react';
 import { useResellerAuth } from '@/contexts/ResellerAuthContext';
 import { ResellerService, type ResellerState } from '@/services/ResellerService';
 
 const NAV_ITEMS = [
   { to: '/revendas-creditos/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/revendas-creditos/linhas', label: 'Minhas Linhas', icon: Users },
+  { to: '/revendas-creditos/gerar-linha', label: 'Gerar Linha', icon: ListPlus },
   { to: '/revendas-creditos/comprar-creditos', label: 'Comprar Créditos', icon: ShoppingCart },
 ];
 
