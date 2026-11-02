@@ -49,6 +49,7 @@ const Recursos = lazy(() => import("./pages/Recursos"));
 const ImportarM3U = lazy(() => import("./pages/ImportarM3U"));
 const GeradorM3U = lazy(() => import("./pages/GeradorM3U"));
 const MinhasRevendas = lazy(() => import("./pages/MinhasRevendas"));
+const ResellerAuthProvider = lazy(() => import("./contexts/ResellerAuthContext").then(m => ({ default: m.ResellerAuthProvider })));
 const ResellerLogin = lazy(() => import("./pages/revendas/ResellerLogin"));
 const ResellerCadastro = lazy(() => import("./pages/revendas/ResellerCadastro"));
 const ResellerLayout = lazy(() => import("./components/revendas/ResellerLayout").then(m => ({ default: m.ResellerLayout })));
