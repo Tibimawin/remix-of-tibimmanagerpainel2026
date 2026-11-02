@@ -756,6 +756,50 @@ const App = () => {
 
                               <Route path="/maxplus-import" element={<Navigate to="/maxplus" replace />} />
 
+                              {/* ===== Módulo de Revendas (créditos): roda própria, fora do painel ===== */}
+                              <Route path="/revendas-creditos/login" element={
+                                <ResellerAuthProvider>
+                                  <ResellerLogin />
+                                </ResellerAuthProvider>
+                              } />
+                              <Route path="/revendas-creditos/cadastro" element={
+                                <ResellerAuthProvider>
+                                  <ResellerCadastro />
+                                </ResellerAuthProvider>
+                              } />
+                              <Route path="/revendas-creditos/dashboard" element={
+                                <ResellerAuthProvider>
+                                  <ResellerLayout>
+                                    <ResellerDashboard />
+                                  </ResellerLayout>
+                                </ResellerAuthProvider>
+                              } />
+                              <Route path="/revendas-creditos/comprar-creditos" element={
+                                <ResellerAuthProvider>
+                                  <ResellerLayout>
+                                    <ResellerComprarCreditos />
+                                  </ResellerLayout>
+                                </ResellerAuthProvider>
+                              } />
+                              <Route path="/revendas-creditos/linhas" element={
+                                <ResellerAuthProvider>
+                                  <ResellerLayout>
+                                    <ResellerLinhas />
+                                  </ResellerLayout>
+                                </ResellerAuthProvider>
+                              } />
+
+                              {/* Minhas Revendas — aba do master no painel (permissão de plano) */}
+                              <Route path="/minhas-revendas" element={
+                                <SimpleProtectedRoute>
+                                  <Layout>
+                                    <PermissionGate feature="minhas-revendas">
+                                      <MinhasRevendas />
+                                    </PermissionGate>
+                                  </Layout>
+                                </SimpleProtectedRoute>
+                              } />
+
                               {/* Rota 404 - deve ser a última */}
                               <Route path="*" element={<NotFound />} />
                             </Routes>
