@@ -23,12 +23,23 @@ import {
 import { cn } from '@/lib/utils';
 
 const SystemMetricsCards = () => {
-  const { metrics, loading, error } = useSystemMetrics();
+  const { metrics, loading, error, configured } = useSystemMetrics();
   const { mode } = useTypeMode();
 
   if (loading) {
-    return (
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5 md:gap-4">
+  const noDataConfigured = !configured && !loading && !error;
+
+  return (
+    <div className="space-y-3">
+    {noDataConfigured && (
+      <div className="rounded-xl border border-border/60 bg-muted/40 p-3.5 sm:p-4 text-sm text-muted-foreground">
+        <p className="font-semibold text-foreground">Nenhuma tabela configurada nesta conta</p>
+        <p className="mt-1">
+          Estas métricas leem <span className="font-medium text-foreground">apenas as tabelas do Baserow configuradas na sua conta</span> — os dados de outras contas nunca aparecem aqui. Configure o seu Token, a URL e os IDs das suas tabelas em <span className="font-medium text-foreground">Configurações</span> para ver seus números.
+        </p>
+      </div>
+    )}
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5 md:gap-4">
         {[...Array(mode === 'tibim' ? 15 : 10)].map((_, i) => (
           <Card key={i} className="relative overflow-hidden border-border/40 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm">
             <CardContent className="p-3.5 sm:p-5 md:p-6">

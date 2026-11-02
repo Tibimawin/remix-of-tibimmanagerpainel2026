@@ -249,100 +249,12 @@ export const UserConfigService = {
     }
   },
 
-  // Migrar configurações do localStorage para Firebase
+  // Migrar configurações do localStorage para Firebase — DESATIVADO
+  // ⚠️ ISOLAMENTO POR CONTA: novas contas nunca herdam a configuração global
+  // legacy 'admin-config' / 'import-config' do localStorage. Era isso que fazia
+  // uma conta recém-criada (sem nada configurado) exibir os dados de outro usuário.
   async migrateFromLocalStorage(userId: string): Promise<void> {
-    try {
-      console.log('Verificando migração do localStorage para usuário:', userId);
-
-      // Verificar se já existe configuração no Firebase
-      const existingConfig = await this.getUserConfig(userId);
-      if (existingConfig) {
-        console.log('Configuração já existe no Firebase, pulando migração');
-        return;
-      }
-
-      // Buscar configurações do localStorage
-      const localConfig = localStorage.getItem('admin-config');
-      const localImportConfig = localStorage.getItem('import-config');
-
-      if (!localConfig && !localImportConfig) {
-        console.log('Nenhuma configuração local encontrada');
-        return;
-      }
-
-      // Criar configuração com dados migrados
-      const migratedConfig: UserConfig = {
-        userId,
-        apiToken: '',
-        baseUrl: '',
-        tableIds: {
-          conteudos: '',
-          episodios: '',
-          banners: '',
-          categorias: '',
-          usuarios: '',
-          sessoes: '',
-          plataformas: '',
-          canaisTv: '',
-          jogosDia: '',
-          miniseries: '',
-          miniseriesEpisodios: '',
-        },
-        personalSettings: {
-          theme: 'system',
-          language: 'pt-BR',
-          notifications: true,
-          autoSave: true,
-        },
-        lastUpdated: new Date().toISOString(),
-        createdAt: new Date().toISOString()
-      };
-
-      // Migrar configuração principal
-      if (localConfig) {
-        try {
-          const parsedConfig = JSON.parse(localConfig);
-          migratedConfig.apiToken = parsedConfig.apiToken || '';
-          migratedConfig.baseUrl = parsedConfig.baseUrl || '';
-          if (parsedConfig.tableIds) {
-            migratedConfig.tableIds = { ...migratedConfig.tableIds, ...parsedConfig.tableIds };
-          }
-        } catch (error) {
-          console.error('Erro ao migrar configuração principal:', error);
-        }
-      }
-
-      // Migrar configuração de importação
-      if (localImportConfig) {
-        try {
-          const parsedImportConfig = JSON.parse(localImportConfig);
-          migratedConfig.importConfig = {
-            sourceToken: parsedImportConfig.sourceToken || '',
-            sourceBaseUrl: parsedImportConfig.sourceBaseUrl || '',
-            contentTableId: parsedImportConfig.contentTableId || '',
-            episodeTableId: parsedImportConfig.episodeTableId || '',
-            episodeMatchType: parsedImportConfig.episodeMatchType || 'custom',
-            episodeKeyField: parsedImportConfig.episodeKeyField || 'Serie',
-            episodeSearchField: parsedImportConfig.episodeSearchField || 'Nome',
-            isActive: parsedImportConfig.isActive || false
-          };
-        } catch (error) {
-          console.error('Erro ao migrar configuração de importação:', error);
-        }
-      }
-
-      // Salvar configuração migrada
-      await this.saveUserConfig(migratedConfig);
-
-      console.log('Migração concluída com sucesso');
-
-      // Opcional: remover do localStorage após migração bem-sucedida
-      // localStorage.removeItem('admin-config');
-      // localStorage.removeItem('import-config');
-
-    } catch (error) {
-      console.error('Erro na migração:', error);
-    }
+    console.log('[UserConfigService] Migração de configurações desativada para garantir isolamento por conta (usuário:', userId, ')');
   },
 
   // ============================================================
