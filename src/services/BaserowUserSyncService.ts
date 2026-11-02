@@ -102,7 +102,7 @@ export const BaserowUserSyncService = {
         return { success: false, error: 'Email do usuário é obrigatório para sincronização' };
       }
 
-      const config = await this.resolveBaserowConfig(configOverride);
+      const config = await this.resolveBaserowConfig(configOverride, opts);
       if (!config) {
         console.warn('⚠️ [BaserowUserSync] Configuração do Baserow ou ID da tabela de usuários não encontrado');
         return {
