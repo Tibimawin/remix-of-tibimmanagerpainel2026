@@ -19,13 +19,16 @@ import {
   FileCode2,
   HelpCircle,
   ExternalLink,
+  MessageCircle,
 } from 'lucide-react';
+import { formatWhatsAppUrl } from '@/services/ResellerService';
 
 interface ResellerServerInfoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   dnsHost: string;
   masterName?: string;
+  masterWhatsapp?: string;
   creditBalance?: number;
   creditPrice?: number;
 }
@@ -35,6 +38,7 @@ export const ResellerServerInfoDialog: React.FC<ResellerServerInfoDialogProps> =
   onOpenChange,
   dnsHost,
   masterName = 'Painel de Revendas',
+  masterWhatsapp = '',
   creditBalance = 0,
   creditPrice = 5,
 }) => {
@@ -116,6 +120,27 @@ export const ResellerServerInfoDialog: React.FC<ResellerServerInfoDialogProps> =
                 <span className="font-semibold text-slate-200 truncate block">{masterName}</span>
               </div>
             </div>
+
+            {masterWhatsapp && (
+              <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-300">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <div>
+                    <span className="font-semibold block text-slate-100">WhatsApp de Suporte</span>
+                    <span className="text-[11px] text-slate-300">{masterWhatsapp}</span>
+                  </div>
+                </div>
+                <a
+                  href={formatWhatsAppUrl(masterWhatsapp, `Olá ${masterName}, preciso de suporte com o painel de revenda.`)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button size="sm" className="h-7 bg-emerald-500 px-2.5 text-xs font-semibold text-slate-950 hover:bg-emerald-400">
+                    Abrir WhatsApp
+                  </Button>
+                </a>
+              </div>
+            )}
           </div>
 
           {/* Formatos Suportados */}

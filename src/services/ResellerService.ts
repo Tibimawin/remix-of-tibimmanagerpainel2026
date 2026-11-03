@@ -173,6 +173,14 @@ export function buildEnterpriseShareMessage(params: {
   );
 }
 
+export function formatWhatsAppUrl(phone: string, defaultMessage?: string): string {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  const fullNumber = (digits.length === 10 || digits.length === 11) ? `55${digits}` : digits;
+  const msg = defaultMessage ? `?text=${encodeURIComponent(defaultMessage)}` : '';
+  return `https://wa.me/${fullNumber}${msg}`;
+}
+
 export type ResellerLine = {
   id: string;
   nome: string;
@@ -323,6 +331,7 @@ export const ResellerService = {
 
       let masterName = 'Painel';
       let resellerSettings: any = null;
+      let masterWhatsapp = '';
       if (masterId) {
         const [uSnap, cSnap] = await Promise.all([
           getDoc(doc(db, 'users', masterId)).catch(() => null),
@@ -331,10 +340,13 @@ export const ResellerService = {
         if (uSnap?.exists()) {
           const u = uSnap.data();
           masterName = String(u.appStoreName || u.name || u.email || 'Painel').trim();
+          masterWhatsapp = String(u.whatsapp || u.telefone || u.phone || '').trim();
         }
         if (cSnap?.exists()) {
           const c = cSnap.data();
           resellerSettings = c.resellerSettings;
+          if (resellerSettings?.whatsapp) masterWhatsapp = String(resellerSettings.whatsapp).trim();
+          else if ((c as any).whatsapp) masterWhatsapp = String((c as any).whatsapp).trim();
         }
       }
 
@@ -353,7 +365,7 @@ export const ResellerService = {
           creditPrice: Number(resellerSettings?.creditPrice) || 5,
           packages: Array.isArray(resellerSettings?.packages) ? resellerSettings.packages : [{ credits: 10, price: 45, label: 'Pacote 10' }],
           dnsHost: String(resellerSettings?.dnsHost || 'https://api.tibimmanagerpainel.shop'),
-          whatsapp: String(resellerSettings?.whatsapp || ''),
+          whatsapp: masterWhatsapp,
           asaasConfigured: Boolean(resellerSettings?.asaasApiKey),
         },
         master: { id: masterId, name: masterName },

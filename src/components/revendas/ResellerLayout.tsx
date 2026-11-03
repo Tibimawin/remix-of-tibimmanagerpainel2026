@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Navigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, Users, LogOut, Coins, Menu, X, Sparkles, ListPlus } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Users, LogOut, Coins, Menu, X, Sparkles, ListPlus, MessageCircle } from 'lucide-react';
 import { useResellerAuth } from '@/contexts/ResellerAuthContext';
-import { ResellerService, type ResellerState } from '@/services/ResellerService';
+import { ResellerService, type ResellerState, formatWhatsAppUrl } from '@/services/ResellerService';
 
 const NAV_ITEMS = [
   { to: '/revendas-creditos/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -129,6 +129,37 @@ export const ResellerLayout: React.FC<{ children: React.ReactNode }> = ({ childr
       </nav>
 
       <div className="space-y-3 border-t border-slate-800 px-4 py-4">
+        {/* Bloco de Suporte do Indicador */}
+        {state?.settings.whatsapp ? (
+          <a
+            href={formatWhatsAppUrl(
+              state.settings.whatsapp,
+              `Olá ${masterName}, sou seu revendedor (${user?.email || ''}) e gostaria de tirar uma dúvida/solicitar suporte.`
+            )}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-300 transition-all hover:bg-emerald-500/20 shadow-sm"
+            title="Abrir WhatsApp de suporte do seu indicador"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
+                <MessageCircle className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-slate-100 truncate">Suporte Indicador</p>
+                <p className="text-[10px] text-slate-400 truncate">{state.settings.whatsapp}</p>
+              </div>
+            </div>
+            <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
+              WhatsApp
+            </span>
+          </a>
+        ) : (
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-2.5 text-[11px] text-slate-400">
+            Indicador: <strong className="text-slate-200">{masterName}</strong>
+          </div>
+        )}
+
         <div className="rounded-xl bg-slate-900 p-3">
           <div className="flex items-center gap-2 text-xs text-slate-400">
             <Coins className="h-3.5 w-3.5 text-amber-400" />
@@ -174,8 +205,23 @@ export const ResellerLayout: React.FC<{ children: React.ReactNode }> = ({ childr
           <button className="text-slate-400 lg:hidden" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
           </button>
-          <p className="text-sm text-slate-500 lg:hidden">{masterName}</p>
+          <p className="text-sm text-slate-400 lg:hidden">{masterName}</p>
           <div className="ml-auto flex items-center gap-3">
+            {state?.settings.whatsapp && (
+              <a
+                href={formatWhatsAppUrl(
+                  state.settings.whatsapp,
+                  `Olá ${masterName}, sou seu revendedor (${user?.email || ''}) e gostaria de tirar uma dúvida/solicitar suporte.`
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20"
+                title="Suporte via WhatsApp com seu Indicador"
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Suporte do Indicador</span>
+              </a>
+            )}
             <span className="flex items-center gap-1.5 rounded-full bg-amber-400/10 px-3 py-1 text-sm font-semibold text-amber-300">
               <Coins className="h-4 w-4" />
               {saldo} {saldo === 1 ? 'crédito' : 'créditos'}

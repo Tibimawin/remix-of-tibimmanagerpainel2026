@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Coins, Users, ListPlus, Timer, Loader2, AlertTriangle, Receipt,
-  ShoppingCart, Check, ArrowRight, Server, Copy,
+  ShoppingCart, Check, ArrowRight, Server, Copy, MessageCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
@@ -11,6 +11,7 @@ import {
   type ResellerState,
   type ResellerLine,
   type ResellerTransaction,
+  formatWhatsAppUrl,
 } from '@/services/ResellerService';
 
 const fmtDate = (iso: string) => {
@@ -139,6 +140,51 @@ export const ResellerDashboard: React.FC = () => {
           <p className="mt-2 text-4xl font-bold text-slate-100">{txs.filter(t => t.type === 'teste').length}</p>
           <p className="mt-1 text-xs text-slate-500">testes de 1h gerados</p>
         </div>
+      </div>
+
+      {/* Suporte Direto com seu Indicador via WhatsApp */}
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 shadow-sm">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
+            <MessageCircle className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-slate-100">
+                Suporte com seu Indicador ({state?.master.name || 'Provedor'})
+              </p>
+              {state?.settings.whatsapp ? (
+                <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                  WhatsApp Conectado
+                </span>
+              ) : (
+                <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
+                  Sem número configurado
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {state?.settings.whatsapp
+                ? `Tire dúvidas técnicas, peça suporte em listas ou solicite pacotes de créditos diretamente no WhatsApp: ${state.settings.whatsapp}`
+                : `Indicador: ${state?.master.name || 'Provedor Master'}. Aguardando o indicador cadastrar o WhatsApp de suporte nas configurações.`}
+            </p>
+          </div>
+        </div>
+        {state?.settings.whatsapp && (
+          <a
+            href={formatWhatsAppUrl(
+              state.settings.whatsapp,
+              `Olá ${state.master.name}, sou seu revendedor cadastrado no painel e gostaria de tirar uma dúvida/solicitar suporte.`
+            )}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button size="sm" className="gap-2 bg-emerald-500 font-semibold text-slate-950 hover:bg-emerald-400 text-xs shadow-md">
+              <MessageCircle className="h-4 w-4" />
+              Falar no WhatsApp
+            </Button>
+          </a>
+        )}
       </div>
 
       {/* Servidor DNS e Configurações M3U */}

@@ -1313,8 +1313,14 @@ function masterBaserowFromConfig(masterConfig) {
   };
 }
 
-function settingsOf(masterConfig) {
+function settingsOf(masterConfig, masterUser) {
   const s = (masterConfig && masterConfig.resellerSettings) || {};
+  const whatsapp = String(
+    s.whatsapp ||
+    (masterConfig && masterConfig.whatsapp) ||
+    (masterUser && (masterUser.whatsapp || masterUser.telefone || masterUser.phone)) ||
+    ''
+  ).trim();
   return {
     enabled: s.enabled !== false,
     asaasApiKey: String(s.asaasApiKey || ''),
@@ -1322,7 +1328,7 @@ function settingsOf(masterConfig) {
     creditPrice: Number(s.creditPrice) > 0 ? Number(s.creditPrice) : 5,
     packages: Array.isArray(s.packages) ? s.packages : [],
     dnsHost: String(s.dnsHost || RESELLER_DEFAULT_DNS),
-    whatsapp: String(s.whatsapp || ''),
+    whatsapp,
   };
 }
 
@@ -1398,7 +1404,7 @@ async function handleResellerEndpoint(req, res, rawUrl, body) {
     if (String(ctx.reseller.status || 'ativo').toLowerCase() === 'bloqueado') {
       return sendJson(res, 403, { error: 'Conta bloqueada. Fale com quem te indicou.' });
     }
-    const settings = settingsOf(ctx.masterConfig);
+    const settings = settingsOf(ctx.masterConfig, ctx.masterUser);
     const baserow = masterBaserowFromConfig(ctx.masterConfig);
     const masterName = String(ctx.masterUser?.appStoreName || ctx.masterUser?.name || 'Painel');
 

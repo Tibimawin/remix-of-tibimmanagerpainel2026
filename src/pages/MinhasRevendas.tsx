@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Users, Coins, Copy, Check, Link2, Save, Loader2, Settings2, Receipt,
-  Plus, Minus, Ban, ShieldCheck, KeyRound, DollarSign, ExternalLink,
+  Plus, Minus, Ban, ShieldCheck, KeyRound, DollarSign, ExternalLink, MessageCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -270,9 +270,17 @@ export const MinhasRevendas: React.FC = () => {
                 <p className="text-xs text-muted-foreground">Base dos links M3U/Xtream entregues aos clientes das revendas.</p>
               </div>
               <div className="space-y-2">
-                <Label>WhatsApp de suporte (opcional)</Label>
-                <Input value={settings.whatsapp} onChange={e => setSettings({ ...settings, whatsapp: e.target.value })}
-                  placeholder="11 99999-9999" />
+                <Label className="flex items-center gap-1.5 font-medium">
+                  <MessageCircle className="h-4 w-4 text-emerald-500" /> WhatsApp de Suporte para os Revendedores
+                </Label>
+                <Input
+                  value={settings.whatsapp}
+                  onChange={e => setSettings({ ...settings, whatsapp: e.target.value })}
+                  placeholder="Ex: 5511999999999 ou 11 99999-9999"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Aparece automaticamente no painel de todos os seus revendedores indicados para eles tirarem dúvidas e solicitarem suporte direto com você.
+                </p>
               </div>
             </div>
 

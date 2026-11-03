@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Coins, ShoppingCart, Copy, Check, QrCode, Loader2, CircleCheck, AlertTriangle } from 'lucide-react';
+import { Coins, ShoppingCart, Copy, Check, QrCode, Loader2, CircleCheck, AlertTriangle, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { ResellerService, type ResellerState, type ResellerCreditPackage, type PixResult } from '@/services/ResellerService';
+import { ResellerService, type ResellerState, type ResellerCreditPackage, type PixResult, formatWhatsAppUrl } from '@/services/ResellerService';
 
 export const ResellerComprarCreditos: React.FC = () => {
   const [state, setState] = useState<ResellerState | null>(null);
@@ -94,9 +94,25 @@ export const ResellerComprarCreditos: React.FC = () => {
         <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-amber-400" />
         <h2 className="text-lg font-semibold text-slate-100">Compras em preparação</h2>
         <p className="mt-2 text-sm text-slate-400">
-          Quem te indicou ainda não configurou o recebimento de pagamentos.
+          Quem te indicou ainda não configurou o recebimento automático de pagamentos.
           Volte mais tarde ou fale diretamente com {state.master.name}.
         </p>
+        {state.settings.whatsapp && (
+          <div className="mt-5">
+            <a
+              href={formatWhatsAppUrl(
+                state.settings.whatsapp,
+                `Olá ${state.master.name}, gostaria de comprar créditos de revenda diretamente com você.`
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-semibold text-slate-950 hover:bg-emerald-400 transition-colors shadow-md"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Falar com {state.master.name} no WhatsApp
+            </a>
+          </div>
+        )}
       </div>
     );
   }
@@ -224,6 +240,33 @@ export const ResellerComprarCreditos: React.FC = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Contato de Suporte WhatsApp com o Indicador */}
+      {state?.settings.whatsapp && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-xs">
+          <div className="flex items-center gap-2.5 text-slate-200">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
+              <MessageCircle className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="font-semibold text-slate-100">Dúvidas sobre pagamentos ou pacotes especiais?</p>
+              <p className="text-slate-400 text-[11px]">Fale diretamente com seu indicador ({state.master.name}) no WhatsApp: {state.settings.whatsapp}</p>
+            </div>
+          </div>
+          <a
+            href={formatWhatsAppUrl(
+              state.settings.whatsapp,
+              `Olá ${state.master.name}, gostaria de tirar uma dúvida sobre a compra de créditos no painel de revenda.`
+            )}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button size="sm" className="bg-emerald-500 text-slate-950 font-semibold hover:bg-emerald-400 text-xs">
+              <MessageCircle className="mr-1.5 h-3.5 w-3.5" /> Falar com Indicador
+            </Button>
+          </a>
+        </div>
+      )}
 
       {/* Nota de segurança */}
       <div className="flex items-start gap-2 rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-xs text-slate-500">

@@ -599,6 +599,7 @@ export const ResellerLinhas: React.FC = () => {
         onOpenChange={setServerInfoOpen}
         dnsHost={dnsHost}
         masterName={masterName}
+        masterWhatsapp={state?.settings.whatsapp}
         creditBalance={saldo}
         creditPrice={state?.settings.creditPrice}
       />
