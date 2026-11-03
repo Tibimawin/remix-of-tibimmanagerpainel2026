@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Crown, Check, Zap, Star, Rocket, Shield, MessageSquare, Loader2, RefreshCw } from 'lucide-react';
+import { Crown, Check, Zap, Star, Rocket, Shield, MessageSquare, Loader2, RefreshCw, Coins } from 'lucide-react';
 import { usePlanRequests } from '@/hooks/usePlanRequests';
 import { useActivePlan } from '@/hooks/useActivePlan';
 import { usePlans } from '@/hooks/usePlans';
@@ -236,6 +236,13 @@ const PrecosInterno = () => {
                       </li>
                     )}
                   </ul>
+
+                  {(plan.resellerCredits || 0) > 0 && (
+                    <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-600 dark:text-amber-400 text-xs font-semibold">
+                      <Coins className="w-4 h-4 shrink-0 text-amber-500" />
+                      <span>+{plan.resellerCredits} Créditos de revenda inclusos</span>
+                    </div>
+                  )}
 
                   <Button 
                     onClick={() => handleChoosePlan(plan)}

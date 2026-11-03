@@ -40,6 +40,7 @@ export interface Plan {
   blockingMessage?: string;
   isActive: boolean;
   durationDays?: number; // Duração do acesso em dias (ex: 30 para planos mensais, 365 para anuais)
+  resellerCredits?: number; // Créditos de revenda inclusos no plano para revender/criar linhas
   createdAt: string;
   updatedAt: string;
 }

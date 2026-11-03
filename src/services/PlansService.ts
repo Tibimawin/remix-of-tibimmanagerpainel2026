@@ -26,6 +26,7 @@ export const PlansService = {
       const planData = {
         ...plan,
         durationDays,
+        resellerCredits: Number((plan as any).resellerCredits) || 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
@@ -63,6 +64,7 @@ export const PlansService = {
           id: doc.id,
           ...data,
           durationDays: Number(defaultDays) || 30,
+          resellerCredits: Number(data.resellerCredits) || 0,
           createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || '',
           updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt || ''
         } as Plan);
@@ -95,6 +97,10 @@ export const PlansService = {
 
       if (updates.durationDays !== undefined) {
         updateData.durationDays = Number(updates.durationDays) || 30;
+      }
+
+      if (updates.resellerCredits !== undefined) {
+        updateData.resellerCredits = Number(updates.resellerCredits) || 0;
       }
 
       // Remove campos que não devem ser atualizados

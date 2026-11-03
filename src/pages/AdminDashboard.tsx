@@ -55,6 +55,7 @@ const AdminCloakDashboard = lazy(() => import('@/components/AdminCloakDashboard'
 const AdminPushCenter = lazy(() => import('@/components/AdminPushCenter'));
 const AdminJogosDiaConfig = lazy(() => import('@/components/AdminJogosDiaConfig'));
 const AdminTodosApps = lazy(() => import('@/components/admin/AdminTodosApps'));
+const AdminRevendas = lazy(() => import('@/components/AdminRevendas'));
 const DateRangeFilter = lazy(() => import('@/components/DateRangeFilter'));
 
 const AdminViewSkeleton = () => (
@@ -528,6 +529,8 @@ const AdminDashboard = () => {
         return <AdminCloakDashboard />;
       case 'push-center':
         return <AdminPushCenter />;
+      case 'admin-revendas':
+        return <AdminRevendas />;
       default:
         return <div className="text-foreground">Selecione uma opção do menu</div>;
     }

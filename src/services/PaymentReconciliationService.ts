@@ -640,6 +640,11 @@ export const PaymentReconciliationService = {
       featuresSet.add('jogos-dia');
     }
 
+    // Se o plano tiver créditos de revenda inclusos ou mencionar revenda
+    if ((matchedPlan?.resellerCredits && matchedPlan.resellerCredits > 0) || planNameNorm.includes('revenda')) {
+      featuresSet.add('minhas-revendas');
+    }
+
     // Sempre incluir 'planos'
     featuresSet.add('planos');
 
@@ -669,6 +674,29 @@ export const PaymentReconciliationService = {
     await setDoc(permissionsRef, permUpdates, { merge: true });
 
     console.log(`🔓 Permissões gravadas no Firestore para ${emailNorm}: ${finalPlanName} (${enabledFeatures.length} features, ${accessDays} dias)`);
+
+    // Creditar estoque de créditos de revenda inclusos no plano (se houver)
+    if (matchedPlan?.resellerCredits && matchedPlan.resellerCredits > 0) {
+      try {
+        const { MasterCreditService } = await import('@/services/MasterCreditService');
+        await MasterCreditService.addMasterCredits(
+          userId,
+          matchedPlan.resellerCredits,
+          `Créditos inclusos na ativação do plano ${finalPlanName} (${matchedPlan.resellerCredits} créditos)`,
+          {
+            masterEmail: emailNorm,
+            masterName: cleanUserName,
+            value: targetPrice,
+            type: 'plano_incluso',
+            planName: finalPlanName,
+            paymentMethod: 'pix_plano'
+          }
+        );
+        console.log(`🪙 [Reconciliation] ${matchedPlan.resellerCredits} créditos de revenda creditados para ${emailNorm}`);
+      } catch (cErr) {
+        console.warn('Aviso ao creditar créditos de revenda do plano:', cErr);
+      }
+    }
 
     // Sincronização automática com o Baserow
     try {
@@ -904,10 +932,33 @@ export const PaymentReconciliationService = {
               let resolvedFeature: string | undefined;
               let calcDays: number;
 
-              if (finRecord && (finRecord.isFeatureUnlockOnly === true || finRecord.source === 'feature_unlock' || !!finRecord.requiredFeature)) {
+              if (finRecord && (finRecord.source === 'reseller_credits_wholesale' || finRecord.isFeatureUnlockOnly === true || finRecord.source === 'feature_unlock' || !!finRecord.requiredFeature)) {
                 isUnlock = true;
-                resolvedFeature = finRecord.requiredFeature || resolveFeatureId(finRecord.planName || description) || undefined;
+                resolvedFeature = finRecord.requiredFeature || (finRecord.source === 'reseller_credits_wholesale' ? 'minhas-revendas' : resolveFeatureId(finRecord.planName || description)) || undefined;
                 calcDays = 0;
+
+                // Se for compra de atacado e tiver créditos definidos, garante a recarga do saldo do master
+                if (finRecord.source === 'reseller_credits_wholesale' && finRecord.resellerCredits) {
+                  try {
+                    const { MasterCreditService } = await import('@/services/MasterCreditService');
+                    await MasterCreditService.addMasterCredits(
+                      userId,
+                      Number(finRecord.resellerCredits),
+                      `Reconciliação automática Asaas: ${finRecord.resellerCredits} créditos de atacado`,
+                      {
+                        masterEmail: emailNorm,
+                        masterName: userName || finRecord.userName || emailNorm.split('@')[0],
+                        value: payment.value,
+                        type: 'compra_atacado',
+                        paymentMethod: 'PIX_ASAAS',
+                        status: 'pago'
+                      }
+                    );
+                    console.log(`🪙 [Reconciliation] ${finRecord.resellerCredits} créditos de atacado creditados para ${emailNorm}`);
+                  } catch (e) {
+                    console.warn('Erro ao creditar saldo de revenda na reconciliação:', e);
+                  }
+                }
               } else if (finRecord && !finRecord.isFeatureUnlockOnly && (finRecord.accessDays || finRecord.durationDays)) {
                 isUnlock = false;
                 calcDays = Number(finRecord.accessDays || finRecord.durationDays) || 30;

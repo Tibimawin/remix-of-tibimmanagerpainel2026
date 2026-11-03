@@ -61,6 +61,7 @@ export interface ResellerSettings {
   packages: ResellerCreditPackage[];
   dnsHost: string;
   whatsapp: string;
+  masterCreditBalance?: number; // Saldo de créditos do master para revender
   updatedAt?: string;
 }
 

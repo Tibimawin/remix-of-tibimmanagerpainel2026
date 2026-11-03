@@ -16,6 +16,8 @@ import {
   type ResellerSettings,
   type ResellerCreditPackage,
 } from '@/services/UserConfigService';
+import { MasterCreditService } from '@/services/MasterCreditService';
+import { MasterBuyCreditsDialog } from '@/components/revendas/MasterBuyCreditsDialog';
 
 interface ResellerDoc {
   id: string;
@@ -65,6 +67,8 @@ export const MinhasRevendas: React.FC = () => {
   const [settings, setSettings] = useState<ResellerSettings>(DEFAULT_SETTINGS);
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [masterBalance, setMasterBalance] = useState(0);
+  const [buyCreditsModalOpen, setBuyCreditsModalOpen] = useState(false);
 
   const [resellers, setResellers] = useState<ResellerDoc[]>([]);
   const [transactions, setTransactions] = useState<ResellerTxDoc[]>([]);
@@ -76,8 +80,12 @@ export const MinhasRevendas: React.FC = () => {
   const loadConfig = useCallback(async () => {
     setLoadingConfig(true);
     try {
-      const s = await UserConfigService.getResellerSettings(uid);
+      const [s, bal] = await Promise.all([
+        UserConfigService.getResellerSettings(uid),
+        MasterCreditService.getMasterCreditBalance(uid)
+      ]);
       if (s) setSettings({ ...DEFAULT_SETTINGS, ...s });
+      setMasterBalance(bal);
     } catch { /* mantém padrão */ }
     setLoadingConfig(false);
   }, [uid]);
@@ -145,13 +153,28 @@ export const MinhasRevendas: React.FC = () => {
   };
 
   const ajustarSaldo = async (r: ResellerDoc, delta: number) => {
-    const novo = Math.max(0, (Number(r.creditBalance) || 0) + delta);
     try {
-      await updateDoc(doc(db, 'resellers', r.id), { creditBalance: novo });
-      setResellers(prev => prev.map(x => (x.id === r.id ? { ...x, creditBalance: novo } : x)));
-      toast.success(`${delta > 0 ? 'Adicionado' : 'Removido'} ${Math.abs(delta)} crédito(s) de ${r.nome || r.email}.`);
+      const res = await MasterCreditService.transferCreditsToReseller({
+        masterId: uid,
+        resellerId: r.id,
+        credits: delta,
+        resellerEmail: r.email,
+        resellerName: r.nome,
+        masterEmail: userInfo?.email,
+        masterName: userInfo?.name
+      });
+      setMasterBalance(res.newMasterBalance);
+      setResellers(prev => prev.map(x => (x.id === r.id ? { ...x, creditBalance: res.newResellerBalance } : x)));
+      toast.success(
+        delta > 0
+          ? `Transferido ${delta} crédito(s) para ${r.nome || r.email}. Seu estoque restante: ${res.newMasterBalance} crédito(s).`
+          : `Removido ${Math.abs(delta)} crédito(s) de ${r.nome || r.email}. Devolvido ao seu estoque.`
+      );
     } catch (err: any) {
-      toast.error('Erro ao ajustar saldo: ' + (err?.message || ''));
+      toast.error(err?.message || 'Erro ao ajustar saldo');
+      if (err?.message?.includes('Saldo insuficiente')) {
+        setBuyCreditsModalOpen(true);
+      }
     }
   };
 
@@ -183,18 +206,41 @@ export const MinhasRevendas: React.FC = () => {
             Revendedores indicados por você vendem suas listas com créditos — cada crédito vale 30 dias de linha.
           </p>
         </div>
-        <div className="flex items-center gap-4 rounded-xl border bg-card px-4 py-3">
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground">Revendas</p>
-            <p className="text-xl font-bold">{resellers.length}</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 shadow-sm">
+            <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+              <Coins className="w-5 h-5 text-amber-500" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Meu Estoque de Créditos</p>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-extrabold text-foreground">{masterBalance}</span>
+                <span className="text-xs text-muted-foreground">créditos</span>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setBuyCreditsModalOpen(true)}
+              className="ml-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-sm gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Comprar com o Admin
+            </Button>
           </div>
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground">Créditos vendidos</p>
-            <p className="text-xl font-bold text-amber-600">{creditosVendidos}</p>
-          </div>
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground">Recebido</p>
-            <p className="text-xl font-bold text-emerald-600">{fmtValor(totalRecebido)}</p>
+
+          <div className="flex items-center gap-4 rounded-xl border bg-card px-4 py-3">
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">Revendas</p>
+              <p className="text-xl font-bold">{resellers.length}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">Créditos vendidos</p>
+              <p className="text-xl font-bold text-amber-600">{creditosVendidos}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">Recebido</p>
+              <p className="text-xl font-bold text-emerald-600">{fmtValor(totalRecebido)}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -433,6 +479,19 @@ export const MinhasRevendas: React.FC = () => {
           </div>
         )}
       </div>
+
+      <MasterBuyCreditsDialog
+        open={buyCreditsModalOpen}
+        onOpenChange={setBuyCreditsModalOpen}
+        masterId={uid}
+        masterEmail={userInfo?.email || ''}
+        masterName={userInfo?.name || ''}
+        currentBalance={masterBalance}
+        onSuccess={() => {
+          loadConfig();
+          loadResellers();
+        }}
+      />
     </div>
   );
 };

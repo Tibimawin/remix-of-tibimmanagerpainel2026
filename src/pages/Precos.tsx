@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, Star, Crown, Shield, ArrowRight, Zap, RefreshCw } from 'lucide-react';
+import { Check, Star, Crown, Shield, ArrowRight, Zap, RefreshCw, Coins } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePlans } from '@/hooks/usePlans';
 import { useActivePlan } from '@/hooks/useActivePlan';
@@ -167,6 +167,13 @@ const Precos = () => {
                         <span>- {plan.monthlyContentLimit === -1 ? 'Conteúdos ilimitados' : `Até ${plan.monthlyContentLimit} conteúdos/mês`}</span>
                       </li>
                     </ul>
+
+                    {(plan.resellerCredits || 0) > 0 && (
+                      <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-600 dark:text-amber-400 text-xs font-semibold">
+                        <Coins className="w-4 h-4 shrink-0 text-amber-500" />
+                        <span>+{plan.resellerCredits} Créditos de revenda inclusos</span>
+                      </div>
+                    )}
                   </div>
 
                   <Button 

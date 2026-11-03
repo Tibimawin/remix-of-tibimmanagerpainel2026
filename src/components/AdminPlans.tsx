@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, Save, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, Coins } from 'lucide-react';
 import { Plan, AVAILABLE_FEATURES } from '@/types/planTypes';
 import { usePlans } from '@/hooks/usePlans';
 
@@ -21,6 +21,7 @@ const AdminPlans = () => {
     price: '',
     description: '',
     durationDays: 30,
+    resellerCredits: 0,
     monthlyContentLimit: 0,
     features: [] as string[],
     blockingMessage: '',
@@ -40,6 +41,7 @@ const AdminPlans = () => {
         price: plan.price,
         description: plan.description,
         durationDays: defaultDays,
+        resellerCredits: Number(plan.resellerCredits) || 0,
         monthlyContentLimit: plan.monthlyContentLimit,
         features: plan.features,
         blockingMessage: plan.blockingMessage || '',
@@ -52,6 +54,7 @@ const AdminPlans = () => {
         price: '',
         description: '',
         durationDays: 30,
+        resellerCredits: 0,
         monthlyContentLimit: 0,
         features: [],
         blockingMessage: '',
@@ -125,7 +128,7 @@ const AdminPlans = () => {
             </DialogHeader>
             
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <Label htmlFor="name">Nome do Plano</Label>
                   <Input
@@ -156,6 +159,23 @@ const AdminPlans = () => {
                   />
                   <p className="text-[11px] text-muted-foreground mt-1">
                     1 mês = 30 dias | 1 ano = 365 dias
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="resellerCredits" className="flex items-center gap-1.5">
+                    <Coins className="h-3.5 w-3.5 text-amber-500" />
+                    Créditos de Revenda
+                  </Label>
+                  <Input
+                    id="resellerCredits"
+                    type="number"
+                    min="0"
+                    value={formData.resellerCredits}
+                    onChange={(e) => setFormData(prev => ({ ...prev, resellerCredits: Math.max(0, parseInt(e.target.value) || 0) }))}
+                    placeholder="0"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Estoque master para revender
                   </p>
                 </div>
               </div>
@@ -252,6 +272,7 @@ const AdminPlans = () => {
                 <TableHead>Nome</TableHead>
                 <TableHead>Preço</TableHead>
                 <TableHead>Duração</TableHead>
+                <TableHead>Créditos Revenda</TableHead>
                 <TableHead>Limite/Mês</TableHead>
                 <TableHead>Funcionalidades</TableHead>
                 <TableHead>Status</TableHead>
@@ -277,6 +298,16 @@ const AdminPlans = () => {
                     <Badge variant="outline" className="font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 whitespace-nowrap">
                       {days} dias
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {(plan.resellerCredits || 0) > 0 ? (
+                      <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 gap-1 font-semibold whitespace-nowrap">
+                        <Coins className="h-3 w-3" />
+                        {plan.resellerCredits} créditos
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">0</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     {plan.monthlyContentLimit === -1 ? 'Ilimitado' : 

@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Crown, Check, Shield, Star, Rocket, Loader2, Sparkles, ArrowUpCircle } from 'lucide-react';
+import { Crown, Check, Shield, Star, Rocket, Loader2, Sparkles, ArrowUpCircle, Coins } from 'lucide-react';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
 import { usePlans } from '@/hooks/usePlans';
@@ -191,6 +191,13 @@ export const PlansPopup: React.FC<PlansPopupProps> = ({ forceOpen, onClose }) =>
                         </li>
                       )}
                     </ul>
+
+                    {(plan.resellerCredits || 0) > 0 && (
+                      <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-600 dark:text-amber-400 text-xs font-semibold">
+                        <Coins className="w-4 h-4 shrink-0 text-amber-500" />
+                        <span>+{plan.resellerCredits} créditos de revenda inclusos</span>
+                      </div>
+                    )}
 
                     <Button className="w-full group-hover:bg-primary/90 transition-colors">
                       {showUpgradePrice ? (
