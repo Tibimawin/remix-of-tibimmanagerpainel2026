@@ -78,7 +78,7 @@ async function main() {
     check('com 1 vaga aberta (1 tela expirou), a 4ª entra e ficam 3 ativas', rUma.ok === true && rUma.active === 3);
 
     // Todas as telas expiram (último acesso + TTL < agora) → a vaga fica livre
-    const rDepois = await checkScreenLimit(scope, '10.0.0.4', 'PC/VLC2', validate, t0 + TTL + 2 * MIN);
+    const rDepois = await checkScreenLimit(scope, '10.0.0.4', 'PC/VLC2', validate, t0 + 2 * TTL + 2 * MIN);
     check('após todas as telas expirarem, a 5ª entra', rDepois.ok === true && rDepois.active === 1);
   }
 

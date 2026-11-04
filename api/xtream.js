@@ -1999,19 +1999,21 @@ export default async function handler(req, res) {
   // CONEXÕES ATIVAS (/connections?username=&password=[&reset=1])
   // Mostra as telas em uso do próprio usuário; reset=1 libera todas de uma vez.
   // -------------------------------------------------------------
-  if (rawUrl.includes('/connections')) {
+  if (rawUrl.includes('/connections') || rawUrl.includes('/reset-connections')) {
     if (!username || !password) {
-      return res.status(400).json({ error: 'Informe username e password.' });
+      return res.status(400).json({ ok: false, error: 'Informe username e password.' });
     }
     const authConns = await validateUser(config, username, password);
     if (!authConns.ok) {
-      return res.status(403).json({ error: authConns.message });
+      return res.status(403).json({ ok: false, error: authConns.message });
     }
     const connsScope = `${config.accountId}::${username}`;
-    const wantsReset = ['1', 'true', 'sim'].includes(String(query.reset || body.reset || '').toLowerCase().trim());
+    const wantsReset = rawUrl.includes('/reset-connections') || ['1', 'true', 'sim'].includes(String(query.reset || body.reset || '').toLowerCase().trim());
     const resetInfo = wantsReset ? resetConnections(connsScope) : null;
     const info = listConnections(connsScope);
     return res.status(200).json({
+      ok: true,
+      message: wantsReset ? `Todas as conexões foram liberadas com sucesso (${resetInfo?.resetadas || 0} aparelho(s) desconectado(s)).` : undefined,
       usuario: username,
       max: authConns.maxConnections,
       ...info,

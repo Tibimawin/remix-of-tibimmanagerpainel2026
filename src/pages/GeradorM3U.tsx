@@ -45,7 +45,8 @@ import {
   Calendar,
   Clock,
   AlertTriangle,
-  MessageCircle
+  MessageCircle,
+  UserPlus
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -57,6 +58,14 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog';
 
 export interface GeneratedItem {
   id: string | number;
@@ -237,6 +246,17 @@ export default function GeradorM3U() {
   // QR Code Modal
   const [qrOpen, setQrOpen] = useState(false);
   const [qrUrl, setQrUrl] = useState('');
+
+  // Modal e Formulário de Criação de Assinatura / Novo Usuário no Baserow
+  const [modalCriarUsuarioOpen, setModalCriarUsuarioOpen] = useState(false);
+  const [criandoUsuario, setCriandoUsuario] = useState(false);
+  const [novoNome, setNovoNome] = useState('');
+  const [novaSenha, setNovaSenha] = useState('');
+  const [novoDias, setNovoDias] = useState<number>(30);
+  const [novoVencimentoPersonalizado, setNovoVencimentoPersonalizado] = useState('');
+  const [novoLimiteTelas, setNovoLimiteTelas] = useState<number>(1);
+  const [novoWhatsapp, setNovoWhatsapp] = useState('');
+  const [resetandoConexoes, setResetandoConexoes] = useState(false);
 
   // Carregar usuários do Baserow para vincular a credencial (suporta até 2500 registros)
   const carregarUsuarios = useCallback(async (forceRefresh = false) => {
@@ -483,6 +503,120 @@ export default function GeradorM3U() {
       toast.error(`Falha ao criar teste: ${err?.message || 'Erro desconhecido'}`);
     } finally {
       setGerandoTeste(false);
+    }
+  };
+
+  // ============ Criar Assinatura / Novo Usuário no Baserow ============
+  const handleCriarUsuarioAssinatura = async () => {
+    if (!isConfigured || !config.tableIds?.usuarios) {
+      toast.error('Configure a tabela de usuários do Baserow antes de criar uma assinatura.');
+      return;
+    }
+
+    const cleanNome = novoNome.trim();
+    const cleanSenha = novaSenha.trim();
+
+    if (!cleanNome) {
+      toast.error('Informe o nome ou usuário do cliente.');
+      return;
+    }
+    if (!cleanSenha) {
+      toast.error('Informe a senha de acesso.');
+      return;
+    }
+
+    setCriandoUsuario(true);
+
+    try {
+      const agora = new Date();
+      let venc: Date;
+      if (novoVencimentoPersonalizado) {
+        const [ano, mes, dia] = novoVencimentoPersonalizado.split('-').map(Number);
+        venc = new Date(ano, mes - 1, dia, 23, 59, 59);
+      } else {
+        venc = new Date(agora.getTime() + (novoDias || 30) * 24 * 60 * 60 * 1000);
+      }
+
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const toIso = (d: Date) =>
+        `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}Z`;
+
+      // Descobrir nomes reais das colunas da tabela de usuários
+      let sampleKeys: string[] = usuarios.length > 0 ? Object.keys(usuarios[0]) : [];
+      if (sampleKeys.length === 0) {
+        try {
+          const sample = await baserowService.getAllTableData(config.tableIds.usuarios, undefined, 1);
+          const first = Array.isArray(sample) ? sample[0] : sample?.results?.[0];
+          if (first) sampleKeys = Object.keys(first);
+        } catch { /* usa fallback */ }
+      }
+
+      const norm = (k: string) => k.toLowerCase().replace(/[\s_-]/g, '');
+      const findKey = (candidates: string[], fallback: string) =>
+        sampleKeys.find(k => candidates.includes(norm(k))) || fallback;
+
+      const nomeKey = findKey(['nome', 'name', 'usuario'], 'Nome');
+      const senhaKey = findKey(['senha', 'password', 'pass', 'pin'], 'Senha');
+      const statusKey = findKey(['status', 'situacao'], 'Status');
+      const vencKey = findKey(['vencimento', 'datavencimento', 'expirydate', 'validade', 'expiracao'], 'Vencimento');
+      const pagamentoKey = sampleKeys.find(k => ['datapagamento', 'pagamento', 'datacriacao', 'startdate'].includes(norm(k)));
+      const limiteKey = sampleKeys.find(k => ['limite', 'conexoes', 'telas', 'limitetelas'].includes(norm(k)));
+      const wppKey = sampleKeys.find(k => ['whatsapp', 'telefone', 'celular', 'contato', 'phone'].includes(norm(k)));
+      const diasKey = sampleKeys.find(k => ['dias', 'duracao', 'periodo'].includes(norm(k)));
+
+      const payload: Record<string, any> = {
+        [nomeKey]: cleanNome,
+        [statusKey]: 'Ativo',
+        [vencKey]: toIso(venc)
+      };
+      if (senhaKey) payload[senhaKey] = cleanSenha;
+      if (pagamentoKey) payload[pagamentoKey] = toIso(agora);
+      if (limiteKey) payload[limiteKey] = novoLimiteTelas || 1;
+      if (wppKey && novoWhatsapp.trim()) payload[wppKey] = novoWhatsapp.trim();
+      if (diasKey) payload[diasKey] = novoDias || 30;
+
+      const created = await baserowService.createRow(config.tableIds.usuarios, payload);
+      const createdId = String(created?.id ?? '');
+
+      const usernameSlug = cleanNome.replace(/\s+/g, '_').toLowerCase();
+      setCustomUsername(usernameSlug);
+      setCustomPassword(cleanSenha);
+
+      // Sincronizar mapeamento imediatamente para roteamento multi-tenant
+      if (userInfo?.id) {
+        setDoc(doc(db, 'xtreamUserMapping', usernameSlug), {
+          userId: userInfo.id,
+          username: usernameSlug,
+          baserowUserId: created?.id ?? null,
+          tableUsuarios: config.tableIds?.usuarios || '',
+          tableCanaisTv: config.tableIds?.canaisTv || '',
+          tableConteudos: config.tableIds?.conteudos || '',
+          tableEpisodios: config.tableIds?.episodios || '',
+          baseUrl: config.baseUrl || '',
+          apiToken: config.apiToken || '',
+          updatedAt: new Date().toISOString()
+        }, { merge: true }).catch(() => {});
+      }
+
+      await carregarUsuarios(true);
+
+      if (createdId) {
+        setSelectedUserId(createdId);
+      }
+
+      setModalCriarUsuarioOpen(false);
+      setNovoNome('');
+      setNovaSenha('');
+      setNovoWhatsapp('');
+      setNovoDias(30);
+      setNovoVencimentoPersonalizado('');
+
+      toast.success(`Assinatura criada com sucesso! Cliente "${cleanNome}" ativo até ${venc.toLocaleDateString('pt-BR')}.`);
+    } catch (err: any) {
+      console.error('Erro ao criar assinatura:', err);
+      toast.error(`Falha ao criar assinatura: ${err?.message || 'Erro desconhecido'}`);
+    } finally {
+      setCriandoUsuario(false);
     }
   };
 
@@ -984,11 +1118,38 @@ export default function GeradorM3U() {
     });
   };
 
+  // Resetar / Desconectar conexões ativas do cliente
+  const handleResetConexoes = async () => {
+    const targetUser = customUsername.trim();
+    const targetPass = customPassword.trim();
+    if (!targetUser) {
+      toast.error('Informe ou selecione um usuário primeiro.');
+      return;
+    }
+    setResetandoConexoes(true);
+    try {
+      const accParam = userInfo?.id ? `&account=${encodeURIComponent(userInfo.id)}` : '';
+      const res = await fetch(`/reset-connections?username=${encodeURIComponent(targetUser)}&password=${encodeURIComponent(targetPass)}${accParam}`);
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        toast.success(data.message || 'Conexões desconectadas com sucesso!');
+      } else {
+        toast.error(data.error || 'Erro ao liberar conexões.');
+      }
+    } catch {
+      toast.error('Falha ao comunicar com o servidor de conexões.');
+    } finally {
+      setResetandoConexoes(false);
+    }
+  };
+
   // Copiar Mensagem Pronta de Acesso para o Cliente (WhatsApp)
   const handleCopyWhatsAppMessage = () => {
     const modoTexto = filtroTipoDns === 'all' ? 'Completo (Canais de TV + Filmes + Séries)' :
                       filtroTipoDns === 'tv' ? 'Exclusivamente Canais de TV Ao Vivo' :
                       filtroTipoDns === 'movies' ? 'Exclusivamente Filmes VOD' : 'Exclusivamente Séries & Episódios';
+
+    const limiteTelas = parsedUserDates?.limite || '1';
 
     const suporteSecao = directWppLink
       ? `\n\n💬 *Dúvidas ou Suporte ao Cliente?*\nToque no link direto para falar conosco no WhatsApp:\n👉 ${directWppLink}`
@@ -996,6 +1157,8 @@ export default function GeradorM3U() {
 
     const texto = `📺 *SEUS DADOS DE ACESSO IPTV / XTREAM CODES*\n\n` +
       `📦 *Conteúdo Liberado:* ${modoTexto}\n` +
+      `🖥️ *Telas Permitidas:* ${limiteTelas} tela(s) simultânea(s)\n` +
+      `⚠️ *Aviso de Conexão:* Permitido reproduzir em no máximo ${limiteTelas} tela(s) ao mesmo tempo. Ao trocar de aparelho, feche a reprodução anterior para liberar a vaga.\n\n` +
       `🌐 *Servidor / Host (DNS):* ${xtreamUrls.server}\n` +
       `👤 *Usuário:* ${xtreamUrls.username}\n` +
       `🔑 *Senha:* ${xtreamUrls.password}\n\n` +
@@ -1326,6 +1489,82 @@ export default function GeradorM3U() {
                 <Clapperboard className="w-3.5 h-3.5 text-amber-500" />
                 Apenas Séries
               </Button>
+            </div>
+          </div>
+
+          {/* Aviso de Conexão & Limite de Telas Simultâneas */}
+          <div className="p-4 rounded-xl border border-sky-500/30 bg-sky-500/5 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                  <Radio className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold flex items-center gap-2 text-foreground">
+                    Aviso de Conexão & Limite de Telas Simultâneas
+                    <Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30 font-semibold">
+                      Controle Ativo
+                    </Badge>
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Tanto as listas M3U quanto a API Xtream Codes respeitam rigorosamente a quantidade de telas simultâneas do cliente (coluna <code className="bg-muted px-1 py-0.5 rounded font-mono">limite</code> ou <code className="bg-muted px-1 py-0.5 rounded font-mono">telas</code> no Baserow).
+                  </p>
+                </div>
+              </div>
+
+              {selectedUserId !== 'manual' && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge variant="outline" className="bg-background/80 font-mono text-xs py-1">
+                    <User className="w-3 h-3 mr-1 text-emerald-500" />
+                    <span className="font-bold text-foreground">{customUsername}</span>
+                    <span className="text-muted-foreground ml-1.5">({parsedUserDates?.limite || 1} tela{Number(parsedUserDates?.limite) > 1 ? 's' : ''})</span>
+                  </Badge>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleResetConexoes}
+                    disabled={resetandoConexoes}
+                    className="h-7 text-xs gap-1 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                    title="Derrubar reproduções ativas deste cliente e liberar vagas imediatamente"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${resetandoConexoes ? 'animate-spin' : ''}`} />
+                    {resetandoConexoes ? 'Liberando...' : 'Liberar Conexões'}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+              <div className="p-2.5 rounded-lg bg-background/70 border border-border/60 space-y-1">
+                <p className="font-semibold flex items-center gap-1.5 text-foreground">
+                  <Tv className="w-3.5 h-3.5 text-sky-500" />
+                  Identificação por Aparelho
+                </p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Cada aparelho é identificado por IP + Player (User-Agent). Dois dispositivos no mesmo Wi-Fi contam como duas telas diferentes.
+                </p>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-background/70 border border-border/60 space-y-1">
+                <p className="font-semibold flex items-center gap-1.5 text-foreground">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                  Bloqueio ao Exceder Telas
+                </p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Se o cliente abrir em mais telas que o permitido, a nova reprodução é bloqueada na hora com <strong>HTTP 403 [LIMITE DE TELAS]</strong>.
+                </p>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-background/70 border border-border/60 space-y-1">
+                <p className="font-semibold flex items-center gap-1.5 text-foreground">
+                  <Clock className="w-3.5 h-3.5 text-emerald-500" />
+                  Tempo de Sessão & Vaga Livre
+                </p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  A conexão fica ativa por até 10 minutos após o último acesso do reprodutor. Fechar o app no aparelho anterior libera a vaga automaticamente.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -1788,16 +2027,36 @@ export default function GeradorM3U() {
                       <User className="w-4 h-4 text-emerald-500" />
                       Vincular Cliente da Tabela do Baserow
                     </Label>
-                    <button
-                      type="button"
-                      onClick={() => carregarUsuarios(true)}
-                      disabled={loadingUsuarios}
-                      className="text-[11px] text-emerald-500 hover:text-emerald-400 hover:underline flex items-center gap-1 font-medium transition-colors"
-                      title="Recarregar clientes e datas atualizadas do Baserow"
-                    >
-                      <RefreshCw className={`w-3 h-3 ${loadingUsuarios ? 'animate-spin' : ''}`} />
-                      {loadingUsuarios ? 'Atualizando...' : 'Recarregar Baserow'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          setNovoNome('');
+                          setNovaSenha(String(Math.floor(100000 + Math.random() * 900000)));
+                          setNovoDias(30);
+                          setNovoLimiteTelas(1);
+                          setNovoWhatsapp('');
+                          setNovoVencimentoPersonalizado('');
+                          setModalCriarUsuarioOpen(true);
+                        }}
+                        className="h-6 text-[11px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-2 rounded-md shadow-xs"
+                        title="Criar novo cliente e cadastrar assinatura no Baserow"
+                      >
+                        <UserPlus className="w-3 h-3" />
+                        Criar Assinatura
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => carregarUsuarios(true)}
+                        disabled={loadingUsuarios}
+                        className="text-[11px] text-emerald-500 hover:text-emerald-400 hover:underline flex items-center gap-1 font-medium transition-colors"
+                        title="Recarregar clientes e datas atualizadas do Baserow"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${loadingUsuarios ? 'animate-spin' : ''}`} />
+                        {loadingUsuarios ? 'Atualizando...' : 'Recarregar'}
+                      </button>
+                    </div>
                   </div>
                   <Select value={selectedUserId} onValueChange={handleSelectUser}>
                     <SelectTrigger>
@@ -2008,13 +2267,27 @@ export default function GeradorM3U() {
                       </p>
                     </div>
 
-                    <div className="p-2.5 rounded-lg bg-background/70 border border-current/20">
-                      <p className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-1">
-                        <ShieldCheck className="w-3 h-3 text-emerald-500" /> Limite de Telas
-                      </p>
-                      <p className="font-mono font-bold text-xs mt-0.5 text-foreground">
-                        {parsedUserDates.limite} {Number(parsedUserDates.limite) > 1 ? 'conexões simultâneas' : 'conexão simultânea'}
-                      </p>
+                    <div className="p-2.5 rounded-lg bg-background/70 border border-current/20 flex flex-col justify-between">
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3 text-emerald-500" /> Limite de Telas
+                        </p>
+                        <p className="font-mono font-bold text-xs mt-0.5 text-foreground">
+                          {parsedUserDates.limite} {Number(parsedUserDates.limite) > 1 ? 'conexões simultâneas' : 'conexão simultânea'}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleResetConexoes}
+                        disabled={resetandoConexoes}
+                        className="h-6 text-[10px] mt-1.5 px-2 py-0 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 justify-start -ml-1 gap-1"
+                        title="Desconectar dispositivos ativos deste usuário para liberar novas conexões imediatamente"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${resetandoConexoes ? 'animate-spin' : ''}`} />
+                        {resetandoConexoes ? 'Liberando...' : 'Desconectar Aparelhos'}
+                      </Button>
                     </div>
                   </div>
 
@@ -2376,15 +2649,33 @@ export default function GeradorM3U() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2 text-xs">
-                <Button
-                  size="sm"
-                  onClick={handleGerarTeste1h}
-                  disabled={gerandoTeste}
-                  className="w-full gap-2 bg-amber-500 hover:bg-amber-600 text-black font-semibold"
-                >
-                  {gerandoTeste ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                  {gerandoTeste ? 'Gerando teste...' : 'Gerar Teste 1h'}
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setNovoNome('');
+                      setNovaSenha(String(Math.floor(100000 + Math.random() * 900000)));
+                      setNovoDias(30);
+                      setNovoLimiteTelas(1);
+                      setNovoWhatsapp('');
+                      setNovoVencimentoPersonalizado('');
+                      setModalCriarUsuarioOpen(true);
+                    }}
+                    className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    Criar Assinatura
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleGerarTeste1h}
+                    disabled={gerandoTeste}
+                    className="gap-2 bg-amber-500 hover:bg-amber-600 text-black font-semibold"
+                  >
+                    {gerandoTeste ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                    {gerandoTeste ? 'Gerando...' : 'Gerar Teste 1h'}
+                  </Button>
+                </div>
                 {testeGerado && (
                   <div className="p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-800 dark:text-amber-200">
                     <strong>Teste ativo:</strong> {testeGerado.username} / {testeGerado.password} — expira {testeGerado.vencimento.toLocaleTimeString('pt-BR')}
@@ -2563,6 +2854,169 @@ export default function GeradorM3U() {
         onOpenChange={setQrOpen}
         url={qrUrl}
       />
+
+      {/* Modal Criar Assinatura / Novo Usuário no Baserow */}
+      <Dialog open={modalCriarUsuarioOpen} onOpenChange={setModalCriarUsuarioOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                <UserPlus className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold">Criar Nova Assinatura / Cliente</DialogTitle>
+                <DialogDescription className="text-xs">
+                  Cadastra o usuário na tabela do Baserow e ativa o acesso no servidor Xtream Codes.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Nome / Usuário */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Nome ou Usuário do Cliente *</Label>
+              <Input
+                value={novoNome}
+                onChange={(e) => setNovoNome(e.target.value)}
+                placeholder="Ex: cliente_carlos ou Carlos Silva"
+                className="text-xs h-9"
+              />
+            </div>
+
+            {/* Senha */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Senha de Acesso *</Label>
+                <button
+                  type="button"
+                  onClick={() => setNovaSenha(String(Math.floor(100000 + Math.random() * 900000)))}
+                  className="text-[11px] text-primary hover:underline font-medium"
+                >
+                  Gerar Aleatória
+                </button>
+              </div>
+              <Input
+                value={novaSenha}
+                onChange={(e) => setNovaSenha(e.target.value)}
+                placeholder="123456"
+                className="font-mono text-xs h-9"
+              />
+            </div>
+
+            {/* Duração / Validade da Assinatura */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Duração da Assinatura</Label>
+              <div className="grid grid-cols-5 gap-1.5">
+                {[
+                  { dias: 30, label: '30d (1 Mês)' },
+                  { dias: 60, label: '60d (2 Meses)' },
+                  { dias: 90, label: '90d (3 Meses)' },
+                  { dias: 180, label: '180d (6 Meses)' },
+                  { dias: 365, label: '365d (1 Ano)' }
+                ].map((preset) => (
+                  <button
+                    key={preset.dias}
+                    type="button"
+                    onClick={() => {
+                      setNovoDias(preset.dias);
+                      setNovoVencimentoPersonalizado('');
+                    }}
+                    className={`py-1.5 px-1 rounded-lg text-[11px] font-semibold border transition-all ${
+                      novoDias === preset.dias && !novoVencimentoPersonalizado
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : 'bg-muted/50 border-border hover:bg-muted text-foreground'
+                    }`}
+                  >
+                    {preset.dias}d
+                  </button>
+                ))}
+              </div>
+
+              {/* Data Calculada */}
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40 border border-border/60 text-xs mt-2">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-primary" /> Vencimento Calculado:
+                </span>
+                <span className="font-bold text-foreground font-mono">
+                  {(() => {
+                    if (novoVencimentoPersonalizado) {
+                      const [y, m, d] = novoVencimentoPersonalizado.split('-');
+                      return `${d}/${m}/${y} às 23:59`;
+                    }
+                    const dataVenc = new Date();
+                    dataVenc.setDate(dataVenc.getDate() + novoDias);
+                    return `${dataVenc.toLocaleDateString('pt-BR')} às 23:59`;
+                  })()}
+                </span>
+              </div>
+            </div>
+
+            {/* Limite de Conexões Simultâneas */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Limite de Telas / Conexões Simultâneas</Label>
+              <Select
+                value={String(novoLimiteTelas)}
+                onValueChange={(v) => setNovoLimiteTelas(Number(v))}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 Tela (Conexão Única)</SelectItem>
+                  <SelectItem value="2">2 Telas Simultâneas</SelectItem>
+                  <SelectItem value="3">3 Telas Simultâneas</SelectItem>
+                  <SelectItem value="4">4 Telas Simultâneas</SelectItem>
+                  <SelectItem value="5">5 Telas Simultâneas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* WhatsApp do Cliente (Opcional) */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">
+                WhatsApp do Cliente (Opcional)
+              </Label>
+              <Input
+                value={novoWhatsapp}
+                onChange={(e) => setNovoWhatsapp(e.target.value)}
+                placeholder="Ex: (11) 98888-7777"
+                className="text-xs h-9"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setModalCriarUsuarioOpen(false)}
+              disabled={criandoUsuario}
+              className="text-xs"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleCriarUsuarioAssinatura}
+              disabled={criandoUsuario}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs gap-1.5 shadow-sm"
+            >
+              {criandoUsuario ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Criando no Baserow...
+                </>
+              ) : (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  Salvar e Ativar Assinatura
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
