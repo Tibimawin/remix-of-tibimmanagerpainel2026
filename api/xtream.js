@@ -1004,6 +1004,108 @@ async function probeStreams(alvos, concurrency = 12) {
 }
 
 // -------------------------------------------------------------
+// LIMITE DE TELAS SIMULTÂNEAS (conexões por usuário)
+// Como os streams são redirecionados (302) e NUNCA repassados pelo servidor,
+// não existe "ping" contínuo do player. Cada reprodução toca esta API uma vez
+// (ou a cada refresh de playlist HLS). Por isso uma conexão é considerada
+// ativa por CONNECTION_TTL_MS minutos após o ÚLTIMO acesso dela.
+// A "tela" é identificada por IP + User-Agent: dois aparelhos no mesmo Wi-Fi
+// têm IPs iguais, mas UAs diferentes — contam como duas telas.
+// -------------------------------------------------------------
+const CONNECTION_TTL_MS = Math.max(1, Number(process.env.CONNECTION_TTL_MIN) || 10) * 60000;
+const MAX_CONNS_POR_USUARIO = 200; // higiene de memória contra abuso do registro
+const ACTIVE_CONNECTIONS = new Map(); // "accountId::usuario" -> { max, maxAt, conns: Map(chave -> {ip, ua, startedAt, lastSeen}) }
+
+function connKeyOf(ip, ua) {
+  return `${String(ip || 'desconhecido')}||${String(ua || '').slice(0, 140)}`;
+}
+
+function purgeConnections(entry, now) {
+  for (const [k, c] of entry.conns) {
+    if (now - c.lastSeen > CONNECTION_TTL_MS) entry.conns.delete(k);
+  }
+}
+
+function denyLimit(entry, now) {
+  return {
+    ok: false,
+    reason: 'limit',
+    active: entry.conns.size,
+    max: entry.max,
+    message: `Sua conta permite ${entry.max} tela(s) simultânea(s) e já existem ${entry.conns.size} em uso. Feche uma reprodução em outro aparelho e tente de novo em alguns minutos.`
+  };
+}
+
+// Checa/regista uma tela. `validateFn` (opcional) é chamada UMA vez, só quando
+// uma tela NOVA entra (ou o limite precisa ser reconfirmado) — evita martelar o Baserow.
+async function checkScreenLimit(scopeKey, ip, ua, validateFn, now = Date.now()) {
+  let entry = ACTIVE_CONNECTIONS.get(scopeKey);
+  if (!entry) {
+    entry = { max: 0, maxAt: 0, conns: new Map() };
+    ACTIVE_CONNECTIONS.set(scopeKey, entry);
+  }
+  purgeConnections(entry, now);
+
+  const key = connKeyOf(ip, ua);
+  const existing = entry.conns.get(key);
+  if (existing) {
+    existing.lastSeen = now;
+    return { ok: true, active: entry.conns.size, max: entry.max };
+  }
+
+  const needValidate = () => entry.max <= 0 || !entry.maxAt || (now - entry.maxAt) > 60000;
+  if (entry.max > 0 && entry.conns.size >= entry.max && !needValidate()) {
+    return denyLimit(entry, now);
+  }
+
+  // Tela nova (ou limite possivelmente desatualizado): confirma o limite real no Baserow
+  const auth = validateFn ? await validateFn() : null;
+  if (auth && !auth.ok) {
+    return { ok: false, reason: 'auth', active: entry.conns.size, max: entry.max, message: auth.message };
+  }
+  if (auth) {
+    entry.max = Math.max(1, Number(auth.maxConnections) || 1);
+    entry.maxAt = now;
+  }
+  const max = Math.max(1, Number(entry.max) || 1);
+  if (entry.conns.size >= max) return denyLimit(entry, now);
+
+  entry.conns.set(key, {
+    ip: String(ip || ''),
+    ua: String(ua || '').slice(0, 140),
+    startedAt: now,
+    lastSeen: now
+  });
+  // Higiene: se o registro estourar, descarta as telas mais antigas
+  if (entry.conns.size > MAX_CONNS_POR_USUARIO) {
+    const ordenadas = [...entry.conns.entries()].sort((a, b) => a[1].startedAt - b[1].startedAt);
+    for (let i = 0; i < ordenadas.length - MAX_CONNS_POR_USUARIO; i++) entry.conns.delete(ordenadas[i][0]);
+  }
+  return { ok: true, active: entry.conns.size, max, auth: auth || undefined };
+}
+
+function listConnections(scopeKey, now = Date.now()) {
+  const entry = ACTIVE_CONNECTIONS.get(scopeKey);
+  if (!entry) return { ativas: 0, max: 0, conexoes: [] };
+  purgeConnections(entry, now);
+  const conexoes = [...entry.conns.values()].map(c => ({
+    ip: c.ip,
+    aparelho: c.ua,
+    inicio: new Date(c.startedAt).toISOString(),
+    ultimoAcesso: new Date(c.lastSeen).toISOString(),
+    expiraEmMin: Math.max(0, Math.round((c.lastSeen + CONNECTION_TTL_MS - now) / 60000))
+  }));
+  return { ativas: conexoes.length, max: entry.max, ttlMin: Math.round(CONNECTION_TTL_MS / 60000), conexoes };
+}
+
+function resetConnections(scopeKey) {
+  const entry = ACTIVE_CONNECTIONS.get(scopeKey);
+  const n = entry ? entry.conns.size : 0;
+  if (entry) entry.conns.clear();
+  return { resetadas: n };
+}
+
+// -------------------------------------------------------------
 // HANDLER PRINCIPAL HTTP (Xtream Codes API)
 // -------------------------------------------------------------
 // =============================================================
