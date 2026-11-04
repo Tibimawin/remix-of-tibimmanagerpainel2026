@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -38,6 +38,10 @@ const Apresentacao = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'catalog' | 'm3u' | 'api' | 'security'>('catalog');
   const [copiedCode, setCopiedCode] = useState(false);
+
+  useEffect(() => {
+    document.title = "Tibim Manager - Painel de Gestão de Mídias & Gerador M3U";
+  }, []);
 
   const features = [
     {
@@ -227,11 +231,12 @@ const Apresentacao = () => {
             
             {/* Main Headline */}
             <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-foreground leading-[1.1]">
-              Painel de{" "}
               <span className="bg-gradient-to-r from-orange-400 via-amber-400 to-orange-500 bg-clip-text text-transparent">
-                Gestão
-              </span>{" "}
-              de Mídia
+                Tibim Manager
+              </span>
+              <span className="block text-2xl sm:text-4xl lg:text-5xl font-bold text-foreground mt-2 sm:mt-3">
+                Painel de Gestão de Mídias & Streaming
+              </span>
             </h1>
             
             {/* Description */}

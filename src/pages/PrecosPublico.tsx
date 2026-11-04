@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,7 @@ const DEFAULT_FALLBACK_PLANS: Plan[] = [
     monthlyContentLimit: 25000,
     features: ['dashboard', 'conteudos', 'episodios', 'lista-m3u', 'banners', 'categorias', 'categorias-tv', 'api-access', 'ferramentas-ia'],
     isActive: true,
+    isPopular: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
@@ -62,6 +63,10 @@ const PrecosPublico = () => {
   const navigate = useNavigate();
   const { activePlans, loading } = usePlans();
   const { hasActivePlan, loading: planLoading } = useActivePlan();
+
+  useEffect(() => {
+    document.title = "Planos e Preços • Tibim Manager";
+  }, []);
 
   const displayPlans = activePlans && activePlans.length > 0 ? activePlans : DEFAULT_FALLBACK_PLANS;
 
