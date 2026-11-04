@@ -601,6 +601,7 @@ const isAdultContentRow = (row, catFields, nomeFields) => {
 
 // Export de teste (não afeta o handler em produção)
 export const __adultFilter = { isAdultText, isAdultContentRow };
+export const __connectionLimit = { checkScreenLimit, listConnections, resetConnections, connKeyOf, CONNECTION_TTL_MS, ACTIVE_CONNECTIONS };
 
 // -------------------------------------------------------------
 // CLASSIFICAÇÃO ROBUSTA: FILME x SÉRIE x CANAL
@@ -1849,9 +1850,9 @@ export default async function handler(req, res) {
   // Serve para confirmar que o arquivo novo realmente está no ar na VPS.
   if (rawUrl.includes('/handler-version')) {
     return res.status(200).json({
-      version: 'v7',
-      builtAt: '2026-11-02',
-      fixes: ['series-temporadas-0', 'hls-sintetico-live-ts', 'stream-check', 'stream-user-no-path', 'bloqueio-adulto-noadulto', 'modulo-revendas-creditos', 'fix-rawUrl-tdz'],
+      version: 'v8',
+      builtAt: '2026-11-04',
+      fixes: ['series-temporadas-0', 'hls-sintetico-live-ts', 'stream-check', 'stream-user-no-path', 'bloqueio-adulto-noadulto', 'modulo-revendas-creditos', 'fix-rawUrl-tdz', 'limite-telas-simultaneas'],
     });
   }
 
@@ -2120,7 +2121,8 @@ export default async function handler(req, res) {
       endpoints: {
         player_api: '/player_api.php?username={user}&password={pass}&account={accountId}',
         m3u_ts: '/get.php?username={user}&password={pass}&account={accountId}&type=m3u_plus&output=ts',
-        dedicated_dns: `/u/${config.accountId}/player_api.php`
+        dedicated_dns: `/u/${config.accountId}/player_api.php`,
+        connections: '/connections?username={user}&password={pass} [&reset=1]'
       }
     });
   }
