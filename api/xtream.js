@@ -1905,6 +1905,23 @@ export default async function handler(req, res) {
     const streamPass = liveMatch ? decodeURIComponent(liveMatch[3]) : password;
     const rawId = liveMatch ? liveMatch[4] : streamId.replace(/\.[a-zA-Z0-9]+$/, '');
 
+    // LIMITE DE TELAS: checado em TODA entrada de stream (inclusive playlists HLS em cache).
+    // A tela é IP + User-Agent; a conexão fica ativa por CONNECTION_TTL_MS após o último acesso.
+    const clientIp = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+      || (req.socket && req.socket.remoteAddress) || '';
+    const connsScope = `${config.accountId}::${streamUser}`;
+    const limitCheck = await checkScreenLimit(
+      connsScope,
+      clientIp,
+      req.headers['user-agent'],
+      () => validateUser(config, streamUser, streamPass)
+    );
+    if (!limitCheck.ok) {
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      const tag = limitCheck.reason === 'auth' ? '[ACESSO NEGADO]' : '[LIMITE DE TELAS]';
+      return res.status(403).send(`${tag} ${limitCheck.message}`);
+    }
+
     // Playlist HLS sintética: players HLS voltam a buscar esta URL a cada ~20s.
     // Serve direto do cache por 60s sem revalidar no Baserow (1 busca/min no máximo).
     const hlsCacheKey = `${type}_${streamUser}|${streamPass}_${rawId}${streamExt}`;
@@ -1917,7 +1934,8 @@ export default async function handler(req, res) {
     }
 
     // VALIDAÇÃO RIGOROSA DE EXPIRAÇÃO NO STREAM
-    const authStream = await validateUser(config, streamUser, streamPass);
+    // (reaproveita a validação já feita pelo limite de telas quando disponível)
+    const authStream = limitCheck.auth || await validateUser(config, streamUser, streamPass);
     if (!authStream.ok) {
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       return res.status(403).send(`[ACESSO NEGADO] ${authStream.message}`);
