@@ -70,13 +70,16 @@ async function main() {
     const rExtra = await checkScreenLimit(scope, '10.0.0.3', 'PC/VLC', validate, t0 + 5000);
     check('4ª tela é bloqueada', rExtra.ok === false && rExtra.reason === 'limit');
 
-    // Só a 1ª tela expira (as outras duas ainda estão no TTL) → vaga única
+    // Mantém as telas 2 e 3 "vivas" (refresh de playlist) perto do fim do TTL da 1ª
+    await checkScreenLimit(scope, telas[1][0], telas[1][1], validate, t0 + TTL - 2 * MIN);
+    await checkScreenLimit(scope, telas[2][0], telas[2][1], validate, t0 + TTL - 2 * MIN);
+    // Só a 1ª tela expira (as outras duas foram renovadas) → vaga única
     const rUma = await checkScreenLimit(scope, '10.0.0.3', 'PC/VLC', validate, t0 + TTL + 30 * 1000);
-    check('com 1 vaga aberta (1 tela expirou), a 4ª entra e ficam 2 ativas', rUma.ok === true && rUma.active === 2);
+    check('com 1 vaga aberta (1 tela expirou), a 4ª entra e ficam 3 ativas', rUma.ok === true && rUma.active === 3);
 
     // Todas as telas expiram (último acesso + TTL < agora) → a vaga fica livre
-    const rDepois = await checkScreenLimit(scope, '10.0.0.3', 'PC/VLC', validate, t0 + TTL + 2 * MIN);
-    check('após todas as telas expirarem, a 4ª entra', rDepois.ok === true && rDepois.active === 1);
+    const rDepois = await checkScreenLimit(scope, '10.0.0.4', 'PC/VLC2', validate, t0 + TTL + 2 * MIN);
+    check('após todas as telas expirarem, a 5ª entra', rDepois.ok === true && rDepois.active === 1);
   }
 
   // ---- Cenário C: usuário inválido ----
