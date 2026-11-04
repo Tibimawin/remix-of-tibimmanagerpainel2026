@@ -1996,6 +1996,30 @@ export default async function handler(req, res) {
   }
 
   // -------------------------------------------------------------
+  // CONEXÕES ATIVAS (/connections?username=&password=[&reset=1])
+  // Mostra as telas em uso do próprio usuário; reset=1 libera todas de uma vez.
+  // -------------------------------------------------------------
+  if (rawUrl.includes('/connections')) {
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Informe username e password.' });
+    }
+    const authConns = await validateUser(config, username, password);
+    if (!authConns.ok) {
+      return res.status(403).json({ error: authConns.message });
+    }
+    const connsScope = `${config.accountId}::${username}`;
+    const wantsReset = ['1', 'true', 'sim'].includes(String(query.reset || body.reset || '').toLowerCase().trim());
+    const resetInfo = wantsReset ? resetConnections(connsScope) : null;
+    const info = listConnections(connsScope);
+    return res.status(200).json({
+      usuario: username,
+      max: authConns.maxConnections,
+      ...info,
+      reset: resetInfo || undefined
+    });
+  }
+
+  // -------------------------------------------------------------
   // VERIFICADOR DE LINKS (/stream-check?username=&password=&type=live|movie|series)
   // Devolve quais links estão online e quais estão offline na conta.
   // -------------------------------------------------------------
