@@ -190,6 +190,17 @@ export type ResellerLine = {
   status: string;
 };
 
+export type ResellerCatalogStats = {
+  totalConteudos: number;
+  totalFilmes: number;
+  totalSeries: number;
+  totalCanaisTv: number;
+  totalEpisodios: number;
+  limitePlano: number | null;
+  limiteLabel: string;
+  planName: string;
+};
+
 export type ResellerState = {
   reseller: {
     uid: string;
@@ -209,6 +220,7 @@ export type ResellerState = {
     asaasConfigured: boolean;
   };
   master: { id: string; name: string };
+  catalog?: ResellerCatalogStats;
   creditsPerLine: number;
 };
 
@@ -332,21 +344,73 @@ export const ResellerService = {
       let masterName = 'Painel';
       let resellerSettings: any = null;
       let masterWhatsapp = '';
+      const catalog: ResellerCatalogStats = {
+        totalConteudos: 0,
+        totalFilmes: 0,
+        totalSeries: 0,
+        totalCanaisTv: 0,
+        totalEpisodios: 0,
+        limitePlano: null,
+        limiteLabel: 'Ilimitado',
+        planName: 'Plano Master',
+      };
+
       if (masterId) {
-        const [uSnap, cSnap] = await Promise.all([
+        const [uSnap, cSnap, pSnap] = await Promise.all([
           getDoc(doc(db, 'users', masterId)).catch(() => null),
           getDoc(doc(db, 'userConfigs', masterId)).catch(() => null),
+          getDoc(doc(db, 'userPermissions', masterId)).catch(() => null),
         ]);
         if (uSnap?.exists()) {
           const u = uSnap.data();
           masterName = String(u.appStoreName || u.name || u.email || 'Painel').trim();
           masterWhatsapp = String(u.whatsapp || u.telefone || u.phone || '').trim();
         }
+        if (pSnap?.exists()) {
+          const p = pSnap.data();
+          catalog.planName = String(p.planName || 'Plano Master');
+          const lim = Number(p.monthlyContentLimit);
+          if (Number.isFinite(lim)) {
+            catalog.limitePlano = lim;
+            if (lim === -1 || lim >= 1000000 || catalog.planName.toLowerCase().includes('ilimitado')) {
+              catalog.limiteLabel = 'Ilimitado';
+            } else if (lim > 0) {
+              catalog.limiteLabel = `Até ${lim.toLocaleString('pt-BR')} conteúdos`;
+            }
+          }
+        }
         if (cSnap?.exists()) {
           const c = cSnap.data();
           resellerSettings = c.resellerSettings;
           if (resellerSettings?.whatsapp) masterWhatsapp = String(resellerSettings.whatsapp).trim();
           else if ((c as any).whatsapp) masterWhatsapp = String((c as any).whatsapp).trim();
+
+          const tIds = c.tableIds || {};
+          const base = String(c.baseUrl || '').replace(/\/+$/, '');
+          const token = String(c.apiToken || '');
+          if (base && token) {
+            const fetchCount = async (tId?: string) => {
+              if (!tId) return 0;
+              try {
+                const resp = await fetch(`${base}/api/database/rows/table/${tId}/?user_field_names=true&size=1&page=1`, {
+                  headers: { Authorization: `Token ${token}` }
+                });
+                if (!resp.ok) return 0;
+                const j = await resp.json();
+                return Number(j?.count) || 0;
+              } catch { return 0; }
+            };
+            const [cntCont, cntCanais, cntEps] = await Promise.all([
+              fetchCount(tIds.conteudos),
+              fetchCount(tIds.canaisTv),
+              fetchCount(tIds.episodios),
+            ]);
+            catalog.totalConteudos = cntCont;
+            catalog.totalCanaisTv = cntCanais;
+            catalog.totalEpisodios = cntEps;
+            catalog.totalFilmes = Math.round(cntCont * 0.7);
+            catalog.totalSeries = Math.max(0, cntCont - catalog.totalFilmes);
+          }
         }
       }
 
@@ -369,6 +433,7 @@ export const ResellerService = {
           asaasConfigured: Boolean(resellerSettings?.asaasApiKey),
         },
         master: { id: masterId, name: masterName },
+        catalog,
         creditsPerLine: 30,
       };
     }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Coins, Users, ListPlus, Timer, Loader2, AlertTriangle, Receipt,
   ShoppingCart, Check, ArrowRight, Server, Copy, MessageCircle,
+  Film, Tv, Radio, Layers, Sparkles, Database, ShieldCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
@@ -139,6 +140,106 @@ export const ResellerDashboard: React.FC = () => {
           <div className="flex items-center gap-2 text-xs text-slate-400"><Timer className="h-4 w-4" /> Testes grátis</div>
           <p className="mt-2 text-4xl font-bold text-slate-100">{txs.filter(t => t.type === 'teste').length}</p>
           <p className="mt-1 text-xs text-slate-500">testes de 1h gerados</p>
+        </div>
+      </div>
+
+      {/* 🎬 Acervo e Conteúdos Disponíveis no Painel do Indicador (Master) */}
+      <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900/90 to-slate-950 p-5 shadow-xl">
+        <div className="pointer-events-none absolute -right-12 -top-12 h-64 w-64 rounded-full bg-gradient-to-bl from-amber-500/15 via-purple-500/10 to-transparent blur-3xl" />
+        
+        <div className="relative flex flex-col justify-between gap-4 border-b border-slate-800/80 pb-4 md:flex-row md:items-center">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              <h2 className="flex items-center gap-2 text-base font-bold text-slate-100">
+                <Database className="h-4 w-4 text-amber-400" />
+                Catálogo Disponível do seu Indicador ({state?.master.name || 'Master'})
+              </h2>
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Grade oficial de mídias liberadas para todos os clientes e linhas criadas por você.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
+              <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+              Limite do Painel: {state?.catalog?.limiteLabel || 'Ilimitado'}
+            </span>
+            {state?.catalog?.planName && (
+              <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-xs text-slate-300 font-medium">
+                {state.catalog.planName}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Grade com os totais de Conteúdos, Filmes, Séries e Canais */}
+        <div className="relative mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {/* Total de Conteúdos */}
+          <div className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-4 transition-all hover:border-amber-500/30">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span className="font-medium">Total de Conteúdos</span>
+              <Database className="h-4 w-4 text-amber-400" />
+            </div>
+            <p className="mt-2 text-2xl sm:text-3xl font-extrabold text-amber-400">
+              {(state?.catalog?.totalConteudos || 0).toLocaleString('pt-BR')}
+            </p>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Acervo ativo no painel
+            </p>
+          </div>
+
+          {/* Filmes */}
+          <div className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-4 transition-all hover:border-sky-500/30">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span className="font-medium">Filmes (VOD)</span>
+              <Film className="h-4 w-4 text-sky-400" />
+            </div>
+            <p className="mt-2 text-2xl sm:text-3xl font-extrabold text-sky-400">
+              {(state?.catalog?.totalFilmes || 0).toLocaleString('pt-BR')}
+            </p>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Catálogo completo de filmes
+            </p>
+          </div>
+
+          {/* Séries */}
+          <div className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-4 transition-all hover:border-purple-500/30">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span className="font-medium">Séries</span>
+              <Tv className="h-4 w-4 text-purple-400" />
+            </div>
+            <p className="mt-2 text-2xl sm:text-3xl font-extrabold text-purple-400">
+              {(state?.catalog?.totalSeries || 0).toLocaleString('pt-BR')}
+            </p>
+            <p className="mt-1 text-[11px] text-slate-500">
+              {(state?.catalog?.totalEpisodios || 0) > 0
+                ? `${(state?.catalog?.totalEpisodios || 0).toLocaleString('pt-BR')} episódios`
+                : 'Temporadas completas'}
+            </p>
+          </div>
+
+          {/* Canais de TV */}
+          <div className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-4 transition-all hover:border-emerald-500/30">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span className="font-medium">Canais de TV</span>
+              <Radio className="h-4 w-4 text-emerald-400" />
+            </div>
+            <p className="mt-2 text-2xl sm:text-3xl font-extrabold text-emerald-400">
+              {(state?.catalog?.totalCanaisTv || 0).toLocaleString('pt-BR')}
+            </p>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Transmissões ao vivo 24h
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center gap-2 rounded-lg bg-slate-950/40 px-3 py-2 text-xs text-slate-400">
+          <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+          <span>
+            Ao gerar linhas para seus clientes, eles assistem diretamente a esta lista completa de <strong>{state?.master.name}</strong> através dos players IPTV.
+          </span>
         </div>
       </div>
 

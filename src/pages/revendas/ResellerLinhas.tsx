@@ -15,6 +15,11 @@ import {
   Settings,
   Sparkles,
   RotateCcw,
+  Film,
+  Tv,
+  Radio,
+  Database,
+  ShieldCheck,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -277,6 +282,28 @@ export const ResellerLinhas: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Resumo do Catálogo do Indicador */}
+      {state && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-900/40 px-4 py-2.5 text-xs text-slate-300">
+          <div className="flex items-center gap-2">
+            <Database className="h-3.5 w-3.5 text-amber-400" />
+            <span>Grade do Indicador ({state.master.name}):</span>
+            <span className="font-semibold text-amber-300">{(state.catalog?.totalConteudos || 0).toLocaleString('pt-BR')} Conteúdos</span>
+            <span className="text-slate-600">•</span>
+            <span className="font-semibold text-sky-300">{(state.catalog?.totalFilmes || 0).toLocaleString('pt-BR')} Filmes</span>
+            <span className="text-slate-600">•</span>
+            <span className="font-semibold text-purple-300">{(state.catalog?.totalSeries || 0).toLocaleString('pt-BR')} Séries</span>
+            <span className="text-slate-600">•</span>
+            <span className="font-semibold text-emerald-300">{(state.catalog?.totalCanaisTv || 0).toLocaleString('pt-BR')} Canais TV</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-[11px] text-slate-400 border border-slate-700/60">
+              Limite Máx: <strong className="text-amber-300 font-medium">{state.catalog?.limiteLabel || 'Ilimitado'}</strong>
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Banner educativo quando saldo está zerado */}
       {saldo === 0 && !loading && (

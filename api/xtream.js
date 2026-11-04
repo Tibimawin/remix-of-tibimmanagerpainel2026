@@ -439,6 +439,22 @@ async function fetchBaserowRowById(baseUrl, tableId, rowId, token) {
   }
 }
 
+// Consulta rápida da contagem de linhas de uma tabela do Baserow (tamanho 1)
+async function fetchBaserowCount(baseUrl, tableId, token) {
+  if (!baseUrl || !tableId || !token) return 0;
+  try {
+    const base = String(baseUrl).replace(/\/+$/, '');
+    const url = `${base}/api/database/rows/table/${tableId}/?user_field_names=true&size=1&page=1`;
+    const resp = await fetch(url, { headers: { Authorization: `Token ${token}` } });
+    if (!resp.ok) return 0;
+    const j = await resp.json();
+    return Number(j?.count) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+
 // Extrair campo com flexibilidade total de sinônimos, maiúsculas e acentos
 function extractField(row, possibleNames) {
   if (!row) return '';
@@ -1511,6 +1527,55 @@ async function handleResellerEndpoint(req, res, rawUrl, body) {
     const masterName = String(ctx.masterUser?.appStoreName || ctx.masterUser?.name || 'Painel');
 
     if (route === 'reseller-state') {
+      let catalog = {
+        totalConteudos: 0,
+        totalFilmes: 0,
+        totalSeries: 0,
+        totalCanaisTv: 0,
+        totalEpisodios: 0,
+        limitePlano: null,
+        limiteLabel: 'Ilimitado',
+        planName: 'Plano Padrão',
+      };
+
+      try {
+        if (ctx.masterId) {
+          const masterPerms = await fsGet(`userPermissions/${encodeURIComponent(ctx.masterId)}`);
+          if (masterPerms) {
+            catalog.planName = String(masterPerms.planName || 'Plano Master');
+            const lim = Number(masterPerms.monthlyContentLimit);
+            if (Number.isFinite(lim)) {
+              catalog.limitePlano = lim;
+              if (lim === -1 || lim >= 1000000 || catalog.planName.toLowerCase().includes('ilimitado')) {
+                catalog.limiteLabel = 'Ilimitado';
+              } else if (lim > 0) {
+                catalog.limiteLabel = `Até ${lim.toLocaleString('pt-BR')} conteúdos`;
+              }
+            }
+          }
+        }
+
+        if (baserow.tableConteudos || baserow.tableCanaisTv) {
+          const [conteudosList, canaisList, epsCount] = await Promise.all([
+            baserow.tableConteudos ? getConteudosCached(baserow).catch(() => []) : [],
+            baserow.tableCanaisTv ? getCanaisCached(baserow).catch(() => []) : [],
+            baserow.tableEpisodios ? fetchBaserowCount(baserow.baseUrl, baserow.tableEpisodios, baserow.apiToken).catch(() => 0) : 0,
+          ]);
+
+          const filmesCount = Array.isArray(conteudosList) ? conteudosList.filter(c => isFilmeRow(c)).length : 0;
+          const seriesCount = Array.isArray(conteudosList) ? conteudosList.filter(c => isSerieRow(c)).length : 0;
+          const totalCanais = Array.isArray(canaisList) ? canaisList.length : 0;
+
+          catalog.totalConteudos = Array.isArray(conteudosList) && conteudosList.length > 0 ? conteudosList.length : (filmesCount + seriesCount);
+          catalog.totalFilmes = filmesCount;
+          catalog.totalSeries = seriesCount;
+          catalog.totalCanaisTv = totalCanais;
+          catalog.totalEpisodios = epsCount;
+        }
+      } catch (catErr) {
+        console.warn('[reseller-state] Erro ao obter catálogo do master:', catErr?.message);
+      }
+
       return sendJson(res, 200, {
         reseller: {
           uid: auth.uid,
@@ -1530,6 +1595,7 @@ async function handleResellerEndpoint(req, res, rawUrl, body) {
           asaasConfigured: Boolean(settings.asaasApiKey),
         },
         master: { id: ctx.masterId, name: masterName },
+        catalog,
         creditsPerLine: RESELLER_DAYS_PER_CREDIT,
       });
     }

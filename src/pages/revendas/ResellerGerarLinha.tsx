@@ -15,6 +15,9 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
+  Database,
+  Film,
+  Radio,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -183,6 +186,37 @@ export const ResellerGerarLinha: React.FC = () => {
           </Link>
         ) : null}
       </div>
+
+      {/* Grade de conteúdos do Indicador vinculados a esta linha */}
+      {state && (
+        <div className="rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900/80 via-slate-900/50 to-slate-950 p-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-slate-300">
+              <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
+              <span>
+                Esta linha terá acesso a todo o acervo de <strong>{state.master.name}</strong>:
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 font-semibold">
+              <span className="flex items-center gap-1 rounded bg-sky-500/10 px-2 py-0.5 text-sky-300 border border-sky-500/20">
+                <Film className="h-3 w-3" />
+                {(state.catalog?.totalFilmes || 0).toLocaleString('pt-BR')} Filmes
+              </span>
+              <span className="flex items-center gap-1 rounded bg-purple-500/10 px-2 py-0.5 text-purple-300 border border-purple-500/20">
+                <Tv className="h-3 w-3" />
+                {(state.catalog?.totalSeries || 0).toLocaleString('pt-BR')} Séries
+              </span>
+              <span className="flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-emerald-300 border border-emerald-500/20">
+                <Radio className="h-3 w-3" />
+                {(state.catalog?.totalCanaisTv || 0).toLocaleString('pt-BR')} Canais
+              </span>
+              <span className="rounded bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-300 border border-amber-500/20">
+                Limite: {state.catalog?.limiteLabel || 'Ilimitado'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Formulário */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 space-y-4">
