@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
@@ -44,7 +44,8 @@ import {
   Globe,
   Calendar,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  MessageCircle
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -135,6 +136,65 @@ export default function GeradorM3U() {
   const [selectedUserId, setSelectedUserId] = useState<string>('manual');
   const [customUsername, setCustomUsername] = useState('demo');
   const [customPassword, setCustomPassword] = useState('123456');
+
+  // WhatsApp de Suporte do Painel (persistido no localStorage e userConfigs)
+  const WPP_STORAGE_KEY = 'tibim_xtream_suporte_whatsapp';
+  const [suporteWhatsapp, setSuporteWhatsapp] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const salvo = window.localStorage.getItem(WPP_STORAGE_KEY);
+      if (salvo && salvo.trim()) return salvo.trim();
+    }
+    return '';
+  });
+
+  const directWppLink = useMemo(() => {
+    const raw = String(suporteWhatsapp || '').trim();
+    const digits = raw.replace(/\D/g, '');
+    if (!digits) return '';
+    const fullNumber = (digits.length === 10 || digits.length === 11) ? `55${digits}` : digits;
+    return `https://wa.me/${fullNumber}`;
+  }, [suporteWhatsapp]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (suporteWhatsapp?.trim()) {
+        window.localStorage.setItem(WPP_STORAGE_KEY, suporteWhatsapp.trim());
+      } else {
+        window.localStorage.removeItem(WPP_STORAGE_KEY);
+      }
+    }
+  }, [suporteWhatsapp]);
+
+  // Carregar WhatsApp salvo no Firestore da conta caso localStorage esteja vazio
+  useEffect(() => {
+    if (!userInfo?.id || suporteWhatsapp) return;
+    getDoc(doc(db, 'userConfigs', userInfo.id))
+      .then(snap => {
+        if (snap.exists()) {
+          const d = snap.data();
+          const savedWpp = d?.xtreamConfig?.suporteWhatsapp || d?.suporteWhatsapp || d?.resellerSettings?.whatsapp;
+          if (savedWpp && typeof savedWpp === 'string' && savedWpp.trim()) {
+            setSuporteWhatsapp(savedWpp.trim());
+          }
+        }
+      })
+      .catch(() => {});
+  }, [userInfo?.id, suporteWhatsapp]);
+
+  // Sincronizar WhatsApp de suporte no Firestore da conta com debounce
+  useEffect(() => {
+    if (!userInfo?.id || !suporteWhatsapp?.trim()) return;
+    const timer = setTimeout(() => {
+      setDoc(doc(db, 'userConfigs', userInfo.id), {
+        suporteWhatsapp: suporteWhatsapp.trim(),
+        xtreamConfig: {
+          suporteWhatsapp: suporteWhatsapp.trim()
+        },
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch(() => {});
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [suporteWhatsapp, userInfo?.id]);
 
   // Filtro de conteúdo no DNS (all | tv | movies | series)
   const [filtroTipoDns, setFiltroTipoDns] = useState<'all' | 'tv' | 'movies' | 'series'>('all');
@@ -930,6 +990,10 @@ export default function GeradorM3U() {
                       filtroTipoDns === 'tv' ? 'Exclusivamente Canais de TV Ao Vivo' :
                       filtroTipoDns === 'movies' ? 'Exclusivamente Filmes VOD' : 'Exclusivamente Séries & Episódios';
 
+    const suporteSecao = directWppLink
+      ? `\n\n💬 *Dúvidas ou Suporte ao Cliente?*\nToque no link direto para falar conosco no WhatsApp:\n👉 ${directWppLink}`
+      : '';
+
     const texto = `📺 *SEUS DADOS DE ACESSO IPTV / XTREAM CODES*\n\n` +
       `📦 *Conteúdo Liberado:* ${modoTexto}\n` +
       `🌐 *Servidor / Host (DNS):* ${xtreamUrls.server}\n` +
@@ -940,11 +1004,17 @@ export default function GeradorM3U() {
       `1. Abra o aplicativo (IPTV Smarters Pro, XCIPTV, TiviMate, etc.)\n` +
       `2. Escolha *"Entrar com API Xtream Codes"*\n` +
       `3. Coloque qualquer nome, e preencha o Host, Usuário e Senha acima!\n` +
-      `4. Clique em Adicionar Usuário e boa diversão! 🍿`;
+      `4. Clique em Adicionar Usuário e boa diversão! 🍿` +
+      suporteSecao;
 
     navigator.clipboard.writeText(texto).then(() => {
       setCopiadoWpp(true);
-      toast.success('Mensagem formatada copiada para envio no WhatsApp!');
+      if (directWppLink) {
+        toast.success('Mensagem formatada copiada com link direto de suporte WhatsApp!');
+      } else {
+        toast.success('Mensagem formatada copiada para envio no WhatsApp!');
+        toast.info('Dica: Preencha seu WhatsApp de Suporte para que o link direto conste na mensagem.');
+      }
       setTimeout(() => setCopiadoWpp(false), 2500);
     }).catch(() => {
       toast.error('Erro ao copiar mensagem.');
@@ -972,6 +1042,7 @@ export default function GeradorM3U() {
         tableCategoriasTV: config.tableIds?.categoriasTV || '',
         defaultUser: customUsername.trim() || 'demo',
         defaultPass: customPassword.trim() || '123456',
+        suporteWhatsapp: suporteWhatsapp.trim(),
         updatedAt: new Date().toISOString()
       };
 
@@ -1779,6 +1850,65 @@ export default function GeradorM3U() {
                 </div>
               </div>
 
+              {/* WhatsApp de Suporte do Painel (Link Direto wa.me) */}
+              <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                      <MessageCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      WhatsApp de Suporte ao Cliente (Link Direto wa.me)
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Defina seu número de atendimento. O sistema gera automaticamente um <strong>link direto clicável (wa.me)</strong> que será inserido na mensagem formatada de acesso — ao tocar no link, o cliente já vai direto para a conversa no seu WhatsApp.
+                    </p>
+                  </div>
+                  {directWppLink ? (
+                    <Badge variant="outline" className="self-start sm:self-auto bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs font-mono shrink-0">
+                      Link ativo: wa.me
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="self-start sm:self-auto text-muted-foreground border-border text-xs shrink-0">
+                      Não configurado
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center pt-1">
+                  <div className="sm:col-span-5">
+                    <Input
+                      value={suporteWhatsapp}
+                      onChange={(e) => setSuporteWhatsapp(e.target.value)}
+                      placeholder="Ex: (11) 99999-9999 ou 5511999999999"
+                      className="font-mono text-xs h-9 bg-background"
+                    />
+                  </div>
+                  <div className="sm:col-span-7 flex items-center gap-2">
+                    {directWppLink ? (
+                      <>
+                        <div className="flex-1 truncate text-xs font-mono text-emerald-700 dark:text-emerald-300 bg-background px-3 py-2 rounded-lg border border-emerald-500/30 select-all" title={directWppLink}>
+                          👉 {directWppLink}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(directWppLink, '_blank')}
+                          className="h-9 text-xs gap-1.5 shrink-0 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                          title="Abrir e testar o link direto no WhatsApp"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          Testar Link
+                        </Button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">
+                        Digite seu número (DDD + celular) para gerar o link direto
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Gerador de Teste Rápido (1 hora) */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5">
                 <div className="space-y-0.5">
@@ -2041,13 +2171,24 @@ export default function GeradorM3U() {
                   </Button>
                 </div>
 
-                <Button
-                  onClick={handleCopyWhatsAppMessage}
-                  className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
-                >
-                  {copiadoWpp ? <Check className="w-4 h-4" /> : <Send className="w-4 h-4" />}
-                  {copiadoWpp ? 'Copiado para WhatsApp!' : 'Copiar Acesso Formatado (WhatsApp)'}
-                </Button>
+                <div className="flex flex-col items-stretch sm:items-end gap-1.5 shrink-0">
+                  <Button
+                    onClick={handleCopyWhatsAppMessage}
+                    className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                  >
+                    {copiadoWpp ? <Check className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+                    {copiadoWpp ? 'Copiado para WhatsApp!' : 'Copiar Acesso Formatado (WhatsApp)'}
+                  </Button>
+                  {directWppLink ? (
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center justify-end gap-1">
+                      <Check className="w-3 h-3" /> Link direto incluído na mensagem
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground flex items-center justify-end gap-1">
+                      <Info className="w-3 h-3 text-amber-500" /> Sem link de WhatsApp configurado
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Resultado do Teste Xtream Codes */}
