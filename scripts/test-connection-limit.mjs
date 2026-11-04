@@ -70,9 +70,9 @@ async function main() {
     const rExtra = await checkScreenLimit(scope, '10.0.0.3', 'PC/VLC', validate, t0 + 5000);
     check('4ª tela é bloqueada', rExtra.ok === false && rExtra.reason === 'limit');
 
-    // Uma tela expira → a 4ª passa a entrar
+    // Todas as telas expiram (último acesso + TTL < agora) → a vaga fica livre
     const rDepois = await checkScreenLimit(scope, '10.0.0.3', 'PC/VLC', validate, t0 + TTL + 2 * MIN);
-    check('após uma tela expirar, a 4ª entra', rDepois.ok === true && rDepois.active === 3);
+    check('após todas as telas expirarem, a 4ª entra', rDepois.ok === true && rDepois.active === 1);
   }
 
   // ---- Cenário C: usuário inválido ----
