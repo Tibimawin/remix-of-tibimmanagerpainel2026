@@ -4,7 +4,7 @@ import { FirebaseUserService, FirebaseUser } from '@/services/FirebaseUserServic
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Activity, AlertTriangle, Menu, Search, Filter, UserPlus, Users, Bell, DollarSign, Shield, Zap } from 'lucide-react';
+import { Activity, AlertTriangle, Menu, Search, Filter, UserPlus, Users, Bell, DollarSign, Shield, Zap, Copy, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
@@ -13,6 +13,7 @@ import { useRealtimeLogs } from '@/hooks/useRealtimeLogs';
 import { useRealtimeActivities } from '@/hooks/useRealtimeActivities';
 import { AdminSidebar, AdminView } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
+import { AdminUserExplorer } from '@/components/admin/AdminUserExplorer';
 import { useMaintenanceMode } from '@/hooks/useMaintenanceMode';
 import { useApiKeyAutoBlocker } from '@/hooks/useApiKeyAutoBlocker';
 import { Button } from '@/components/ui/button';
@@ -245,81 +246,120 @@ const AdminDashboard = () => {
             <VisualMetricsDashboard users={convertedUsersOverview} logs={logs} />
 
             {/* Atividades Recentes - Tempo Real */}
-            <Card className="modern-card bg-gradient-to-br from-card to-card/80 border-border/40">
-              <CardHeader>
+            <Card className="bg-card/40 border border-purple-500/15 backdrop-blur-md rounded-xl overflow-hidden shadow-sm">
+              <CardHeader className="pb-3 pt-4 px-4 sm:px-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="space-y-1">
-                    <CardTitle className="text-foreground flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-primary" />
-                      Atividades Recentes
-                      <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
-                        🔴 AO VIVO
-                      </Badge>
+                    <CardTitle className="text-base sm:text-lg font-bold text-foreground flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-purple-400" />
+                      <span>Atividades Operacionais em Tempo Real</span>
+                      <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-normal">
+                        Ao Vivo
+                      </span>
                     </CardTitle>
-                    <CardDescription className="text-muted-foreground">
-                      Últimas {Math.min(filteredActivities.length, 15)} atividades filtradas (Monitoramento Global)
+                    <CardDescription className="text-xs text-muted-foreground">
+                      Últimos eventos capturados pelo Firebase Firestore (auditoria e telemetria de assinantes)
                     </CardDescription>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
                     <div className="relative">
-                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                       <Input
-                        placeholder="Buscar por usuário ou ação..."
-                        className="pl-9 w-full sm:w-[250px] bg-background/50"
+                        placeholder="Buscar usuário ou ação..."
+                        className="pl-8 h-8 text-xs w-full sm:w-[240px] bg-background/50 border-purple-500/20 focus-visible:ring-purple-500/30"
                         value={activitySearch}
                         onChange={(e) => setActivitySearch(e.target.value)}
                       />
                     </div>
                     <Select value={activityFilter} onValueChange={setActivityFilter}>
-                      <SelectTrigger className="w-full sm:w-[150px] bg-background/50">
-                        <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+                      <SelectTrigger className="w-full sm:w-[150px] h-8 text-xs bg-background/50 border-purple-500/20">
+                        <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
                         <SelectValue placeholder="Filtrar tipo" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos Eventos</SelectItem>
                         <SelectItem value="auth">Autenticação</SelectItem>
                         <SelectItem value="payment">Pagamentos</SelectItem>
-                        <SelectItem value="error">Erros/Falhas</SelectItem>
+                        <SelectItem value="error">Erros / Falhas</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-4 sm:px-6 pb-4">
                 {activitiesLoading ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-muted-foreground">Carregando atividades em tempo real...</p>
+                  <div className="text-center py-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mx-auto mb-3"></div>
+                    <p className="text-xs text-muted-foreground font-mono">Sincronizando feed de atividades em tempo real...</p>
                   </div>
                 ) : filteredActivities.length > 0 ? (
-                  <div className="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
-                    {filteredActivities.slice(0, 15).map((log) => (
-                      <div key={log.id} className="flex items-center justify-between p-4 modern-card bg-gradient-to-r from-card/80 to-card/60 border border-border/30 hover:shadow-soft transition-all duration-300 animate-pulse-once">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <Badge variant="outline" className="text-xs border-primary/30 text-primary bg-primary/5">
-                              {log.userEmail}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">{log.timestamp}</span>
-                            <Badge variant="secondary" className="text-xs bg-green-500/10 text-green-500">
-                              Firebase
-                            </Badge>
+                  <div className="space-y-2 max-h-96 overflow-y-auto pr-1 custom-scrollbar">
+                    {filteredActivities.slice(0, 20).map((log) => {
+                      const isAuth = log.action?.toLowerCase().includes('login') || log.action?.toLowerCase().includes('auth');
+                      const isError = log.action?.toLowerCase().includes('erro') || log.action?.toLowerCase().includes('fail');
+                      const isPayment = log.action?.toLowerCase().includes('pagamento') || log.action?.toLowerCase().includes('pix');
+
+                      return (
+                        <div
+                          key={log.id}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg bg-card/60 border border-purple-500/10 hover:border-purple-500/30 hover:bg-card/80 transition-all gap-2"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <span className="font-mono text-xs font-medium text-foreground bg-muted/40 px-2 py-0.5 rounded border border-border/40">
+                                {log.userEmail || 'Sistema'}
+                              </span>
+                              <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
+                                {log.timestamp || 'Agora'}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] font-mono px-1.5 py-0 ${
+                                  isError
+                                    ? 'border-rose-500/30 text-rose-400 bg-rose-500/10'
+                                    : isAuth
+                                    ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
+                                    : isPayment
+                                    ? 'border-fuchsia-500/30 text-fuchsia-300 bg-fuchsia-500/10'
+                                    : 'border-purple-500/30 text-purple-300 bg-purple-500/10'
+                                }`}
+                              >
+                                {isError ? 'Alerta' : isAuth ? 'Acesso' : isPayment ? 'Financeiro' : 'Operação'}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-foreground font-medium truncate">{log.action}</p>
+                            {log.details && (
+                              <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{log.details}</p>
+                            )}
                           </div>
-                          <p className="text-sm text-foreground font-medium">{log.action}</p>
-                          {log.details && (
-                            <p className="text-xs text-muted-foreground mt-1">{log.details}</p>
-                          )}
+                          <div className="self-end sm:self-center shrink-0">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${log.userEmail || ''} - ${log.action} (${log.timestamp})`);
+                                toast.success('Detalhes do log copiados!');
+                              }}
+                              className="h-6 text-[10px] font-mono text-muted-foreground hover:text-foreground px-2"
+                            >
+                              <Copy className="w-3 h-3 mr-1" />
+                              Copiar
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
-                  <div className="text-center py-12">
-                    <div className="flex items-center justify-center w-16 h-16 bg-muted/20 rounded-full mb-4 mx-auto">
-                      <Activity className="h-8 w-8 text-muted-foreground" />
+                  <div className="text-center py-10">
+                    <div className="flex items-center justify-center w-12 h-12 bg-muted/20 rounded-xl mb-3 mx-auto">
+                      <Activity className="h-6 w-6 text-muted-foreground" />
                     </div>
-                    <p className="text-foreground font-medium">Nenhuma atividade registrada</p>
-                    <p className="text-xs text-muted-foreground mt-1">As atividades aparecerão aqui quando os usuários interagirem com o sistema</p>
+                    <p className="text-sm font-semibold text-foreground">Nenhuma atividade recente registrada</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Eventos de login, pagamentos e atualizações aparecerão aqui em tempo real.
+                    </p>
                   </div>
                 )}
               </CardContent>
@@ -328,63 +368,13 @@ const AdminDashboard = () => {
         );
       case 'users':
         return (
-          <Card className="modern-card bg-gradient-to-br from-card to-card/80 border-border/40">
-            <CardHeader>
-              <CardTitle className="text-foreground">Lista de Usuários com IMEI</CardTitle>
-              <CardDescription className="text-muted-foreground">
-                Dados obtidos diretamente da base de dados incluindo IMEI dos dispositivos
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-border/40 hover:bg-muted/20">
-                      <TableHead className="text-muted-foreground font-medium">ID</TableHead>
-                      <TableHead className="text-muted-foreground font-medium">Nome</TableHead>
-                      <TableHead className="text-muted-foreground font-medium">Email</TableHead>
-                      <TableHead className="text-muted-foreground font-medium">Total Logins</TableHead>
-                      <TableHead className="text-muted-foreground font-medium">Status</TableHead>
-                      <TableHead className="text-muted-foreground font-medium">Dispositivos</TableHead>
-                      <TableHead className="text-muted-foreground font-medium">Último IP</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map((user) => {
-                      return (
-                        <TableRow key={user.uid} className="border-border/40 hover:bg-muted/10 transition-colors">
-                          <TableCell className="text-muted-foreground font-mono">{user.uid}</TableCell>
-                          <TableCell className="text-foreground font-medium">{user.name || '-'}</TableCell>
-                          <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                          <TableCell className="text-muted-foreground">
-                            <Badge variant="outline" className="font-mono">
-                              {user.totalLogins || 0}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={user.isActive ? "default" : "destructive"}>
-                              {user.isActive ? 'Ativo' : 'Inativo'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-xs">
-                            {user.deviceInfo ? (
-                              <div className="p-2 bg-muted/20 rounded border border-border/20">
-                                <div className="text-accent font-mono text-xs">{user.deviceInfo.imei || '-'}</div>
-                                <div className="text-xs">{user.deviceInfo.dispositivo || '-'}</div>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-xs font-mono">{user.deviceInfo?.ip || '-'}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+          <AdminUserExplorer
+            users={users}
+            onRefresh={refreshData}
+            isRefreshing={isRefreshing}
+            onNavigateToCreate={() => setActiveView('user-management')}
+            onNavigateToAdvanced={() => setActiveView('firebase-users')}
+          />
         );
       case 'activity':
         return (
@@ -623,18 +613,22 @@ const AdminDashboard = () => {
                   activeView={activeView}
                   users={users}
                   logs={logs}
+                  isRefreshing={isRefreshing}
+                  onRefresh={refreshData}
+                  onNavigate={(view) => setActiveView(view)}
                 />
 
                 {/* Quick Action Shortcuts Bar for 1-click access */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
-                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider whitespace-nowrap mr-1">
-                    Atalhos Rápidos:
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 no-scrollbar text-xs">
+                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider whitespace-nowrap mr-1 select-none">
+                    Atalhos:
                   </span>
                   {[
                     { id: 'overview', label: 'Visão Geral', icon: Zap },
-                    { id: 'users', label: 'Usuários', icon: Users },
+                    { id: 'users', label: 'Usuários & IMEI', icon: Users, badge: users.length ? String(users.length) : undefined },
                     { id: 'user-management', label: 'Cadastrar', icon: UserPlus },
                     { id: 'financial', label: 'Financeiro PIX', icon: DollarSign },
+                    { id: 'plans', label: 'Planos', icon: Shield },
                     { id: 'push-center', label: 'Push', icon: Bell },
                     { id: 'security-center', label: 'Segurança', icon: Shield },
                     { id: 'activity', label: 'Logs Ao Vivo', icon: Activity },
@@ -642,21 +636,26 @@ const AdminDashboard = () => {
                     const SIcon = shortcut.icon;
                     const isActive = activeView === shortcut.id;
                     return (
-                      <Button
+                      <button
                         key={shortcut.id}
                         type="button"
-                        size="sm"
-                        variant={isActive ? 'default' : 'outline'}
                         onClick={() => setActiveView(shortcut.id as AdminView)}
-                        className={`h-7 text-[11px] px-2.5 py-0 border-purple-500/20 cursor-pointer active:scale-95 transition-all duration-150 ${
+                        className={`h-7 inline-flex items-center gap-1.5 text-[11px] font-medium px-3 rounded-lg border transition-all cursor-pointer shrink-0 active:scale-95 ${
                           isActive
-                            ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-sm shadow-purple-500/20'
-                            : 'bg-background/40 hover:bg-purple-500/10 hover:text-purple-300'
+                            ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white border-purple-500/50 shadow-sm shadow-purple-500/25 font-semibold'
+                            : 'bg-card/40 border-purple-500/15 text-muted-foreground hover:text-foreground hover:bg-purple-500/10 hover:border-purple-500/30'
                         }`}
                       >
-                        <SIcon className="w-3 h-3 mr-1" />
-                        {shortcut.label}
-                      </Button>
+                        <SIcon className="w-3.5 h-3.5" />
+                        <span>{shortcut.label}</span>
+                        {shortcut.badge && (
+                          <span className={`text-[10px] font-mono tabular-nums px-1.5 py-0 rounded ${
+                            isActive ? 'bg-white/20 text-white' : 'bg-muted/50 text-muted-foreground'
+                          }`}>
+                            {shortcut.badge}
+                          </span>
+                        )}
+                      </button>
                     );
                   })}
                 </div>

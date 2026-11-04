@@ -27,7 +27,9 @@ export const AdminAlertCenter: React.FC = () => {
     const [users, setUsers] = useState<FirebaseUser[]>([]);
     const [automationRunning, setAutomationRunning] = useState<string[]>([]);
     const [showDismissed, setShowDismissed] = useState(false);
-    const [soundEnabled, setSoundEnabled] = useState(true);
+    const [soundEnabled, setSoundEnabled] = useState(false);
+    const notifiedRef = React.useRef<Set<string>>(new Set());
+    const isFirstRunRef = React.useRef(true);
 
     const checkForAlerts = useCallback((userList: FirebaseUser[]) => {
         const newAlerts: AdminAlert[] = [];
@@ -86,22 +88,24 @@ export const AdminAlertCenter: React.FC = () => {
             }
         });
 
-        // Atualizar alertas e mostrar toast para novos alertas críticos
-        const criticalAlerts = newAlerts.filter(a => a.severity === 'critical');
+        // Notificar apenas NOVOS alertas críticos que surgirem após o carregamento inicial
+        if (!isFirstRunRef.current && soundEnabled) {
+            const newCriticalAlerts = newAlerts.filter(a => a.severity === 'critical' && !notifiedRef.current.has(a.id));
 
-        if (criticalAlerts.length > 0 && soundEnabled) {
-            // Tocar som de alerta
-            playAlertSound();
+            if (newCriticalAlerts.length > 0) {
+                try { playAlertSound(); } catch { /* noop */ }
 
-            criticalAlerts.forEach(alert => {
-                toast.error(`🚨 ${alert.userName}: ${alert.message}`, {
-                    duration: 10000,
-                    action: {
-                        label: 'Ver Detalhes',
-                        onClick: () => console.log('Navegar para usuário:', alert.userId)
-                    }
+                newCriticalAlerts.forEach(alert => {
+                    notifiedRef.current.add(alert.id);
+                    toast.error(`🚨 ${alert.userName}: ${alert.message}`, {
+                        duration: 8000,
+                    });
                 });
-            });
+            }
+        } else if (isFirstRunRef.current) {
+            // No primeiro carregamento, apenas registra os IDs existentes sem disparar toasts
+            newAlerts.forEach(a => notifiedRef.current.add(a.id));
+            isFirstRunRef.current = false;
         }
 
         setAlerts(newAlerts);

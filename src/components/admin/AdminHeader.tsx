@@ -1,31 +1,35 @@
 import React, { useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useAppName } from '@/contexts/AppNameContext';
 import {
   Users, Activity, Shield, Zap, AlertTriangle, Megaphone, DollarSign,
-  Key, Bell, Sparkles, Palette, Tag, RefreshCw, Settings, MessageCircle
+  Key, Bell, Sparkles, Palette, Tag, RefreshCw, Settings, MessageCircle, UserPlus, ChevronRight
 } from 'lucide-react';
 
 interface AdminHeaderProps {
   activeView: string;
   users: any[];
   logs: any[];
+  isRefreshing?: boolean;
+  onRefresh?: () => void;
+  onNavigate?: (view: any) => void;
 }
 
 const viewTitles: Record<string, { title: string; description: string; icon: any }> = {
   overview: {
     title: 'Visão Geral do Sistema',
-    description: 'Acompanhe as principais métricas e atividades do sistema em tempo real',
+    description: 'Acompanhe as principais métricas, telemetria e atividades operacionais em tempo real',
     icon: Shield
   },
   users: {
-    title: 'Gerenciamento de Usuários',
-    description: 'Visualize e gerencie todos os usuários cadastrados e seus dispositivos',
+    title: 'Usuários & Dispositivos',
+    description: 'Gerencie clientes cadastrados, controle de telas e identifique aparelhos vinculados',
     icon: Users
   },
   activity: {
     title: 'Logs de Atividade em Tempo Real',
-    description: 'Monitore todas as ações realizadas no sistema instantaneamente',
+    description: 'Monitore todas as ações realizadas no sistema instantaneamente via Firebase',
     icon: Activity
   },
   'user-action-history': {
@@ -93,9 +97,14 @@ const viewTitles: Record<string, { title: string; description: string; icon: any
     description: 'Adicione e provisione novos clientes com liberação instantânea',
     icon: Users
   },
+  'todos-apps': {
+    title: 'Todos os Apps & Builds',
+    description: 'Gerencie versões e links dos APKs e aplicativos distribuídos',
+    icon: Sparkles
+  },
   'firebase-users': {
-    title: 'Gerenciamento Direto Firebase',
-    description: 'Usuários sincronizados e autenticação direta via Firestore/Auth',
+    title: 'Gestão Avançada Firebase',
+    description: 'Operações em massa, correções de plano e sincronização direta',
     icon: Users
   },
   'registration-control': {
@@ -107,6 +116,11 @@ const viewTitles: Record<string, { title: string; description: string; icon: any
     title: 'Gerenciar Assinaturas & Planos',
     description: 'Controle de planos ativos, periodicidades e faturas',
     icon: DollarSign
+  },
+  'admin-revendas': {
+    title: 'Painel de Revendas & Atacado',
+    description: 'Controle de parceiros, revendedores e créditos de distribuição',
+    icon: Users
   },
   'planos-config': {
     title: 'Configuração de Preços e Planos',
@@ -205,7 +219,15 @@ const viewTitles: Record<string, { title: string; description: string; icon: any
   }
 };
 
-export const AdminHeader: React.FC<AdminHeaderProps> = ({ activeView, users, logs }) => {
+export const AdminHeader: React.FC<AdminHeaderProps> = ({
+  activeView,
+  users,
+  logs,
+  isRefreshing,
+  onRefresh,
+  onNavigate
+}) => {
+  const { appDisplayName } = useAppName();
   const currentView = viewTitles[activeView] || viewTitles.overview;
   const Icon = currentView.icon;
 
@@ -220,105 +242,98 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ activeView, users, log
     };
   }, [users, logs]);
 
+  const isOverview = activeView === 'overview';
+
   return (
-    <div className="mb-4 sm:mb-6 space-y-3 sm:space-y-4">
-      {/* Title Section */}
-      <div className="flex items-center gap-3 sm:gap-4">
-        <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0 bg-gradient-to-br from-purple-500/15 via-purple-500/10 to-fuchsia-500/15 rounded-xl border border-purple-500/30 shadow-md">
-          <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
+    <div className="mb-4 sm:mb-6 space-y-3">
+      {/* Breadcrumb Trail & Action Cluster */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-1 border-b border-border/40">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
+          <span className="text-foreground/80 font-medium truncate max-w-[150px]">{appDisplayName}</span>
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+          <span className="text-muted-foreground">Admin</span>
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+          <span className="text-purple-300 font-semibold truncate max-w-[200px]">{currentView.title}</span>
+        </nav>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+          {/* Live indicator chip */}
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-mono">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            Realtime Ativo
+          </div>
+
+          {/* Refresh button */}
+          {onRefresh && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="h-7 text-xs px-2.5 border-border/40 bg-card/40 hover:bg-purple-500/10 hover:text-purple-300 transition-colors"
+              title="Atualizar dados do sistema"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isRefreshing ? 'animate-spin text-purple-400' : 'text-muted-foreground'}`} />
+              <span className="hidden sm:inline">Atualizar</span>
+            </Button>
+          )}
+
+          {/* Quick User Create Action */}
+          {onNavigate && activeView !== 'user-management' && (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => onNavigate('user-management')}
+              className="h-7 text-xs px-3 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white font-medium shadow-sm shadow-purple-500/20 cursor-pointer active:scale-95 transition-all"
+            >
+              <UserPlus className="w-3.5 h-3.5 mr-1.5" />
+              <span>Novo Usuário</span>
+            </Button>
+          )}
         </div>
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-foreground bg-gradient-to-r from-purple-300 via-purple-100 to-fuchsia-300 bg-clip-text text-transparent break-words">
+      </div>
+
+      {/* Title & Description Section */}
+      <div className="flex items-start gap-3 sm:gap-4 pt-1">
+        <div className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 shrink-0 bg-gradient-to-br from-purple-500/15 via-purple-500/10 to-fuchsia-500/15 rounded-xl border border-purple-500/30 shadow-md">
+          <Icon className="w-5 h-5 sm:w-5 sm:h-5 text-purple-300" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground bg-gradient-to-r from-purple-200 via-white to-fuchsia-200 bg-clip-text text-transparent break-words">
             {currentView.title}
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">{currentView.description}</p>
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
-        {/* Card 1: Usuários */}
-        <Card className="bg-card/40 border-purple-500/15 backdrop-blur-md hover:border-purple-500/30 shadow-sm transition-all duration-200 rounded-xl overflow-hidden">
-          <CardContent className="p-3.5 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider font-mono">Total Usuários</p>
-                <p className="text-2xl font-bold text-foreground mt-1">{stats.totalUsers}</p>
-              </div>
-              <div className="flex items-center justify-center w-9 h-9 bg-purple-500/15 rounded-lg border border-purple-500/25">
-                <Users className="w-4 h-4 text-purple-400" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-center justify-between">
-              <Badge className="bg-purple-500/15 text-purple-300 border border-purple-500/25 text-[10px] px-1.5 py-0">
-                {stats.activeUsers} ativos
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Card 2: Dispositivos */}
-        <Card className="bg-card/40 border-purple-500/15 backdrop-blur-md hover:border-purple-500/30 shadow-sm transition-all duration-200 rounded-xl overflow-hidden">
-          <CardContent className="p-3.5 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider font-mono">Dispositivos</p>
-                <p className="text-2xl font-bold text-foreground mt-1">{stats.devicesCount}</p>
-              </div>
-              <div className="flex items-center justify-center w-9 h-9 bg-fuchsia-500/15 rounded-lg border border-fuchsia-500/25">
-                <Shield className="w-4 h-4 text-fuchsia-400" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-center justify-between">
-              <Badge variant="outline" className="text-[10px] border-fuchsia-500/30 text-fuchsia-300 bg-fuchsia-500/10 px-1.5 py-0">
-                IMEI Vinculados
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Card 3: Atividades */}
-        <Card className="bg-card/40 border-purple-500/15 backdrop-blur-md hover:border-purple-500/30 shadow-sm transition-all duration-200 rounded-xl overflow-hidden">
-          <CardContent className="p-3.5 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider font-mono">Atividades</p>
-                <p className="text-2xl font-bold text-foreground mt-1">{stats.totalLogs}</p>
-              </div>
-              <div className="flex items-center justify-center w-9 h-9 bg-violet-500/15 rounded-lg border border-violet-500/25">
-                <Activity className="w-4 h-4 text-violet-400" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-center justify-between">
-              <Badge className="bg-violet-500/15 text-violet-300 border border-violet-500/25 text-[10px] px-1.5 py-0">
-                Eventos
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Card 4: Status do Sistema */}
-        <Card className="bg-card/40 border-purple-500/15 backdrop-blur-md hover:border-purple-500/30 shadow-sm transition-all duration-200 rounded-xl overflow-hidden">
-          <CardContent className="p-3.5 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider font-mono">Sistema</p>
-                <p className="text-2xl font-bold text-emerald-400 mt-1">Online</p>
-              </div>
-              <div className="flex items-center justify-center w-9 h-9 bg-emerald-500/15 rounded-lg border border-emerald-500/25">
-                <Zap className="w-4 h-4 text-emerald-400 animate-pulse" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-center gap-1.5">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="text-[10px] text-emerald-400 font-medium font-mono">Alta Performance</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* For Non-Overview pages: High-Density Telemetry Strip (eliminates 160px vertical bloat) */}
+      {!isOverview && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-2 px-3 rounded-xl bg-card/30 border border-purple-500/15 text-xs text-muted-foreground font-mono">
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+            Total Usuários: <strong className="text-foreground tabular-nums">{stats.totalUsers}</strong>
+          </span>
+          <span className="text-muted-foreground/30 hidden sm:inline">·</span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            Ativos: <strong className="text-emerald-400 tabular-nums">{stats.activeUsers}</strong>
+          </span>
+          <span className="text-muted-foreground/30 hidden sm:inline">·</span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-400"></span>
+            Dispositivos IMEI: <strong className="text-fuchsia-400 tabular-nums">{stats.devicesCount}</strong>
+          </span>
+          <span className="text-muted-foreground/30 hidden sm:inline">·</span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-violet-400"></span>
+            Eventos Registrados: <strong className="text-foreground tabular-nums">{stats.totalLogs}</strong>
+          </span>
+        </div>
+      )}
     </div>
   );
 };

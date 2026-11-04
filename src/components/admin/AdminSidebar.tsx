@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { useAppName } from '@/contexts/AppNameContext';
 import {
   Shield, Users, Activity, Calendar, BarChart, Package, Bell,
   UserPlus, CreditCard, Crown, UserCheck, MessageCircle,
@@ -24,45 +25,45 @@ interface AdminSidebarProps {
 
 const menuItems = [
   { id: 'overview', label: 'Visão Geral', icon: Shield, category: 'main' },
-  { id: 'users', label: 'Usuários', icon: Users, category: 'main' },
+  { id: 'users', label: 'Usuários & Dispositivos', icon: Users, category: 'main' },
   { id: 'activity', label: 'Logs de Atividade', icon: Activity, category: 'main' },
-  { id: 'user-action-history', label: '📋 Ações dos Usuários', icon: Activity, category: 'main' },
+  { id: 'user-action-history', label: 'Ações dos Usuários', icon: Activity, category: 'main' },
   { id: 'date-logs', label: 'Logs por Data', icon: Calendar, category: 'main' },
-  { id: 'security-center', label: '🔒 Central de Segurança', icon: Shield, category: 'security' },
-  { id: 'protected-channels', label: '🛡️ Canais Protegidos', icon: Shield, category: 'security', isNew: true },
-  { id: 'cloak-links', label: '🔗 Links Camuflados', icon: Shield, category: 'security', isNew: true },
-  { id: 'cloak-dashboard', label: '📊 Camuflagem & Importações', icon: BarChart, category: 'analytics', isNew: true },
-  { id: 'financial', label: '💰 Controle Financeiro', icon: DollarSign, category: 'analytics', isNew: true },
+  { id: 'security-center', label: 'Central de Segurança', icon: Shield, category: 'security' },
+  { id: 'protected-channels', label: 'Canais Protegidos', icon: Shield, category: 'security', isNew: true },
+  { id: 'cloak-links', label: 'Links Camuflados', icon: Shield, category: 'security', isNew: true },
+  { id: 'cloak-dashboard', label: 'Camuflagem & Tráfego', icon: BarChart, category: 'analytics', isNew: true },
+  { id: 'financial', label: 'Controle Financeiro', icon: DollarSign, category: 'analytics', isNew: true },
   { id: 'metrics', label: 'Métricas Visuais', icon: BarChart, category: 'analytics' },
   { id: 'products', label: 'Produtos', icon: Package, category: 'management' },
-  { id: 'offers', label: 'Ofertas', icon: Tag, category: 'management' },
-  { id: 'referrals', label: 'Indicações', icon: Users, category: 'management', isNew: true },
-  { id: 'api-keys', label: '🔑 API Keys', icon: Key, category: 'management', isNew: true },
-  { id: 'announcements', label: 'Anúncios', icon: Megaphone, category: 'management' },
-  { id: 'system-updates', label: '🎉 Atualizações do Sistema', icon: Sparkles, category: 'management', isNew: true },
+  { id: 'offers', label: 'Ofertas & Cupons', icon: Tag, category: 'management' },
+  { id: 'referrals', label: 'Indicações & Afiliados', icon: Users, category: 'management', isNew: true },
+  { id: 'api-keys', label: 'API Keys', icon: Key, category: 'management', isNew: true },
+  { id: 'announcements', label: 'Anúncios & Banners', icon: Megaphone, category: 'management' },
+  { id: 'system-updates', label: 'Atualizações do Sistema', icon: Sparkles, category: 'management', isNew: true },
 
   { id: 'notifications', label: 'Notificações', icon: Bell, category: 'management' },
-  { id: 'push-center', label: '🔔 Central de Push', icon: Bell, category: 'management', isNew: true },
-  { id: 'expiration-notifications', label: '⏰ Notificações de Expiração', icon: AlertTriangle, category: 'management' },
+  { id: 'push-center', label: 'Central de Push', icon: Bell, category: 'management', isNew: true },
+  { id: 'expiration-notifications', label: 'Notificações de Expiração', icon: AlertTriangle, category: 'management' },
   { id: 'user-management', label: 'Cadastrar Usuários', icon: UserPlus, category: 'management' },
-  { id: 'todos-apps', label: '📱 Todos Apps', icon: Smartphone, category: 'management', isNew: true },
-  { id: 'firebase-users', label: '🔥 Gerenciar Usuários Firebase', icon: Users, category: 'management' },
+  { id: 'todos-apps', label: 'Todos os Apps', icon: Smartphone, category: 'management', isNew: true },
+  { id: 'firebase-users', label: 'Gestão Avançada Firebase', icon: Users, category: 'management' },
   { id: 'registration-control', label: 'Controle de Cadastro', icon: Settings, category: 'management' },
-  { id: 'plans', label: 'Gerenciar Planos', icon: CreditCard, category: 'management' },
-  { id: 'admin-revendas', label: '🤝 Revendas & Atacado', icon: Users, category: 'management', isNew: true },
-  { id: 'planos-config', label: '📋 Configurar Planos', icon: CreditCard, category: 'management' },
+  { id: 'plans', label: 'Gerenciar Assinaturas', icon: CreditCard, category: 'management' },
+  { id: 'admin-revendas', label: 'Revendas & Atacado', icon: Users, category: 'management', isNew: true },
+  { id: 'planos-config', label: 'Configurar Planos', icon: CreditCard, category: 'management' },
   { id: 'plan-requests', label: 'Planos Solicitados', icon: Crown, category: 'management' },
-  { id: 'user-permissions', label: 'Permissões de Usuário', icon: UserCheck, category: 'management' },
+  { id: 'user-permissions', label: 'Permissões & Papéis', icon: UserCheck, category: 'management' },
   { id: 'suporte-prioritario', label: 'Suporte Prioritário', icon: MessageCircle, category: 'support' },
-  { id: 'whatsapp', label: 'WhatsApp Config', icon: MessageCircle, category: 'settings' },
+  { id: 'whatsapp', label: 'WhatsApp API', icon: MessageCircle, category: 'settings' },
   { id: 'maintenance', label: 'Modo Manutenção', icon: AlertTriangle, category: 'settings' },
   { id: 'access-expired-config', label: 'Mensagem Acesso Expirado', icon: Shield, category: 'settings' },
-  { id: 'seasonal-theme', label: '🎨 Tema Sazonal', icon: Palette, category: 'settings', isNew: true },
-  { id: 'import-config', label: 'Config. Importação', icon: Settings, category: 'settings' },
+  { id: 'seasonal-theme', label: 'Tema Sazonal', icon: Palette, category: 'settings', isNew: true },
+  { id: 'import-config', label: 'Config. Importação M3U', icon: Settings, category: 'settings' },
   { id: 'series-correction', label: 'Corrigir Séries', icon: RefreshCw, category: 'settings' },
-  { id: 'series-update-config', label: '🔄 Origem Atualização de Séries', icon: RefreshCw, category: 'settings', isNew: true },
-  { id: 'miniseries-config', label: '🎬 Origem Minisséries', icon: Settings, category: 'settings', isNew: true },
-  { id: 'jogos-dia-config', label: '⚽ Origem Jogos do Dia', icon: Settings, category: 'settings', isNew: true },
+  { id: 'series-update-config', label: 'Origem Atualização Séries', icon: RefreshCw, category: 'settings', isNew: true },
+  { id: 'miniseries-config', label: 'Origem Minisséries', icon: Settings, category: 'settings', isNew: true },
+  { id: 'jogos-dia-config', label: 'Origem Jogos do Dia', icon: Settings, category: 'settings', isNew: true },
   { id: 'chat', label: 'Suporte ao Vivo', icon: MessageCircle, category: 'support' },
 ];
 
@@ -85,6 +86,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   mobileOpen,
   onMobileOpenChange
 }) => {
+  const { appDisplayName } = useAppName();
   const [scrolled, setScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -139,19 +141,22 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       {/* Header */}
       <div className="p-4 sm:p-5 border-b border-purple-500/10">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-purple-600 via-purple-500 to-fuchsia-500 rounded-xl shadow-lg shadow-purple-500/25">
+          <div className="flex items-center space-x-3 min-w-0">
+            <div className="flex items-center justify-center w-10 h-10 shrink-0 bg-gradient-to-br from-purple-600 via-purple-500 to-fuchsia-500 rounded-xl shadow-lg shadow-purple-500/25">
               <Shield className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-foreground bg-gradient-to-r from-purple-400 via-fuchsia-400 to-violet-400 bg-clip-text text-transparent">
-                Admin Panel
+            <div className="min-w-0">
+              <h1 className="text-sm font-bold text-foreground truncate bg-gradient-to-r from-purple-300 via-purple-100 to-fuchsia-300 bg-clip-text text-transparent" title={appDisplayName}>
+                {appDisplayName}
               </h1>
-              <p className="text-[11px] text-muted-foreground font-mono truncate max-w-[140px]">{adminUser?.nome || 'Admin'}</p>
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono">
+                <span className="truncate max-w-[90px]">{adminUser?.nome || 'Admin'}</span>
+                <span className="text-purple-400 font-medium">· Admin</span>
+              </div>
             </div>
           </div>
-          <Badge variant="outline" className="text-[10px] font-mono border-purple-500/30 text-purple-400 bg-purple-500/10">
-            v3.0 Otimizado
+          <Badge variant="outline" className="text-[10px] font-mono border-purple-500/30 text-purple-300 bg-purple-500/10 shrink-0">
+            v3.2
           </Badge>
         </div>
 
