@@ -117,10 +117,20 @@ export const AppNameProvider: React.FC<{ children: ReactNode }> = ({ children })
   );
 };
 
+const DEFAULT_FALLBACK_CONTEXT: AppNameContextType = {
+  appName: null,
+  appDisplayName: DEFAULT_APP_NAME,
+  loaded: true,
+  needsAsk: false,
+  saveAppName: async () => ({ success: false, message: 'AppNameProvider não inicializado' }),
+  skipAsking: () => {},
+};
+
 export const useAppName = (): AppNameContextType => {
   const context = useContext(AppNameContext);
   if (!context) {
-    throw new Error('useAppName deve ser usado dentro de AppNameProvider');
+    return DEFAULT_FALLBACK_CONTEXT;
   }
   return context;
 };
+

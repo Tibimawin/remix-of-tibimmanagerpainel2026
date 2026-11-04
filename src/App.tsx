@@ -26,6 +26,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { UpdateNotificationModal } from "./components/UpdateNotificationModal";
 import { ConsoleInspector } from "./components/ConsoleInspector";
 import { M3UImportProvider } from "./contexts/M3UImportContext";
+import { AppNameProvider } from "./contexts/AppNameContext";
 
 // 🚀 OTIMIZAÇÃO: Lazy Loading de todas as páginas para dividir o bundle de 5.2MB em micro-chunks
 const Apresentacao = lazy(() => import("./pages/Apresentacao"));
@@ -149,7 +150,8 @@ const App = () => {
           <ThemeProvider>
               <AdminAuthProvider>
                 <SimpleAuthProvider>
-                  <AdminConfigProvider>
+                  <AppNameProvider>
+                    <AdminConfigProvider>
                   {/* ✅ UserPermissionsProvider centralizado - apenas 1 listener Firebase */}
                   <UserPermissionsProvider>
                     <ConfigProvider>
@@ -813,6 +815,7 @@ const App = () => {
                     </ConfigProvider>
                   </UserPermissionsProvider>
                   </AdminConfigProvider>
+                  </AppNameProvider>
                 </SimpleAuthProvider>
             </AdminAuthProvider>
           </ThemeProvider>

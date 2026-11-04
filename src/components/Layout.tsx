@@ -85,7 +85,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   return (
-    <AppNameProvider>
     <ErrorBoundary>
       <div 
         className="min-h-screen bg-background transition-all duration-200"
@@ -234,7 +233,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <AppNameGate />
       </div>
     </ErrorBoundary>
-    </AppNameProvider>
   );
 };
 
