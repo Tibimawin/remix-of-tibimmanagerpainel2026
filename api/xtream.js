@@ -2807,3 +2807,6 @@ export default async function handler(req, res) {
 
   return res.status(200).json([]);
 }
+
+// Export de teste do limite de telas (no fim do arquivo: depende de consts declaradas acima)
+export const __connectionLimit = { checkScreenLimit, listConnections, resetConnections, connKeyOf, CONNECTION_TTL_MS, ACTIVE_CONNECTIONS };
