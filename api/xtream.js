@@ -601,7 +601,6 @@ const isAdultContentRow = (row, catFields, nomeFields) => {
 
 // Export de teste (não afeta o handler em produção)
 export const __adultFilter = { isAdultText, isAdultContentRow };
-export const __connectionLimit = { checkScreenLimit, listConnections, resetConnections, connKeyOf, CONNECTION_TTL_MS, ACTIVE_CONNECTIONS };
 
 // -------------------------------------------------------------
 // CLASSIFICAÇÃO ROBUSTA: FILME x SÉRIE x CANAL
