@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MaxPlusCatalogItem } from '@/services/maxplusApi';
-import { upgradeToHighResTmdbImage } from '@/utils/imageQuality';
+import { getOptimizedCardImageUrl } from '@/utils/imageQuality';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { Download, Film, Tv, Sparkles, Check, RefreshCw } from 'lucide-react';
+import { Download, Film, Tv, Sparkles, Check, RefreshCw, ImageOff } from 'lucide-react';
 
 interface MaxPlusCardProps {
   item: MaxPlusCatalogItem;
@@ -24,9 +24,14 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
   isImporting = false,
   isAlreadyImported = false,
 }) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
   const isSeries = item.link?.includes('/tvshows/') || 
                    item.genres?.toLowerCase().includes('série') || 
                    item.genres?.toLowerCase().includes('serie');
+
+  const cardImageUrl = getOptimizedCardImageUrl(item.imagem);
 
   return (
     <div
@@ -34,9 +39,10 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
         isSelected 
           ? 'border-[#00d2ff] ring-2 ring-[#00d2ff]/40 shadow-lg shadow-[#00d2ff]/20' 
           : isAlreadyImported
-          ? 'border-emerald-500/30 hover:border-emerald-400/60'
+          ? 'border-emerald-500/40 hover:border-emerald-400/70 shadow-sm shadow-emerald-500/10'
           : 'border-[#232738]'
       }`}
+      style={{ contain: 'content' }}
     >
       {/* Checkbox de seleção em lote */}
       <div 
@@ -55,8 +61,8 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
       {/* Badge de "Já no Banco" (quando já importado) */}
       {isAlreadyImported && (
         <div className="absolute top-2.5 left-11 z-20 pointer-events-none">
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wider uppercase backdrop-blur-md shadow-lg bg-emerald-500/90 text-white border border-emerald-400/60">
-            <Check className="w-3 h-3 text-white" />
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black tracking-wider uppercase backdrop-blur-md shadow-lg bg-emerald-500 text-slate-950 border border-emerald-400">
+            <Check className="w-3 h-3 text-slate-950 stroke-[3]" />
             No Banco
           </span>
         </div>
@@ -67,8 +73,8 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
         <span
           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase backdrop-blur-md shadow-md border ${
             isSeries
-              ? 'bg-[#6366f1]/80 text-white border-[#6366f1]/50'
-              : 'bg-[#00d2ff]/80 text-black border-[#00d2ff]/50 font-extrabold'
+              ? 'bg-[#6366f1]/90 text-white border-[#6366f1]/60'
+              : 'bg-[#00d2ff]/90 text-black border-[#00d2ff]/60 font-extrabold'
           }`}
         >
           {isSeries ? <Tv className="w-3 h-3" /> : <Film className="w-3 h-3" />}
@@ -78,29 +84,41 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
 
       {/* Poster (Proporção 2:3) */}
       <div
-        className="relative aspect-[2/3] w-full overflow-hidden bg-slate-900 cursor-pointer"
+        className="relative aspect-[2/3] w-full overflow-hidden bg-[#181b2a] cursor-pointer"
         onClick={() => onOpenDetails(item)}
       >
-        {item.imagem ? (
+        {/* Shimmer / Skeleton Placeholder enquanto carrega a imagem */}
+        {!imageLoaded && !imageError && (
+          <div className="absolute inset-0 bg-[#161826] flex items-center justify-center animate-pulse">
+            <Film className="w-8 h-8 text-slate-700 opacity-40 animate-pulse" />
+          </div>
+        )}
+
+        {cardImageUrl && !imageError ? (
           <img
-            src={upgradeToHighResTmdbImage(item.imagem)}
+            src={cardImageUrl}
             alt={item.nome}
             loading="lazy"
+            decoding="async"
             referrerPolicy="no-referrer"
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108 group-hover:brightness-105"
-            onError={(e) => {
-              (e.target as HTMLElement).style.display = 'none';
+            onLoad={() => setImageLoaded(true)}
+            onError={() => {
+              setImageError(true);
+              setImageLoaded(true);
             }}
+            className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-105 group-hover:brightness-105 ${
+              imageLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center text-slate-500">
-            <Film className="w-10 h-10 mb-2 opacity-40 text-[#00d2ff]" />
-            <span className="text-xs">Sem Capa</span>
+          <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center bg-[#181b2a] text-slate-500">
+            <ImageOff className="w-8 h-8 mb-1.5 opacity-40 text-slate-600" />
+            <span className="text-[11px] text-slate-500">Sem Capa</span>
           </div>
         )}
 
         {/* Gradiente escuro para contraste suave */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#151722] via-[#151722]/30 to-transparent opacity-80 group-hover:opacity-60 transition-opacity" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#151722] via-[#151722]/20 to-transparent opacity-80 group-hover:opacity-50 transition-opacity pointer-events-none" />
 
         {/* Botão Hover rápido para ver detalhes */}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/40 backdrop-blur-[2px]">

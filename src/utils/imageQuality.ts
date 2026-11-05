@@ -7,10 +7,7 @@
 /**
  * Converte URLs de posters/backdrops do TMDb em baixa resolução (ex: w92, w154, w185, w300, w500, w780)
  * para a resolução máxima ('original') utilizando o CDN de mídia do TMDb.
- * 
- * Exemplo:
- * De:   https://image.tmdb.org/t/p/w185/x0nvYzQpyJc5pdT9lMnkMuYAg0O.jpg
- * Para: https://media.themoviedb.org/t/p/original/x0nvYzQpyJc5pdT9lMnkMuYAg0O.jpg
+ * Usado para salvar no banco Baserow e no modal de detalhes.
  */
 export function upgradeToHighResTmdbImage(url: string | null | undefined): string {
   if (!url || typeof url !== 'string') return '';
@@ -19,16 +16,39 @@ export function upgradeToHighResTmdbImage(url: string | null | undefined): strin
 
   // 1. Se for apenas o caminho relativo do TMDb (ex: '/x0nvYzQpyJc5pdT9lMnkMuYAg0O.jpg')
   if (trimmed.startsWith('/') && trimmed.match(/\.(jpg|jpeg|png|webp)$/i)) {
-    return `https://media.themoviedb.org/t/p/original${trimmed}`;
+    return `https://image.tmdb.org/t/p/original${trimmed}`;
   }
 
-  // 2. Se for uma URL do TMDb com qualquer dimensão (w92, w154, w185, w300, w342, w500, w780, w1280, etc.)
-  // Detecta image.tmdb.org, media.themoviedb.org ou themoviedb.org
+  // 2. Se for uma URL do TMDb com qualquer dimensão (w92, w154, w185, w300, w342, w500, w780, etc.)
   const tmdbRegex = /^(https?:\/\/)?(image\.tmdb\.org|media\.themoviedb\.org|themoviedb\.org)\/t\/p\/([^/]+)\/(.+)$/i;
   const match = trimmed.match(tmdbRegex);
   if (match) {
     const filename = match[4];
-    return `https://media.themoviedb.org/t/p/original/${filename}`;
+    return `https://image.tmdb.org/t/p/original/${filename}`;
+  }
+
+  return trimmed;
+}
+
+/**
+ * Converte URLs de posters para uma resolução otimizada para CARDS e grades de catálogo (w500).
+ * Isso garante carregamento instantâneo (30KB-60KB por imagem em vez de 5MB-15MB do 'original'),
+ * nitidez máxima em telas Retina/4K e elimina travamentos e telas pretas durante a rolagem.
+ */
+export function getOptimizedCardImageUrl(url: string | null | undefined): string {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+
+  if (trimmed.startsWith('/') && trimmed.match(/\.(jpg|jpeg|png|webp)$/i)) {
+    return `https://image.tmdb.org/t/p/w500${trimmed}`;
+  }
+
+  const tmdbRegex = /^(https?:\/\/)?(image\.tmdb\.org|media\.themoviedb\.org|themoviedb\.org)\/t\/p\/([^/]+)\/(.+)$/i;
+  const match = trimmed.match(tmdbRegex);
+  if (match) {
+    const filename = match[4];
+    return `https://image.tmdb.org/t/p/w500/${filename}`;
   }
 
   return trimmed;

@@ -1,4 +1,4 @@
-import { upgradeToHighResTmdbImage } from '@/utils/imageQuality';
+import { upgradeToHighResTmdbImage, getOptimizedCardImageUrl } from '@/utils/imageQuality';
 
 /**
  * Serviço de integração com a API MaxPlus
@@ -191,7 +191,7 @@ export async function fetchCatalog(categoryUrl: string): Promise<MaxPlusCatalogI
 
     return data.map((item) => ({
       ...item,
-      imagem: upgradeToHighResTmdbImage(item.imagem),
+      imagem: getOptimizedCardImageUrl(item.imagem),
     }));
   } catch (error: unknown) {
     console.error('Erro em fetchCatalog:', error);

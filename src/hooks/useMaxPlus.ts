@@ -7,7 +7,7 @@ import {
   MaxPlusContentDetails, 
   MAXPLUS_CATEGORIES 
 } from '@/services/maxplusApi';
-import { MaxPlusImportEngine, ImportProgress } from '@/services/maxplusImportEngine';
+import { MaxPlusImportEngine, ImportProgress, getTitleMatchVariants } from '@/services/maxplusImportEngine';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useBaserowService } from '@/services/BaserowService';
 import { toast } from 'sonner';
@@ -44,20 +44,27 @@ export function useMaxPlus() {
   });
   const [isImporting, setIsImporting] = useState<boolean>(false);
 
-  // Detecção de Conteúdos já importados no Baserow
-  const [importedTitles, setImportedTitles] = useState<Set<string>>(() => MaxPlusImportEngine.getKnownImportedTitles());
+  // Detecção de Conteúdos já importados no Baserow com hidratação imediata
+  const conteudosId = config.tableIds?.conteudos || config.conteudosTableId || '';
+  const [importedTitles, setImportedTitles] = useState<Set<string>>(() => 
+    MaxPlusImportEngine.getKnownImportedTitles(conteudosId)
+  );
   const [loadingImportedCheck, setLoadingImportedCheck] = useState<boolean>(false);
   const [filterMode, setFilterMode] = useState<'all' | 'imported' | 'pending'>('all');
 
-  // Normalizador de texto idêntico ao da Importação Automática
-  const normalizeText = useCallback((value?: string | null) => {
-    return (value || '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, ' ')
-      .trim();
-  }, []);
+  // Hidratação quando a configuração de tabelas for carregada
+  useEffect(() => {
+    if (conteudosId) {
+      const stored = MaxPlusImportEngine.getKnownImportedTitles(conteudosId);
+      if (stored.size > 0) {
+        setImportedTitles(prev => {
+          const next = new Set(prev);
+          stored.forEach(t => next.add(t));
+          return next;
+        });
+      }
+    }
+  }, [conteudosId]);
 
   // Instância do motor de importação
   const engine = useMemo(() => {
@@ -122,12 +129,12 @@ export function useMaxPlus() {
   const checkImportedStatusRef = useRef(checkImportedStatus);
   checkImportedStatusRef.current = checkImportedStatus;
 
-  // Verificar se um item específico já foi importado
+  // Verificar se um item específico já foi importado (com correspondência difusa e por variantes)
   const isItemImported = useCallback((title?: string | null): boolean => {
     if (!title) return false;
-    const norm = normalizeText(title);
-    return importedTitles.has(norm);
-  }, [importedTitles, normalizeText]);
+    const variants = getTitleMatchVariants(title);
+    return variants.some(v => importedTitles.has(v));
+  }, [importedTitles]);
 
   // Itens filtrados de acordo com filterMode
   const filteredItems = useMemo(() => {
@@ -289,10 +296,14 @@ export function useMaxPlus() {
 
       const res = await engineRef.current.importMovie(details, fallbackCat);
 
-      // Marca o título imediatamente como importado no estado local
-      const norm = normalizeText(details.nome);
-      if (norm) {
-        setImportedTitles(prev => new Set(prev).add(norm));
+      // Marca o título imediatamente como importado no estado local com todas as variantes
+      const variants = getTitleMatchVariants(details.nome);
+      if (variants.length > 0) {
+        setImportedTitles(prev => {
+          const next = new Set(prev);
+          variants.forEach(v => next.add(v));
+          return next;
+        });
       }
 
       if (res?.updated) {
@@ -310,7 +321,7 @@ export function useMaxPlus() {
     } finally {
       setIsImporting(false);
     }
-  }, [normalizeText]);
+  }, []);
 
   // Importar Série única (com episódios)
   const importSeries = useCallback(async (
@@ -334,10 +345,14 @@ export function useMaxPlus() {
         selectedEps
       );
 
-      // Marca o título imediatamente como importado no estado local
-      const norm = normalizeText(details.nome);
-      if (norm) {
-        setImportedTitles(prev => new Set(prev).add(norm));
+      // Marca o título imediatamente como importado no estado local com todas as variantes
+      const variants = getTitleMatchVariants(details.nome);
+      if (variants.length > 0) {
+        setImportedTitles(prev => {
+          const next = new Set(prev);
+          variants.forEach(v => next.add(v));
+          return next;
+        });
       }
 
       const actionMsg = result.updated ? 'atualizada' : 'importada';
@@ -365,7 +380,7 @@ export function useMaxPlus() {
       setIsImporting(false);
       setImportProgress({ active: false, total: 0, current: 0, currentTitle: '', stage: '' });
     }
-  }, [normalizeText]);
+  }, []);
 
   // Importar itens selecionados em Lote (Batch)
   const importSelectedBatch = useCallback(async () => {
@@ -385,6 +400,18 @@ export function useMaxPlus() {
       const result = await engineRef.current.importBatch(selectedItems, (progress) => {
         setImportProgress(progress);
       });
+
+      // Atualiza imediatamente todos os títulos importados no estado do React
+      if (result.succeededTitles && result.succeededTitles.length > 0) {
+        setImportedTitles(prev => {
+          const next = new Set(prev);
+          result.succeededTitles.forEach(title => {
+            const variants = getTitleMatchVariants(title);
+            variants.forEach(v => next.add(v));
+          });
+          return next;
+        });
+      }
 
       toast.success(
         `Lote concluído: ${result.succeeded} importados com sucesso${result.failed > 0 ? `, ${result.failed} falhas` : ''}!`,

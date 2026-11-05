@@ -24,33 +24,97 @@ export interface ImportProgress {
   stage: string;
 }
 
+export function getTitleMatchVariants(rawTitle?: string | null): string[] {
+  if (!rawTitle) return [];
+  const base = String(rawTitle).trim();
+  if (!base) return [];
+
+  const normalize = (s: string) =>
+    s
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+
+  const norm = normalize(base);
+  if (!norm) return [];
+
+  const variants = new Set<string>();
+  variants.add(norm);
+
+  // Sem ano (ex: 2024, 2023, 2026, 1999)
+  const noYear = norm.replace(/\b(19\d{2}|20\d{2})\b/g, '').replace(/\s+/g, ' ').trim();
+  if (noYear && noYear !== norm) variants.add(noYear);
+
+  // Sem termos de formato/idioma comuns
+  const stripped = noYear
+    .replace(/\b(dublado|legendado|nacional|completo|temporada|temp|filme|serie|hd|fhd|4k)\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (stripped && stripped.length >= 3) variants.add(stripped);
+
+  // Prefixo antes de ":" ou " - "
+  if (base.includes(':')) {
+    const prefix = normalize(base.split(':')[0]);
+    if (prefix && prefix.length >= 3) variants.add(prefix);
+  }
+  if (base.includes(' - ')) {
+    const prefix = normalize(base.split(' - ')[0]);
+    if (prefix && prefix.length >= 3) variants.add(prefix);
+  }
+
+  return Array.from(variants);
+}
+
 export class MaxPlusImportEngine {
   private baserowService: BaserowService;
   private conteudosTableId: string;
   private episodiosTableId: string;
   private conteudosKeysCache: string[] | null = null;
   private episodiosKeysCache: string[] | null = null;
+  private hasFetchedRecentTableRows = false;
 
   // Cache estático em memória por sessão para evitar re-consultar títulos no Baserow
   private static verifiedImportedCache = new Set<string>();
   private static verifiedMissingCache = new Set<string>();
 
-  public static markAsImported(title?: string | null): void {
+  public static markAsImported(title?: string | null, tableId?: string): void {
     if (!title) return;
-    const norm = (title || '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, ' ')
-      .trim();
-    if (norm) {
-      MaxPlusImportEngine.verifiedImportedCache.add(norm);
-      MaxPlusImportEngine.verifiedMissingCache.delete(norm);
-    }
+    const variants = getTitleMatchVariants(title);
+    variants.forEach(v => {
+      MaxPlusImportEngine.verifiedImportedCache.add(v);
+      MaxPlusImportEngine.verifiedMissingCache.delete(v);
+    });
+
+    // Salva no localStorage para persistência garantida entre recarregamentos
+    try {
+      if (typeof window !== 'undefined') {
+        const storageKey = tableId ? `maxplus_imported_${tableId}` : 'maxplus_imported_global';
+        const existingStored = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        const updated = Array.from(new Set([...existingStored, ...variants])).slice(-5000);
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+      }
+    } catch {}
   }
 
-  public static getKnownImportedTitles(): Set<string> {
-    return new Set(MaxPlusImportEngine.verifiedImportedCache);
+  public static getKnownImportedTitles(tableId?: string): Set<string> {
+    const set = new Set(MaxPlusImportEngine.verifiedImportedCache);
+    try {
+      if (typeof window !== 'undefined') {
+        const storageKey = tableId ? `maxplus_imported_${tableId}` : 'maxplus_imported_global';
+        const stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        if (Array.isArray(stored)) {
+          stored.forEach(t => {
+            if (typeof t === 'string' && t) {
+              set.add(t);
+              MaxPlusImportEngine.verifiedImportedCache.add(t);
+            }
+          });
+        }
+      }
+    } catch {}
+    return set;
   }
 
   constructor(
@@ -121,116 +185,118 @@ export class MaxPlusImportEngine {
   }
 
   /**
-   * Busca conteúdos existentes por uma lista de títulos com cache em memória e execução paralela otimizada
+   * Busca conteúdos existentes por uma lista de títulos com cache persistido, varredura de recentes e busca direcionada
    */
   async findExistingContentsByTitles(titles: string[]): Promise<Set<string>> {
     const existingSet = new Set<string>();
     if (!this.conteudosTableId || !titles || titles.length === 0) {
-      for (const t of MaxPlusImportEngine.verifiedImportedCache) {
+      const known = MaxPlusImportEngine.getKnownImportedTitles(this.conteudosTableId);
+      for (const t of known) {
         existingSet.add(t);
       }
       return existingSet;
     }
 
-    const normalizeText = (value?: string | null) =>
-      (value || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, ' ')
-        .trim();
-
     try {
-      const cleanTitles = Array.from(new Set(titles.map(t => t?.trim()).filter(Boolean)));
-      if (cleanTitles.length === 0) return existingSet;
-
-      // 1. Preenche imediatamente os que já estão no cache em memória
-      const unverifiedTitles: string[] = [];
-      for (const rawTitle of cleanTitles) {
-        const norm = normalizeText(rawTitle);
-        if (!norm) continue;
-
-        if (MaxPlusImportEngine.verifiedImportedCache.has(norm)) {
-          existingSet.add(norm);
-        } else if (!MaxPlusImportEngine.verifiedMissingCache.has(norm)) {
-          unverifiedTitles.push(rawTitle);
+      // 1. Carrega imediatamente do cache local sincronizado (0ms)
+      const known = MaxPlusImportEngine.getKnownImportedTitles(this.conteudosTableId);
+      titles.forEach(t => {
+        const variants = getTitleMatchVariants(t);
+        for (const v of variants) {
+          if (known.has(v)) {
+            existingSet.add(v);
+            break;
+          }
         }
-      }
+      });
 
-      // Se todos os títulos já foram checados nesta sessão, retorna instantaneamente (0ms)!
-      if (unverifiedTitles.length === 0) {
-        return existingSet;
-      }
-
-      // 2. Consulta títulos não verificados em lotes paralelos de até 35 com timeout de segurança de 4.5s
-      const CHUNK_SIZE = 35;
-      const chunks: string[][] = [];
-      for (let i = 0; i < unverifiedTitles.length; i += CHUNK_SIZE) {
-        chunks.push(unverifiedTitles.slice(i, i + CHUNK_SIZE));
-      }
-
-      const queryPromises = chunks.map(async (chunk) => {
-        let filterParams = 'filter_type=OR';
-        chunk.forEach(t => {
-          filterParams += `&filter__Nome__equal=${encodeURIComponent(t)}`;
-        });
-
-        const foundInChunk = new Set<string>();
-
+      // 2. Indexa os registros mais recentes da tabela do usuário no Baserow (ordem decrescente -id)
+      if (!this.hasFetchedRecentTableRows) {
+        this.hasFetchedRecentTableRows = true;
         try {
-          const fetchPromise = this.baserowService.getTableData(
+          const recent = await this.baserowService.getTableData(
             this.conteudosTableId,
             1,
             200,
             undefined,
-            undefined,
-            filterParams
+            '-id'
           );
-          const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4500));
-          const resp = await Promise.race([fetchPromise, timeoutPromise]);
-
-          if (resp?.results && Array.isArray(resp.results)) {
-            resp.results.forEach((item: Record<string, unknown>) => {
-              const name = (item.Nome || item.Titulo || item.Title) as string;
-              const norm = normalizeText(name);
-              if (norm) {
-                existingSet.add(norm);
-                foundInChunk.add(norm);
-                MaxPlusImportEngine.verifiedImportedCache.add(norm);
-                MaxPlusImportEngine.verifiedMissingCache.delete(norm);
+          if (recent?.results && Array.isArray(recent.results)) {
+            recent.results.forEach((row: any) => {
+              const name = row.Nome || row.Titulo || row.Title;
+              if (name) {
+                MaxPlusImportEngine.markAsImported(name, this.conteudosTableId);
               }
             });
           }
-        } catch (filterErr) {
-          console.warn('[MaxPlus] Filtro OR falhou, tentando fallback com busca direta:', filterErr);
-          try {
-            const fallbackResp = await this.baserowService.getTableData(this.conteudosTableId, 1, 100);
-            if (fallbackResp?.results) {
-              fallbackResp.results.forEach((item: Record<string, unknown>) => {
-                const name = (item.Nome || item.Titulo) as string;
-                const norm = normalizeText(name);
-                if (norm) {
-                  existingSet.add(norm);
-                  foundInChunk.add(norm);
-                  MaxPlusImportEngine.verifiedImportedCache.add(norm);
-                }
-              });
-            }
-          } catch {
-            // ignore
-          }
+        } catch (e) {
+          console.warn('[MaxPlus] Não foi possível obter linhas recentes da tabela:', e);
         }
+      }
 
-        // Marcar títulos não encontrados no cache para evitar buscas repetidas
-        chunk.forEach(t => {
-          const norm = normalizeText(t);
-          if (norm && !foundInChunk.has(norm) && !MaxPlusImportEngine.verifiedImportedCache.has(norm)) {
-            MaxPlusImportEngine.verifiedMissingCache.add(norm);
-          }
-        });
+      // 3. Para os títulos pendentes na tela, realiza buscas direcionadas no Baserow
+      const pendingTitles = titles.filter(t => {
+        const variants = getTitleMatchVariants(t);
+        return !variants.some(v => MaxPlusImportEngine.verifiedImportedCache.has(v));
       });
 
-      await Promise.all(queryPromises);
+      if (pendingTitles.length > 0) {
+        const BATCH_SIZE = 4;
+        for (let i = 0; i < pendingTitles.length; i += BATCH_SIZE) {
+          const batch = pendingTitles.slice(i, i + BATCH_SIZE);
+          await Promise.all(
+            batch.map(async (rawTitle) => {
+              try {
+                // Busca limpa por palavra-chave no Baserow
+                const cleanQuery = rawTitle
+                  .replace(/[\(\)\[\]\-:_]/g, ' ')
+                  .replace(/\s+/g, ' ')
+                  .trim()
+                  .slice(0, 35);
+
+                if (!cleanQuery) return;
+
+                const resp = await this.baserowService.getTableData(
+                  this.conteudosTableId,
+                  1,
+                  10,
+                  cleanQuery
+                );
+
+                if (resp?.results && Array.isArray(resp.results) && resp.results.length > 0) {
+                  const targetVariants = getTitleMatchVariants(rawTitle);
+                  for (const row of resp.results) {
+                    const rowName = row.Nome || row.Titulo || row.Title;
+                    if (rowName) {
+                      const rowVariants = getTitleMatchVariants(rowName);
+                      const isMatch = targetVariants.some(tv => rowVariants.includes(tv));
+                      if (isMatch) {
+                        MaxPlusImportEngine.markAsImported(rawTitle, this.conteudosTableId);
+                        MaxPlusImportEngine.markAsImported(rowName, this.conteudosTableId);
+                        targetVariants.forEach(tv => existingSet.add(tv));
+                        break;
+                      }
+                    }
+                  }
+                }
+              } catch {
+                // Silencioso - não trava a verificação
+              }
+            })
+          );
+        }
+      }
+
+      // 4. Alimenta existingSet com todos os confirmados
+      titles.forEach(t => {
+        const variants = getTitleMatchVariants(t);
+        for (const v of variants) {
+          if (MaxPlusImportEngine.verifiedImportedCache.has(v)) {
+            existingSet.add(v);
+            break;
+          }
+        }
+      });
     } catch (err) {
       console.warn('[MaxPlus] Erro ao buscar conteúdos já importados:', err);
     }
@@ -742,9 +808,10 @@ export class MaxPlusImportEngine {
   async importBatch(
     items: MaxPlusCatalogItem[],
     onProgress?: (progress: ImportProgress) => void
-  ): Promise<{ succeeded: number; failed: number }> {
+  ): Promise<{ succeeded: number; failed: number; succeededTitles: string[] }> {
     let succeeded = 0;
     let failed = 0;
+    const succeededTitles: string[] = [];
     const total = items.length;
 
     for (let i = 0; i < total; i++) {
@@ -781,6 +848,8 @@ export class MaxPlusImportEngine {
           await this.importMovie(details, item.genres);
         }
         succeeded++;
+        succeededTitles.push(item.nome);
+        MaxPlusImportEngine.markAsImported(item.nome, this.conteudosTableId);
       } catch (error) {
         console.error(`Falha ao importar item ${item.nome}:`, error);
         failed++;
@@ -790,6 +859,6 @@ export class MaxPlusImportEngine {
       await new Promise(r => setTimeout(r, 200));
     }
 
-    return { succeeded, failed };
+    return { succeeded, failed, succeededTitles };
   }
 }
