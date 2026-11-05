@@ -7,7 +7,7 @@ import {
   MaxPlusContentDetails, 
   MAXPLUS_CATEGORIES 
 } from '@/services/maxplusApi';
-import { MaxPlusImportEngine, ImportProgress, getTitleMatchVariants } from '@/services/maxplusImportEngine';
+import { MaxPlusImportEngine, ImportProgress, getTitleMatchVariants, normalizeTitle } from '@/services/maxplusImportEngine';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useBaserowService } from '@/services/BaserowService';
 import { toast } from 'sonner';
@@ -144,15 +144,25 @@ export function useMaxPlus() {
     prevIsConfiguredRef.current = isConfigured;
   }, [isConfigured, items]);
 
-  // Verificar se um item específico já foi importado (com correspondência difusa, variantes e prefixo de título)
+  // Verificar se um item específico já foi importado (com a mesma lógica do ImportPreview / AutoImport)
   const isItemImported = useCallback((title?: string | null): boolean => {
     if (!title) return false;
-    const variants = getTitleMatchVariants(title);
+    const raw = String(title).trim();
+    if (!raw) return false;
+
+    // 1. Normalização padrão idêntica ao AutoImport (normalizeText)
+    const norm = normalizeTitle(raw);
+    if (importedTitles.has(norm)) return true;
+
+    // 2. Variantes de título (sem ano, sem tags)
+    const variants = getTitleMatchVariants(raw);
     if (variants.some(v => importedTitles.has(v))) return true;
 
-    // Checagem adicional por prefixo de título (antes de ":" ou " - " ou " – ")
-    const prefix = title.split(/[:\-–]/)[0]?.trim();
-    if (prefix && prefix.length >= 4 && prefix !== title) {
+    // 3. Checagem por prefixo (antes de ":" ou " - " ou " – ")
+    const prefix = raw.split(/[:\-–]/)[0]?.trim();
+    if (prefix && prefix !== raw && prefix.length >= 3) {
+      const normPrefix = normalizeTitle(prefix);
+      if (importedTitles.has(normPrefix)) return true;
       const prefixVariants = getTitleMatchVariants(prefix);
       if (prefixVariants.some(v => importedTitles.has(v))) return true;
     }

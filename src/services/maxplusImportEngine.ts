@@ -25,6 +25,36 @@ export interface ImportProgress {
 }
 
 /**
+ * Campos suportados para títulos de conteúdo no Baserow (idêntico ao AutoImportService / ImportPreview)
+ */
+export const CONTENT_TITLE_FIELDS = [
+  'Nome',
+  'Nome do Conteúdo',
+  'Nome do Conteudo',
+  'NomeConteudo',
+  'Titulo',
+  'Título',
+  'Title',
+  'TituloOriginal',
+  'Título Original',
+  'name',
+];
+
+/**
+ * Obtém o título do registro considerando qualquer variação de nome de coluna no Baserow
+ */
+export function getContentTitle(record: any): string {
+  if (!record || typeof record !== 'object') return '';
+  for (const field of CONTENT_TITLE_FIELDS) {
+    const value = record[field];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return String(value).trim();
+    }
+  }
+  return '';
+}
+
+/**
  * Normaliza uma string de título removendo acentos, pontuação e múltiplos espaços
  */
 export function normalizeTitle(s?: string | null): string {
@@ -153,8 +183,23 @@ export class MaxPlusImportEngine {
 
   public static markAsImported(title?: string | null, tableId?: string): void {
     if (!title) return;
-    const variants = getTitleMatchVariants(title);
-    variants.forEach(v => {
+    const base = String(title).trim();
+    if (!base) return;
+
+    const norm = normalizeTitle(base);
+    const variants = getTitleMatchVariants(base);
+    variants.push(norm);
+
+    // Também adiciona prefixo antes de : ou -
+    const prefix = base.split(/[:\-–]/)[0].trim();
+    if (prefix && prefix !== base) {
+      variants.push(normalizeTitle(prefix));
+      getTitleMatchVariants(prefix).forEach(v => variants.push(v));
+    }
+
+    const uniqueVariants = Array.from(new Set(variants.filter(Boolean)));
+
+    uniqueVariants.forEach(v => {
       MaxPlusImportEngine.verifiedImportedCache.add(v);
       MaxPlusImportEngine.verifiedMissingCache.delete(v);
     });
@@ -168,7 +213,7 @@ export class MaxPlusImportEngine {
         }
         keysToUpdate.forEach(storageKey => {
           const existingStored = JSON.parse(localStorage.getItem(storageKey) || '[]');
-          const updated = Array.from(new Set([...existingStored, ...variants])).slice(-5000);
+          const updated = Array.from(new Set([...existingStored, ...uniqueVariants])).slice(-5000);
           localStorage.setItem(storageKey, JSON.stringify(updated));
         });
       }
@@ -246,40 +291,40 @@ export class MaxPlusImportEngine {
   }
 
   /**
-   * Busca se o conteúdo já existe na tabela pelo Título / Nome com tolerância a subtítulos e colons
+   * Busca se o conteúdo já existe na tabela pelo Título / Nome (idêntico ao AutoImportService.ts)
    */
   async findContentByName(titulo: string, tableId: string): Promise<Record<string, unknown> | null> {
     if (!titulo || typeof titulo !== 'string' || titulo.trim() === '') return null;
     try {
-      // 1. Tentar busca no Baserow com o termo limpo (prefixo ou primeiras 2 palavras)
-      const basePrefix = titulo.split(/[:\-–]/)[0].trim();
-      const searchQuery = (basePrefix.length >= 3 ? basePrefix : titulo)
-        .replace(/[^a-zA-Z0-9À-ÿ\s]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      const data = await this.baserowService.getTableData(tableId, 1, 100, searchQuery);
+      const cleanTitle = titulo.trim();
+      // 1. Busca idêntica ao AutoImportService.ts (getTableData sem encode extra)
+      const data = await this.baserowService.getTableData(tableId, 1, 200, cleanTitle);
       if (data?.results && data.results.length > 0) {
-        const match = data.results.find((item: Record<string, unknown>) => {
-          const itemTitle = String(item.Nome || item.Titulo || item.Title || '');
-          return isTitleMatch(titulo, itemTitle);
+        // Match exato (case-insensitive) como no AutoImport
+        const exactMatch = data.results.find((item: any) => {
+          const itemTitle = getContentTitle(item).toLowerCase().trim();
+          return itemTitle === cleanTitle.toLowerCase();
         });
-        if (match) return match;
+        if (exactMatch) return exactMatch;
+
+        // Match flexível / subtítulo (isTitleMatch)
+        const titleMatch = data.results.find((item: any) => {
+          const itemTitle = getContentTitle(item);
+          return isTitleMatch(cleanTitle, itemTitle);
+        });
+        if (titleMatch) return titleMatch;
       }
 
-      // 2. Se não encontrou e o título tem múltiplas palavras, tenta com as 2 primeiras palavras
-      const words = titulo.replace(/[^a-zA-Z0-9À-ÿ\s]/g, ' ').replace(/\s+/g, ' ').trim().split(' ');
-      if (words.length >= 2) {
-        const fallbackQuery = words.slice(0, 2).join(' ');
-        if (fallbackQuery !== searchQuery) {
-          const fallbackData = await this.baserowService.getTableData(tableId, 1, 50, fallbackQuery);
-          if (fallbackData?.results && fallbackData.results.length > 0) {
-            const match = fallbackData.results.find((item: Record<string, unknown>) => {
-              const itemTitle = String(item.Nome || item.Titulo || item.Title || '');
-              return isTitleMatch(titulo, itemTitle);
-            });
-            if (match) return match;
-          }
+      // 2. Se o título tiver ":" ou " - ", busca pelo prefixo
+      const basePrefix = cleanTitle.split(/[:\-–]/)[0].trim();
+      if (basePrefix && basePrefix !== cleanTitle && basePrefix.length >= 3) {
+        const prefixData = await this.baserowService.getTableData(tableId, 1, 100, basePrefix);
+        if (prefixData?.results && prefixData.results.length > 0) {
+          const match = prefixData.results.find((item: any) => {
+            const itemTitle = getContentTitle(item);
+            return isTitleMatch(cleanTitle, itemTitle) || itemTitle.toLowerCase().trim() === basePrefix.toLowerCase();
+          });
+          if (match) return match;
         }
       }
 
@@ -291,7 +336,10 @@ export class MaxPlusImportEngine {
   }
 
   /**
-   * Busca conteúdos existentes por uma lista de títulos com cache persistido, varredura de recentes e busca direcionada
+   * Busca conteúdos existentes por uma lista de títulos usando a mesma lógica do ImportPreview / AutoImport:
+   * 1. Consulta em lote com filter_type=OR e filtro de Nome/Título na tabela do Baserow
+   * 2. Indexação dos registros mais recentes (-id)
+   * 3. Busca individual de contingência (findContentByName)
    */
   async findExistingContentsByTitles(titles: string[]): Promise<Set<string>> {
     const existingSet = new Set<string>();
@@ -307,35 +355,89 @@ export class MaxPlusImportEngine {
       // 1. Carrega imediatamente do cache local sincronizado (0ms)
       const known = MaxPlusImportEngine.getKnownImportedTitles(this.conteudosTableId);
       titles.forEach(t => {
+        const norm = normalizeTitle(t);
         const variants = getTitleMatchVariants(t);
-        for (const v of variants) {
+        for (const v of [norm, ...variants]) {
           if (known.has(v)) {
             existingSet.add(v);
+            existingSet.add(norm);
             break;
           }
         }
       });
 
-      // 2. Indexa os registros da tabela do usuário no Baserow (até 1500 registros)
+      // 2. ESTRATÉGIA DO IMPORT PREVIEW (AutoImport):
+      // Consulta direta via filter_type=OR com os títulos da página atual
+      const tableKeys = await this.getConteudosKeys();
+      const titleColumn = tableKeys.find(k => CONTENT_TITLE_FIELDS.includes(k)) || 'Nome';
+
+      const uniqueNames = Array.from(new Set(titles.map(t => t.trim()).filter(Boolean)));
+      if (uniqueNames.length > 0) {
+        let filterParams = `?user_field_names=true&size=200&filter_type=OR`;
+        uniqueNames.forEach(name => {
+          filterParams += `&filter__${encodeURIComponent(titleColumn)}__equal=${encodeURIComponent(name)}`;
+          const prefix = name.split(/[:\-–]/)[0].trim();
+          if (prefix && prefix !== name && prefix.length >= 4) {
+            filterParams += `&filter__${encodeURIComponent(titleColumn)}__equal=${encodeURIComponent(prefix)}`;
+          }
+        });
+
+        try {
+          const resp = await this.baserowService.makeRequest(
+            `/api/database/rows/table/${this.conteudosTableId}/${filterParams}`
+          );
+          if (resp.ok) {
+            const data = await resp.json();
+            const results = Array.isArray(data?.results) ? data.results : [];
+            results.forEach((row: any) => {
+              const rowTitle = getContentTitle(row);
+              if (rowTitle) {
+                MaxPlusImportEngine.markAsImported(rowTitle, this.conteudosTableId);
+                for (const t of titles) {
+                  if (
+                    isTitleMatch(t, rowTitle) || 
+                    normalizeTitle(t) === normalizeTitle(rowTitle) ||
+                    t.toLowerCase().trim() === rowTitle.toLowerCase().trim()
+                  ) {
+                    MaxPlusImportEngine.markAsImported(t, this.conteudosTableId);
+                    getTitleMatchVariants(t).forEach(v => existingSet.add(v));
+                    existingSet.add(normalizeTitle(t));
+                  }
+                }
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('[MaxPlus] Filtro OR do ImportPreview:', e);
+        }
+      }
+
+      // 3. ESTRATÉGIA DE RECENTES:
+      // Indexa as 200 linhas mais recentes da tabela
       if (!this.hasFetchedRecentTableRows) {
         this.hasFetchedRecentTableRows = true;
         try {
-          const tableData = await this.baserowService.getAllTableData(
+          const recent = await this.baserowService.getTableData(
             this.conteudosTableId,
+            1,
+            200,
             undefined,
-            1500
+            '-id'
           );
-          if (tableData?.results && Array.isArray(tableData.results)) {
-            tableData.results.forEach((row: any) => {
-              const name = row.Nome || row.Titulo || row.Title;
-              if (name) {
-                MaxPlusImportEngine.markAsImported(name, this.conteudosTableId);
-                // Checa imediatamente contra a lista atual em exibição
+          if (recent?.results && Array.isArray(recent.results)) {
+            recent.results.forEach((row: any) => {
+              const rowTitle = getContentTitle(row);
+              if (rowTitle) {
+                MaxPlusImportEngine.markAsImported(rowTitle, this.conteudosTableId);
                 for (const t of titles) {
-                  if (isTitleMatch(t, name)) {
+                  if (
+                    isTitleMatch(t, rowTitle) || 
+                    normalizeTitle(t) === normalizeTitle(rowTitle) ||
+                    t.toLowerCase().trim() === rowTitle.toLowerCase().trim()
+                  ) {
                     MaxPlusImportEngine.markAsImported(t, this.conteudosTableId);
-                    const variants = getTitleMatchVariants(t);
-                    variants.forEach(v => existingSet.add(v));
+                    getTitleMatchVariants(t).forEach(v => existingSet.add(v));
+                    existingSet.add(normalizeTitle(t));
                   }
                 }
               }
@@ -346,10 +448,12 @@ export class MaxPlusImportEngine {
         }
       }
 
-      // 3. Para os títulos pendentes na tela, realiza buscas direcionadas no Baserow
+      // 4. ESTRATÉGIA INDIVIDUAL DO AUTOIMPORT SERVICE (findContentByName):
+      // Para os itens que ainda não foram confirmados, executa busca direcionada no Baserow
       const pendingTitles = titles.filter(t => {
+        const norm = normalizeTitle(t);
         const variants = getTitleMatchVariants(t);
-        return !variants.some(v => MaxPlusImportEngine.verifiedImportedCache.has(v));
+        return !existingSet.has(norm) && !variants.some(v => MaxPlusImportEngine.verifiedImportedCache.has(v));
       });
 
       if (pendingTitles.length > 0) {
@@ -359,7 +463,7 @@ export class MaxPlusImportEngine {
           await Promise.all(
             batch.map(async (rawTitle) => {
               try {
-                // Tenta com o prefixo principal (antes de : ou -) ou as 2 primeiras palavras
+                // Tenta com o título direto (como no AutoImportService)
                 const basePrefix = rawTitle.split(/[:\-–]/)[0].trim();
                 const searchKeyword = (basePrefix.length >= 3 ? basePrefix : rawTitle)
                   .replace(/[^a-zA-Z0-9À-ÿ\s]/g, ' ')
@@ -377,30 +481,38 @@ export class MaxPlusImportEngine {
 
                 if (resp?.results && Array.isArray(resp.results) && resp.results.length > 0) {
                   for (const row of resp.results) {
-                    const rowName = row.Nome || row.Titulo || row.Title;
-                    if (rowName && isTitleMatch(rawTitle, rowName)) {
+                    const rowTitle = getContentTitle(row);
+                    if (
+                      rowTitle && 
+                      (isTitleMatch(rawTitle, rowTitle) || 
+                       normalizeTitle(rawTitle) === normalizeTitle(rowTitle) ||
+                       rawTitle.toLowerCase().trim() === rowTitle.toLowerCase().trim())
+                    ) {
                       MaxPlusImportEngine.markAsImported(rawTitle, this.conteudosTableId);
-                      MaxPlusImportEngine.markAsImported(rowName, this.conteudosTableId);
+                      MaxPlusImportEngine.markAsImported(rowTitle, this.conteudosTableId);
                       const targetVariants = getTitleMatchVariants(rawTitle);
                       targetVariants.forEach(tv => existingSet.add(tv));
+                      existingSet.add(normalizeTitle(rawTitle));
                       break;
                     }
                   }
                 }
               } catch {
-                // Silencioso - não trava a verificação
+                // Silencioso
               }
             })
           );
         }
       }
 
-      // 4. Alimenta existingSet com todos os confirmados
+      // 5. Alimenta existingSet com todos os confirmados
       titles.forEach(t => {
+        const norm = normalizeTitle(t);
         const variants = getTitleMatchVariants(t);
-        for (const v of variants) {
+        for (const v of [norm, ...variants]) {
           if (MaxPlusImportEngine.verifiedImportedCache.has(v)) {
             existingSet.add(v);
+            existingSet.add(norm);
             break;
           }
         }
