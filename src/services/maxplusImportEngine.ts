@@ -181,6 +181,96 @@ export class MaxPlusImportEngine {
   private static verifiedImportedCache = new Set<string>();
   private static verifiedMissingCache = new Set<string>();
 
+  // Armazena o registro real do Baserow por ID e por Título para garantir ZERO duplicações
+  private static existingRowById = new Map<string, Record<string, unknown>>();
+  private static existingRowByTitle = new Map<string, Record<string, unknown>>();
+
+  public static rememberExistingRow(row: Record<string, unknown>, tableId?: string): void {
+    if (!row || !row.id) return;
+    const rowId = String(row.id);
+    MaxPlusImportEngine.existingRowById.set(rowId, row);
+
+    const title = getContentTitle(row);
+    if (title) {
+      MaxPlusImportEngine.markAsImported(title, tableId);
+      const norm = normalizeTitle(title);
+      MaxPlusImportEngine.existingRowByTitle.set(norm, row);
+
+      const variants = getTitleMatchVariants(title);
+      variants.forEach(v => {
+        MaxPlusImportEngine.existingRowByTitle.set(v, row);
+      });
+
+      const prefix = title.split(/[:\-–]/)[0].trim();
+      if (prefix && prefix !== title) {
+        MaxPlusImportEngine.existingRowByTitle.set(normalizeTitle(prefix), row);
+      }
+
+      // Persistir mapeamento título -> ID no localStorage
+      try {
+        if (typeof window !== 'undefined' && tableId) {
+          const storageKey = `maxplus_title_to_id_${tableId}`;
+          const currentMap = JSON.parse(localStorage.getItem(storageKey) || '{}');
+          currentMap[norm] = rowId;
+          variants.forEach(v => {
+            currentMap[v] = rowId;
+          });
+          if (prefix && prefix !== title) {
+            currentMap[normalizeTitle(prefix)] = rowId;
+          }
+          localStorage.setItem(storageKey, JSON.stringify(currentMap));
+        }
+      } catch {}
+    }
+  }
+
+  public static getCachedRowForTitle(title: string, tableId?: string): Record<string, unknown> | null {
+    if (!title) return null;
+    const clean = title.trim();
+    const norm = normalizeTitle(clean);
+
+    if (MaxPlusImportEngine.existingRowByTitle.has(norm)) {
+      return MaxPlusImportEngine.existingRowByTitle.get(norm)!;
+    }
+
+    const variants = getTitleMatchVariants(clean);
+    for (const v of variants) {
+      if (MaxPlusImportEngine.existingRowByTitle.has(v)) {
+        return MaxPlusImportEngine.existingRowByTitle.get(v)!;
+      }
+    }
+
+    const prefix = clean.split(/[:\-–]/)[0].trim();
+    if (prefix && prefix !== clean) {
+      const normPrefix = normalizeTitle(prefix);
+      if (MaxPlusImportEngine.existingRowByTitle.has(normPrefix)) {
+        return MaxPlusImportEngine.existingRowByTitle.get(normPrefix)!;
+      }
+    }
+
+    // Busca por isTitleMatch em todos os cacheados
+    for (const [cachedTitleNorm, row] of MaxPlusImportEngine.existingRowByTitle.entries()) {
+      const rowTitle = getContentTitle(row);
+      if (rowTitle && (isTitleMatch(clean, rowTitle) || cachedTitleNorm === norm)) {
+        return row;
+      }
+    }
+
+    // Tentar ler do localStorage se fornecido tableId
+    try {
+      if (typeof window !== 'undefined' && tableId) {
+        const storageKey = `maxplus_title_to_id_${tableId}`;
+        const map = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        const foundId = map[norm] || variants.map(v => map[v]).find(Boolean);
+        if (foundId) {
+          return { id: foundId, Nome: title };
+        }
+      }
+    } catch {}
+
+    return null;
+  }
+
   public static markAsImported(title?: string | null, tableId?: string): void {
     if (!title) return;
     const base = String(title).trim();
@@ -295,36 +385,105 @@ export class MaxPlusImportEngine {
    */
   async findContentByName(titulo: string, tableId: string): Promise<Record<string, unknown> | null> {
     if (!titulo || typeof titulo !== 'string' || titulo.trim() === '') return null;
+    const cleanTitle = titulo.trim();
+
+    // 0. Cache em memória imediato de registros já identificados no Baserow (0ms)
+    const cached = MaxPlusImportEngine.getCachedRowForTitle(cleanTitle, tableId);
+    if (cached && cached.id) {
+      console.log(`⚡ [MaxPlus] Conteúdo encontrado em cache imediato (ID ${cached.id}): "${cleanTitle}"`);
+      return cached;
+    }
+
     try {
-      const cleanTitle = titulo.trim();
-      // 1. Busca idêntica ao AutoImportService.ts (getTableData sem encode extra)
+      const basePrefix = cleanTitle.split(/[:\-–]/)[0].trim();
+      const tableKeys = await this.getConteudosKeys();
+      const titleColumn = tableKeys.find(k => CONTENT_TITLE_FIELDS.includes(k)) || 'Nome';
+
+      // 1. Consulta direta por filtro exato (filter_type=OR) - Idêntico ao ImportPreview
+      try {
+        let filterParams = `?user_field_names=true&size=10&filter_type=OR`;
+        filterParams += `&filter__${encodeURIComponent(titleColumn)}__equal=${encodeURIComponent(cleanTitle)}`;
+        if (basePrefix && basePrefix !== cleanTitle && basePrefix.length >= 3) {
+          filterParams += `&filter__${encodeURIComponent(titleColumn)}__equal=${encodeURIComponent(basePrefix)}`;
+        }
+
+        const resp = await this.baserowService.makeRequest(`/api/database/rows/table/${tableId}/${filterParams}`);
+        if (resp.ok) {
+          const resData = await resp.json();
+          if (resData?.results && Array.isArray(resData.results) && resData.results.length > 0) {
+            const match = resData.results.find((item: any) => {
+              const itemTitle = getContentTitle(item);
+              return (
+                itemTitle.toLowerCase().trim() === cleanTitle.toLowerCase() ||
+                isTitleMatch(cleanTitle, itemTitle)
+              );
+            }) || resData.results[0];
+
+            if (match && match.id) {
+              console.log(`✅ [MaxPlus] Conteúdo encontrado via filtro OR: ID ${match.id}, Título: "${getContentTitle(match)}"`);
+              MaxPlusImportEngine.rememberExistingRow(match, tableId);
+              return match;
+            }
+          }
+        }
+      } catch (orErr) {
+        console.warn('[MaxPlus] Filtro OR em findContentByName falhou, continuando busca:', orErr);
+      }
+
+      // 2. Busca direta por termo via getTableData (Idêntico ao AutoImportService.ts)
       const data = await this.baserowService.getTableData(tableId, 1, 200, cleanTitle);
       if (data?.results && data.results.length > 0) {
-        // Match exato (case-insensitive) como no AutoImport
         const exactMatch = data.results.find((item: any) => {
           const itemTitle = getContentTitle(item).toLowerCase().trim();
           return itemTitle === cleanTitle.toLowerCase();
         });
-        if (exactMatch) return exactMatch;
+        if (exactMatch && exactMatch.id) {
+          console.log(`✅ [MaxPlus] Match exato encontrado: ID ${exactMatch.id}, Título: "${getContentTitle(exactMatch)}"`);
+          MaxPlusImportEngine.rememberExistingRow(exactMatch, tableId);
+          return exactMatch;
+        }
 
-        // Match flexível / subtítulo (isTitleMatch)
         const titleMatch = data.results.find((item: any) => {
           const itemTitle = getContentTitle(item);
           return isTitleMatch(cleanTitle, itemTitle);
         });
-        if (titleMatch) return titleMatch;
+        if (titleMatch && titleMatch.id) {
+          console.log(`✅ [MaxPlus] Match flexível encontrado: ID ${titleMatch.id}, Título: "${getContentTitle(titleMatch)}"`);
+          MaxPlusImportEngine.rememberExistingRow(titleMatch, tableId);
+          return titleMatch;
+        }
       }
 
-      // 2. Se o título tiver ":" ou " - ", busca pelo prefixo
-      const basePrefix = cleanTitle.split(/[:\-–]/)[0].trim();
+      // 3. Se tiver prefixo, busca pelo prefixo
       if (basePrefix && basePrefix !== cleanTitle && basePrefix.length >= 3) {
         const prefixData = await this.baserowService.getTableData(tableId, 1, 100, basePrefix);
         if (prefixData?.results && prefixData.results.length > 0) {
           const match = prefixData.results.find((item: any) => {
             const itemTitle = getContentTitle(item);
-            return isTitleMatch(cleanTitle, itemTitle) || itemTitle.toLowerCase().trim() === basePrefix.toLowerCase();
+            return (
+              itemTitle.toLowerCase().trim() === cleanTitle.toLowerCase() ||
+              itemTitle.toLowerCase().trim() === basePrefix.toLowerCase() ||
+              isTitleMatch(cleanTitle, itemTitle)
+            );
           });
-          if (match) return match;
+          if (match && match.id) {
+            console.log(`✅ [MaxPlus] Match por prefixo encontrado: ID ${match.id}, Título: "${getContentTitle(match)}"`);
+            MaxPlusImportEngine.rememberExistingRow(match, tableId);
+            return match;
+          }
+        }
+      }
+
+      // 4. Última barreira de segurança: varredura dos 200 registros mais recentes do Baserow (-id)
+      const recent = await this.baserowService.getTableData(tableId, 1, 200, undefined, '-id');
+      if (recent?.results && Array.isArray(recent.results)) {
+        for (const row of recent.results) {
+          const rowTitle = getContentTitle(row);
+          if (rowTitle && (rowTitle.toLowerCase().trim() === cleanTitle.toLowerCase() || isTitleMatch(cleanTitle, rowTitle))) {
+            console.log(`✅ [MaxPlus] Encontrado em varredura recente (-id): ID ${row.id}, Título: "${rowTitle}"`);
+            MaxPlusImportEngine.rememberExistingRow(row, tableId);
+            return row;
+          }
         }
       }
 
@@ -390,6 +549,7 @@ export class MaxPlusImportEngine {
             const data = await resp.json();
             const results = Array.isArray(data?.results) ? data.results : [];
             results.forEach((row: any) => {
+              MaxPlusImportEngine.rememberExistingRow(row, this.conteudosTableId);
               const rowTitle = getContentTitle(row);
               if (rowTitle) {
                 MaxPlusImportEngine.markAsImported(rowTitle, this.conteudosTableId);
@@ -426,6 +586,7 @@ export class MaxPlusImportEngine {
           );
           if (recent?.results && Array.isArray(recent.results)) {
             recent.results.forEach((row: any) => {
+              MaxPlusImportEngine.rememberExistingRow(row, this.conteudosTableId);
               const rowTitle = getContentTitle(row);
               if (rowTitle) {
                 MaxPlusImportEngine.markAsImported(rowTitle, this.conteudosTableId);
@@ -488,6 +649,7 @@ export class MaxPlusImportEngine {
                        normalizeTitle(rawTitle) === normalizeTitle(rowTitle) ||
                        rawTitle.toLowerCase().trim() === rowTitle.toLowerCase().trim())
                     ) {
+                      MaxPlusImportEngine.rememberExistingRow(row, this.conteudosTableId);
                       MaxPlusImportEngine.markAsImported(rawTitle, this.conteudosTableId);
                       MaxPlusImportEngine.markAsImported(rowTitle, this.conteudosTableId);
                       const targetVariants = getTitleMatchVariants(rawTitle);
@@ -533,15 +695,39 @@ export class MaxPlusImportEngine {
   ): Promise<Record<string, unknown>[]> {
     if (!serieName || !tableId) return [];
     try {
-      const fetchPromise = this.baserowService.getTableData(tableId, 1, 200, serieName.trim());
-      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
-      const data = await Promise.race([fetchPromise, timeoutPromise]);
-      if (!data || !data.results) return [];
-
       const cleanSerie = serieName.toLowerCase().trim();
-      return data.results.filter((item: Record<string, unknown>) => {
-        const itemSerie = String(item.Serie || item.Nome || item.Titulo || '').toLowerCase().trim();
-        return itemSerie === cleanSerie || itemSerie.includes(cleanSerie) || cleanSerie.includes(itemSerie);
+      const basePrefix = cleanSerie.split(/[:\-–]/)[0].trim();
+
+      const fetchTerm = (basePrefix.length >= 3 ? basePrefix : cleanSerie)
+        .replace(/[^a-zA-Z0-9À-ÿ\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      const data = await this.baserowService.getTableData(tableId, 1, 200, fetchTerm || serieName.trim());
+      const allResults: any[] = Array.isArray(data?.results) ? [...data.results] : [];
+
+      // Se tiver prefixo distinto, tenta busca complementar para garantir cobertura máxima
+      if (basePrefix && basePrefix !== cleanSerie && basePrefix.length >= 3) {
+        try {
+          const directData = await this.baserowService.getTableData(tableId, 1, 200, cleanSerie.slice(0, 30));
+          if (directData?.results && Array.isArray(directData.results)) {
+            for (const r of directData.results) {
+              if (!allResults.some(item => item.id === r.id)) {
+                allResults.push(r);
+              }
+            }
+          }
+        } catch {}
+      }
+
+      return allResults.filter((item: Record<string, unknown>) => {
+        const itemSerie = String(item.Serie || item['Série'] || item.Nome || item.Titulo || getContentTitle(item) || '').toLowerCase().trim();
+        return (
+          itemSerie === cleanSerie ||
+          itemSerie.includes(cleanSerie) ||
+          cleanSerie.includes(itemSerie) ||
+          (basePrefix.length >= 3 && (itemSerie === basePrefix || itemSerie.includes(basePrefix) || basePrefix.includes(itemSerie)))
+        );
       });
     } catch (err) {
       console.warn(`[MaxPlus] Erro ao buscar episódios da série "${serieName}":`, err);
@@ -560,23 +746,46 @@ export class MaxPlusImportEngine {
   ): Promise<Record<string, unknown> | null> {
     try {
       const cleanSerie = serieName.toLowerCase().trim();
+      const basePrefix = cleanSerie.split(/[:\-–]/)[0].trim();
       const targetSeason = String(season).trim();
       const targetEpisode = String(episode).trim();
 
-      const data = await this.baserowService.getTableData(tableId, 1, 200, serieName.trim());
-      if (!data || !data.results || data.results.length === 0) return null;
+      const fetchTerm = (basePrefix.length >= 3 ? basePrefix : cleanSerie)
+        .replace(/[^a-zA-Z0-9À-ÿ\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-      const match = data.results.find((item: Record<string, unknown>) => {
-        const itemSerie = (String(item.Nome || item.Serie || item.Titulo || '')).toLowerCase().trim();
-        const itemTemp = String(item.Temporada || '').trim();
-        const itemEp = String(item['Episódio'] || item.Episodio || item.Numero || '').trim();
+      const data = await this.baserowService.getTableData(tableId, 1, 200, fetchTerm || serieName.trim());
+      let candidateList = Array.isArray(data?.results) ? [...data.results] : [];
 
-        const matchSerie = itemSerie === cleanSerie || itemSerie.includes(cleanSerie) || cleanSerie.includes(itemSerie);
-        const matchTemp = itemTemp === targetSeason;
-        const matchEp = itemEp === targetEpisode;
+      if (candidateList.length === 0 && basePrefix && basePrefix !== cleanSerie && basePrefix.length >= 3) {
+        try {
+          const prefixData = await this.baserowService.getTableData(tableId, 1, 200, basePrefix);
+          if (prefixData?.results && Array.isArray(prefixData.results)) {
+            candidateList = prefixData.results;
+          }
+        } catch {}
+      }
+
+      if (candidateList.length === 0) return null;
+
+      const match = candidateList.find((item: Record<string, unknown>) => {
+        const itemSerie = String(item.Serie || item['Série'] || item.Nome || item.Titulo || getContentTitle(item) || '').toLowerCase().trim();
+        const itemTemp = String(item.Temporada || item.Season || '').trim();
+        const itemEp = String(item['Episódio'] || item.Episodio || item.Numero || item.Episode || '').trim();
+
+        const matchSerie = 
+          itemSerie === cleanSerie || 
+          itemSerie.includes(cleanSerie) || 
+          cleanSerie.includes(itemSerie) ||
+          (basePrefix.length >= 3 && (itemSerie === basePrefix || itemSerie.includes(basePrefix) || basePrefix.includes(itemSerie)));
+        
+        const matchTemp = itemTemp === targetSeason || Number(itemTemp) === Number(targetSeason);
+        const matchEp = itemEp === targetEpisode || Number(itemEp) === Number(targetEpisode);
 
         return matchSerie && matchTemp && matchEp;
       });
+
       return match || null;
     } catch (err) {
       console.warn(`[MaxPlus] Erro ao buscar episódio existente S${season}E${episode}:`, err);
@@ -673,6 +882,7 @@ export class MaxPlusImportEngine {
 
       const mappedUpdatePayload = tableKeys.length > 0 ? mapToDatabaseKeys(rawUpdatePayload, tableKeys) : rawUpdatePayload;
       await this.baserowService.updateRow(this.conteudosTableId, String(existingContent.id), mappedUpdatePayload);
+      MaxPlusImportEngine.rememberExistingRow({ ...existingContent, ...mappedUpdatePayload, id: existingContent.id }, this.conteudosTableId);
       MaxPlusImportEngine.markAsImported(data.nome, this.conteudosTableId);
       return { success: true, id: String(existingContent.id), updated: true };
     }
@@ -699,6 +909,9 @@ export class MaxPlusImportEngine {
 
     console.log('🎬 [MaxPlus] Importando novo filme no Baserow:', mappedPayload);
     const result = await this.baserowService.createRow(this.conteudosTableId, mappedPayload);
+    if (result && result.id) {
+      MaxPlusImportEngine.rememberExistingRow(result, this.conteudosTableId);
+    }
     MaxPlusImportEngine.markAsImported(data.nome, this.conteudosTableId);
     return { success: true, id: String(result.id) };
   }
@@ -802,6 +1015,7 @@ export class MaxPlusImportEngine {
       await this.baserowService.updateRow(this.conteudosTableId, String(existingSerie.id), mappedSerieUpdate);
       serieId = String(existingSerie.id);
       isSerieUpdated = true;
+      MaxPlusImportEngine.rememberExistingRow({ ...existingSerie, ...mappedSerieUpdate, id: existingSerie.id }, this.conteudosTableId);
       MaxPlusImportEngine.markAsImported(data.nome, this.conteudosTableId);
     } else {
       const rawSeriePayload = {
@@ -824,6 +1038,9 @@ export class MaxPlusImportEngine {
       console.log('📺 [MaxPlus] Criando novo registro da Série no Baserow:', mappedSeriePayload);
       const serieResult = await this.baserowService.createRow(this.conteudosTableId, mappedSeriePayload);
       serieId = String(serieResult?.id);
+      if (serieResult && serieResult.id) {
+        MaxPlusImportEngine.rememberExistingRow(serieResult, this.conteudosTableId);
+      }
       MaxPlusImportEngine.markAsImported(data.nome, this.conteudosTableId);
     }
 
@@ -948,9 +1165,17 @@ export class MaxPlusImportEngine {
         try {
           // Verifica se o episódio já existe na tabela de episódios pelo mapa pré-carregado
           const epKey = `${seasonNum}_${epNum}`;
-          const existingEp = existingEpisodesMap.get(epKey) || null;
+          let existingEp = existingEpisodesMap.get(epKey) || null;
 
-          if (existingEp) {
+          // Se não encontrou no mapa pré-carregado, faz a busca direta no Baserow (segurança total contra duplicação)
+          if (!existingEp) {
+            existingEp = await this.findEpisodeByIdentifiers(data.nome, seasonNum, epNum, this.episodiosTableId);
+            if (existingEp) {
+              existingEpisodesMap.set(epKey, existingEp);
+            }
+          }
+
+          if (existingEp && existingEp.id) {
             console.log(`🔄 [MaxPlus] Episódio T${seasonNum}E${epNum} já existe (ID: ${existingEp.id}), atualizando dados...`);
             const rawEpUpdate: Record<string, unknown> = {
               Nome: data.nome,
