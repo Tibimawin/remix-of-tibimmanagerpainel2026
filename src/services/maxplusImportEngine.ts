@@ -761,8 +761,16 @@ export class MaxPlusImportEngine {
       }
 
       try {
-        // Carregar detalhes completos do item
-        const details = await fetchDetails(item.link);
+        // Carregar detalhes completos do item (com retry defensivo em caso de instabilidade)
+        let details: MaxPlusContentDetails;
+        try {
+          details = await fetchDetails(item.link);
+        } catch (initialErr) {
+          console.warn(`[MaxPlus] Primeira tentativa de obter detalhes falhou para '${item.nome}', tentando novamente em 1.5s...`, initialErr);
+          await new Promise((r) => setTimeout(r, 1500));
+          details = await fetchDetails(item.link);
+        }
+
         const isSeries = (details.total_seasons && details.total_seasons > 0) || 
                          (details.seasons_details && details.seasons_details.length > 0) ||
                          item.link.includes('/tvshows/');

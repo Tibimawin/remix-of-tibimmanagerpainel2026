@@ -128,6 +128,66 @@ const m3uDevProxyPlugin = () => ({
 
     server.middlewares.use(async (req: any, res: any, next: any) => {
       const url = req.url || "";
+      if (url.startsWith("/api/maxplus-proxy") || url.startsWith("/api/maxplus")) {
+        try {
+          // @ts-ignore
+          const maxplusModule = await import("./api/maxplus-proxy.js");
+          const handler = maxplusModule.default || maxplusModule;
+
+          const parsed = new URL(url, "http://localhost:3000");
+          const query: Record<string, string> = {};
+          parsed.searchParams.forEach((val, key) => {
+            query[key] = val;
+          });
+          req.query = query;
+
+          if (!res.status) {
+            res.status = (code: number) => {
+              res.statusCode = code;
+              return res;
+            };
+          }
+          if (!res.json) {
+            res.json = (data: any) => {
+              res.setHeader("Content-Type", "application/json; charset=utf-8");
+              res.end(JSON.stringify(data));
+              return res;
+            };
+          }
+          if (!res.send) {
+            res.send = (data: any) => {
+              res.end(data);
+              return res;
+            };
+          }
+
+          if (req.method === "POST" && !req.body) {
+            let bodyStr = "";
+            req.on("data", (c: any) => { bodyStr += c; });
+            req.on("end", async () => {
+              try {
+                req.body = JSON.parse(bodyStr);
+              } catch {
+                req.body = {};
+              }
+              await handler(req, res);
+            });
+            return;
+          }
+
+          return await handler(req, res);
+        } catch (e: any) {
+          console.error("Erro no middleware MaxPlus local:", e);
+          res.statusCode = 500;
+          res.setHeader("Content-Type", "application/json");
+          return res.end(JSON.stringify({ error: e?.message }));
+        }
+      }
+      next();
+    });
+
+    server.middlewares.use(async (req: any, res: any, next: any) => {
+      const url = req.url || "";
       if (
         url.startsWith("/player_api.php") ||
         url.startsWith("/get.php") ||

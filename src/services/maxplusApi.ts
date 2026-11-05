@@ -98,25 +98,92 @@ export const MAXPLUS_CATEGORIES: MaxPlusCategory[] = [
   { name: 'Cinema TV', url: 'http://apps.zynner.site/genre/cinema-tv/' },
 ];
 
+const WORKING_VERCEL_ALIAS = 'https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app';
+
+/**
+ * Executa requisição para a API MaxPlus com múltiplas camadas de resiliência:
+ * 1. Tenta proxy local (/api/maxplus-proxy ou /api/maxplus) - imune a CORS, Brave Shields e extensões.
+ * 2. Tenta upstream direto (https://api-tibimmanagerpainel.vercel.app/api/maxplus) com credentials: 'omit'.
+ * 3. Tenta alias Vercel (https://.../api/maxplus-proxy).
+ * 4. Inclui retentativa automática (retry) em caso de falha transitória de rede.
+ */
+async function executeMaxPlusRequest<T = any>(params: Record<string, string>): Promise<T> {
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) searchParams.set(key, value);
+  }
+  const queryString = searchParams.toString();
+
+  // Candidatos de URL em ordem de resiliência
+  const candidates: string[] = [
+    // 1. Proxy do mesmo host (Zero CORS, zero conflito com extensões)
+    `/api/maxplus-proxy?${queryString}`,
+    `/api/maxplus?${queryString}`,
+    // 2. Upstream direto
+    `${MAXPLUS_API_BASE}?${queryString}`,
+    // 3. Proxy na Vercel pública
+    `${WORKING_VERCEL_ALIAS}/api/maxplus-proxy?${queryString}`,
+  ];
+
+  let lastError: unknown = null;
+
+  for (let c = 0; c < candidates.length; c++) {
+    const candidateUrl = candidates[c];
+    const isDirectUpstream = candidateUrl.startsWith(MAXPLUS_API_BASE);
+    const maxTries = isDirectUpstream ? 2 : 1;
+
+    for (let attempt = 1; attempt <= maxTries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 25000);
+
+        const response = await fetch(candidateUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+          // 🛡️ CRÍTICO: 'omit' impede que extensões (ex: api-sniffer) ou o browser enviem credenciais
+          // que conflitem com o header 'Access-Control-Allow-Origin: *', gerando 'TypeError: Failed to fetch'
+          credentials: 'omit',
+          mode: 'cors',
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeout);
+
+        if (response.ok) {
+          const json = await response.json();
+          return json as T;
+        }
+
+        // Se deu 404 no endpoint local inicial, pula rapidamente para o próximo candidato
+        if (response.status === 404 && !isDirectUpstream) {
+          break;
+        }
+
+        lastError = new Error(`Servidor retornou status HTTP ${response.status}`);
+      } catch (err: any) {
+        lastError = err;
+        if (attempt < maxTries) {
+          await new Promise((r) => setTimeout(r, 600));
+        }
+      }
+    }
+  }
+
+  const errorMsg = lastError instanceof Error ? lastError.message : 'Falha ao conectar à API MaxPlus';
+  console.error('❌ [MaxPlusApi] Falha em todos os endpoints candidatos:', errorMsg);
+  throw new Error(errorMsg);
+}
+
 /**
  * 1. fetchCatalog: busca lista de itens por categoria ou url
- * GET https://api-tibimmanagerpainel.vercel.app/api/maxplus?url=${encodeURIComponent(categoryUrl)}
  */
 export async function fetchCatalog(categoryUrl: string): Promise<MaxPlusCatalogItem[]> {
   try {
-    const url = `${MAXPLUS_API_BASE}?url=${encodeURIComponent(categoryUrl)}`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
+    const data = await executeMaxPlusRequest<MaxPlusCatalogItem[]>({ url: categoryUrl });
 
-    if (!response.ok) {
-      throw new Error(`Falha ao carregar catálogo: status ${response.status}`);
-    }
-
-    const data = await response.json();
     if (!Array.isArray(data)) {
       console.warn('Resposta do catálogo não é um array:', data);
       return [];
@@ -135,23 +202,16 @@ export async function fetchCatalog(categoryUrl: string): Promise<MaxPlusCatalogI
 
 /**
  * 2. fetchDetails: busca detalhes completos do conteúdo (filme ou série)
- * GET https://api-tibimmanagerpainel.vercel.app/api/maxplus?id=${encodeURIComponent(contentUrl)}
  */
 export async function fetchDetails(contentUrl: string): Promise<MaxPlusContentDetails> {
   try {
-    const url = `${MAXPLUS_API_BASE}?id=${encodeURIComponent(contentUrl)}`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Falha ao obter detalhes: status ${response.status}`);
+    const cleanUrl = String(contentUrl || '').trim();
+    if (!cleanUrl) {
+      throw new Error('URL de conteúdo inválida ou vazia');
     }
 
-    const data: MaxPlusContentDetails = await response.json();
+    const data = await executeMaxPlusRequest<MaxPlusContentDetails>({ id: cleanUrl });
+
     if (data && typeof data === 'object') {
       data.imagem = upgradeToHighResTmdbImage(data.imagem);
     }
@@ -165,23 +225,15 @@ export async function fetchDetails(contentUrl: string): Promise<MaxPlusContentDe
 
 /**
  * 3. fetchEpisode: busca o link direto de vídeo MP4 do episódio
- * GET https://api-tibimmanagerpainel.vercel.app/api/maxplus?ep=${encodeURIComponent(episodeUrl)}
  */
 export async function fetchEpisode(episodeUrl: string): Promise<MaxPlusEpisodeResult> {
   try {
-    const url = `${MAXPLUS_API_BASE}?ep=${encodeURIComponent(episodeUrl)}`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Falha ao obter episódio: status ${response.status}`);
+    const cleanUrl = String(episodeUrl || '').trim();
+    if (!cleanUrl) {
+      throw new Error('URL de episódio inválida ou vazia');
     }
 
-    const data = await response.json();
+    const data = await executeMaxPlusRequest<MaxPlusEpisodeResult>({ ep: cleanUrl });
     return data;
   } catch (error: unknown) {
     console.error('Erro em fetchEpisode:', error);
@@ -192,7 +244,6 @@ export async function fetchEpisode(episodeUrl: string): Promise<MaxPlusEpisodeRe
 
 /**
  * Helper para buscar por termo de pesquisa
- * GET https://api-tibimmanagerpainel.vercel.app/api/maxplus?url=${encodeURIComponent('http://apps.zynner.site/pesquisar-2/?q=' + termo)}
  */
 export async function searchMaxPlus(term: string): Promise<MaxPlusCatalogItem[]> {
   const searchUrl = `http://apps.zynner.site/pesquisar-2/?q=${encodeURIComponent(term)}`;

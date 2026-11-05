@@ -3,6 +3,8 @@ import { Badge } from '@/components/ui/badge';
 import { Activity, AlertCircle, CheckCircle2, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+import { BASEROW_PROXY_CONFIG } from '@/config/proxyConfig';
+
 export const ServerStatusIndicator: React.FC = () => {
   const [status, setStatus] = useState<'online' | 'checking' | 'offline'>('checking');
   const [latency, setLatency] = useState<number | null>(null);
@@ -10,22 +12,27 @@ export const ServerStatusIndicator: React.FC = () => {
   const checkStatus = async () => {
     const startTime = Date.now();
     try {
-      // Usando o endpoint de baserow-proxy como referência para a saúde da infraestrutura
-      const response = await fetch('/api/baserow-proxy', { 
-        method: 'HEAD',
-        cache: 'no-store' 
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      
+      const targetUrl = BASEROW_PROXY_CONFIG.ACTIVE_PROXY_URL;
+      const response = await fetch(targetUrl, { 
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'omit',
+        signal: controller.signal
       });
+      clearTimeout(timer);
       
       const duration = Date.now() - startTime;
       setLatency(duration);
 
-      if (response.ok || response.status === 405) { // 405 Method Not Allowed ainda significa que o servidor respondeu
+      if (response.ok || response.status === 405 || response.status === 400) {
         setStatus('online');
       } else {
         setStatus('offline');
       }
-    } catch (error) {
-      console.error('Erro ao verificar status do servidor:', error);
+    } catch {
       setStatus('offline');
       setLatency(null);
     }
