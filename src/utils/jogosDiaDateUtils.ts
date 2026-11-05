@@ -398,3 +398,39 @@ export function sanitizeAndFilterActiveJogos<T extends Record<string, unknown>>(
 
   return result;
 }
+
+/**
+ * Constrói o payload compatível com a tabela de Jogos do Dia no Baserow.
+ * Garante estritamente que a coluna 'Data' esteja no formato ISO 'YYYY-MM-DD'
+ * exigido pelos campos de tipo Date do Baserow, evitando erros de validação (ERROR_REQUEST_BODY_VALIDATION).
+ */
+export function formatJogoPayloadForBaserow(jogo: any): Record<string, any> {
+  const rawDate = jogo.Data ?? (jogo as any)['Data'] ?? jogo['Data Horario'] ?? (jogo as any)['Data Horario'];
+  const normalizedYMD = normalizeDateToYMD(rawDate) || getTodayDateString();
+  const rawDataHorario = String(jogo['Data Horario'] ?? jogo.Data ?? '').trim();
+
+  return {
+    'Nome': String(jogo.Nome || '').trim(),
+    'Link': String(jogo.Link || '').trim(),
+    'Categoria': String(jogo.Campeonato || 'Jogos do Dia').trim(),
+    'Capa': jogo['Logo Casa'] || jogo.LogoCasa || '',
+    'Logo': jogo['Logo Casa'] || jogo.LogoCasa || '',
+    // 🛡️ Data formatada estritamente como YYYY-MM-DD (ex: 2026-11-04)
+    'Data': normalizedYMD,
+    'TimeCasa': jogo['Time Casa'] || jogo.TimeCasa || '',
+    'TimeFora': jogo['Time Fora'] || jogo.TimeFora || '',
+    'Campeonato': jogo.Campeonato || '',
+    'LogoCasa': jogo['Logo Casa'] || jogo.LogoCasa || '',
+    'LogoFora': jogo['Logo Fora'] || jogo.LogoFora || '',
+    'Link1': jogo['Link 1'] || jogo.Link1 || '',
+    'Link2': jogo['Link 2'] || jogo.Link2 || '',
+    'Time Casa': jogo['Time Casa'] || jogo.TimeCasa || '',
+    'Time Fora': jogo['Time Fora'] || jogo.TimeFora || '',
+    'Logo Casa': jogo['Logo Casa'] || jogo.LogoCasa || '',
+    'Logo Fora': jogo['Logo Fora'] || jogo.LogoFora || '',
+    'Data Horario': rawDataHorario,
+    'Link 1': jogo['Link 1'] || jogo.Link1 || '',
+    'Link 2': jogo['Link 2'] || jogo.Link2 || ''
+  };
+}
+

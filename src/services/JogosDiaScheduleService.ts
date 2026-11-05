@@ -2,7 +2,7 @@ import { collection, doc, getDoc, updateDoc, addDoc, setDoc } from 'firebase/fir
 import { db } from '@/config/firebase';
 import { UserConfigService } from './UserConfigService';
 import { BaserowService } from './BaserowService';
-import { isJogoElegivelHoje, analyzeJogoDate, isBlankOrSeparatorRow } from '@/utils/jogosDiaDateUtils';
+import { isJogoElegivelHoje, analyzeJogoDate, isBlankOrSeparatorRow, formatJogoPayloadForBaserow } from '@/utils/jogosDiaDateUtils';
 
 export interface JogosDiaSchedule {
   id: string;
@@ -85,29 +85,7 @@ export class JogosDiaScheduleService {
           const existing = await userBaserow.getTableData(targetTableId, 1, 1, jogo.Nome);
           const match = existing.results.find((r: any) => r.Link === jogo.Link);
           
-          const payload = {
-            'Nome': jogo.Nome,
-            'Link': jogo.Link,
-            'Categoria': jogo.Campeonato || 'Jogos do Dia',
-            'Logo': jogo['Logo Casa'] || '',
-            'Capa': jogo['Logo Casa'] || '',
-            'TimeCasa': jogo['Time Casa'],
-            'TimeFora': jogo['Time Fora'],
-            'Campeonato': jogo.Campeonato,
-            'Data': jogo.Data || jogo['Data Horario'] || '',
-            'LogoCasa': jogo['Logo Casa'] || '',
-            'LogoFora': jogo['Logo Fora'] || '',
-            'Link1': jogo['Link 1'] || '',
-            'Link2': jogo['Link 2'] || '',
-            // Inclusão de mapeamento com nomes originais (com espaços) para garantir compatibilidade total
-            'Time Casa': jogo['Time Casa'],
-            'Time Fora': jogo['Time Fora'],
-            'Logo Casa': jogo['Logo Casa'],
-            'Logo Fora': jogo['Logo Fora'],
-            'Data Horario': jogo['Data Horario'] || jogo.Data || '',
-            'Link 1': jogo['Link 1'] || '',
-            'Link 2': jogo['Link 2'] || ''
-          };
+          const payload = formatJogoPayloadForBaserow(jogo);
 
           if (match) {
             await userBaserow.updateRow(targetTableId, String(match.id), payload);

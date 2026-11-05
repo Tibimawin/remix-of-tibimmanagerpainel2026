@@ -49,7 +49,8 @@ import {
   JogoDateInfo, 
   isBlankOrSeparatorRow, 
   getSeparatorLabel,
-  sanitizeAndFilterActiveJogos 
+  sanitizeAndFilterActiveJogos,
+  formatJogoPayloadForBaserow 
 } from '@/utils/jogosDiaDateUtils';
 
 
@@ -227,28 +228,7 @@ const JogosDia = () => {
     setImportingIds(prev => new Set(prev).add(jogo.id));
     
     try {
-      const data = {
-        'Nome': jogo.Nome,
-        'Link': jogo.Link,
-        'Categoria': jogo.Campeonato || 'Jogos do Dia',
-        'Capa': jogo['Logo Casa'] || '',
-        'Logo': jogo['Logo Casa'] || '',
-        'Data': jogo.Data || jogo['Data Horario'] || '',
-        'TimeCasa': jogo['Time Casa'],
-        'TimeFora': jogo['Time Fora'],
-        'Campeonato': jogo.Campeonato,
-        'LogoCasa': jogo['Logo Casa'] || '',
-        'LogoFora': jogo['Logo Fora'] || '',
-        'Link1': jogo['Link 1'] || '',
-        'Link2': jogo['Link 2'] || '',
-        'Time Casa': jogo['Time Casa'],
-        'Time Fora': jogo['Time Fora'],
-        'Logo Casa': jogo['Logo Casa'],
-        'Logo Fora': jogo['Logo Fora'],
-        'Data Horario': jogo['Data Horario'] || jogo.Data || '',
-        'Link 1': jogo['Link 1'] || '',
-        'Link 2': jogo['Link 2'] || ''
-      };
+      const data = formatJogoPayloadForBaserow(jogo);
 
       const existing = await baserowService.getTableData(targetTableId, 1, 10, jogo.Nome);
       const match = existing.results?.find((r: any) => r.Link === jogo.Link || r['Link'] === jogo.Link);
@@ -296,28 +276,7 @@ const JogosDia = () => {
 
     for (const jogo of todayGames) {
       try {
-        const data = {
-          'Nome': jogo.Nome,
-          'Link': jogo.Link,
-          'Categoria': jogo.Campeonato || 'Jogos do Dia',
-          'Capa': jogo['Logo Casa'] || '',
-          'Logo': jogo['Logo Casa'] || '',
-          'Data': jogo.Data || jogo['Data Horario'] || '',
-          'TimeCasa': jogo['Time Casa'],
-          'TimeFora': jogo['Time Fora'],
-          'Campeonato': jogo.Campeonato,
-          'LogoCasa': jogo['Logo Casa'] || '',
-          'LogoFora': jogo['Logo Fora'] || '',
-          'Link1': jogo['Link 1'] || '',
-          'Link2': jogo['Link 2'] || '',
-          'Time Casa': jogo['Time Casa'],
-          'Time Fora': jogo['Time Fora'],
-          'Logo Casa': jogo['Logo Casa'],
-          'Logo Fora': jogo['Logo Fora'],
-          'Data Horario': jogo['Data Horario'] || jogo.Data || '',
-          'Link 1': jogo['Link 1'] || '',
-          'Link 2': jogo['Link 2'] || ''
-        };
+        const data = formatJogoPayloadForBaserow(jogo);
 
         const existing = await baserowService.getTableData(targetTableId, 1, 5, jogo.Nome);
         const match = existing.results?.find((r: any) => r.Link === jogo.Link);

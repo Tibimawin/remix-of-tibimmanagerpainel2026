@@ -374,6 +374,55 @@ export class BaserowService {
     }
   }
 
+  private autoSanitizeBaserowDates(data: any, errorText: string): any {
+    if (!data || typeof data !== 'object') return data;
+    const copy = { ...data };
+
+    let invalidFields: string[] = [];
+    try {
+      const parsed = typeof errorText === 'string' ? JSON.parse(errorText) : errorText;
+      if (parsed.detail && typeof parsed.detail === 'object') {
+        for (const [key, issues] of Object.entries(parsed.detail)) {
+          if (Array.isArray(issues) && issues.some((iss: any) => String(iss?.error || '').toLowerCase().includes('date has wrong format'))) {
+            invalidFields.push(key);
+          }
+        }
+      }
+    } catch {
+      // JSON parse falhou, continua com fallback por regex
+    }
+
+    if (invalidFields.length === 0) {
+      invalidFields = Object.keys(copy).filter(k => /(^|\b)(data|date|prazo|vencimento)(\b|$)/i.test(k));
+    }
+
+    for (const field of invalidFields) {
+      const val = copy[field];
+      if (val === '' || val === undefined) {
+        copy[field] = null;
+      } else if (typeof val === 'string') {
+        const str = val.trim();
+        // 1) YYYY-MM-DD
+        const ymd = str.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+        if (ymd) {
+          copy[field] = `${ymd[1]}-${ymd[2].padStart(2, '0')}-${ymd[3].padStart(2, '0')}`;
+          continue;
+        }
+        // 2) DD/MM/YYYY
+        const dmy = str.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+        if (dmy) {
+          copy[field] = `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+          continue;
+        }
+        // 3) Se não for reconhecido, define a data de hoje no formato YYYY-MM-DD
+        const d = new Date();
+        copy[field] = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+    }
+
+    return copy;
+  }
+
   async createRow(tableId: string, data: any) {
     const endpoint = `/api/database/rows/table/${tableId}/?user_field_names=true`;
     console.log('🔧 [BaserowService] createRow chamado:', {
@@ -384,15 +433,25 @@ export class BaserowService {
       dataKeys: Object.keys(data)
     });
 
-    const response = await this.makeRequest(endpoint, { method: 'POST', body: JSON.stringify(data) });
+    let response = await this.makeRequest(endpoint, { method: 'POST', body: JSON.stringify(data) });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ [BaserowService] Erro ao criar row:', {
-        status: response.status,
-        error: errorText
-      });
-      throw new Error(`Erro ${response.status}: ${errorText}`);
+      // Auto-recuperação inteligente se o Baserow recusar o formato de data (ex: Date has wrong format)
+      if (response.status === 400 && errorText.includes('Date has wrong format')) {
+        console.warn('⚠️ [BaserowService] Formato de data inválido detectado no Baserow. Higienizando campos de data e tentando novamente...');
+        const sanitizedData = this.autoSanitizeBaserowDates(data, errorText);
+        response = await this.makeRequest(endpoint, { method: 'POST', body: JSON.stringify(sanitizedData) });
+      }
+
+      if (!response.ok) {
+        const finalError = await response.text();
+        console.error('❌ [BaserowService] Erro ao criar row:', {
+          status: response.status,
+          error: finalError
+        });
+        throw new Error(`Erro ${response.status}: ${finalError}`);
+      }
     }
 
     const result = await response.json();
@@ -402,8 +461,18 @@ export class BaserowService {
 
   async updateRow(tableId: string, rowId: string, data: any) {
     const endpoint = `/api/database/rows/table/${tableId}/${rowId}/?user_field_names=true`;
-    const response = await this.makeRequest(endpoint, { method: 'PATCH', body: JSON.stringify(data) });
-    if (!response.ok) throw new Error(`Erro ${response.status}: ${await response.text()}`);
+    let response = await this.makeRequest(endpoint, { method: 'PATCH', body: JSON.stringify(data) });
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (response.status === 400 && errorText.includes('Date has wrong format')) {
+        console.warn('⚠️ [BaserowService] Formato de data inválido no updateRow. Higienizando campos e tentando novamente...');
+        const sanitized = this.autoSanitizeBaserowDates(data, errorText);
+        response = await this.makeRequest(endpoint, { method: 'PATCH', body: JSON.stringify(sanitized) });
+      }
+      if (!response.ok) {
+        throw new Error(`Erro ${response.status}: ${await response.text()}`);
+      }
+    }
     return response.json();
   }
 
@@ -423,9 +492,8 @@ export class BaserowService {
 
     // Dividir em sub-lotes de até 200
     for (let i = 0; i < rows.length; i += MAX_BATCH_SIZE) {
-      const chunk = rows.slice(i, i + MAX_BATCH_SIZE);
+      let chunk = rows.slice(i, i + MAX_BATCH_SIZE);
       const endpoint = `/api/database/rows/table/${tableId}/batch/?user_field_names=true`;
-      const body = JSON.stringify({ items: chunk });
 
       let attempt = 0;
       const maxRetries = 3;
@@ -434,12 +502,21 @@ export class BaserowService {
         attempt++;
         try {
           logger.debug(`📦 Criando lote de ${chunk.length} registros (tentativa ${attempt})`);
-          const response = await this.makeRequest(endpoint, { method: 'POST', body });
+          let response = await this.makeRequest(endpoint, { method: 'POST', body: JSON.stringify({ items: chunk }) });
 
           if (!response.ok) {
             const errorText = await response.text();
-            logger.warn(`⚠️ Erro batch-create (status ${response.status}): ${errorText}`);
-            throw new Error(`Erro ${response.status}: ${errorText}`);
+            if (response.status === 400 && errorText.includes('Date has wrong format')) {
+              logger.warn(`⚠️ Detectado erro de data no lote. Higienizando itens do lote...`);
+              chunk = chunk.map(item => this.autoSanitizeBaserowDates(item, errorText));
+              response = await this.makeRequest(endpoint, { method: 'POST', body: JSON.stringify({ items: chunk }) });
+            }
+
+            if (!response.ok) {
+              const finalErr = await response.text();
+              logger.warn(`⚠️ Erro batch-create (status ${response.status}): ${finalErr}`);
+              throw new Error(`Erro ${response.status}: ${finalErr}`);
+            }
           }
 
           const data = await response.json();
