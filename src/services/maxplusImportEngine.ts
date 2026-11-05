@@ -24,20 +24,28 @@ export interface ImportProgress {
   stage: string;
 }
 
+/**
+ * Normaliza uma string de título removendo acentos, pontuação e múltiplos espaços
+ */
+export function normalizeTitle(s?: string | null): string {
+  if (!s) return '';
+  return String(s)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/**
+ * Retorna variantes normalizadas de um título para correspondência flexível
+ */
 export function getTitleMatchVariants(rawTitle?: string | null): string[] {
   if (!rawTitle) return [];
   const base = String(rawTitle).trim();
   if (!base) return [];
 
-  const normalize = (s: string) =>
-    s
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, ' ')
-      .trim();
-
-  const norm = normalize(base);
+  const norm = normalizeTitle(base);
   if (!norm) return [];
 
   const variants = new Set<string>();
@@ -54,17 +62,81 @@ export function getTitleMatchVariants(rawTitle?: string | null): string[] {
     .trim();
   if (stripped && stripped.length >= 3) variants.add(stripped);
 
-  // Prefixo antes de ":" ou " - "
+  // Prefixo antes de ":" ou " - " ou " – "
   if (base.includes(':')) {
-    const prefix = normalize(base.split(':')[0]);
+    const prefix = normalizeTitle(base.split(':')[0]);
     if (prefix && prefix.length >= 3) variants.add(prefix);
+    const suffix = normalizeTitle(base.split(':')[1]);
+    if (suffix && suffix.length >= 4) variants.add(suffix);
   }
   if (base.includes(' - ')) {
-    const prefix = normalize(base.split(' - ')[0]);
+    const prefix = normalizeTitle(base.split(' - ')[0]);
     if (prefix && prefix.length >= 3) variants.add(prefix);
+    const suffix = normalizeTitle(base.split(' - ')[1]);
+    if (suffix && suffix.length >= 4) variants.add(suffix);
+  }
+  if (base.includes(' – ')) {
+    const prefix = normalizeTitle(base.split(' – ')[0]);
+    if (prefix && prefix.length >= 3) variants.add(prefix);
+    const suffix = normalizeTitle(base.split(' – ')[1]);
+    if (suffix && suffix.length >= 4) variants.add(suffix);
+  }
+
+  // Primeiras 2 a 3 palavras significativas (ex: "academia sobrenatural", "mutante destino")
+  const words = norm.split(' ').filter(w => w.length >= 3);
+  if (words.length >= 2) {
+    variants.add(words.slice(0, 2).join(' '));
+  }
+  if (words.length >= 3) {
+    variants.add(words.slice(0, 3).join(' '));
   }
 
   return Array.from(variants);
+}
+
+/**
+ * Compara dois títulos verificando se são o mesmo conteúdo (com tolerância a subtítulos, colons e variações)
+ */
+export function isTitleMatch(titleA?: string | null, titleB?: string | null): boolean {
+  if (!titleA || !titleB) return false;
+  const normA = normalizeTitle(titleA);
+  const normB = normalizeTitle(titleB);
+  if (!normA || !normB) return false;
+
+  // 1. Igualdade estrita normalizada
+  if (normA === normB) return true;
+
+  // 2. Interseção de variantes geradas
+  const variantsA = getTitleMatchVariants(titleA);
+  const variantsB = getTitleMatchVariants(titleB);
+  if (variantsA.some(va => variantsB.includes(va))) return true;
+
+  // 3. Prefixos antes de : ou -
+  const prefixA = normalizeTitle(String(titleA).split(/[:\-–]/)[0]);
+  const prefixB = normalizeTitle(String(titleB).split(/[:\-–]/)[0]);
+  if (prefixA && prefixB && prefixA.length >= 4 && prefixB.length >= 4) {
+    if (prefixA === prefixB) return true;
+    if (normA.startsWith(prefixB) || normB.startsWith(prefixA)) return true;
+  }
+
+  // 4. Substring containment se um tiver tamanho significativo (>= 6)
+  if (normA.length >= 6 && normB.includes(normA)) return true;
+  if (normB.length >= 6 && normA.includes(normB)) return true;
+
+  // 5. Comparação por palavras significativas (ignora stopwords)
+  const stopWords = new Set(['o', 'a', 'os', 'as', 'um', 'uma', 'de', 'do', 'da', 'dos', 'das', 'em', 'no', 'na', 'nos', 'nas', 'com', 'por', 'para', 'the', 'and', 'of', 'ao']);
+  const tokensA = normA.split(' ').filter(w => w.length >= 3 && !stopWords.has(w));
+  const tokensB = normB.split(' ').filter(w => w.length >= 3 && !stopWords.has(w));
+
+  if (tokensA.length >= 2 && tokensB.length >= 2) {
+    const smaller = tokensA.length <= tokensB.length ? tokensA : tokensB;
+    const larger = tokensA.length <= tokensB.length ? tokensB : tokensA;
+    const matchedCount = smaller.filter(t => larger.includes(t)).length;
+    if (matchedCount === smaller.length && smaller.length >= 2) return true;
+    if (matchedCount / smaller.length >= 0.75 && matchedCount >= 2) return true;
+  }
+
+  return false;
 }
 
 export class MaxPlusImportEngine {
@@ -90,10 +162,15 @@ export class MaxPlusImportEngine {
     // Salva no localStorage para persistência garantida entre recarregamentos
     try {
       if (typeof window !== 'undefined') {
-        const storageKey = tableId ? `maxplus_imported_${tableId}` : 'maxplus_imported_global';
-        const existingStored = JSON.parse(localStorage.getItem(storageKey) || '[]');
-        const updated = Array.from(new Set([...existingStored, ...variants])).slice(-5000);
-        localStorage.setItem(storageKey, JSON.stringify(updated));
+        const keysToUpdate = ['maxplus_imported_global'];
+        if (tableId) {
+          keysToUpdate.push(`maxplus_imported_${tableId}`);
+        }
+        keysToUpdate.forEach(storageKey => {
+          const existingStored = JSON.parse(localStorage.getItem(storageKey) || '[]');
+          const updated = Array.from(new Set([...existingStored, ...variants])).slice(-5000);
+          localStorage.setItem(storageKey, JSON.stringify(updated));
+        });
       }
     } catch {}
   }
@@ -102,16 +179,21 @@ export class MaxPlusImportEngine {
     const set = new Set(MaxPlusImportEngine.verifiedImportedCache);
     try {
       if (typeof window !== 'undefined') {
-        const storageKey = tableId ? `maxplus_imported_${tableId}` : 'maxplus_imported_global';
-        const stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
-        if (Array.isArray(stored)) {
-          stored.forEach(t => {
-            if (typeof t === 'string' && t) {
-              set.add(t);
-              MaxPlusImportEngine.verifiedImportedCache.add(t);
-            }
-          });
+        const keysToRead = ['maxplus_imported_global'];
+        if (tableId) {
+          keysToRead.push(`maxplus_imported_${tableId}`);
         }
+        keysToRead.forEach(storageKey => {
+          const stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
+          if (Array.isArray(stored)) {
+            stored.forEach(t => {
+              if (typeof t === 'string' && t) {
+                set.add(t);
+                MaxPlusImportEngine.verifiedImportedCache.add(t);
+              }
+            });
+          }
+        });
       }
     } catch {}
     return set;
@@ -164,20 +246,44 @@ export class MaxPlusImportEngine {
   }
 
   /**
-   * Busca se o conteúdo já existe na tabela pelo Título / Nome (idêntico ao AutoImportService)
+   * Busca se o conteúdo já existe na tabela pelo Título / Nome com tolerância a subtítulos e colons
    */
   async findContentByName(titulo: string, tableId: string): Promise<Record<string, unknown> | null> {
     if (!titulo || typeof titulo !== 'string' || titulo.trim() === '') return null;
     try {
-      const cleanTitle = titulo.toLowerCase().trim();
-      const data = await this.baserowService.getTableData(tableId, 1, 200, titulo.trim());
-      if (!data || !data.results || data.results.length === 0) return null;
+      // 1. Tentar busca no Baserow com o termo limpo (prefixo ou primeiras 2 palavras)
+      const basePrefix = titulo.split(/[:\-–]/)[0].trim();
+      const searchQuery = (basePrefix.length >= 3 ? basePrefix : titulo)
+        .replace(/[^a-zA-Z0-9À-ÿ\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-      const match = data.results.find((item: Record<string, unknown>) => {
-        const itemTitle = (String(item.Nome || item.Titulo || '')).toLowerCase().trim();
-        return itemTitle === cleanTitle;
-      });
-      return match || null;
+      const data = await this.baserowService.getTableData(tableId, 1, 100, searchQuery);
+      if (data?.results && data.results.length > 0) {
+        const match = data.results.find((item: Record<string, unknown>) => {
+          const itemTitle = String(item.Nome || item.Titulo || item.Title || '');
+          return isTitleMatch(titulo, itemTitle);
+        });
+        if (match) return match;
+      }
+
+      // 2. Se não encontrou e o título tem múltiplas palavras, tenta com as 2 primeiras palavras
+      const words = titulo.replace(/[^a-zA-Z0-9À-ÿ\s]/g, ' ').replace(/\s+/g, ' ').trim().split(' ');
+      if (words.length >= 2) {
+        const fallbackQuery = words.slice(0, 2).join(' ');
+        if (fallbackQuery !== searchQuery) {
+          const fallbackData = await this.baserowService.getTableData(tableId, 1, 50, fallbackQuery);
+          if (fallbackData?.results && fallbackData.results.length > 0) {
+            const match = fallbackData.results.find((item: Record<string, unknown>) => {
+              const itemTitle = String(item.Nome || item.Titulo || item.Title || '');
+              return isTitleMatch(titulo, itemTitle);
+            });
+            if (match) return match;
+          }
+        }
+      }
+
+      return null;
     } catch (err) {
       console.warn(`[MaxPlus] Erro ao buscar conteúdo existente "${titulo}":`, err);
       return null;
@@ -210,27 +316,33 @@ export class MaxPlusImportEngine {
         }
       });
 
-      // 2. Indexa os registros mais recentes da tabela do usuário no Baserow (ordem decrescente -id)
+      // 2. Indexa os registros da tabela do usuário no Baserow (até 1500 registros)
       if (!this.hasFetchedRecentTableRows) {
         this.hasFetchedRecentTableRows = true;
         try {
-          const recent = await this.baserowService.getTableData(
+          const tableData = await this.baserowService.getAllTableData(
             this.conteudosTableId,
-            1,
-            200,
             undefined,
-            '-id'
+            1500
           );
-          if (recent?.results && Array.isArray(recent.results)) {
-            recent.results.forEach((row: any) => {
+          if (tableData?.results && Array.isArray(tableData.results)) {
+            tableData.results.forEach((row: any) => {
               const name = row.Nome || row.Titulo || row.Title;
               if (name) {
                 MaxPlusImportEngine.markAsImported(name, this.conteudosTableId);
+                // Checa imediatamente contra a lista atual em exibição
+                for (const t of titles) {
+                  if (isTitleMatch(t, name)) {
+                    MaxPlusImportEngine.markAsImported(t, this.conteudosTableId);
+                    const variants = getTitleMatchVariants(t);
+                    variants.forEach(v => existingSet.add(v));
+                  }
+                }
               }
             });
           }
         } catch (e) {
-          console.warn('[MaxPlus] Não foi possível obter linhas recentes da tabela:', e);
+          console.warn('[MaxPlus] Não foi possível indexar tabela do Baserow:', e);
         }
       }
 
@@ -247,35 +359,31 @@ export class MaxPlusImportEngine {
           await Promise.all(
             batch.map(async (rawTitle) => {
               try {
-                // Busca limpa por palavra-chave no Baserow
-                const cleanQuery = rawTitle
-                  .replace(/[\(\)\[\]\-:_]/g, ' ')
+                // Tenta com o prefixo principal (antes de : ou -) ou as 2 primeiras palavras
+                const basePrefix = rawTitle.split(/[:\-–]/)[0].trim();
+                const searchKeyword = (basePrefix.length >= 3 ? basePrefix : rawTitle)
+                  .replace(/[^a-zA-Z0-9À-ÿ\s]/g, ' ')
                   .replace(/\s+/g, ' ')
-                  .trim()
-                  .slice(0, 35);
+                  .trim();
 
-                if (!cleanQuery) return;
+                if (!searchKeyword) return;
 
                 const resp = await this.baserowService.getTableData(
                   this.conteudosTableId,
                   1,
-                  10,
-                  cleanQuery
+                  25,
+                  searchKeyword
                 );
 
                 if (resp?.results && Array.isArray(resp.results) && resp.results.length > 0) {
-                  const targetVariants = getTitleMatchVariants(rawTitle);
                   for (const row of resp.results) {
                     const rowName = row.Nome || row.Titulo || row.Title;
-                    if (rowName) {
-                      const rowVariants = getTitleMatchVariants(rowName);
-                      const isMatch = targetVariants.some(tv => rowVariants.includes(tv));
-                      if (isMatch) {
-                        MaxPlusImportEngine.markAsImported(rawTitle, this.conteudosTableId);
-                        MaxPlusImportEngine.markAsImported(rowName, this.conteudosTableId);
-                        targetVariants.forEach(tv => existingSet.add(tv));
-                        break;
-                      }
+                    if (rowName && isTitleMatch(rawTitle, rowName)) {
+                      MaxPlusImportEngine.markAsImported(rawTitle, this.conteudosTableId);
+                      MaxPlusImportEngine.markAsImported(rowName, this.conteudosTableId);
+                      const targetVariants = getTitleMatchVariants(rawTitle);
+                      targetVariants.forEach(tv => existingSet.add(tv));
+                      break;
                     }
                   }
                 }
@@ -453,7 +561,7 @@ export class MaxPlusImportEngine {
 
       const mappedUpdatePayload = tableKeys.length > 0 ? mapToDatabaseKeys(rawUpdatePayload, tableKeys) : rawUpdatePayload;
       await this.baserowService.updateRow(this.conteudosTableId, String(existingContent.id), mappedUpdatePayload);
-      MaxPlusImportEngine.markAsImported(data.nome);
+      MaxPlusImportEngine.markAsImported(data.nome, this.conteudosTableId);
       return { success: true, id: String(existingContent.id), updated: true };
     }
 
@@ -479,7 +587,7 @@ export class MaxPlusImportEngine {
 
     console.log('🎬 [MaxPlus] Importando novo filme no Baserow:', mappedPayload);
     const result = await this.baserowService.createRow(this.conteudosTableId, mappedPayload);
-    MaxPlusImportEngine.markAsImported(data.nome);
+    MaxPlusImportEngine.markAsImported(data.nome, this.conteudosTableId);
     return { success: true, id: String(result.id) };
   }
 
@@ -582,7 +690,7 @@ export class MaxPlusImportEngine {
       await this.baserowService.updateRow(this.conteudosTableId, String(existingSerie.id), mappedSerieUpdate);
       serieId = String(existingSerie.id);
       isSerieUpdated = true;
-      MaxPlusImportEngine.markAsImported(data.nome);
+      MaxPlusImportEngine.markAsImported(data.nome, this.conteudosTableId);
     } else {
       const rawSeriePayload = {
         Nome: data.nome,
@@ -604,7 +712,7 @@ export class MaxPlusImportEngine {
       console.log('📺 [MaxPlus] Criando novo registro da Série no Baserow:', mappedSeriePayload);
       const serieResult = await this.baserowService.createRow(this.conteudosTableId, mappedSeriePayload);
       serieId = String(serieResult?.id);
-      MaxPlusImportEngine.markAsImported(data.nome);
+      MaxPlusImportEngine.markAsImported(data.nome, this.conteudosTableId);
     }
 
     // 2. Coletar todos os episódios a serem importados

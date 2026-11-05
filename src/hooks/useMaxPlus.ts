@@ -129,11 +129,35 @@ export function useMaxPlus() {
   const checkImportedStatusRef = useRef(checkImportedStatus);
   checkImportedStatusRef.current = checkImportedStatus;
 
-  // Verificar se um item específico já foi importado (com correspondência difusa e por variantes)
+  // Quando isConfigured se torna true OU quando items mudam com isConfigured = true,
+  // verificar o status no Baserow automaticamente
+  const prevIsConfiguredRef = useRef(isConfigured);
+  useEffect(() => {
+    if (isConfigured && items.length > 0) {
+      if (!prevIsConfiguredRef.current) {
+        lastCheckedFingerprintRef.current = '';
+        checkImportedStatusRef.current(items, true);
+      } else {
+        checkImportedStatusRef.current(items, false);
+      }
+    }
+    prevIsConfiguredRef.current = isConfigured;
+  }, [isConfigured, items]);
+
+  // Verificar se um item específico já foi importado (com correspondência difusa, variantes e prefixo de título)
   const isItemImported = useCallback((title?: string | null): boolean => {
     if (!title) return false;
     const variants = getTitleMatchVariants(title);
-    return variants.some(v => importedTitles.has(v));
+    if (variants.some(v => importedTitles.has(v))) return true;
+
+    // Checagem adicional por prefixo de título (antes de ":" ou " - " ou " – ")
+    const prefix = title.split(/[:\-–]/)[0]?.trim();
+    if (prefix && prefix.length >= 4 && prefix !== title) {
+      const prefixVariants = getTitleMatchVariants(prefix);
+      if (prefixVariants.some(v => importedTitles.has(v))) return true;
+    }
+
+    return false;
   }, [importedTitles]);
 
   // Itens filtrados de acordo com filterMode
