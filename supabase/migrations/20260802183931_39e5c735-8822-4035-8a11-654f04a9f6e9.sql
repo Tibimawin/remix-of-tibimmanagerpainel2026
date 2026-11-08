@@ -1,0 +1,1 @@
+delete from cloaked_links where short_id = 'diagtest0001';

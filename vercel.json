@@ -1,0 +1,150 @@
+{
+  "functions": {
+    "api/m3u-proxy.js": {
+      "memory": 1024,
+      "maxDuration": 60
+    },
+    "api/public-api.js": {
+      "memory": 1024,
+      "maxDuration": 30
+    },
+    "api/baserow-proxy.js": {
+      "memory": 1024,
+      "maxDuration": 30
+    },
+    "api/stream-proxy.js": {
+      "memory": 1024,
+      "maxDuration": 60
+    },
+    "api/**/*.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/player_api.php",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/get.php",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/xmltv.php",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/live/:path*",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/movie/:path*",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/series/:path*",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/u/:account/player_api.php",
+      "destination": "/api/xtream?account=:account"
+    },
+    {
+      "source": "/u/:account/get.php",
+      "destination": "/api/xtream?account=:account"
+    },
+    {
+      "source": "/u/:account/xmltv.php",
+      "destination": "/api/xtream?account=:account"
+    },
+    {
+      "source": "/u/:account/live/:path*",
+      "destination": "/api/xtream?account=:account"
+    },
+    {
+      "source": "/u/:account/movie/:path*",
+      "destination": "/api/xtream?account=:account"
+    },
+    {
+      "source": "/u/:account/series/:path*",
+      "destination": "/api/xtream?account=:account"
+    },
+    {
+      "source": "/api/s/:token/:id",
+      "destination": "/api/stream-proxy?token=:token&id=:id"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    },
+    {
+      "source": "/reseller-signup-info",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-signup",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-state",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-lines",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-transactions",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-line",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-renew",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-pix",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-pix-status",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/reseller-webhook",
+      "destination": "/api/xtream"
+    },
+    {
+      "source": "/((?!assets/|api/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Credentials", "value": "true" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
+        { "key": "Access-Control-Allow-Headers", "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, access_token, token, x-api-key" }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/((?!assets/).*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate, max-age=0" },
+        { "key": "Pragma", "value": "no-cache" }
+      ]
+    }
+  ]
+}

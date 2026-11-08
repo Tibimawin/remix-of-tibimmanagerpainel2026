@@ -1,0 +1,7 @@
+// 🔧 PATCH TEMPORÁRIO para debug de busca de duplicados
+// Adicionar ao console do navegador:
+
+// Antes de importar, execute no console:
+window.DEBUG_SEARCH = true;
+
+// Isso vai ativar logs extras na busca

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste do Link GOZU</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        h1 {
+            color: #00ff88;
+        }
+
+        .test-box {
+            background: #2a2a2a;
+            padding: 30px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+
+        video {
+            width: 100%;
+            max-width: 640px;
+            border-radius: 8px;
+            background: #000;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+
+        .status.testing {
+            background: #ffa500;
+            color: #000;
+        }
+
+        .status.success {
+            background: #00ff88;
+            color: #000;
+        }
+
+        .status.error {
+            background: #ff4444;
+            color: #fff;
+        }
+
+        .link-display {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+
+        button {
+            background: #00ff88;
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+
+        button:hover {
+            background: #00dd77;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🎬 Teste do Link GOZU (tt15528292)</h1>
+
+    <div class="test-box">
+        <h2>Link do Filme:</h2>
+        <div class="link-display" id="linkDisplay">
+            http://fhd1.oneplayer.site/ertg43r5g34ty34yt543t43wer234t34y3s7/FHD3/tt15528292.mp4
+        </div>
+
+        <div id="status" class="status testing">
+            Aguardando teste...
+        </div>
+
+        <button onclick="testLink()">🔍 Testar Link</button>
+        <button onclick="playVideo()">▶️ Tentar Reproduzir</button>
+
+        <div style="margin-top: 30px;">
+            <video id="videoPlayer" controls></video>
+        </div>
+
+        <div id="details" style="margin-top: 20px; font-size: 14px; color: #aaa;"></div>
+    </div>
+
+    <div class="test-box">
+        <h3>💡 Informações:</h3>
+        <ul style="line-height: 1.8;">
+            <li><strong>IMDb ID:</strong> tt15528292</li>
+            <li><strong>Servidor:</strong> fhd1.oneplayer.site</li>
+            <li><strong>Caminho:</strong> /ertg43r5g34ty34yt543t43wer234t34y3s7/FHD3/</li>
+            <li><strong>Formato:</strong> .mp4 (sem LEG = assumir DUB)</li>
+        </ul>
+    </div>
+
+    <script>
+        const testUrl = 'http://fhd1.oneplayer.site/ertg43r5g34ty34yt543t43wer234t34y3s7/FHD3/tt15528292.mp4';
+
+        async function testLink() {
+            const statusDiv = document.getElementById('status');
+            const detailsDiv = document.getElementById('details');
+
+            statusDiv.className = 'status testing';
+            statusDiv.textContent = '⏳ Testando link...';
+            detailsDiv.textContent = '';
+
+            const startTime = Date.now();
+
+            try {
+                const result = await verificarVideo(testUrl);
+                const endTime = Date.now();
+                const duration = ((endTime - startTime) / 1000).toFixed(2);
+
+                if (result) {
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = '✅ LINK FUNCIONA! O vídeo está acessível!';
+                    detailsDiv.innerHTML = `
+                        <strong>Tempo de resposta:</strong> ${duration}s<br>
+                        <strong>Status:</strong> Vídeo carregou metadados com sucesso<br>
+                        <strong>Conclusão:</strong> O sistema DEVERIA encontrar este link!
+                    `;
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = '❌ LINK NÃO FUNCIONA - Timeout ou erro ao carregar';
+                    detailsDiv.innerHTML = `
+                        <strong>Tempo de tentativa:</strong> ${duration}s<br>
+                        <strong>Motivo:</strong> Vídeo não respondeu ou erro de rede<br>
+                        <strong>Possível causa:</strong> Servidor offline, arquivo não existe, ou bloqueio CORS
+                    `;
+                }
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ ERRO durante o teste';
+                detailsDiv.innerHTML = `<strong>Erro:</strong> ${error.message}`;
+            }
+        }
+
+        function playVideo() {
+            const video = document.getElementById('videoPlayer');
+            video.src = testUrl;
+            video.load();
+            video.play().catch(err => {
+                alert('Erro ao reproduzir: ' + err.message);
+            });
+        }
+
+        async function verificarVideo(url) {
+            return new Promise((resolve) => {
+                const video = document.createElement('video');
+                video.src = url;
+                video.preload = 'metadata';
+
+                const timeout = setTimeout(() => {
+                    video.remove();
+                    resolve(false);
+                }, 5000);
+
+                video.onloadedmetadata = () => {
+                    clearTimeout(timeout);
+                    console.log('✅ Metadados carregados:', {
+                        duration: video.duration,
+                        videoWidth: video.videoWidth,
+                        videoHeight: video.videoHeight
+                    });
+                    video.remove();
+                    resolve(true);
+                };
+
+                video.onerror = (e) => {
+                    clearTimeout(timeout);
+                    console.error('❌ Erro ao carregar vídeo:', video.error);
+                    video.remove();
+                    resolve(false);
+                };
+
+                video.load();
+            });
+        }
+
+        // Auto-test on load
+        window.addEventListener('load', () => {
+            setTimeout(testLink, 1000);
+        });
+    </script>
+</body>
+
+</html>

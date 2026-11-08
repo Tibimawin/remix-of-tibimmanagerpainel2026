@@ -1,0 +1,386 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useSimpleAuth } from '@/contexts/SimpleAuthContext';
+import { UserPermissions, AVAILABLE_FEATURES } from '@/types/planTypes';
+import { db } from '@/config/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { FirebaseUserService } from '@/services/FirebaseUserService';
+import { isFreeFeatureWhenExpired } from '@/config/freeFeatures';
+import { MaxPlusTrialService } from '@/services/MaxPlusTrialService';
+
+interface UserPermissionsContextType {
+    permissions: UserPermissions | null;
+    loading: boolean;
+    isSubscriptionExpired: boolean;
+    hasFeature: (featureId: string) => boolean;
+    hasPrioritySupport: () => boolean;
+    canAccessPremiumFeatures: () => boolean;
+    hasContentLimit: () => boolean;
+    getRemainingContent: () => number;
+    canAddMoreContent: () => boolean;
+    hasValidAccess: () => Promise<boolean>;
+    refreshPermissions: () => void;
+}
+
+const UserPermissionsContext = createContext<UserPermissionsContextType | undefined>(undefined);
+
+// NOTA: A expiração é determinada exclusivamente pelo documento `users/{uid}`
+// via FirebaseUserService.checkUserAccess. Quando a assinatura está expirada,
+// APENAS features listadas em FREE_FEATURES_WHEN_EXPIRED ficam disponíveis —
+// mesmo que o admin tenha habilitado outras features no plano. O acesso pago
+// volta automaticamente quando a assinatura é renovada.
+
+export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const { userInfo } = useSimpleAuth();
+    const [permissions, setPermissions] = useState<UserPermissions | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [isSubscriptionExpired, setIsSubscriptionExpired] = useState(false);
+
+    const refreshPermissions = () => {
+        console.log('🔄 Forçando refresh das permissões');
+        setRefreshTrigger(prev => prev + 1);
+    };
+
+    // Verifica periodicamente se a assinatura está expirada para liberar features grátis
+    const enabledFeaturesSignature = permissions?.enabledFeatures?.join(',') || '';
+
+    useEffect(() => {
+        if (!userInfo?.id) {
+            setIsSubscriptionExpired(false);
+            return;
+        }
+
+        // Se for Modo Demo, nunca expira e não chama Firestore
+        if (userInfo.isDemo) {
+            setIsSubscriptionExpired(false);
+            return;
+        }
+
+        let cancelled = false;
+        let lastCloakSync = 0;
+        let lastCloakSignature = '';
+
+        // 🔒 Mantém o sistema de links camuflados alinhado com o plano do usuário:
+        // validade da assinatura + funcionalidades habilitadas.
+        const syncCloak = async () => {
+            const features = Array.isArray(permissions?.enabledFeatures) ? permissions!.enabledFeatures : [];
+            const signature = features.slice().sort().join(',');
+            const now = Date.now();
+            if (signature === lastCloakSignature && now - lastCloakSync < 5 * 60 * 1000) return;
+            try {
+                const record = await FirebaseUserService.getUserById(userInfo.id);
+                const { CloakService } = await import('@/services/CloakService');
+                await CloakService.syncUser({
+                    uid: userInfo.id,
+                    email: userInfo.email,
+                    name: record?.name,
+                    expiresAt: record?.expiryDate || null,
+                    blocked: record ? record.isActive === false : true,
+                    features,
+                });
+                lastCloakSync = now;
+                lastCloakSignature = signature;
+            } catch {
+                /* nunca quebrar o app por causa da sincronização */
+            }
+        };
+
+        const check = async () => {
+            try {
+                // 🔄 Tenta auto-reconciliar pagamentos pendentes com o Asaas silenciosamente
+                if (userInfo?.id && userInfo?.email) {
+                    try {
+                        const { PaymentReconciliationService } = await import('@/services/PaymentReconciliationService');
+                        const res = await PaymentReconciliationService.reconcileUserPayments(userInfo.id, userInfo.email, userInfo.name);
+                        if (res.reconciled) {
+                            console.log('🎉 [UserPermissionsContext] Pagamento Asaas auto-reconciliado com sucesso!', res);
+                        }
+                    } catch (recErr) {
+                        console.warn('Aviso na auto-reconciliação de pagamentos:', recErr);
+                    }
+                }
+
+                const ok = await FirebaseUserService.checkUserAccess(userInfo.id);
+                if (!cancelled) setIsSubscriptionExpired(!ok);
+            } catch {
+                if (!cancelled) setIsSubscriptionExpired(true);
+            }
+            if (!cancelled) void syncCloak();
+        };
+        check();
+
+        // Revalida periodicamente (a cada 15 min) e no foco da aba para economizar quota
+        const interval = setInterval(check, 15 * 60 * 1000);
+        // Revalida também quando o usuário volta pra aba (focus/visibilitychange).
+        const onFocus = () => check();
+        const onVisibility = () => {
+            if (document.visibilityState === 'visible') check();
+        };
+        window.addEventListener('focus', onFocus);
+        document.addEventListener('visibilitychange', onVisibility);
+        return () => {
+            cancelled = true;
+            clearInterval(interval);
+            window.removeEventListener('focus', onFocus);
+            document.removeEventListener('visibilitychange', onVisibility);
+        };
+    }, [userInfo?.id, userInfo?.email, userInfo?.name, enabledFeaturesSignature, refreshTrigger]);
+
+    useEffect(() => {
+        if (!userInfo?.id) {
+            setPermissions(null);
+            setLoading(false);
+            return;
+        }
+
+        // 🧪 MODO DEMO: Fornecer permissões VIP completas sem consultar Firestore
+        if (userInfo.isDemo) {
+            const allFeatures = Array.from(new Set([
+                ...AVAILABLE_FEATURES.map(f => f.id),
+                'maxplus',
+                'maxplus-import',
+                'jogos-dia',
+                'jogos',
+                'jogos-do-dia',
+                'jogo-do-dia',
+                'miniseries',
+                'minisseries',
+                'mini-series',
+                'meus-app',
+                'lista-m3u',
+                'conteudos',
+                'episodios',
+                'banners',
+                'canais-tv',
+                'gerador-post',
+                'gerador-banner',
+                'priority-support'
+            ]));
+
+            setPermissions({
+                userId: userInfo.id,
+                userEmail: userInfo.email,
+                userName: userInfo.name || 'Visitante Demo',
+                planId: 'demo-vip',
+                planName: 'Demonstração VIP Completa',
+                monthlyContentLimit: 9999,
+                enabledFeatures: allFeatures,
+                currentMonthUsage: 14,
+                lastUpdated: new Date().toISOString(),
+                isActive: true
+            });
+            setLoading(false);
+            return;
+        }
+
+        console.log('🔍 [SINGLETON] Iniciando listener ÚNICO de permissões para:', userInfo.email);
+        setLoading(true);
+
+        // ✅ APENAS UM LISTENER para todo o app
+        const unsubscribe = onSnapshot(
+            doc(db, 'userPermissions', userInfo.id),
+            (docSnapshot) => {
+                console.log('📡 Snapshot recebido para:', userInfo.email, 'Existe:', docSnapshot.exists());
+
+                if (docSnapshot.exists()) {
+                    const data = docSnapshot.data() as UserPermissions;
+                    console.log('✅ Permissões carregadas do Firebase:', {
+                        userEmail: data.userEmail,
+                        planName: data.planName,
+                        enabledFeatures: data.enabledFeatures,
+                        lastUpdated: data.lastUpdated
+                    });
+
+                    const validatedPermissions = {
+                        ...data,
+                        enabledFeatures: Array.isArray(data.enabledFeatures) ? data.enabledFeatures : []
+                    };
+
+                    setPermissions(validatedPermissions);
+                } else {
+                    console.log('⚠️ Documento de permissões não existe, criando padrão');
+
+                    const checkAndCreateUser = async () => {
+                        try {
+                            const existingUser = await FirebaseUserService.getUserById(userInfo.id);
+
+                            if (!existingUser) {
+                                console.log('👤 Usuário sem registro encontrado, criando...', userInfo.email);
+
+                                await FirebaseUserService.createUserRecord({
+                                    uid: userInfo.id,
+                                    email: userInfo.email,
+                                    name: userInfo.email?.split('@')[0] || 'Usuário',
+                                    accessDays: 1,
+                                    startDate: new Date().toISOString(),
+                                    expiryDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                                    isActive: true,
+                                    totalLogins: 0,
+                                    createdAt: new Date().toISOString(),
+                                    createdBy: 'auto-sync'
+                                });
+                            }
+                        } catch (error) {
+                            console.error('❌ Erro ao verificar/criar usuário:', error);
+                        }
+                    };
+
+                    checkAndCreateUser();
+
+                    const defaultPermissions: UserPermissions = {
+                        userId: userInfo.id,
+                        userEmail: userInfo.email,
+                        userName: userInfo.email?.split('@')[0] || 'Usuário',
+                        planId: 'basic',
+                        planName: 'Básico',
+                        monthlyContentLimit: 0,
+                        enabledFeatures: [],
+                        currentMonthUsage: 0,
+                        lastUpdated: new Date().toISOString()
+                    };
+                    console.log('📝 Criando permissões padrão (bloqueadas):', defaultPermissions);
+                    setPermissions(defaultPermissions);
+                }
+                setLoading(false);
+            },
+            (error) => {
+                console.error('❌ Erro ao carregar permissões:', error);
+                setLoading(false);
+            }
+        );
+
+        return () => {
+            console.log('🔥 [SINGLETON] Removendo listener ÚNICO de permissões para:', userInfo.email);
+            unsubscribe();
+        };
+    }, [userInfo?.id, userInfo?.email, userInfo?.isDemo, refreshTrigger]);
+
+    const hasFeature = (featureId: string): boolean => {
+        // Modo Demo tem acesso a todas as funcionalidades para teste livre
+        if (userInfo?.isDemo) {
+            return true;
+        }
+        // Regra Especial MaxPlus:
+        // O MaxPlus possui teste liberado de 24h para todo mundo do painel sem assinatura!
+        // 1. Se o usuário tem o recurso no plano ativo (e assinatura não expirada), liberado permanente
+        // 2. Se está dentro do período de teste gratuito de 24h (mesmo sem assinatura), liberado
+        // 3. Se o teste de 24h expirou e ele não tem plano/desbloqueio pago, bloqueia
+        if (featureId === 'maxplus' || featureId === 'maxplus-import') {
+            const hasPurchasedAccess = !isSubscriptionExpired && (
+                permissions?.enabledFeatures?.includes('maxplus') ||
+                permissions?.enabledFeatures?.includes('maxplus-import')
+            );
+            if (hasPurchasedAccess) return true;
+
+            // Teste de 24 horas liberado para todos sem assinatura
+            if (MaxPlusTrialService.isTrialActive(userInfo?.id, permissions?.maxplusTrialStartedAt)) {
+                return true;
+            }
+            return false;
+        }
+
+        // Regra: expiração tem prioridade. Se a assinatura está expirada,
+        // apenas features de FREE_FEATURES_WHEN_EXPIRED ficam disponíveis,
+        // independentemente do que o admin habilitou no plano. Caso contrário,
+        // libera as features presentes em `enabledFeatures`.
+        if (isSubscriptionExpired) return isFreeFeatureWhenExpired(featureId);
+
+        // Se a feature for 'meus-app' e o usuário já tiver um app_id configurado, liberar
+        if (featureId === 'meus-app' && permissions?.app_id && permissions.app_id.trim() !== '') {
+            return true;
+        }
+
+        // Equivalência para jogos do dia
+        if (featureId === 'jogos-dia' || featureId === 'jogos' || featureId === 'jogos-do-dia' || featureId === 'jogo-do-dia') {
+            if (
+                permissions?.enabledFeatures?.includes('jogos-dia') ||
+                permissions?.enabledFeatures?.includes('jogos') ||
+                permissions?.enabledFeatures?.includes('jogos-do-dia') ||
+                permissions?.enabledFeatures?.includes('jogo-do-dia')
+            ) {
+                return true;
+            }
+        }
+
+        // Equivalência para minisséries
+        if (featureId === 'miniseries' || featureId === 'minisseries' || featureId === 'mini-series') {
+            if (
+                permissions?.enabledFeatures?.includes('miniseries') ||
+                permissions?.enabledFeatures?.includes('minisseries') ||
+                permissions?.enabledFeatures?.includes('mini-series')
+            ) {
+                return true;
+            }
+        }
+
+        return Array.isArray(permissions?.enabledFeatures)
+            ? permissions!.enabledFeatures.includes(featureId)
+            : false;
+    };
+
+    const hasPrioritySupport = (): boolean => {
+        return hasFeature('priority-support');
+    };
+
+    const canAccessPremiumFeatures = (): boolean => {
+        if (isSubscriptionExpired) return false;
+        return (permissions?.enabledFeatures?.length ?? 0) > 0;
+    };
+
+    const hasContentLimit = (): boolean => {
+        return permissions?.monthlyContentLimit !== -1 && permissions?.monthlyContentLimit !== undefined;
+    };
+
+    const getRemainingContent = (): number => {
+        if (!permissions || permissions.monthlyContentLimit === -1) return -1;
+        return Math.max(0, permissions.monthlyContentLimit - permissions.currentMonthUsage);
+    };
+
+    const canAddMoreContent = (): boolean => {
+        if (!permissions) return false;
+        if (isSubscriptionExpired) return false;
+        if (permissions.monthlyContentLimit === -1) return true;
+        return permissions.currentMonthUsage < permissions.monthlyContentLimit;
+    };
+
+    const hasValidAccess = async (): Promise<boolean> => {
+        if (!userInfo?.id) return false;
+        if (userInfo?.isDemo) return true;
+
+        try {
+            return await FirebaseUserService.checkUserAccess(userInfo.id);
+        } catch (error) {
+            console.error('Erro ao verificar acesso:', error);
+            return false;
+        }
+    };
+
+    const value = {
+        permissions,
+        loading,
+        isSubscriptionExpired,
+        hasFeature,
+        hasPrioritySupport,
+        canAccessPremiumFeatures,
+        hasContentLimit,
+        getRemainingContent,
+        canAddMoreContent,
+        hasValidAccess,
+        refreshPermissions
+    };
+
+    return (
+        <UserPermissionsContext.Provider value={value}>
+            {children}
+        </UserPermissionsContext.Provider>
+    );
+};
+
+// Hook para usar o contexto
+export const useUserPermissions = () => {
+    const context = useContext(UserPermissionsContext);
+    if (!context) {
+        throw new Error('useUserPermissions must be used within UserPermissionsProvider');
+    }
+    return context;
+};

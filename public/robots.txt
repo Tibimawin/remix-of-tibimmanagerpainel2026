@@ -1,0 +1,46 @@
+User-agent: Googlebot
+Allow: /
+Allow: /precos-publico
+Allow: /api-docs
+Allow: /login
+Allow: /cadastro
+Allow: /revendas-creditos/
+Disallow: /admin-dashboard
+Disallow: /admin/
+Disallow: /dashboard
+Disallow: /configuracoes*
+Disallow: /conteudos
+Disallow: /episodios
+Disallow: /carrinho
+Disallow: /checkout
+Disallow: /api/
+
+User-agent: Bingbot
+Allow: /
+Disallow: /admin-dashboard
+Disallow: /dashboard
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: *
+Allow: /
+Allow: /precos-publico
+Allow: /api-docs
+Allow: /login
+Allow: /cadastro
+Allow: /revendas-creditos/
+Disallow: /admin-dashboard
+Disallow: /admin/
+Disallow: /dashboard
+Disallow: /configuracoes*
+Disallow: /conteudos
+Disallow: /episodios
+Disallow: /carrinho
+Disallow: /checkout
+Disallow: /api/
+
+Sitemap: https://tibimmanagerpainel.shop/sitemap.xml

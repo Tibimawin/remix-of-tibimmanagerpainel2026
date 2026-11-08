@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Servidores Oneplayer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        h1 {
+            color: #00ff88;
+            text-align: center;
+        }
+        .test-grid {
+            display: grid;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        .server-test {
+            padding: 15px;
+            border-radius: 8px;
+            background: #2a2a2a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .server-url {
+            font-family: monospace;
+            font-size: 12px;
+            color: #aaa;
+        }
+        .status {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .status.testing {
+            background: #ffa500;
+            color: #000;
+        }
+        .status.success {
+            background: #00ff88;
+            color: #000;
+        }
+        .status.failed {
+            background: #ff4444;
+            color: #fff;
+        }
+        .summary {
+            margin: 30px 0;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .summary h2 {
+            margin: 0 0 10px 0;
+            color: #00ff88;
+        }
+        button {
+            display: block;
+            margin: 30px auto;
+            padding: 15px 40px;
+            background: #00ff88;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #00dd77;
+        }
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Teste de Servidores Oneplayer</h1>
+    
+    <div class="summary">
+        <h2>Status do Teste</h2>
+        <div id="summary-text">Clique em "Iniciar Teste" para começar</div>
+    </div>
+
+    <button id="testBtn" onclick="runTests()">Iniciar Teste</button>
+
+    <div class="test-grid" id="testGrid"></div>
+
+    <script>
+        const SERVIDORES_FILMES = [
+            'http://fhd1.oneplayer.site/toktergfer32tgdsvsdven/FHD1/',
+            'http://fhd2.oneplayer.site/toktergfer32tgdsvsdven/FHD2/',
+            'http://fhd3.oneplayer.site/toktergfer32tgdsvsdven/FHD3/',
+            'http://fhd4.oneplayer.site/343rt342wtg34wetg34retg4rghy5rh/FHD4/',
+            'http://fhd5.oneplayer.site/45y5ty5rtg345ert45r3t345ty345/FHD5/',
+            'http://hd5.oneplayer.site/FHD5/'
+        ];
+
+        const TEST_VIDEO_ID = 'tt0111161'; // Shawshank Redemption - commonly available
+
+        let results = {
+            total: 0,
+            tested: 0,
+            success: 0,
+            failed: 0
+        };
+
+        async function verificarVideo(url) {
+            return new Promise((resolve) => {
+                const video = document.createElement('video');
+                video.src = url;
+
+                const timeout = setTimeout(() => {
+                    video.remove();
+                    resolve({ success: false, error: 'Timeout' });
+                }, 8000);
+
+                video.onloadeddata = () => {
+                    clearTimeout(timeout);
+                    video.remove();
+                    resolve({ success: true });
+                };
+
+                video.onerror = (e) => {
+                    clearTimeout(timeout);
+                    video.remove();
+                    const errorType = video.error ? video.error.code : 'Unknown';
+                    resolve({ success: false, error: `Error code: ${errorType}` });
+                };
+
+                video.load();
+            });
+        }
+
+        async function testServer(servidor, index) {
+            const url = `${servidor}${TEST_VIDEO_ID}.mp4`;
+            const elementId = `server-${index}`;
+            
+            const statusEl = document.querySelector(`#${elementId} .status`);
+            statusEl.textContent = 'Testando...';
+            statusEl.className = 'status testing';
+
+            const result = await verificarVideo(url);
+
+            results.tested++;
+
+            if (result.success) {
+                results.success++;
+                statusEl.textContent = '✅ FUNCIONA';
+                statusEl.className = 'status success';
+            } else {
+                results.failed++;
+                statusEl.textContent = `❌ FALHOU (${result.error})`;
+                statusEl.className = 'status failed';
+            }
+
+            updateSummary();
+        }
+
+        function updateSummary() {
+            const summaryText = document.getElementById('summary-text');
+            summaryText.innerHTML = `
+                <strong>${results.tested}/${results.total}</strong> servidores testados<br>
+                <span style="color: #00ff88">${results.success} funcionando</span> | 
+                <span style="color: #ff4444">${results.failed} falhando</span>
+            `;
+        }
+
+        async function runTests() {
+            const testGrid = document.getElementById('testGrid');
+            const testBtn = document.getElementById('testBtn');
+            
+            testBtn.disabled = true;
+            testGrid.innerHTML = '';
+            
+            results = {
+                total: SERVIDORES_FILMES.length,
+                tested: 0,
+                success: 0,
+                failed: 0
+            };
+
+            updateSummary();
+
+            // Create test elements
+            SERVIDORES_FILMES.forEach((servidor, index) => {
+                const div = document.createElement('div');
+                div.className = 'server-test';
+                div.id = `server-${index}`;
+                div.innerHTML = `
+                    <span class="server-url">${servidor}</span>
+                    <span class="status testing">Aguardando...</span>
+                `;
+                testGrid.appendChild(div);
+            });
+
+            // Run tests sequentially
+            for (let i = 0; i < SERVIDORES_FILMES.length; i++) {
+                await testServer(SERVIDORES_FILMES[i], i);
+            }
+
+            testBtn.disabled = false;
+            testBtn.textContent = 'Testar Novamente';
+
+            if (results.success > 0) {
+                alert(`✅ ${results.success} servidor(es) funcionando! Verifique os resultados.`);
+            } else {
+                alert('❌ Nenhum servidor está acessível. Os domínios podem estar offline.');
+            }
+        }
+    </script>
+</body>
+</html>

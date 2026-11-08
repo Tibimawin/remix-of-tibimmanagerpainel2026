@@ -1,0 +1,309 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId} (Firebase Auth UID)
+// Fields:
+//   - uid: string (required, immutable) - ID do usuário
+//   - email: string (required) - Email do usuário
+//   - name: string (required) - Nome de exibição
+//   - accessDays: number (admin only on update) - Quantidade de dias de acesso
+//   - startDate: string (ISO date) - Início do acesso
+//   - expiryDate: string (ISO date, admin only on update) - Expiração do acesso
+//   - isActive: bool (admin only on update) - Status ativo/inativo
+//   - role: string (admin only) - Papel do usuário ('admin', 'client', etc.)
+//   - createdBy: string (immutable) - Criador do registro ('admin', 'system')
+//   - appStoreName, deviceInfo, lastLogin, totalLogins: opcionais (atualizáveis pelo usuário)
+//
+// Collection: userPermissions
+// Document ID: {userId}
+// Fields:
+//   - userId: string (required, immutable)
+//   - userEmail: string
+//   - userName: string
+//   - planId: string (admin only on update; 'basic'/'free' on create)
+//   - planName: string (admin only on update)
+//   - monthlyContentLimit: number (admin only on update)
+//   - enabledFeatures: list (admin only on update; empty on non-admin create)
+//   - currentMonthUsage: number (incrementável pelo usuário)
+//   - lastUpdated: string | timestamp (atualizável pelo usuário)
+//   - expiryDate: string (admin only on update)
+//   - isActive: bool (admin only on update)
+//
+// Collection: userConfigs
+// Document ID: {userId}
+// Fields:
+//   - Configurações privadas do usuário (tokens, tabelas do baserow, preferências)
+//
+// Collection: apiKeys
+// Document ID: {keyId}
+// Fields:
+//   - userId: string (required, immutable)
+//   - key: string
+//   - active: bool
+//   - requestCount: number
+//   - rateLimit: number
+//
+// Collection: financialRecords
+// Document ID: {recordId}
+// Fields:
+//   - userId: string
+//   - userEmail: string
+//   - paymentId: string
+//   - amount: number
+//   - status: string
+//
+// Collection: featureUnlocks
+// Document ID: {unlockId}
+// Fields:
+//   - userId: string
+//   - featureId: string
+//   - status: string
+//
+// Collection: systemAdmins
+// Document ID: {adminId}
+// Fields:
+//   - Lista restrita de UIDs de administradores de sistema
+//
+// Collection: adminAnnouncements
+// Document ID: {announcementId}
+// Fields:
+//   - title, message, date, priority, isActive
+//
+// Collection: adminConfigs / systemConfig
+// Document ID: {configId}
+// Fields:
+//   - Configurações globais do sistema e integrações
+//
+// Collection: devices / userDevices / deviceLimits
+// Document ID: {deviceId} / {userId}
+// Fields:
+//   - userId: string (required)
+//   - deviceName, browser, os, ip, lastActivity, isActive
+//
+// Collection: autoPermissionLogs / activityLogs
+// Document ID: {logId}
+// Fields:
+//   - userId: string (required)
+//   - action, details, timestamp
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    // Verifica se a requisição é autenticada
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Verifica se o usuário autenticado é o dono do registro pelo userId informado
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Verifica se o usuário autenticado possui privilégios de administrador
+    function isAdmin() {
+      return isAuthenticated() && (
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'admin@admin.com') ||
+        ('admin' in request.auth.token && request.auth.token.admin == true) ||
+        ('role' in request.auth.token && request.auth.token.role == 'admin') ||
+        exists(/databases/$(database)/documents/systemAdmins/$(request.auth.uid))
+      );
+    }
+
+    // ===============================================================
+    // 1. Coleção: users/{userId}
+    // ===============================================================
+    match /users/{userId} {
+      // Leitura permitida para o próprio usuário ou administrador
+      allow read: if isOwner(userId) || isAdmin();
+
+      // Criação permitida se for o próprio usuário (sem autoatribuição de admin) ou se for admin
+      allow create: if isAdmin() || (
+        isOwner(userId) &&
+        (!('role' in request.resource.data) || request.resource.data.role != 'admin')
+      );
+
+      // Atualização: admin pode atualizar tudo;
+      // Usuário comum NÃO pode alterar accessDays, expiryDate, isActive, role ou createdBy
+      allow update: if isAdmin() || (
+        isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'accessDays',
+          'expiryDate',
+          'isActive',
+          'role',
+          'createdBy'
+        ])
+      );
+
+      // Exclusão permitida apenas para administradores
+      allow delete: if isAdmin();
+    }
+
+    // ===============================================================
+    // 2. Coleção: userPermissions/{userId}
+    // ===============================================================
+    match /userPermissions/{userId} {
+      // Leitura permitida para o próprio usuário ou administrador
+      allow read: if isOwner(userId) || isAdmin();
+
+      // Criação: admin pode criar tudo. Usuário comum apenas na inicialização (sem plano pago ou features ativas)
+      allow create: if isAdmin() || (
+        isOwner(userId) &&
+        (!('enabledFeatures' in request.resource.data) || request.resource.data.enabledFeatures.size() == 0) &&
+        (!('planId' in request.resource.data) || request.resource.data.planId in ['basic', 'free', 'default'])
+      );
+
+      // Atualização: admin pode atualizar tudo;
+      // Usuário comum NÃO pode alterar planId, planName, expiryDate, enabledFeatures, monthlyContentLimit ou isActive;
+      // Pode apenas incrementar/atualizar currentMonthUsage e lastUpdated
+      allow update: if isAdmin() || (
+        isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'planId',
+          'planName',
+          'expiryDate',
+          'enabledFeatures',
+          'monthlyContentLimit',
+          'isActive'
+        ]) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'currentMonthUsage',
+          'lastUpdated'
+        ])
+      );
+
+      // Exclusão restrita a administradores
+      allow delete: if isAdmin();
+    }
+
+    // ===============================================================
+    // 3. Coleção: userConfigs/{userId}
+    // ===============================================================
+    match /userConfigs/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+
+    // ===============================================================
+    // 4. Coleção: apiKeys/{keyId}
+    // ===============================================================
+    match /apiKeys/{keyId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create: if (isAuthenticated() && request.resource.data.userId == request.auth.uid) || isAdmin();
+      allow update: if (isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid) || isAdmin();
+      allow delete: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
+    // ===============================================================
+    // 5. Coleção: financialRecords/{recordId}
+    // ===============================================================
+    match /financialRecords/{recordId} {
+      allow read: if (
+        isAuthenticated() && (
+          resource.data.userId == request.auth.uid ||
+          (request.auth.token.email != null && 'userEmail' in resource.data && resource.data.userEmail.lower() == request.auth.token.email.lower())
+        )
+      ) || isAdmin();
+
+      allow create: if (
+        isAuthenticated() && (
+          request.resource.data.userId == request.auth.uid ||
+          (request.auth.token.email != null && 'userEmail' in request.resource.data && request.resource.data.userEmail.lower() == request.auth.token.email.lower())
+        )
+      ) || isAdmin();
+
+      allow update, delete: if isAdmin();
+    }
+
+    // ===============================================================
+    // 6. Coleção: featureUnlocks/{unlockId}
+    // ===============================================================
+    match /featureUnlocks/{unlockId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create: if (isAuthenticated() && request.resource.data.userId == request.auth.uid) || isAdmin();
+      allow update: if (isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid) || isAdmin();
+      allow delete: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
+    // ===============================================================
+    // 7. Coleção: systemAdmins/{adminId}
+    // ===============================================================
+    match /systemAdmins/{adminId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Apenas via Firebase Console / Admin SDK
+    }
+
+    // ===============================================================
+    // 8. Coleção: adminAnnouncements/{announcementId}
+    // ===============================================================
+    match /adminAnnouncements/{announcementId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ===============================================================
+    // 9. Coleções: adminConfigs/{configId} e systemConfig/{configId}
+    // ===============================================================
+    match /adminConfigs/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /systemConfig/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ===============================================================
+    // 10. Coleções: devices/{deviceId}, userDevices/{deviceId} e deviceLimits/{userId}
+    // ===============================================================
+    match /devices/{deviceId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create: if (isAuthenticated() && request.resource.data.userId == request.auth.uid) || isAdmin();
+      allow update: if (isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid) || isAdmin();
+      allow delete: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
+    match /userDevices/{deviceId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create: if (isAuthenticated() && request.resource.data.userId == request.auth.uid) || isAdmin();
+      allow update: if (isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid) || isAdmin();
+      allow delete: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
+    match /deviceLimits/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+
+    // ===============================================================
+    // 11. Coleções: autoPermissionLogs/{logId} e activityLogs/{logId}
+    // ===============================================================
+    match /autoPermissionLogs/{logId} {
+      allow create: if isAuthenticated();
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    match /activityLogs/{logId} {
+      allow create: if isAuthenticated();
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    // ===============================================================
+    // 12. Regra Padrão: Bloqueio Total (Default Deny)
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

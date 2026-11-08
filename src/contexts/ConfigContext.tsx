@@ -1,0 +1,171 @@
+
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useUserConfig } from '@/hooks/useUserConfig';
+
+interface Config {
+  apiToken: string;
+  baseUrl: string;
+  conteudosTableId: string;
+  episodiosTableId: string;
+  tableIds: {
+    conteudos: string;
+    episodios: string;
+    banners: string;
+    categorias: string;
+    categoriasTV: string;
+    categoriasAnime: string;
+    usuarios: string;
+    sessoes: string;
+    plataformas: string;
+    canaisTv: string;
+    planos: string;
+    jogosDia: string;
+    miniseries: string;
+    miniseriesEpisodios: string;
+    // Tabelas exclusivas do Modo Tibim
+    carrosseu: string;
+    versao: string;
+    pedido: string;
+    avaliacao: string;
+    perfil: string;
+    meusAplicativos: string;
+    categoriaFilmes: string;
+    categoriaSeries: string;
+    categoriaDorama: string;
+    categoriaAnimes: string;
+    categoriaNovelas: string;
+    plano2: string;
+  };
+}
+
+interface ConfigContextType {
+  config: Config;
+  updateConfig: (newConfig: Partial<Config>) => void;
+  isConfigured: boolean;
+  loading: boolean;
+}
+
+export const defaultConfig: Config = {
+  apiToken: '',
+  baseUrl: '',
+  conteudosTableId: '',
+  episodiosTableId: '',
+  tableIds: {
+    conteudos: '',
+    episodios: '',
+    banners: '',
+    categorias: '',
+    categoriasTV: '',
+    categoriasAnime: '',
+    usuarios: '',
+    sessoes: '',
+    plataformas: '',
+    canaisTv: '',
+    planos: '',
+    jogosDia: '',
+    miniseries: '',
+    miniseriesEpisodios: '',
+    // Tabelas exclusivas do Modo Tibim
+    carrosseu: '',
+    versao: '',
+    pedido: '',
+    avaliacao: '',
+    perfil: '',
+    meusAplicativos: '',
+    categoriaFilmes: '',
+    categoriaSeries: '',
+    categoriaDorama: '',
+    categoriaAnimes: '',
+    categoriaNovelas: '',
+    plano2: '',
+  },
+};
+
+const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
+
+export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [config, setConfig] = useState<Config>(defaultConfig);
+  const { config: userConfig, updateConfig: updateUserConfig, isConfigured, loading } = useUserConfig();
+
+  // Sincronizar configuração local com configuração do usuário
+  useEffect(() => {
+    if (userConfig) {
+      const syncedConfig: Config = {
+        apiToken: userConfig.apiToken || '',
+        baseUrl: userConfig.baseUrl || '',
+        conteudosTableId: userConfig.tableIds?.conteudos || '',
+        episodiosTableId: userConfig.tableIds?.episodios || '',
+        tableIds: {
+          ...defaultConfig.tableIds,
+          ...userConfig.tableIds,
+        },
+      };
+      
+      setConfig(syncedConfig);
+    } else {
+      setConfig(defaultConfig);
+    }
+  }, [userConfig]);
+
+  const updateConfig = async (newConfig: Partial<Config>) => {
+    try {
+      // Atualizar configuração local imediatamente para feedback rápido
+      const updated = { ...config, ...newConfig };
+      setConfig(updated);
+
+      // Preparar dados para o Firebase
+      const firebaseUpdate: any = {};
+      
+      if (newConfig.apiToken !== undefined) firebaseUpdate.apiToken = newConfig.apiToken;
+      if (newConfig.baseUrl !== undefined) firebaseUpdate.baseUrl = newConfig.baseUrl;
+      
+      if (newConfig.tableIds) {
+        const current = userConfig?.tableIds || defaultConfig.tableIds;
+
+        firebaseUpdate.tableIds = {
+          ...current,
+          ...Object.fromEntries(
+            Object.entries(newConfig.tableIds).map(([key, value]) => [
+              key,
+              typeof value === 'string' ? value.trim() : value,
+            ]),
+          ),
+        };
+      }
+
+      // Atualizar no Firebase
+      await updateUserConfig(firebaseUpdate);
+      
+    } catch (error) {
+      // Reverter configuração local em caso de erro
+      if (userConfig) {
+        const revertedConfig: Config = {
+          apiToken: userConfig.apiToken || '',
+          baseUrl: userConfig.baseUrl || '',
+          conteudosTableId: userConfig.tableIds?.conteudos || '',
+          episodiosTableId: userConfig.tableIds?.episodios || '',
+          tableIds: {
+            ...defaultConfig.tableIds,
+            ...userConfig.tableIds,
+          },
+        };
+        setConfig(revertedConfig);
+      }
+      throw error;
+    }
+  };
+
+  return (
+    <ConfigContext.Provider value={{ config, updateConfig, isConfigured, loading }}>
+      {children}
+    </ConfigContext.Provider>
+  );
+};
+
+export const useConfig = () => {
+  const context = useContext(ConfigContext);
+  if (!context) {
+    throw new Error('useConfig deve ser usado dentro de ConfigProvider');
+  }
+  return context;
+};

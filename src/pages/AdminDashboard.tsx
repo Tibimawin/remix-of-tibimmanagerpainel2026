@@ -1,0 +1,677 @@
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
+import { FirebaseUserService, FirebaseUser } from '@/services/FirebaseUserService';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Activity, AlertTriangle, Menu, Search, Filter, UserPlus, Users, Bell, DollarSign, Shield, Zap, Copy, Check } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
+import { useActivityLogger } from '@/hooks/useActivityLogger';
+import { useRealtimeLogs } from '@/hooks/useRealtimeLogs';
+import { useRealtimeActivities } from '@/hooks/useRealtimeActivities';
+import { AdminSidebar, AdminView } from '@/components/admin/AdminSidebar';
+import { AdminHeader } from '@/components/admin/AdminHeader';
+import { AdminUserExplorer } from '@/components/admin/AdminUserExplorer';
+import { useMaintenanceMode } from '@/hooks/useMaintenanceMode';
+import { useApiKeyAutoBlocker } from '@/hooks/useApiKeyAutoBlocker';
+import { Button } from '@/components/ui/button';
+
+// Subcomponents lazy loaded for instantaneous navigation and minimal initial bundle
+const VisualMetricsDashboard = lazy(() => import('@/components/VisualMetricsDashboard'));
+const AdminProducts = lazy(() => import('@/components/AdminProducts'));
+const AdminUsers = lazy(() => import('@/components/AdminUsers'));
+const AdminNotifications = lazy(() => import('@/components/AdminNotifications'));
+const AdminChat = lazy(() => import('@/components/AdminChat'));
+const AdminImportConfig = lazy(() => import('@/components/AdminImportConfig'));
+const AdminPlans = lazy(() => import('@/components/AdminPlans'));
+const AdminUserPermissions = lazy(() => import('@/components/AdminUserPermissions'));
+const AdminSeriesCorrection = lazy(() => import('@/components/AdminSeriesCorrection').then(m => ({ default: m.AdminSeriesCorrection })));
+const AdminSuportePrioritario = lazy(() => import('@/components/AdminSuportePrioritario').then(m => ({ default: m.AdminSuportePrioritario })));
+const AdminOffers = lazy(() => import('@/components/AdminOffers').then(m => ({ default: m.AdminOffers })));
+const AdminWhatsApp = lazy(() => import('@/components/AdminWhatsApp'));
+const AdminMaintenanceControl = lazy(() => import('@/components/AdminMaintenanceControl').then(m => ({ default: m.AdminMaintenanceControl })));
+const AdminAccessExpiredSettings = lazy(() => import('@/components/AdminAccessExpiredSettings').then(m => ({ default: m.AdminAccessExpiredSettings })));
+const AdminFirebaseUsers = lazy(() => import('@/components/AdminFirebaseUsers').then(m => ({ default: m.AdminFirebaseUsers })));
+const AdminExpirationNotifications = lazy(() => import('@/components/AdminExpirationNotifications'));
+const AdminAnnouncements = lazy(() => import('@/components/AdminAnnouncements'));
+const AdminUserActionHistory = lazy(() => import('@/components/AdminUserActionHistory'));
+const AdminReferrals = lazy(() => import('@/components/AdminReferrals').then(m => ({ default: m.AdminReferrals })));
+const AdminAlertCenter = lazy(() => import('@/components/AdminAlertCenter').then(m => ({ default: m.AdminAlertCenter })));
+const AdminSystemUpdates = lazy(() => import('@/components/AdminSystemUpdates').then(m => ({ default: m.AdminSystemUpdates })));
+const AdminPlanosSolicitados = lazy(() => import('@/pages/AdminPlanosSolicitados'));
+const AdminOverviewMetrics = lazy(() => import('@/components/AdminOverviewMetrics'));
+const SecurityCenter = lazy(() => import('@/components/SecurityCenter').then(m => ({ default: m.SecurityCenter })));
+const AdminSeasonalTheme = lazy(() => import('@/components/AdminSeasonalTheme').then(m => ({ default: m.AdminSeasonalTheme })));
+const AdminRegistrationControl = lazy(() => import('@/components/AdminRegistrationControl').then(m => ({ default: m.AdminRegistrationControl })));
+const AdminFinancialDashboard = lazy(() => import('@/components/AdminFinancialDashboard'));
+const AdminPlanosConfig = lazy(() => import('@/components/AdminPlanosConfig'));
+const AdminSeriesUpdateConfig = lazy(() => import('@/components/AdminSeriesUpdateConfig'));
+const AdminMiniseriesConfig = lazy(() => import('@/components/AdminMiniseriesConfig'));
+const AdminApiKeys = lazy(() => import('@/components/AdminApiKeys'));
+const AdminProtectedChannels = lazy(() => import('@/components/AdminProtectedChannels'));
+const AdminCloakLinks = lazy(() => import('@/components/AdminCloakLinks'));
+const AdminCloakDashboard = lazy(() => import('@/components/AdminCloakDashboard'));
+const AdminPushCenter = lazy(() => import('@/components/AdminPushCenter'));
+const AdminJogosDiaConfig = lazy(() => import('@/components/AdminJogosDiaConfig'));
+const AdminTodosApps = lazy(() => import('@/components/admin/AdminTodosApps'));
+const AdminRevendas = lazy(() => import('@/components/AdminRevendas'));
+const DateRangeFilter = lazy(() => import('@/components/DateRangeFilter'));
+
+const AdminViewSkeleton = () => (
+  <div className="space-y-4 animate-pulse">
+    <div className="h-24 bg-card/40 rounded-xl border border-purple-500/10 p-5 flex items-center justify-between">
+      <div className="space-y-2">
+        <div className="h-4 w-40 bg-purple-500/15 rounded"></div>
+        <div className="h-3 w-64 bg-muted/40 rounded"></div>
+      </div>
+      <div className="h-8 w-24 bg-purple-500/15 rounded-lg"></div>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="h-20 bg-card/30 rounded-xl border border-purple-500/10"></div>
+      <div className="h-20 bg-card/30 rounded-xl border border-purple-500/10"></div>
+      <div className="h-20 bg-card/30 rounded-xl border border-purple-500/10"></div>
+    </div>
+    <div className="h-64 bg-card/30 rounded-xl border border-purple-500/10 p-5 space-y-3">
+      <div className="h-5 w-32 bg-muted/30 rounded mb-4"></div>
+      <div className="h-9 bg-muted/20 rounded"></div>
+      <div className="h-9 bg-muted/20 rounded"></div>
+      <div className="h-9 bg-muted/20 rounded"></div>
+    </div>
+  </div>
+);
+
+const AdminDashboard = () => {
+  console.log('=== ADMIN DASHBOARD INICIANDO ===');
+
+  const { adminUser, logout } = useAdminAuth();
+  const [users, setUsers] = useState<FirebaseUser[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeView, setActiveView] = useState<AdminView>('overview');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [activitySearch, setActivitySearch] = useState('');
+  const [activityFilter, setActivityFilter] = useState('all');
+  const { logs: oldLogs, loadLogs } = useActivityLogger();
+  const { logs: realtimeLogs, isLoading: logsLoading } = useRealtimeLogs();
+  const { activities: recentActivities, isLoading: activitiesLoading } = useRealtimeActivities();
+  const { maintenanceState, isMaintenanceActive } = useMaintenanceMode();
+  useApiKeyAutoBlocker();
+
+  // Usar logs em tempo real do Firebase quando disponíveis, senão usar logs antigos
+  const logs = realtimeLogs.length > 0 ? realtimeLogs : oldLogs;
+
+  console.log('AdminUser do contexto:', adminUser);
+  console.log('Logs de atividade carregados:', logs.length);
+
+  // Função para fazer parse robusto de IMEI (objetos únicos ou concatenados)
+  const parseIMEIField = (imeiString: string) => {
+    if (!imeiString || typeof imeiString !== 'string') {
+      return [];
+    }
+
+    try {
+      // Primeiro tenta fazer parse direto (caso seja um array válido)
+      const parsed = JSON.parse(imeiString);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+      // Se for um objeto único, converte para array
+      if (typeof parsed === 'object') {
+        return [parsed];
+      }
+    } catch {
+      // Se falhar, tenta tratar como objetos concatenados
+      try {
+        // Usar regex para encontrar objetos JSON concatenados
+        const jsonObjects = [];
+        const regex = /\{[^}]*\}/g;
+        let match;
+
+        while ((match = regex.exec(imeiString)) !== null) {
+          try {
+            const obj = JSON.parse(match[0]);
+            jsonObjects.push(obj);
+          } catch (parseError) {
+            console.warn('Erro ao fazer parse de objeto individual:', match[0], parseError);
+          }
+        }
+
+        return jsonObjects;
+      } catch (error) {
+        console.warn('Erro ao fazer parse do IMEI concatenado:', error, 'Valor:', imeiString);
+        return [];
+      }
+    }
+
+    return [];
+  };
+
+  // Função auxiliar para fazer parse seguro do IMEI (compatibilidade)
+  const safeParseIMEI = (imeiString: string) => {
+    const devices = parseIMEIField(imeiString);
+    // Retorna o primeiro dispositivo para compatibilidade
+    return devices.length > 0 ? devices[0] : null;
+  };
+
+  const fetchUsers = async () => {
+    try {
+      console.log('=== BUSCANDO USUARIOS ===');
+      const userList = await FirebaseUserService.getAllUsers();
+      console.log('Usuários encontrados:', userList.length);
+      setUsers(userList);
+    } catch (error) {
+      console.error('Erro ao buscar usuários:', error);
+      toast.error('Erro: Não foi possível carregar os usuários.');
+      setUsers([]);
+    }
+  };
+
+  const refreshData = async () => {
+    console.log('=== ATUALIZANDO DADOS ===');
+    setIsRefreshing(true);
+    try {
+      await fetchUsers();
+      // loadLogs() foi removido aqui pois os hooks useRealtimeLogs e useRealtimeActivities 
+      // já mantêm os dados atualizados em tempo real via Firebase Firestore.
+      toast.success('Dados atualizados com sucesso!');
+    } catch (error) {
+      console.error('Erro no refresh:', error);
+      toast.error('Erro ao atualizar os dados.');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    console.log('=== useEffect ADMIN DASHBOARD ===');
+    const loadData = async () => {
+      setIsLoading(true);
+
+      try {
+        await fetchUsers();
+        console.log('Dados carregados com sucesso');
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  const convertedUsersOverview = useMemo(() => {
+    const now = Date.now();
+    return users.map(user => ({
+      id: user.uid,
+      Nome: user.name,
+      Email: user.email,
+      Logins: user.totalLogins || 0,
+      Dias: user.expiryDate ? Math.floor((new Date(user.expiryDate).getTime() - now) / (1000 * 60 * 60 * 24)) : 0,
+      Pagamento: user.isActive ? 'Ativo' : 'Expirado'
+    }));
+  }, [users]);
+
+  const filteredActivities = useMemo(() => {
+    const q = activitySearch.toLowerCase().trim();
+    return recentActivities.filter(activity => {
+      const matchesSearch = !q ||
+        activity.userEmail?.toLowerCase().includes(q) ||
+        activity.action?.toLowerCase().includes(q) ||
+        activity.details?.toLowerCase().includes(q);
+      
+      const matchesFilter = activityFilter === 'all' || 
+        (activityFilter === 'error' && (activity.action?.toLowerCase().includes('erro') || activity.action?.toLowerCase().includes('fail'))) ||
+        (activityFilter === 'auth' && (activity.action?.toLowerCase().includes('login') || activity.action?.toLowerCase().includes('auth'))) ||
+        (activityFilter === 'payment' && (activity.action?.toLowerCase().includes('pagamento') || activity.action?.toLowerCase().includes('pix')));
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [recentActivities, activitySearch, activityFilter]);
+
+  const renderContent = () => {
+    switch (activeView) {
+      case 'overview':
+        return (
+          <div className="space-y-8">
+            {/* Central de Alertas em Tempo Real */}
+            <AdminAlertCenter />
+
+            {/* Métricas Resumidas */}
+            <AdminOverviewMetrics users={users} logs={logs} />
+
+            {/* Gráficos em Tempo Real */}
+            <VisualMetricsDashboard users={convertedUsersOverview} logs={logs} />
+
+            {/* Atividades Recentes - Tempo Real */}
+            <Card className="bg-card/40 border border-purple-500/15 backdrop-blur-md rounded-xl overflow-hidden shadow-sm">
+              <CardHeader className="pb-3 pt-4 px-4 sm:px-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <CardTitle className="text-base sm:text-lg font-bold text-foreground flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-purple-400" />
+                      <span>Atividades Operacionais em Tempo Real</span>
+                      <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-normal">
+                        Ao Vivo
+                      </span>
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground">
+                      Últimos eventos capturados pelo Firebase Firestore (auditoria e telemetria de assinantes)
+                    </CardDescription>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                      <Input
+                        placeholder="Buscar usuário ou ação..."
+                        className="pl-8 h-8 text-xs w-full sm:w-[240px] bg-background/50 border-purple-500/20 focus-visible:ring-purple-500/30"
+                        value={activitySearch}
+                        onChange={(e) => setActivitySearch(e.target.value)}
+                      />
+                    </div>
+                    <Select value={activityFilter} onValueChange={setActivityFilter}>
+                      <SelectTrigger className="w-full sm:w-[150px] h-8 text-xs bg-background/50 border-purple-500/20">
+                        <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                        <SelectValue placeholder="Filtrar tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos Eventos</SelectItem>
+                        <SelectItem value="auth">Autenticação</SelectItem>
+                        <SelectItem value="payment">Pagamentos</SelectItem>
+                        <SelectItem value="error">Erros / Falhas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="px-4 sm:px-6 pb-4">
+                {activitiesLoading ? (
+                  <div className="text-center py-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mx-auto mb-3"></div>
+                    <p className="text-xs text-muted-foreground font-mono">Sincronizando feed de atividades em tempo real...</p>
+                  </div>
+                ) : filteredActivities.length > 0 ? (
+                  <div className="space-y-2 max-h-96 overflow-y-auto pr-1 custom-scrollbar">
+                    {filteredActivities.slice(0, 20).map((log) => {
+                      const isAuth = log.action?.toLowerCase().includes('login') || log.action?.toLowerCase().includes('auth');
+                      const isError = log.action?.toLowerCase().includes('erro') || log.action?.toLowerCase().includes('fail');
+                      const isPayment = log.action?.toLowerCase().includes('pagamento') || log.action?.toLowerCase().includes('pix');
+
+                      return (
+                        <div
+                          key={log.id}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg bg-card/60 border border-purple-500/10 hover:border-purple-500/30 hover:bg-card/80 transition-all gap-2"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <span className="font-mono text-xs font-medium text-foreground bg-muted/40 px-2 py-0.5 rounded border border-border/40">
+                                {log.userEmail || 'Sistema'}
+                              </span>
+                              <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
+                                {log.timestamp || 'Agora'}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] font-mono px-1.5 py-0 ${
+                                  isError
+                                    ? 'border-rose-500/30 text-rose-400 bg-rose-500/10'
+                                    : isAuth
+                                    ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
+                                    : isPayment
+                                    ? 'border-fuchsia-500/30 text-fuchsia-300 bg-fuchsia-500/10'
+                                    : 'border-purple-500/30 text-purple-300 bg-purple-500/10'
+                                }`}
+                              >
+                                {isError ? 'Alerta' : isAuth ? 'Acesso' : isPayment ? 'Financeiro' : 'Operação'}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-foreground font-medium truncate">{log.action}</p>
+                            {log.details && (
+                              <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{log.details}</p>
+                            )}
+                          </div>
+                          <div className="self-end sm:self-center shrink-0">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${log.userEmail || ''} - ${log.action} (${log.timestamp})`);
+                                toast.success('Detalhes do log copiados!');
+                              }}
+                              className="h-6 text-[10px] font-mono text-muted-foreground hover:text-foreground px-2"
+                            >
+                              <Copy className="w-3 h-3 mr-1" />
+                              Copiar
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-10">
+                    <div className="flex items-center justify-center w-12 h-12 bg-muted/20 rounded-xl mb-3 mx-auto">
+                      <Activity className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">Nenhuma atividade recente registrada</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Eventos de login, pagamentos e atualizações aparecerão aqui em tempo real.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        );
+      case 'users':
+        return (
+          <AdminUserExplorer
+            users={users}
+            onRefresh={refreshData}
+            isRefreshing={isRefreshing}
+            onNavigateToCreate={() => setActiveView('user-management')}
+            onNavigateToAdvanced={() => setActiveView('firebase-users')}
+          />
+        );
+      case 'activity':
+        return (
+          <Card className="modern-card bg-card border-border/40">
+            <CardHeader>
+              <CardTitle className="text-foreground flex items-center gap-2">
+                Logs de Atividade - Tempo Real
+                <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
+                  🔴 AO VIVO
+                </Badge>
+              </CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Todas as ações dos usuários em tempo real via Firebase ({logs.length} registros)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {logsLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Carregando logs em tempo real...</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto -mx-2 px-2">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border/40">
+                      <TableHead className="text-muted-foreground">Data/Hora</TableHead>
+                      <TableHead className="text-muted-foreground">Usuário</TableHead>
+                      <TableHead className="text-muted-foreground">Ação</TableHead>
+                      <TableHead className="text-muted-foreground">Detalhes</TableHead>
+                      <TableHead className="text-muted-foreground">Fonte</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {logs.map((log) => (
+                      <TableRow key={log.id} className="border-border/40 animate-fade-in">
+                        <TableCell className="text-muted-foreground">{log.timestamp || '-'}</TableCell>
+                        <TableCell className="text-foreground">{log.userEmail || '-'}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={log.action.includes('Erro') ? 'destructive' :
+                              log.action.includes('Login') || log.action.includes('Online') ? 'default' : 'secondary'}
+                          >
+                            {log.action || '-'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{log.details || '-'}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="bg-green-500/10 text-green-500">
+                            Firebase Realtime
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+
+      case 'date-logs':
+        return <DateRangeFilter logs={logs} />;
+      case 'metrics': {
+        // Converter FirebaseUser para User para o dashboard
+        const convertedUsers = users.map(user => ({
+          id: user.uid,
+          Nome: user.name,
+          Email: user.email,
+          Logins: user.totalLogins || 0,
+          Dias: Math.floor((new Date(user.expiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)),
+          Pagamento: user.isActive ? 'Ativo' : 'Expirado'
+        }));
+        return <VisualMetricsDashboard users={convertedUsers} logs={logs} />;
+      }
+      case 'products':
+        return <AdminProducts />;
+      case 'notifications':
+        return <AdminNotifications />;
+      case 'user-management':
+        return <AdminUsers onUserCreated={refreshData} />;
+      case 'todos-apps':
+        return <AdminTodosApps />;
+      case 'firebase-users':
+        return <AdminFirebaseUsers />;
+      case 'registration-control':
+        return <AdminRegistrationControl />;
+      case 'plans':
+        return <AdminPlans />;
+      case 'plan-requests':
+        return <AdminPlanosSolicitados />;
+      case 'offers':
+        return <AdminOffers />;
+      case 'user-permissions':
+        return <AdminUserPermissions />;
+      case 'import-config':
+        return <AdminImportConfig />;
+      case 'series-correction':
+        return <AdminSeriesCorrection />;
+      case 'chat':
+        return <AdminChat />;
+      case 'suporte-prioritario':
+        return <AdminSuportePrioritario />;
+      case 'security-center':
+        return <SecurityCenter />;
+      case 'whatsapp':
+        return <AdminWhatsApp />;
+      case 'maintenance':
+        return <AdminMaintenanceControl />;
+      case 'access-expired-config':
+        return <AdminAccessExpiredSettings />;
+      case 'expiration-notifications':
+        return <AdminExpirationNotifications />;
+      case 'announcements':
+        return <AdminAnnouncements />;
+      case 'user-action-history':
+        return <AdminUserActionHistory />;
+      case 'referrals':
+        return <AdminReferrals />;
+      case 'system-updates':
+        return <AdminSystemUpdates />;
+      case 'seasonal-theme':
+        return <AdminSeasonalTheme />;
+      case 'financial':
+        return <AdminFinancialDashboard />;
+      case 'planos-config':
+        return <AdminPlanosConfig />;
+      case 'series-update-config':
+        return <AdminSeriesUpdateConfig />;
+      case 'miniseries-config':
+        return <AdminMiniseriesConfig />;
+      case 'api-keys':
+        return <AdminApiKeys />;
+      case 'jogos-dia-config':
+        return <AdminJogosDiaConfig />;
+      case 'protected-channels':
+        return <AdminProtectedChannels />;
+      case 'cloak-links':
+        return <AdminCloakLinks />;
+      case 'cloak-dashboard':
+        return <AdminCloakDashboard />;
+      case 'push-center':
+        return <AdminPushCenter />;
+      case 'admin-revendas':
+        return <AdminRevendas />;
+      default:
+        return <div className="text-foreground">Selecione uma opção do menu</div>;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Carregando painel administrativo...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-background/90 flex w-full overflow-hidden">
+      {/* Sidebar */}
+      <AdminSidebar
+        activeView={activeView}
+        onViewChange={(view) => { setActiveView(view); setMobileNavOpen(false); }}
+        adminUser={adminUser}
+        isRefreshing={isRefreshing}
+        onRefresh={refreshData}
+        onLogout={logout}
+        mobileOpen={mobileNavOpen}
+        onMobileOpenChange={setMobileNavOpen}
+      />
+
+      {/* Main Content */}
+      <div id="admin-main-content" className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto scroll-smooth custom-scrollbar">
+          <div className="flex flex-col min-h-full">
+            {/* Topbar mobile */}
+            <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 h-14 border-b border-purple-500/10 bg-card/80 backdrop-blur-md">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Abrir menu"
+                className="border-purple-500/20 bg-purple-500/5"
+                onClick={() => setMobileNavOpen(true)}
+              >
+                <Menu className="w-5 h-5" />
+              </Button>
+              <span className="text-sm font-semibold text-foreground truncate">Admin Panel</span>
+            </div>
+            <div className="flex-1 p-4 sm:p-6 lg:p-8">
+              <div className="max-w-7xl mx-auto space-y-4">
+                {/* Banner de manutenção fixo quando ativo */}
+                {isMaintenanceActive && maintenanceState && (
+                  <Card className="modern-card border-destructive/40 bg-destructive/10">
+                    <CardContent className="py-3 px-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-destructive/20 flex items-center justify-center">
+                          <AlertTriangle className="w-5 h-5 text-destructive" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-destructive flex items-center gap-2">
+                            Sistema em modo de manutenção
+                            <Badge variant="outline" className="border-destructive/40 text-destructive text-[11px]">
+                              VISÍVEL PARA TODOS OS USUÁRIOS
+                            </Badge>
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {maintenanceState.message || 'Os usuários estão vendo a página de manutenção neste momento.'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {maintenanceState.estimatedEnd && (
+                          <span className="text-xs text-muted-foreground hidden sm:inline-flex">
+                            Previsto até: {new Date(maintenanceState.estimatedEnd).toLocaleString('pt-BR')}
+                          </span>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-destructive/50 text-destructive hover:bg-destructive/10"
+                          onClick={() => setActiveView('maintenance')}
+                       >
+                          Ajustar manutenção
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Header */}
+                <AdminHeader
+                  activeView={activeView}
+                  users={users}
+                  logs={logs}
+                  isRefreshing={isRefreshing}
+                  onRefresh={refreshData}
+                  onNavigate={(view) => setActiveView(view)}
+                />
+
+                {/* Quick Action Shortcuts Bar for 1-click access */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 no-scrollbar text-xs">
+                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider whitespace-nowrap mr-1 select-none">
+                    Atalhos:
+                  </span>
+                  {[
+                    { id: 'overview', label: 'Visão Geral', icon: Zap },
+                    { id: 'users', label: 'Usuários & IMEI', icon: Users, badge: users.length ? String(users.length) : undefined },
+                    { id: 'user-management', label: 'Cadastrar', icon: UserPlus },
+                    { id: 'financial', label: 'Financeiro PIX', icon: DollarSign },
+                    { id: 'plans', label: 'Planos', icon: Shield },
+                    { id: 'push-center', label: 'Push', icon: Bell },
+                    { id: 'security-center', label: 'Segurança', icon: Shield },
+                    { id: 'activity', label: 'Logs Ao Vivo', icon: Activity },
+                  ].map((shortcut) => {
+                    const SIcon = shortcut.icon;
+                    const isActive = activeView === shortcut.id;
+                    return (
+                      <button
+                        key={shortcut.id}
+                        type="button"
+                        onClick={() => setActiveView(shortcut.id as AdminView)}
+                        className={`h-7 inline-flex items-center gap-1.5 text-[11px] font-medium px-3 rounded-lg border transition-all cursor-pointer shrink-0 active:scale-95 ${
+                          isActive
+                            ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white border-purple-500/50 shadow-sm shadow-purple-500/25 font-semibold'
+                            : 'bg-card/40 border-purple-500/15 text-muted-foreground hover:text-foreground hover:bg-purple-500/10 hover:border-purple-500/30'
+                        }`}
+                      >
+                        <SIcon className="w-3.5 h-3.5" />
+                        <span>{shortcut.label}</span>
+                        {shortcut.badge && (
+                          <span className={`text-[10px] font-mono tabular-nums px-1.5 py-0 rounded ${
+                            isActive ? 'bg-white/20 text-white' : 'bg-muted/50 text-muted-foreground'
+                          }`}>
+                            {shortcut.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Content with instant Suspense fallback */}
+                <div className="animate-fade-in-up">
+                  <Suspense fallback={<AdminViewSkeleton />}>
+                    {renderContent()}
+                  </Suspense>
+                </div>
+              </div>
+            </div>
+          </div>
+      </div>
+    </div>
+  );
+};
+
+export default AdminDashboard;
