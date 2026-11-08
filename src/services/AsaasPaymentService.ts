@@ -1,7 +1,10 @@
 
 import { auth } from '@/config/firebase';
 
-const VERCEL_PROXY_BASE = import.meta.env.VITE_VERCEL_PROXY_BASE || 'https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app';
+const VERCEL_PROXY_BASE = import.meta.env.VITE_VERCEL_PROXY_BASE || 
+  (typeof window !== 'undefined' && window.location.origin && !window.location.hostname.includes('lovable') 
+    ? window.location.origin 
+    : 'https://tibimmanagerpainel.shop');
 
 const getProxyUrl = (): string => {
   if (typeof window === 'undefined') return '/api/asaas-proxy';

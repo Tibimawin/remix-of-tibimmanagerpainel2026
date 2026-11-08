@@ -274,7 +274,7 @@ export default defineConfig(({ mode }) => ({
     allowedHosts: true,
     proxy: {
       "/api": {
-        target: "https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app",
+        target: process.env.VITE_VERCEL_PROXY_BASE || "https://tibimmanagerpainel.shop",
         changeOrigin: true,
         secure: true,
         rewrite: (path) => path,
@@ -283,7 +283,7 @@ export default defineConfig(({ mode }) => ({
             console.log("⚠️ [PROXY ERROR]:", err.message);
           });
           proxy.on("proxyReq", (proxyReq, req) => {
-            const target = (options && typeof options === "object" && "target" in options && options.target) || "https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app";
+            const target = (options && typeof options === "object" && "target" in options && options.target) || (process.env.VITE_VERCEL_PROXY_BASE || "https://tibimmanagerpainel.shop");
             const url = req.url || "";
             console.log("🔄 [PROXY] Redirecionando:", url, "→", target + url);
           });

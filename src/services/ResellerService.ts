@@ -15,7 +15,7 @@ function getApiBase(): string {
   if (typeof window === 'undefined') return '';
   const env = BASEROW_PROXY_CONFIG.getEnvironment();
   if (env === 'lovable-preview' || env === 'lovable-production') {
-    return 'https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app/';
+    return import.meta.env.VITE_VERCEL_PROXY_BASE || 'https://tibimmanagerpainel.shop/';
   }
   return `${window.location.origin}/`;
 }

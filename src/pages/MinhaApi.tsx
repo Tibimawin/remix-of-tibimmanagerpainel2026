@@ -116,14 +116,12 @@ const MinhaApi = () => {
     setTesting(true);
     setTestResult(null);
     try {
-      // Em domínios custom/Lovable, /api/* não é servido localmente.
-      // Roteia para o Vercel quando o host atual não é vercel.app nem localhost.
-      const host = window.location.hostname;
-      const isLocal = host === 'localhost' || host === '127.0.0.1';
-      const isVercel = host.endsWith('vercel.app');
-      const apiBase = isLocal || isVercel
+      // Apenas domínios Lovable necessitam de base externa (pois Lovable não possui /api local)
+      // Domínios próprios na Vercel (ex: tibimmanagerpainel.shop), vercel.app e localhost servem /api nativo
+      const isLovable = host.endsWith('.lovable.app') || host.endsWith('.lovableproject.com');
+      const apiBase = !isLovable
         ? ''
-        : (import.meta.env.VITE_VERCEL_PROXY_BASE || 'https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app');
+        : (import.meta.env.VITE_VERCEL_PROXY_BASE || 'https://tibimmanagerpainel.shop');
       const url = `${apiBase}/api/public-api?api_key=${activeKey.key}&endpoint=${testEndpoint}&size=2`;
       const resp = await fetch(url);
       const data = await resp.json();

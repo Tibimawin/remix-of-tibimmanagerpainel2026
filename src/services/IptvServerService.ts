@@ -222,7 +222,9 @@ export class IptvServerService {
       testUrl.startsWith('http://') ? testUrl.replace('http://', 'https://') : testUrl.replace('https://', 'http://'),
     ];
 
-    const vercelFallback = 'https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app/api/m3u-proxy';
+    const vercelFallback = (typeof window !== 'undefined' && window.location.origin)
+      ? `${window.location.origin}/api/m3u-proxy`
+      : 'https://tibimmanagerpainel.shop/api/m3u-proxy';
     const proxyEndpoints = [
       '/api/m3u-proxy',
       BASEROW_PROXY_CONFIG.M3U_PROXY_URL,
@@ -372,7 +374,9 @@ export class IptvServerService {
     let response: Response | null = null;
     let lastError: any = null;
 
-    const vercelFallback = 'https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app/api/m3u-proxy';
+    const vercelFallback = (typeof window !== 'undefined' && window.location.origin)
+      ? `${window.location.origin}/api/m3u-proxy`
+      : 'https://tibimmanagerpainel.shop/api/m3u-proxy';
     const proxyEndpoints = [
       '/api/m3u-proxy',
       BASEROW_PROXY_CONFIG.M3U_PROXY_URL,

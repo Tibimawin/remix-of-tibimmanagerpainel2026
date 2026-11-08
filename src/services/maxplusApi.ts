@@ -99,7 +99,9 @@ export const MAXPLUS_CATEGORIES: MaxPlusCategory[] = [
   { name: 'Cinema TV', url: 'http://apps.zynner.site/genre/cinema-tv/' },
 ];
 
-const WORKING_VERCEL_ALIAS = 'https://tibimmanagerpainel2026-git-main-apktibim-1235s-projects.vercel.app';
+const WORKING_VERCEL_ALIAS = (typeof window !== 'undefined' && window.location.origin && !window.location.hostname.includes('lovable'))
+  ? window.location.origin
+  : (import.meta.env.VITE_VERCEL_PROXY_BASE || 'https://tibimmanagerpainel.shop');
 
 /**
  * Executa requisição para a API MaxPlus com múltiplas camadas de resiliência:
