@@ -1,6 +1,5 @@
-fix: Modal de autenticacao JWT e login por Email/Senha na descoberta de tabelas do Baserow
+fix: Corrige erro body stream already read e sanitiza datas no Baserow
 
-- Abre a janela de mapeamento imediatamente ao clicar no botao
-- Suporta autenticacao com email e senha do Baserow para gerar token JWT
-- Suporta entrada direta de token JWT de usuario
-- Ajusta proxy para permitir endpoint publico de login do Baserow
+- Evita leitura dupla de response.text() em createRow, updateRow e createRowsBatch
+- Sanitiza proativamente campos de data vazios convertendo "" em null para o Baserow
+- Suporta tokens JWT na autenticacao direta HTTPS do BaserowService

@@ -108,10 +108,17 @@ export class BaserowService {
         hasUserFieldNames: originalUrl.includes('user_field_names=true')
       });
 
+      const cleanToken = this.apiToken?.trim() || '';
+      const authHeader = cleanToken.startsWith('JWT ') || cleanToken.startsWith('Token ') || cleanToken.startsWith('Bearer ')
+        ? cleanToken
+        : cleanToken.startsWith('eyJ')
+        ? `JWT ${cleanToken}`
+        : `Token ${cleanToken}`;
+
       return fetch(originalUrl, {
         ...options,
         headers: {
-          'Authorization': `Token ${this.apiToken}`,
+          'Authorization': authHeader,
           'Content-Type': 'application/json',
           ...options.headers,
         },
@@ -459,38 +466,70 @@ export class BaserowService {
     return copy;
   }
 
+  /**
+   * Sanitiza proativamente campos de data antes do envio para o Baserow.
+   * Converte strings vazias "" em null para evitar que o Baserow rejeite com "Date has wrong format".
+   */
+  private proactivelySanitizeDates(data: any): any {
+    if (!data || typeof data !== 'object') return data;
+    const copy = { ...data };
+    for (const [key, val] of Object.entries(copy)) {
+      if (typeof key === 'string' && /(data|date|lancamento|lançamento|vencimento)/i.test(key)) {
+        if (val === '' || val === undefined) {
+          copy[key] = null;
+        } else if (typeof val === 'string' && val.trim() !== '') {
+          const str = val.trim();
+          const ymd = str.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+          if (ymd) {
+            copy[key] = `${ymd[1]}-${ymd[2].padStart(2, '0')}-${ymd[3].padStart(2, '0')}`;
+          } else {
+            const dmy = str.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+            if (dmy) {
+              copy[key] = `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+            }
+          }
+        }
+      }
+    }
+    return copy;
+  }
+
   async createRow(tableId: string, data: any) {
     if (this.isDemo()) {
       return demoDatabase.addRow(tableId, data);
     }
 
+    const cleanData = this.proactivelySanitizeDates(data);
     const endpoint = `/api/database/rows/table/${tableId}/?user_field_names=true`;
     console.log('🔧 [BaserowService] createRow chamado:', {
       tableId,
       endpoint,
       needsProxy: this.needsProxy(),
       fullUrl: `${this.baseUrl}${endpoint}`,
-      dataKeys: Object.keys(data)
+      dataKeys: Object.keys(cleanData)
     });
 
-    let response = await this.makeRequest(endpoint, { method: 'POST', body: JSON.stringify(data) });
+    let response = await this.makeRequest(endpoint, { method: 'POST', body: JSON.stringify(cleanData) });
 
     if (!response.ok) {
-      const errorText = await response.text();
+      let errorText = await response.text().catch(() => '');
+      
       // Auto-recuperação inteligente se o Baserow recusar o formato de data (ex: Date has wrong format)
-      if (response.status === 400 && errorText.includes('Date has wrong format')) {
+      if (response.status === 400 && /date has wrong format/i.test(errorText)) {
         console.warn('⚠️ [BaserowService] Formato de data inválido detectado no Baserow. Higienizando campos de data e tentando novamente...');
-        const sanitizedData = this.autoSanitizeBaserowDates(data, errorText);
+        const sanitizedData = this.autoSanitizeBaserowDates(cleanData, errorText);
         response = await this.makeRequest(endpoint, { method: 'POST', body: JSON.stringify(sanitizedData) });
+        if (!response.ok) {
+          errorText = await response.text().catch(() => '');
+        }
       }
 
       if (!response.ok) {
-        const finalError = await response.text();
         console.error('❌ [BaserowService] Erro ao criar row:', {
           status: response.status,
-          error: finalError
+          error: errorText
         });
-        throw new Error(`Erro ${response.status}: ${finalError}`);
+        throw new Error(`Erro ${response.status}: ${errorText || response.statusText || 'Falha ao salvar no Baserow'}`);
       }
     }
 
@@ -504,17 +543,21 @@ export class BaserowService {
       return demoDatabase.updateRow(tableId, rowId, data);
     }
 
+    const cleanData = this.proactivelySanitizeDates(data);
     const endpoint = `/api/database/rows/table/${tableId}/${rowId}/?user_field_names=true`;
-    let response = await this.makeRequest(endpoint, { method: 'PATCH', body: JSON.stringify(data) });
+    let response = await this.makeRequest(endpoint, { method: 'PATCH', body: JSON.stringify(cleanData) });
     if (!response.ok) {
-      const errorText = await response.text();
-      if (response.status === 400 && errorText.includes('Date has wrong format')) {
+      let errorText = await response.text().catch(() => '');
+      if (response.status === 400 && /date has wrong format/i.test(errorText)) {
         console.warn('⚠️ [BaserowService] Formato de data inválido no updateRow. Higienizando campos e tentando novamente...');
-        const sanitized = this.autoSanitizeBaserowDates(data, errorText);
+        const sanitized = this.autoSanitizeBaserowDates(cleanData, errorText);
         response = await this.makeRequest(endpoint, { method: 'PATCH', body: JSON.stringify(sanitized) });
+        if (!response.ok) {
+          errorText = await response.text().catch(() => '');
+        }
       }
       if (!response.ok) {
-        throw new Error(`Erro ${response.status}: ${await response.text()}`);
+        throw new Error(`Erro ${response.status}: ${errorText || response.statusText || 'Falha ao atualizar no Baserow'}`);
       }
     }
     return response.json();
@@ -527,7 +570,10 @@ export class BaserowService {
 
     const endpoint = `/api/database/rows/table/${tableId}/${rowId}/`;
     const response = await this.makeRequest(endpoint, { method: 'DELETE' });
-    if (!response.ok) throw new Error(`Erro ${response.status}: ${await response.text()}`);
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`Erro ${response.status}: ${errorText || response.statusText || 'Falha ao deletar no Baserow'}`);
+    }
     return true;
   }
 
@@ -544,7 +590,7 @@ export class BaserowService {
 
     // Dividir em sub-lotes de até 200
     for (let i = 0; i < rows.length; i += MAX_BATCH_SIZE) {
-      let chunk = rows.slice(i, i + MAX_BATCH_SIZE);
+      let chunk = rows.slice(i, i + MAX_BATCH_SIZE).map(item => this.proactivelySanitizeDates(item));
       const endpoint = `/api/database/rows/table/${tableId}/batch/?user_field_names=true`;
 
       let attempt = 0;
@@ -557,17 +603,19 @@ export class BaserowService {
           let response = await this.makeRequest(endpoint, { method: 'POST', body: JSON.stringify({ items: chunk }) });
 
           if (!response.ok) {
-            const errorText = await response.text();
-            if (response.status === 400 && errorText.includes('Date has wrong format')) {
+            let errorText = await response.text().catch(() => '');
+            if (response.status === 400 && /date has wrong format/i.test(errorText)) {
               logger.warn(`⚠️ Detectado erro de data no lote. Higienizando itens do lote...`);
               chunk = chunk.map(item => this.autoSanitizeBaserowDates(item, errorText));
               response = await this.makeRequest(endpoint, { method: 'POST', body: JSON.stringify({ items: chunk }) });
+              if (!response.ok) {
+                errorText = await response.text().catch(() => '');
+              }
             }
 
             if (!response.ok) {
-              const finalErr = await response.text();
-              logger.warn(`⚠️ Erro batch-create (status ${response.status}): ${finalErr}`);
-              throw new Error(`Erro ${response.status}: ${finalErr}`);
+              logger.warn(`⚠️ Erro batch-create (status ${response.status}): ${errorText}`);
+              throw new Error(`Erro ${response.status}: ${errorText || response.statusText || 'Falha em lote no Baserow'}`);
             }
           }
 
