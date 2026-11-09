@@ -6,6 +6,13 @@ const CategoriaSeries = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const columns = ['Nome'];
 
+  const sortOptions = [
+    { label: 'Mais Recentes Primeiro (ID ↓)', value: 'id_desc' },
+    { label: 'Mais Antigos Primeiro (ID ↑)', value: 'id_asc' },
+    { label: 'Nome (A-Z)', value: 'nome_asc' },
+    { label: 'Nome (Z-A)', value: 'nome_desc' },
+  ];
+
   return (
     <PermissionGate feature="categoriaSeries">
       <div className="w-full overflow-x-hidden px-4 sm:px-6 lg:px-8">
@@ -14,6 +21,7 @@ const CategoriaSeries = () => {
           description="Gerenciar categorias de Séries (Modo Tibim)"
           tableKey="categoriaSeries"
           columns={columns}
+          sortOptions={sortOptions}
           refreshTrigger={refreshTrigger}
           skipEditDialog={false}
         />
