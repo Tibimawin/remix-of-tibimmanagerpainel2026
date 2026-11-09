@@ -19,8 +19,18 @@ app.all('/api/baserow-proxy', async (req, res) => {
             return res.status(400).json({ error: 'URL é obrigatória' });
         }
 
+        let targetUrl = url;
+        if (targetUrl && (targetUrl.includes('order_by=-id') || targetUrl.includes('order_by=id') || targetUrl.includes('order=-id') || targetUrl.includes('order=id'))) {
+            targetUrl = targetUrl
+                .replace(/([?&])order_by=-?id(&|$)/g, '$1')
+                .replace(/([?&])order=-?id(&|$)/g, '$1')
+                .replace(/\?&/, '?')
+                .replace(/&&+/g, '&')
+                .replace(/[?&]$/, '');
+        }
+
         console.log('\n🌐 [PROXY LOCAL] Nova requisição:');
-        console.log('  URL:', url);
+        console.log('  URL:', targetUrl);
         console.log('  Method:', method);
         console.log('  Token:', token ? `${token.substring(0, 10)}...` : 'N/A');
         console.log('  Body length:', body ? body.length : 0);
@@ -44,7 +54,7 @@ app.all('/api/baserow-proxy', async (req, res) => {
         }
 
         console.log('  📤 Enviando requisição para Baserow...');
-        const response = await fetch(url, fetchOptions);
+        const response = await fetch(targetUrl, fetchOptions);
 
         console.log('  📥 Resposta recebida:', response.status, response.statusText);
 

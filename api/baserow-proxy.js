@@ -84,6 +84,16 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'URL inválida fornecida.' });
         }
 
+        // 🧹 Sanitizar URL: Baserow não suporta order_by=id ou order_by=-id (retorna ERROR_ORDER_BY_FIELD_NOT_FOUND)
+        if (url && (url.includes('order_by=-id') || url.includes('order_by=id') || url.includes('order=-id') || url.includes('order=id'))) {
+            url = url
+                .replace(/([?&])order_by=-?id(&|$)/g, '$1')
+                .replace(/([?&])order=-?id(&|$)/g, '$1')
+                .replace(/\?&/, '?')
+                .replace(/&&+/g, '&')
+                .replace(/[?&]$/, '');
+        }
+
         const isAuthEndpoint = url.includes('/api/user/token-auth/') || url.includes('/api/user/token-refresh/');
 
         if (!token && !isAuthEndpoint) {
@@ -271,6 +281,27 @@ export default async function handler(req, res) {
                     preview: text.substring(0, 200),
                     url: url
                 });
+            }
+        }
+
+        // Se a resposta for 400 com ERROR_ORDER_BY_FIELD_NOT_FOUND, retentar limpando order_by
+        if (!response.ok && response.status === 400 && data && data.error === 'ERROR_ORDER_BY_FIELD_NOT_FOUND') {
+            console.warn('⚠️ [VERCEL PROXY] Baserow rejeitou campo de ordenação. Retentando sem order_by...');
+            const cleanUrl = url
+                .replace(/([?&])order_by=[^&]*(&|$)/g, '$1')
+                .replace(/([?&])order=[^&]*(&|$)/g, '$1')
+                .replace(/\?&/, '?')
+                .replace(/&&+/g, '&')
+                .replace(/[?&]$/, '');
+            
+            try {
+                const retryResponse = await fetch(cleanUrl, fetchOptions);
+                if (retryResponse.ok) {
+                    const retryData = await retryResponse.json();
+                    return res.status(200).json(retryData);
+                }
+            } catch (retryErr) {
+                console.error('Falha no retry sem order_by:', retryErr);
             }
         }
 
