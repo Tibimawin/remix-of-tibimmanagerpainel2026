@@ -371,7 +371,7 @@ export class BaserowService {
 
     try {
       const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
-      const orderParam = order ? `&order=${encodeURIComponent(order)}` : '';
+      const orderParam = order ? `&order_by=${encodeURIComponent(order)}&order=${encodeURIComponent(order)}` : '';
       const extra = extraParams ? `&${extraParams.replace(/^&/, '')}` : '';
       const endpoint = `/api/database/rows/table/${tableId}/?user_field_names=true&page=${page}&size=${size}${searchParam}${orderParam}${extra}`;
 

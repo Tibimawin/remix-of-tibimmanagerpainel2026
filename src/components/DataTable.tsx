@@ -14,7 +14,7 @@ import { ImportButton } from '@/components/ImportButton';
 import { useBaserowService } from '@/services/BaserowService';
 import { useConfig } from '@/contexts/ConfigContext';
 import { toast } from '@/hooks/use-toast';
-import { Edit, Trash, Eye, Plus, RefreshCw } from 'lucide-react';
+import { Edit, Trash, Eye, Plus, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSystemLogs } from '@/hooks/useSystemLogs';
 import { useAutoNotifyCRUD } from '@/hooks/useActionNotifier';
@@ -153,9 +153,9 @@ export const DataTable: React.FC<DataTableProps & {
     const isDesc = dir === 'desc';
 
     const firstItem = base[0];
-    const fieldName = firstItem 
-      ? Object.keys(firstItem).find(k => k.toLowerCase() === key.toLowerCase()) || key
-      : key;
+    const fieldName = key.toLowerCase() === 'id'
+      ? 'id'
+      : (firstItem ? Object.keys(firstItem).find(k => k.toLowerCase() === key.toLowerCase()) || key : key);
 
     const getComparable = (val: any, field: string) => {
       const fieldLower = field.toLowerCase();
@@ -187,17 +187,20 @@ export const DataTable: React.FC<DataTableProps & {
   pageRef.current = page;
   const searchTermRef = useRef(searchTerm);
   searchTermRef.current = searchTerm;
+  const sortByRef = useRef(sortBy);
+  sortByRef.current = sortBy;
 
   const currentTableId = config?.tableIds?.[tableKey as keyof typeof config.tableIds];
 
-  const loadData = useCallback(async (currentPage?: number, search?: string) => {
+  const loadData = useCallback(async (currentPage?: number, search?: string, sortOverride?: string) => {
     if (!isConfigured) return;
     const targetPage = currentPage !== undefined ? currentPage : pageRef.current;
     const targetSearch = search !== undefined ? search : searchTermRef.current;
+    const targetSort = sortOverride !== undefined ? sortOverride : sortByRef.current;
     
     try {
       setLoading(true);
-      const orderParam = getOrderParam(sortBy);
+      const orderParam = getOrderParam(targetSort);
       
       if (!currentTableId) {
         console.warn(`ID da tabela ${tableKey} não configurado.`);
@@ -231,7 +234,7 @@ export const DataTable: React.FC<DataTableProps & {
     } finally {
       setLoading(false);
     }
-  }, [isConfigured, getOrderParam, sortBy, tableKey, currentTableId, baserowService, itemsPerPage]);
+  }, [isConfigured, getOrderParam, tableKey, currentTableId, baserowService, itemsPerPage]);
 
   const loadAllDataForExport = useCallback(async () => {
     if (!isConfigured || !currentTableId) return;
@@ -524,6 +527,82 @@ export const DataTable: React.FC<DataTableProps & {
     setSearchTerm(value);
   };
 
+  const currentDir = useMemo(() => {
+    return (sortBy || 'id_desc').split('_')[1] || 'desc';
+  }, [sortBy]);
+
+  const effectiveSortOptions = useMemo(() => {
+    const defaultIdOptions = [
+      { label: 'Mais Recentes Primeiro (ID ↓)', value: 'id_desc' },
+      { label: 'Mais Antigos Primeiro (ID ↑)', value: 'id_asc' },
+    ];
+
+    if (sortOptions && sortOptions.length > 0) {
+      const hasIdSort = sortOptions.some(opt => opt.value === 'id_desc' || opt.value === 'id_asc');
+      if (hasIdSort) return sortOptions;
+      return [...defaultIdOptions, ...sortOptions];
+    }
+
+    const generated: { label: string; value: string }[] = [...defaultIdOptions];
+    columns.forEach(col => {
+      const colClean = col.trim();
+      const colKey = colClean.toLowerCase();
+      if (colKey === 'id' || colKey === 'ações' || colKey === 'acoes') return;
+      generated.push(
+        { label: `${colClean} (A → Z)`, value: `${colKey}_asc` },
+        { label: `${colClean} (Z → A)`, value: `${colKey}_desc` }
+      );
+    });
+    return generated;
+  }, [sortOptions, columns]);
+
+  const fullSortOptions = useMemo(() => {
+    if (!sortBy) return effectiveSortOptions;
+    if (effectiveSortOptions.some(o => o.value === sortBy)) return effectiveSortOptions;
+    const parts = sortBy.split('_');
+    const key = parts[0] || 'id';
+    const dir = parts[1] || 'desc';
+    const capKey = key.charAt(0).toUpperCase() + key.slice(1);
+    const dirLabel = dir === 'desc' ? 'Decrescente (↓)' : 'Crescente (↑)';
+    return [...effectiveSortOptions, { label: `${capKey} (${dirLabel})`, value: sortBy }];
+  }, [effectiveSortOptions, sortBy]);
+
+  const handleToggleSortDirection = useCallback(() => {
+    const current = sortBy || 'id_desc';
+    const parts = current.split('_');
+    const key = parts[0] || 'id';
+    const dir = parts[1] === 'desc' ? 'asc' : 'desc';
+    const newSort = `${key}_${dir}`;
+    sortByRef.current = newSort;
+    setSortBy(newSort);
+    setPage(1);
+    loadData(1, searchTermRef.current, newSort);
+  }, [sortBy, loadData]);
+
+  const handleColumnHeaderClick = useCallback((column: string) => {
+    const colClean = column.trim();
+    const colKey = colClean.toLowerCase();
+    if (colKey === 'ações' || colKey === 'acoes') return;
+
+    const current = sortBy || 'id_desc';
+    const parts = current.split('_');
+    const currentKey = parts[0] || 'id';
+    const currentDirection = parts[1] || 'desc';
+
+    let newSort: string;
+    if (currentKey.toLowerCase() === colKey) {
+      const newDir = currentDirection === 'asc' ? 'desc' : 'asc';
+      newSort = `${colKey}_${newDir}`;
+    } else {
+      newSort = `${colKey}_asc`;
+    }
+
+    sortByRef.current = newSort;
+    setSortBy(newSort);
+    setPage(1);
+    loadData(1, searchTermRef.current, newSort);
+  }, [sortBy, loadData]);
+
   if (!isConfigured) {
     return (
       <Alert className="no-arrows">
@@ -554,24 +633,43 @@ export const DataTable: React.FC<DataTableProps & {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto no-arrows">
-              {sortOptions && sortOptions.length > 0 && (
-                <Select value={sortBy} onValueChange={(value) => {
-                  setSortBy(value);
-                  setPage(1);
-                  loadData(1, searchTerm);
-                }}>
-                  <SelectTrigger className="w-full sm:w-48 no-arrows">
+              <div className="flex items-center gap-1.5 w-full sm:w-auto no-arrows">
+                <Select 
+                  value={sortBy} 
+                  onValueChange={(value) => {
+                    sortByRef.current = value;
+                    setSortBy(value);
+                    setPage(1);
+                    loadData(1, searchTermRef.current, value);
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-56 no-arrows text-xs sm:text-sm">
                     <SelectValue placeholder="Ordenar por..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {sortOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
+                    {fullSortOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value} className="text-xs sm:text-sm">
                         {option.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              )}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleToggleSortDirection}
+                  title={currentDir === 'desc' ? 'Mudar para ordem crescente (de baixo para cima)' : 'Mudar para ordem decrescente (de cima para baixo)'}
+                  className="no-arrows px-2.5 h-10 shrink-0 text-xs flex items-center gap-1 font-medium"
+                >
+                  <ArrowUpDown className="h-4 w-4" />
+                  <span className="hidden md:inline">
+                    {currentDir === 'desc' ? 'Cima → Baixo' : 'Baixo → Cima'}
+                  </span>
+                </Button>
+              </div>
+
               <Input
                 placeholder="Buscar..."
                 value={searchTerm}
@@ -626,9 +724,39 @@ export const DataTable: React.FC<DataTableProps & {
               <Table className="no-arrows min-w-full">
                 <TableHeader className="no-arrows sticky top-0 bg-card/95 backdrop-blur-sm z-10 border-b border-border shadow-sm">
                   <TableRow className="no-arrows h-8">
-                    {columns.map((column) => (
-                      <TableHead key={column} className="no-arrows whitespace-nowrap py-1 px-2 text-xs">{column}</TableHead>
-                    ))}
+                    {columns.map((column) => {
+                      const colClean = column.trim();
+                      const colKey = colClean.toLowerCase();
+                      const isActionCol = colKey === 'ações' || colKey === 'acoes';
+                      const [currentKey, currentDirHeader] = (sortBy || 'id_desc').split('_');
+                      const isSorted = currentKey.toLowerCase() === colKey;
+
+                      return (
+                        <TableHead 
+                          key={column} 
+                          onClick={!isActionCol ? () => handleColumnHeaderClick(column) : undefined}
+                          className={`no-arrows whitespace-nowrap py-1 px-2 text-xs ${
+                            !isActionCol ? 'cursor-pointer select-none hover:bg-muted/60 transition-colors' : ''
+                          }`}
+                          title={!isActionCol ? `Clique para alternar ordenação por ${column}` : undefined}
+                        >
+                          <div className="inline-flex items-center gap-1">
+                            <span>{column}</span>
+                            {!isActionCol && (
+                              isSorted ? (
+                                currentDirHeader === 'asc' ? (
+                                  <ArrowUp className="h-3.5 w-3.5 text-primary" />
+                                ) : (
+                                  <ArrowDown className="h-3.5 w-3.5 text-primary" />
+                                )
+                              ) : (
+                                <ArrowUpDown className="h-3 w-3 text-muted-foreground/30 opacity-40 hover:opacity-100" />
+                              )
+                            )}
+                          </div>
+                        </TableHead>
+                      );
+                    })}
                     <TableHead className="no-arrows py-1 px-2 text-xs">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
