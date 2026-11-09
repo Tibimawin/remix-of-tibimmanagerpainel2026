@@ -399,38 +399,18 @@ const Configuracoes = () => {
     }
   };
 
-  const handleStartDiscovery = async () => {
-    if (!formData.baseUrl || !formData.apiToken) {
-      toast.error('Preencha a URL do Baserow e o Token da API antes de buscar as tabelas');
-      return;
+  const handleDiscoverySuccess = (result: DiscoveryResult | null, newJwt?: string) => {
+    setDiscoveryResult(result);
+    if (newJwt) {
+      setFormData(prev => ({
+        ...prev,
+        apiToken: newJwt,
+      }));
     }
+  };
 
-    try {
-      new URL(formData.baseUrl);
-    } catch {
-      toast.error('URL do Baserow inválida. Ex: https://seu-servidor.com');
-      return;
-    }
-
-    try {
-      setIsDiscovering(true);
-      toast.info('🔍 Conectando ao Baserow para identificar suas tabelas...');
-
-      const result = await BaserowTableDiscoveryService.discover(formData.baseUrl, formData.apiToken);
-      setDiscoveryResult(result);
-      setDiscoveryDialogOpen(true);
-
-      if (result.totalMatched > 0) {
-        toast.success(`🎉 ${result.totalMatched} tabela(s) identificada(s)! Revise na janela para aplicar.`);
-      } else {
-        toast.warning('Conectado ao Baserow, mas nenhuma tabela coincidiu com os nomes padrões.');
-      }
-    } catch (error: any) {
-      console.error('Erro na descoberta de tabelas:', error);
-      toast.error(error?.message || 'Falha ao buscar tabelas do Baserow.');
-    } finally {
-      setIsDiscovering(false);
-    }
+  const handleStartDiscovery = () => {
+    setDiscoveryDialogOpen(true);
   };
 
   const handleDiscoveryDatabaseChange = (databaseId: string | number) => {
@@ -1378,7 +1358,10 @@ const Configuracoes = () => {
         <BaserowDiscoveryModal
           open={discoveryDialogOpen}
           onOpenChange={setDiscoveryDialogOpen}
+          baseUrl={formData.baseUrl}
+          apiToken={formData.apiToken}
           discoveryResult={discoveryResult}
+          onDiscoverySuccess={handleDiscoverySuccess}
           onDatabaseChange={handleDiscoveryDatabaseChange}
           onApply={handleApplyDiscovery}
           isApplying={isApplyingDiscovery}

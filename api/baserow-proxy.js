@@ -84,7 +84,9 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'URL inválida fornecida.' });
         }
 
-        if (!token) {
+        const isAuthEndpoint = url.includes('/api/user/token-auth/') || url.includes('/api/user/token-refresh/');
+
+        if (!token && !isAuthEndpoint) {
             console.error('❌ [VERCEL PROXY] Erro: Token não fornecido no payload!', {
                 url,
                 method,
@@ -106,6 +108,7 @@ export default async function handler(req, res) {
             url: url.substring(0, 100) + '...',
             method: method,
             hasToken: !!token,
+            isAuthEndpoint,
             hasBody: !!body,
             bodyType: typeof body
         });
@@ -115,13 +118,20 @@ export default async function handler(req, res) {
             'Content-Type': 'application/json',
         };
 
-        if (token) {
-            headers['Authorization'] = `Token ${token}`;
+        if (token && token !== 'public') {
+            const cleanToken = String(token).trim();
+            if (cleanToken.startsWith('Token ') || cleanToken.startsWith('JWT ') || cleanToken.startsWith('Bearer ')) {
+                headers['Authorization'] = cleanToken;
+            } else if (cleanToken.startsWith('eyJ')) {
+                headers['Authorization'] = `JWT ${cleanToken}`;
+            } else {
+                headers['Authorization'] = `Token ${cleanToken}`;
+            }
             console.log('🔑 [VERCEL PROXY] Token adicionado:', {
-                tokenPreview: token.substring(0, 15) + '...',
+                tokenPreview: cleanToken.substring(0, 15) + '...',
                 authHeader: headers['Authorization'].substring(0, 20) + '...'
             });
-        } else {
+        } else if (!isAuthEndpoint) {
             console.warn('⚠️ [VERCEL PROXY] Nenhum token fornecido!');
         }
 

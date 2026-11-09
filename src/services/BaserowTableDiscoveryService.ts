@@ -589,15 +589,16 @@ export const BaserowTableDiscoveryService = {
 
     logger.info('BaserowTableDiscovery: Consultando aplicações no Baserow', { endpoint });
 
+    const cleanToken = apiToken.trim();
     const response = await makeProxyRequest({
       url: endpoint,
       method: 'GET',
-      token: apiToken.trim(),
+      token: cleanToken,
     });
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        throw new Error('Token de API do Baserow inválido ou sem permissão para ler o banco de dados (HTTP 401/403).');
+        throw new Error('O seu token atual não tem permissão para listar aplicações (Database Token). Para listar todas as tabelas automaticamente, você pode usar seu Email e Senha do Baserow na janela.');
       }
       if (response.status === 404) {
         throw new Error('Servidor Baserow respondeu 404. Verifique se a URL informada está correta.');
@@ -750,5 +751,54 @@ export const BaserowTableDiscoveryService = {
       unmatchedTables,
       totalMatched,
     };
+  },
+
+  /**
+   * Realiza login oficial no Baserow com email e senha para obter um Token JWT de usuário.
+   * Isso permite acessar a lista de todas as tabelas e bancos com 100% de garantia.
+   */
+  async loginWithCredentials(baseUrl: string, usernameOrEmail: string, password: string): Promise<string> {
+    if (!baseUrl || !usernameOrEmail || !password) {
+      throw new Error('Preencha a URL, Email e Senha da sua conta do Baserow.');
+    }
+
+    if (isDemoSessionActive()) {
+      return 'demo-jwt-token';
+    }
+
+    let cleanUrl = baseUrl.trim().replace(/\/+$/, '');
+    if (cleanUrl.endsWith('/api')) cleanUrl = cleanUrl.slice(0, -4);
+
+    const endpoint = `${cleanUrl}/api/user/token-auth/`;
+
+    const response = await makeProxyRequest({
+      url: endpoint,
+      method: 'POST',
+      token: 'public',
+      body: {
+        username: usernameOrEmail.trim(),
+        password: password,
+      },
+    });
+
+    if (!response.ok || !response.data?.token) {
+      const detail = response.data?.detail || response.data?.non_field_errors?.[0] || response.error;
+      throw new Error(detail || 'Email ou senha do Baserow incorretos.');
+    }
+
+    return response.data.token;
+  },
+
+  /**
+   * Conecta com credenciais de login, gera o JWT temporário e descobre todas as tabelas.
+   */
+  async discoverWithCredentials(
+    baseUrl: string,
+    email: string,
+    pass: string,
+    preferredDatabaseId?: string | number
+  ): Promise<DiscoveryResult> {
+    const jwtToken = await this.loginWithCredentials(baseUrl, email, pass);
+    return this.discover(baseUrl, jwtToken, preferredDatabaseId);
   },
 };
