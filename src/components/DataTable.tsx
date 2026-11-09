@@ -101,6 +101,12 @@ export const DataTable: React.FC<DataTableProps & {
     const [key, dir] = sort.split('_');
     const isDesc = dir === 'desc';
     
+    // Baserow não suporta ordenar por 'id' nem '-id' via user_field_names (retorna ERROR_ORDER_BY_FIELD_NOT_FOUND).
+    // A ordenação por ID é gerenciada localmente pelo displayData.
+    if (key.toLowerCase() === 'id') {
+      return undefined;
+    }
+
     // Capitalizar primeira letra para bater com os nomes de campos normais no Baserow
     const capitalizedKey = key.charAt(0).toUpperCase() + key.slice(1);
     
@@ -118,7 +124,7 @@ export const DataTable: React.FC<DataTableProps & {
 
     switch (key.toLowerCase()) {
       case 'id':
-        return isDesc ? '-id' : 'id';
+        return undefined;
       case 'nome':
         return isDesc ? '-Nome' : 'Nome';
       case 'categoria':

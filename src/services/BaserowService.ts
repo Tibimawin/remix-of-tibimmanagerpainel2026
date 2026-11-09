@@ -371,7 +371,8 @@ export class BaserowService {
 
     try {
       const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
-      const orderParam = order ? `&order_by=${encodeURIComponent(order)}&order=${encodeURIComponent(order)}` : '';
+      const isIdOrder = !order || order === 'id' || order === '-id';
+      const orderParam = !isIdOrder ? `&order_by=${encodeURIComponent(order)}&order=${encodeURIComponent(order)}` : '';
       const extra = extraParams ? `&${extraParams.replace(/^&/, '')}` : '';
       const endpoint = `/api/database/rows/table/${tableId}/?user_field_names=true&page=${page}&size=${size}${searchParam}${orderParam}${extra}`;
 
@@ -392,6 +393,14 @@ export class BaserowService {
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => '');
+        if (response.status === 400 && errorText.includes('ERROR_ORDER_BY_FIELD_NOT_FOUND')) {
+          console.warn(`⚠️ Campo de ordenação '${order}' não encontrado no Baserow. Recarregando sem order_by...`);
+          const fallbackEndpoint = endpoint.replace(/&order_by=[^&]*/, '').replace(/&order=[^&]*/, '');
+          const fallbackResp = await this.makeRequest(fallbackEndpoint);
+          if (fallbackResp.ok) {
+            return await fallbackResp.json();
+          }
+        }
         if (response.status === 400 && errorText.includes('ERROR_USER_NOT_IN_GROUP')) {
           console.warn(`⚠️ Sem permissão para acessar tabela ${tableId}. Ignorando...`);
           return { results: [], count: 0, next: null };
