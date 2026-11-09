@@ -1,5 +1,0 @@
-fix: Corrige erro body stream already read e sanitiza datas no Baserow
-
-- Evita leitura dupla de response.text() em createRow, updateRow e createRowsBatch
-- Sanitiza proativamente campos de data vazios convertendo "" em null para o Baserow
-- Suporta tokens JWT na autenticacao direta HTTPS do BaserowService
