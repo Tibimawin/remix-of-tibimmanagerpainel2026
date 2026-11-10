@@ -7,10 +7,10 @@ import { useAppName } from '@/contexts/AppNameContext';
 import {
   Shield, Users, Activity, Calendar, BarChart, Package, Bell,
   UserPlus, CreditCard, Crown, UserCheck, MessageCircle,
-  Settings, RefreshCw, LogOut, Tag, AlertTriangle, Megaphone, Sparkles, Palette, DollarSign, Key, Search, X, Smartphone
+  Settings, RefreshCw, LogOut, Tag, AlertTriangle, Megaphone, Sparkles, Palette, DollarSign, Key, Search, X, Smartphone, ShoppingBag
 } from 'lucide-react';
 
-export type AdminView = 'overview' | 'todos-apps' | 'users' | 'activity' | 'date-logs' | 'metrics' | 'products' | 'notifications' | 'user-management' | 'firebase-users' | 'registration-control' | 'chat' | 'import-config' | 'plans' | 'plan-requests' | 'user-permissions' | 'series-correction' | 'series-update-config' | 'miniseries-config' | 'jogos-dia-config' | 'suporte-prioritario' | 'security-center' | 'offers' | 'announcements' | 'whatsapp' | 'maintenance' | 'access-expired-config' | 'expiration-notifications' | 'user-action-history' | 'referrals' | 'system-updates' | 'seasonal-theme' | 'financial' | 'planos-config' | 'api-keys' | 'protected-channels' | 'cloak-links' | 'cloak-dashboard' | 'push-center' | 'admin-revendas';
+export type AdminView = 'overview' | 'todos-apps' | 'users' | 'activity' | 'date-logs' | 'metrics' | 'products' | 'loja' | 'notifications' | 'user-management' | 'firebase-users' | 'registration-control' | 'chat' | 'import-config' | 'plans' | 'plan-requests' | 'user-permissions' | 'series-correction' | 'series-update-config' | 'miniseries-config' | 'jogos-dia-config' | 'suporte-prioritario' | 'security-center' | 'offers' | 'announcements' | 'whatsapp' | 'maintenance' | 'access-expired-config' | 'expiration-notifications' | 'user-action-history' | 'referrals' | 'system-updates' | 'seasonal-theme' | 'financial' | 'planos-config' | 'api-keys' | 'protected-channels' | 'cloak-links' | 'cloak-dashboard' | 'push-center' | 'admin-revendas';
 
 interface AdminSidebarProps {
   activeView: AdminView;
@@ -35,6 +35,7 @@ const menuItems = [
   { id: 'cloak-dashboard', label: 'Camuflagem & Tráfego', icon: BarChart, category: 'analytics', isNew: true },
   { id: 'financial', label: 'Controle Financeiro', icon: DollarSign, category: 'analytics', isNew: true },
   { id: 'metrics', label: 'Métricas Visuais', icon: BarChart, category: 'analytics' },
+  { id: 'loja', label: 'Loja Pública (/loja)', icon: ShoppingBag, category: 'management', isNew: true },
   { id: 'products', label: 'Produtos', icon: Package, category: 'management' },
   { id: 'offers', label: 'Ofertas & Cupons', icon: Tag, category: 'management' },
   { id: 'referrals', label: 'Indicações & Afiliados', icon: Users, category: 'management', isNew: true },

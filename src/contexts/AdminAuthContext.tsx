@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { auth, db } from '@/config/firebase';
+import { auth, authReady, db } from '@/config/firebase';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -109,48 +109,70 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Listener do Firebase Auth: autorização em tempo real criptografada pelo Firebase
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let isMounted = true;
+    let unsubscribe: (() => void) | undefined;
+
+    const initAdminAuth = async () => {
       try {
-        if (!firebaseUser) {
-          // Nenhum usuário autenticado no Firebase -> Bloquear acesso imediatamente
-          setAdminUser(null);
-          clearAdminStorage();
-          setIsLoading(false);
-          return;
-        }
-
-        const isAdmin = await checkIsFirebaseAdmin(firebaseUser);
-
-        if (isAdmin) {
-          const adminData: AdminUser = {
-            id: firebaseUser.uid,
-            nome: firebaseUser.displayName || 'Administrador',
-            email: firebaseUser.email || '',
-            role: 'admin',
-          };
-          setAdminUser(adminData);
-          try {
-            localStorage.setItem('admin-user', JSON.stringify(adminData));
-            localStorage.setItem('admin-auth-status', 'authenticated');
-          } catch {
-            // noop
-          }
-        } else {
-          // Usuário logado existe, mas NÃO é administrador -> Revoga qualquer privilégio admin
-          setAdminUser(null);
-          clearAdminStorage();
-        }
-      } catch (error) {
-        console.error('❌ [AdminAuth] Erro ao validar privilégios administrativos:', error);
-        setAdminUser(null);
-        clearAdminStorage();
-      } finally {
-        setIsLoading(false);
+        await authReady;
+      } catch {
+        // noop
       }
-    });
+      if (!isMounted) return;
 
-    return () => unsubscribe();
+      // Listener do Firebase Auth: autorização em tempo real criptografada pelo Firebase
+      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (!isMounted) return;
+        try {
+          if (!firebaseUser) {
+            // Nenhum usuário autenticado no Firebase -> Bloquear acesso imediatamente
+            setAdminUser(null);
+            clearAdminStorage();
+            setIsLoading(false);
+            return;
+          }
+
+          const isAdmin = await checkIsFirebaseAdmin(firebaseUser);
+
+          if (isAdmin) {
+            const adminData: AdminUser = {
+              id: firebaseUser.uid,
+              nome: firebaseUser.displayName || 'Administrador',
+              email: firebaseUser.email || '',
+              role: 'admin',
+            };
+            setAdminUser(adminData);
+            try {
+              localStorage.setItem('admin-user', JSON.stringify(adminData));
+              localStorage.setItem('admin-auth-status', 'authenticated');
+            } catch {
+              // noop
+            }
+          } else {
+            // Usuário logado existe, mas NÃO é administrador -> Revoga qualquer privilégio admin
+            setAdminUser(null);
+            clearAdminStorage();
+          }
+        } catch (error) {
+          console.error('❌ [AdminAuth] Erro ao validar privilégios administrativos:', error);
+          setAdminUser(null);
+          clearAdminStorage();
+        } finally {
+          if (isMounted) {
+            setIsLoading(false);
+          }
+        }
+      });
+    };
+
+    initAdminAuth();
+
+    return () => {
+      isMounted = false;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {

@@ -31,11 +31,41 @@ const DEMO_CONFIG: UserConfig = {
   createdAt: new Date().toISOString()
 };
 
+const getUserConfigCacheKey = (userId: string) => `user-config-cache:${userId}`;
+
+const readCachedUserConfig = (userId?: string): UserConfig | null => {
+  if (!userId || typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(getUserConfigCacheKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as UserConfig;
+    return parsed?.userId === userId ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const computeIsConfigured = (cfg: UserConfig | null): boolean => {
+  if (!cfg) return false;
+  const hasBasicConfig = Boolean(cfg.apiToken && cfg.baseUrl);
+  const hasTableIds = Object.values(cfg.tableIds || {}).some((id) => typeof id === 'string' && id.trim() !== '');
+  return hasBasicConfig && hasTableIds;
+};
+
 export const useUserConfig = () => {
-  const [config, setConfig] = useState<UserConfig | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isConfigured, setIsConfigured] = useState(false);
   const { userInfo } = useSimpleAuth();
+  const [config, setConfig] = useState<UserConfig | null>(() => {
+    if (userInfo?.isDemo) return DEMO_CONFIG;
+    return readCachedUserConfig(userInfo?.id);
+  });
+  const [loading, setLoading] = useState<boolean>(() => {
+    if (!userInfo?.id || userInfo?.isDemo) return false;
+    return !readCachedUserConfig(userInfo.id);
+  });
+  const [isConfigured, setIsConfigured] = useState<boolean>(() => {
+    if (userInfo?.isDemo) return true;
+    return computeIsConfigured(readCachedUserConfig(userInfo?.id));
+  });
 
   // Configurar listener em tempo real para configurações do usuário
   useEffect(() => {
@@ -54,8 +84,16 @@ export const useUserConfig = () => {
       return;
     }
 
+    // Hidratar instantaneamente do cache local se mudou de usuário após montagem
+    const cached = readCachedUserConfig(userInfo.id);
+    if (cached) {
+      setConfig(cached);
+      setIsConfigured(computeIsConfigured(cached));
+      setLoading(false);
+    }
+
     logger.info('Configurando listener de configurações');
-    
+
     // Migrar configurações do localStorage se necessário
     UserConfigService.migrateFromLocalStorage(userInfo.id);
 
@@ -68,22 +106,28 @@ export const useUserConfig = () => {
         setIsConfigured(false);
         return;
       }
-      
+
       setConfig(updatedConfig);
       setLoading(false);
-      
-      // Verificar se o usuário tem configurações completas
+
       if (updatedConfig) {
-        const hasBasicConfig = updatedConfig.apiToken && updatedConfig.baseUrl;
-        const hasTableIds = Object.values(updatedConfig.tableIds).some(id => id.trim() !== '');
-        setIsConfigured(hasBasicConfig && hasTableIds);
-        
+        try {
+          localStorage.setItem(getUserConfigCacheKey(userInfo.id), JSON.stringify(updatedConfig));
+        } catch {
+          // noop
+        }
+        const configured = computeIsConfigured(updatedConfig);
+        setIsConfigured(configured);
+
         logger.debug('Status da configuração atualizado', {
-          hasBasicConfig,
-          hasTableIds,
-          isConfigured: hasBasicConfig && hasTableIds
+          isConfigured: configured
         });
       } else {
+        try {
+          localStorage.removeItem(getUserConfigCacheKey(userInfo.id));
+        } catch {
+          // noop
+        }
         setIsConfigured(false);
       }
     });

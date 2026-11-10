@@ -44,10 +44,27 @@ const isMobileDevice = (): boolean => {
 };
 
 const DEMO_STORAGE_KEY = 'tibim-demo-mode';
+const MANUAL_LOGOUT_KEY = 'simple-auth-manual-logout';
+
+const hasSavedAuthenticatedSession = (): boolean => {
+  try {
+    if (typeof window === 'undefined') return false;
+    const isDemo = localStorage.getItem(DEMO_STORAGE_KEY) === 'true';
+    const savedUser = localStorage.getItem('simple-auth-user');
+    const authStatus = localStorage.getItem('simple-auth-status');
+    const manuallyLoggedOut = localStorage.getItem(MANUAL_LOGOUT_KEY) === 'true';
+    return Boolean(!manuallyLoggedOut && savedUser && (authStatus === 'authenticated' || isDemo));
+  } catch {
+    return false;
+  }
+};
 
 export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(() => {
-    // Inicializar com dados do localStorage se disponível
+    // Inicializar com dados do localStorage se disponível (nunca restaura se saiu manualmente)
+    if (typeof window === 'undefined') return null;
+    if (localStorage.getItem(MANUAL_LOGOUT_KEY) === 'true') return null;
+
     const isDemo = localStorage.getItem(DEMO_STORAGE_KEY) === 'true';
     const savedUser = localStorage.getItem('simple-auth-user');
     const authStatus = localStorage.getItem('simple-auth-status');
@@ -67,116 +84,168 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
     return null;
   });
-  const [isLoading, setIsLoading] = useState(true);
+  // Se já existe sessão autenticada no localStorage, não bloquear a renderização com loading
+  const [isLoading, setIsLoading] = useState<boolean>(() => !hasSavedAuthenticatedSession());
+
   useEffect(() => {
+    let isMounted = true;
+    let unsubscribe: (() => void) | undefined;
+
     // Capturar resultado do signInWithRedirect (fluxo Google em mobile).
     // Precisa rodar no mount para finalizar a autenticação após o retorno do Google.
-    getRedirectResult(auth).catch((err) => {
-      if (err?.code && err.code !== 'auth/no-auth-event') {
-        console.warn('Firebase: getRedirectResult falhou:', err?.code);
-      }
-    });
+    getRedirectResult(auth)
+      .then((result) => {
+        if (!isMounted || !result?.user) return;
+        const user = result.user;
+        if (user.email?.toLowerCase() === 'admin@admin.com') return;
+
+        const userData: UserInfo = {
+          id: user.uid,
+          email: user.email || '',
+          diasRestantes: 0,
+          totalLogins: 0,
+        };
+        localStorage.removeItem(MANUAL_LOGOUT_KEY);
+        localStorage.setItem('simple-auth-user', JSON.stringify(userData));
+        localStorage.setItem('simple-auth-status', 'authenticated');
+        markJustLoggedIn();
+        setUserInfo(userData);
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        if (err?.code && err.code !== 'auth/no-auth-event') {
+          console.warn('Firebase: getRedirectResult falhou:', err?.code);
+        }
+      });
 
     // Se estamos em modo de demonstração, não precisamos sincronizar com Firebase Auth
-    if (localStorage.getItem(DEMO_STORAGE_KEY) === 'true' || userInfo?.isDemo) {
+    if (localStorage.getItem(DEMO_STORAGE_KEY) === 'true') {
       setIsLoading(false);
       return;
     }
 
-    // Listener do Firebase Auth para manter sessão persistente
-    // OTIMIZADO: Usa APENAS Firebase Auth + localStorage (ZERO writes no Firestore)
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const setupAuthListener = async () => {
+      // Aguardar a configuração de persistência (IndexedDB/localStorage) ANTES de ouvir onAuthStateChanged,
+      // evitando que o Firebase dispare firebaseUser=null prematuramente ao recarregar a página.
       try {
-        // Portal de Revendas (/revendas-creditos/*) tem sessão própria (ResellerAuthContext).
-        // Nesta rota o painel NÃO deve criar/restaurar sessão de usuário — as duas rodas
-        // são independentes por design.
-        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/revendas-creditos')) {
-          setIsLoading(false);
-          return;
-        }
+        await authReady;
+      } catch {
+        // noop
+      }
 
-        // Se está no modo de demonstração, não remover a sessão
-        if (localStorage.getItem(DEMO_STORAGE_KEY) === 'true') {
-          setIsLoading(false);
-          return;
-        }
+      if (!isMounted) return;
 
-        // Se há usuário autenticado no Firebase
-        if (firebaseUser) {
-          // Verificar se não é admin
-          if (firebaseUser.email?.toLowerCase() === 'admin@admin.com') {
+      // Listener do Firebase Auth para manter sessão persistente
+      // OTIMIZADO: Usa APENAS Firebase Auth + localStorage (ZERO writes no Firestore)
+      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (!isMounted) return;
+        try {
+          // Portal de Revendas (/revendas-creditos/*) tem sessão própria (ResellerAuthContext).
+          // Nesta rota o painel NÃO deve criar/restaurar sessão de usuário — as duas rodas
+          // são independentes por design.
+          if (typeof window !== 'undefined' && window.location.pathname.startsWith('/revendas-creditos')) {
             setIsLoading(false);
             return;
           }
 
-          // Verificar se já temos dados no localStorage
-          const savedUser = localStorage.getItem('simple-auth-user');
-          const authStatus = localStorage.getItem('simple-auth-status');
-
-          if (savedUser && authStatus === 'authenticated') {
-            try {
-              const userData = JSON.parse(savedUser);
-
-              // Validar que o ID do Firebase corresponde ao salvo
-              if (userData.id === firebaseUser.uid) {
-                setUserInfo(userData);
-                setIsLoading(false);
-                return; // ✅ Para aqui, SEM writes no Firestore
-              }
-            } catch (error) {
-              // Se houver erro ao parsear, vamos recriar os dados
-              console.error('Erro ao parsear dados salvos:', error);
-            }
-          }
-
-          // Se não tem dados salvos válidos, criar novo objeto UserInfo
-          // IMPORTANTE: Só cria localmente, SEM escrever no Firestore ainda
-          const userData: UserInfo = {
-            id: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            diasRestantes: 0,
-            totalLogins: 0,
-          };
-
-          setUserInfo(userData);
-          localStorage.setItem('simple-auth-user', JSON.stringify(userData));
-          localStorage.setItem('simple-auth-status', 'authenticated');
-
-          // ✅ REMOVIDO: Não chama Firestore aqui!
-          // O registro no Firestore só acontece no LOGIN INICIAL
-          // Sessões subsequentes usam APENAS localStorage
-        } else {
-          // Não há usuário autenticado no Firebase.
-          // Se for modo demo, ignoramos!
+          // Se está no modo de demonstração, não remover a sessão
           if (localStorage.getItem(DEMO_STORAGE_KEY) === 'true') {
+            setIsLoading(false);
             return;
           }
 
-          // ⚠️ Safari iOS pode disparar este callback com `null` momentaneamente
-          // logo após um login bem-sucedido (antes da persistência se estabilizar).
-          // Se acabamos de logar, ignoramos o flip transitório para não derrubar
-          // a sessão e mandar o usuário de volta para /login.
-          if (isWithinLoginGrace()) {
-            console.log('🔐 Ignorando firebaseUser=null durante janela pós-login');
-          } else {
+          // Se há usuário autenticado no Firebase
+          if (firebaseUser) {
+            // Verificar se não é admin
+            if (firebaseUser.email?.toLowerCase() === 'admin@admin.com') {
+              setIsLoading(false);
+              return;
+            }
+
+            // Se usuário está autenticado no Firebase, garantir que flag de logout manual não exista
+            localStorage.removeItem(MANUAL_LOGOUT_KEY);
+
+            // Verificar se já temos dados no localStorage
             const savedUser = localStorage.getItem('simple-auth-user');
-            if (savedUser) {
-              localStorage.removeItem('simple-auth-user');
-              localStorage.removeItem('simple-auth-status');
+            const authStatus = localStorage.getItem('simple-auth-status');
+
+            if (savedUser && authStatus === 'authenticated') {
+              try {
+                const userData = JSON.parse(savedUser);
+
+                // Validar que o ID do Firebase corresponde ao salvo
+                if (userData.id === firebaseUser.uid) {
+                  setUserInfo(userData);
+                  setIsLoading(false);
+                  return; // ✅ Para aqui, SEM writes no Firestore
+                }
+              } catch (error) {
+                console.error('Erro ao parsear dados salvos:', error);
+              }
+            }
+
+            // Se não tem dados salvos válidos, criar novo objeto UserInfo
+            const userData: UserInfo = {
+              id: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              diasRestantes: 0,
+              totalLogins: 0,
+            };
+
+            setUserInfo(userData);
+            localStorage.setItem('simple-auth-user', JSON.stringify(userData));
+            localStorage.setItem('simple-auth-status', 'authenticated');
+          } else {
+            // Não há usuário autenticado no Firebase no momento.
+            if (localStorage.getItem(DEMO_STORAGE_KEY) === 'true') {
+              return;
+            }
+
+            const manuallyLoggedOut = localStorage.getItem(MANUAL_LOGOUT_KEY) === 'true';
+            const savedUser = localStorage.getItem('simple-auth-user');
+            const authStatus = localStorage.getItem('simple-auth-status');
+
+            // REGRA DE PERSISTÊNCIA:
+            // Só removemos a sessão do usuário se ele clicou explicitamente em Sair (logout manual)
+            // ou se não há nenhuma sessão válida salva localmente.
+            // Nunca derrubar o usuário por atraso do IndexedDB, WebView mobile ou falha transitória.
+            if (manuallyLoggedOut) {
+              if (savedUser) {
+                localStorage.removeItem('simple-auth-user');
+                localStorage.removeItem('simple-auth-status');
+              }
               setUserInfo(null);
+            } else if (savedUser && authStatus === 'authenticated' && !isWithinLoginGrace()) {
+              try {
+                const parsed = JSON.parse(savedUser);
+                setUserInfo((prev) => prev ?? parsed);
+              } catch {
+                localStorage.removeItem('simple-auth-user');
+                localStorage.removeItem('simple-auth-status');
+                setUserInfo(null);
+              }
             }
           }
+        } catch (error) {
+          console.error('Erro no listener de autenticação:', error);
+        } finally {
+          if (isMounted) {
+            setIsLoading(false);
+          }
         }
-      } catch (error) {
-        console.error('Erro no listener de autenticação:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    });
+      });
+    };
 
-    // Cleanup: remover listener quando componente desmontar
-    return () => unsubscribe();
-  }, [userInfo?.isDemo]);
+    setupAuthListener();
+
+    // Cleanup: remover listener apenas quando o Provider desmontar
+    return () => {
+      isMounted = false;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []);
 
   const login = async (email: string, password: string): Promise<LoginResult> => {
     if (!email || !password) {
@@ -210,6 +279,7 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       };
 
       setUserInfo(userData);
+      localStorage.removeItem(MANUAL_LOGOUT_KEY);
       localStorage.setItem('simple-auth-user', JSON.stringify(userData));
       localStorage.setItem('simple-auth-status', 'authenticated');
       markJustLoggedIn();
@@ -320,6 +390,7 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       // Em mobile (especialmente Safari iOS), popups são bloqueados ou perdem
       // o callback. Usar redirect garante o retorno via getRedirectResult.
       if (isMobileDevice()) {
+        localStorage.removeItem(MANUAL_LOGOUT_KEY);
         markJustLoggedIn();
         await signInWithRedirect(auth, provider);
         // signInWithRedirect navega para fora da página; o retorno é
@@ -346,6 +417,7 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       };
 
       setUserInfo(userData);
+      localStorage.removeItem(MANUAL_LOGOUT_KEY);
       localStorage.setItem('simple-auth-user', JSON.stringify(userData));
       localStorage.setItem('simple-auth-status', 'authenticated');
       markJustLoggedIn();
@@ -449,6 +521,7 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
 
     setUserInfo(demoUser);
+    localStorage.removeItem(MANUAL_LOGOUT_KEY);
     localStorage.setItem('simple-auth-user', JSON.stringify(demoUser));
     localStorage.setItem('simple-auth-status', 'authenticated');
     localStorage.setItem(DEMO_STORAGE_KEY, 'true');
@@ -460,13 +533,24 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const logout = async (): Promise<void> => {
     try {
+      // Marcar logout manual para não restaurar sessão automaticamente
+      localStorage.setItem(MANUAL_LOGOUT_KEY, 'true');
+
       // Limpar dados locais primeiro
       setUserInfo(null);
       localStorage.removeItem('simple-auth-user');
       localStorage.removeItem('simple-auth-status');
       localStorage.removeItem('user-config-cache');
+      if (userInfo?.id) {
+        localStorage.removeItem(`user-config-cache:${userInfo.id}`);
+      }
       localStorage.removeItem(DEMO_STORAGE_KEY);
-      try { sessionStorage.removeItem(JUST_LOGGED_IN_KEY); } catch { /* noop */ }
+      try {
+        sessionStorage.removeItem(JUST_LOGGED_IN_KEY);
+        if (userInfo?.id) {
+          sessionStorage.removeItem(`tibim-access-cache:${userInfo.id}`);
+        }
+      } catch { /* noop */ }
 
       // Fazer signOut do Firebase se não for demo
       try {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { Outlet } from 'react-router-dom';
 import { UserSidebar } from './user/UserSidebar';
 import { UserHeader } from './user/UserHeader';
 import { UserMobileNav } from './user/UserMobileNav';
@@ -30,7 +31,7 @@ const FloatingChat = lazy(() => import('./FloatingChat'));
 const AIAssistant = lazy(() => import('./AIAssistant').then(m => ({ default: m.AIAssistant })));
 
 interface LayoutProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
@@ -203,7 +204,18 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             <ErrorBoundary>
               <RouteFeatureGate>
-                {children}
+                <Suspense
+                  fallback={
+                    <div className="flex items-center justify-center min-h-[50vh] w-full" aria-busy="true">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                        <span className="text-xs text-muted-foreground font-medium animate-pulse">Carregando página...</span>
+                      </div>
+                    </div>
+                  }
+                >
+                  {children ?? <Outlet />}
+                </Suspense>
               </RouteFeatureGate>
             </ErrorBoundary>
           </main>

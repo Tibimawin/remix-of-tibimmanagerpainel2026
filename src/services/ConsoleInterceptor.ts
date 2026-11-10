@@ -22,7 +22,7 @@ type LogListener = (logs: CapturedLog[], errorCount: number) => void;
 class ConsoleInterceptorService {
   private logs: CapturedLog[] = [];
   private listeners: Set<LogListener> = new Set();
-  private maxLogs = 600;
+  private maxLogs = 250;
   private isInitialized = false;
 
   private originalConsole = {
@@ -116,8 +116,11 @@ class ConsoleInterceptorService {
       };
     }
     if (typeof arg === 'object') {
+      // Só clona profundamente se houver painel ouvindo; caso contrário guarda resumo leve
+      if (this.listeners.size === 0) {
+        return Array.isArray(arg) ? `[Array(${arg.length})]` : '[Object]';
+      }
       try {
-        // Tenta cópia rasa segura para evitar referências circulares
         return JSON.parse(JSON.stringify(arg));
       } catch {
         return String(arg);
@@ -140,12 +143,16 @@ class ConsoleInterceptorService {
       }
     }
 
+    const hasListeners = this.listeners.size > 0;
     const stringMessages = rawArgs.map(arg => {
       if (typeof arg === 'string') return arg;
       if (typeof arg === 'number' || typeof arg === 'boolean') return String(arg);
       if (arg === null) return 'null';
       if (arg === undefined) return 'undefined';
       if (arg instanceof Error) return `${arg.name}: ${arg.message}`;
+      if (!hasListeners) {
+        return Array.isArray(arg) ? `[Array(${arg.length})]` : '[Object]';
+      }
       try {
         return JSON.stringify(arg, null, 2);
       } catch {

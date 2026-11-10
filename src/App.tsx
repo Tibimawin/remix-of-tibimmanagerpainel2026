@@ -27,10 +27,15 @@ import { UpdateNotificationModal } from "./components/UpdateNotificationModal";
 import { ConsoleInspector } from "./components/ConsoleInspector";
 import { M3UImportProvider } from "./contexts/M3UImportContext";
 import { AppNameProvider } from "./contexts/AppNameContext";
+import { LojaCartProvider } from "./contexts/LojaCartContext";
 
 // 🚀 OTIMIZAÇÃO: Lazy Loading de todas as páginas para dividir o bundle de 5.2MB em micro-chunks
 const Apresentacao = lazy(() => import("./pages/Apresentacao"));
 const PrecosPublico = lazy(() => import("./pages/PrecosPublico"));
+const LojaHome = lazy(() => import("./pages/loja/LojaHome"));
+const LojaProdutoDetalhes = lazy(() => import("./pages/loja/LojaProdutoDetalhes"));
+const LojaCarrinho = lazy(() => import("./pages/loja/LojaCarrinho"));
+const LojaCheckout = lazy(() => import("./pages/loja/LojaCheckout"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Conteudos = lazy(() => import("./pages/Conteudos"));
 const Episodios = lazy(() => import("./pages/Episodios"));
@@ -165,11 +170,18 @@ const App = () => {
                           <UpdateNotificationModal />
                           <ConsoleInspector />
                           <Sonner />
+                          <LojaCartProvider>
                           <BrowserRouter>
                             <Suspense fallback={<PageLoadingFallback />}>
                               <Routes>
                               {/* Rota inicial - página de apresentação */}
                               <Route path="/" element={<Apresentacao />} />
+
+                              {/* Loja Pública Independente */}
+                              <Route path="/loja" element={<LojaHome />} />
+                              <Route path="/loja/produto/:id" element={<LojaProdutoDetalhes />} />
+                              <Route path="/loja/carrinho" element={<LojaCarrinho />} />
+                              <Route path="/loja/checkout" element={<LojaCheckout />} />
 
                               {/* Rota de preços públicos */}
                               <Route path="/precos-publico" element={<PrecosPublico />} />
@@ -196,576 +208,79 @@ const App = () => {
                                 </AdminProtectedRoute>
                               } />
 
-                              {/* Rota do dashboard do cliente */}
-                              <Route path="/dashboard" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Dashboard />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              {/* Rotas específicas do painel do cliente - protegidas */}
-                              <Route path="/conteudos" element={
-                                <SimpleProtectedRoute allowExpired>
-                                  <Layout>
-                                    <Conteudos />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/episodios" element={
-                                <SimpleProtectedRoute allowExpired>
-                                  <Layout>
-                                    <Episodios />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-
-                              <Route path="/banners" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Banners />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/categorias" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Categorias />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/categorias-tv" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <CategoriasTV />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/categorias-anime" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <CategoriasAnime />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/duplicados" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Duplicados />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/duplicados-episodios" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <DuplicadosEpisodios />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/duplicados-episodios-otimizado" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <DuplicadosEpisodiosOtimizado />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/ferramentas-ia" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <FerramentasIA />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/usuarios" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Usuarios />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/sessoes" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Sessoes />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/plataformas" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Plataformas />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/produtos" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Produtos />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/produto/:id" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <ProdutoDetalhes />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/gerador-post" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <PermissionGate feature="gerador-post">
-                                      <GeradorPost type="post" />
-                                    </PermissionGate>
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/gerador-banner" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <PermissionGate feature="gerador-banner">
-                                      <GeradorPost type="banner" />
-                                    </PermissionGate>
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/carrinho" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Carrinho />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/checkout" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Checkout />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/suporte-ao-vivo" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <SuporteAoVivo />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/atualizacao-series" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <AtualizacaoSeries />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/jogos-dia" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <PermissionGate feature="jogos-dia">
-                                      <JogosDia />
-                                    </PermissionGate>
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/importacao-automatica" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <ImportacaoAutomatica />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/miniseries" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Miniseries />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/substituicao-urls" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <SubstituicaoURLs />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/configuracoes" element={
-                                <SimpleProtectedRoute allowExpired>
-                                  <Layout>
-                                    <Configuracoes />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/plano2" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Plano2 />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/perfis" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Perfis />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/meus-aplicativos" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <MeusAplicativos />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/meus-apps" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <PermissionGate feature="meus-app">
-                                      <MeusApp />
-                                    </PermissionGate>
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/meus-app" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <PermissionGate feature="meus-app">
-                                      <MeusApp />
-                                    </PermissionGate>
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/carrosseu" element={
-                                <SimpleProtectedRoute allowExpired>
-                                  <Layout>
-                                    <Carrosseu />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/versao" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Versao />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/pedido" element={
-                                <SimpleProtectedRoute allowExpired>
-                                  <Layout>
-                                    <Pedido />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/avaliacao" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Avaliacao />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/categoria-filmes" element={
-                                <SimpleProtectedRoute allowExpired>
-                                  <Layout>
-                                    <CategoriaFilmes />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/categoria-series" element={
-                                <SimpleProtectedRoute allowExpired>
-                                  <Layout>
-                                    <CategoriaSeries />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/categoria-dorama" element={
-                                <SimpleProtectedRoute allowExpired>
-                                  <Layout>
-                                    <CategoriaDorama />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/categoria-animes" element={
-                                <SimpleProtectedRoute allowExpired>
-                                  <Layout>
-                                    <CategoriaAnimes />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/categoria-novelas" element={
-                                <SimpleProtectedRoute allowExpired>
-                                  <Layout>
-                                    <CategoriaNovelas />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/configuracoes-apis" element={
-                                <SimpleProtectedRoute allowExpired>
-                                  <Layout>
-                                    <ConfiguracoesAPIs />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/configuracoes-seguranca" element={
-                                <SimpleProtectedRoute allowExpired>
-                                  <Layout>
-                                    <ConfiguracoesSeguranca />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/configuracoes-auto-import" element={
-                                <SimpleProtectedRoute allowExpired>
-                                  <Layout>
-                                    <ConfiguracoesAutoImport />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/recursos" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Recursos />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/importar-m3u" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <ImportarM3U />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/gerar-m3u" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <PermissionGate feature="gerador-m3u">
-                                      <GeradorM3U />
-                                    </PermissionGate>
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/estatisticas" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Estatisticas />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-
-                              <Route path="/adicionar-conteudo" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <AdicionarConteudo />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/importar-canais-tv" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <ImportarCanaisTV />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/verificar-links" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <VerificarLinks />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/importar-conteudo" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <ImportarConteudo />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-
-                              <Route path="/precos" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Precos />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/precos-interno" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <PrecosInterno />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/sistema-indicacao" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <SistemaIndicacao />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/relatorios-visualizacao" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <RelatoriosVisualizacao />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/perfil" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Perfil />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/historico-acoes" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <PermissionGate feature="historico-acoes">
-                                      <HistoricoAcoes />
-                                    </PermissionGate>
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/gestao-dispositivos" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <PermissionGate feature="gestao-dispositivos">
-                                      <GestaoDispositivos />
-                                    </PermissionGate>
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/ofertas" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Ofertas />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/oferta/:id" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <OfertaDetalhes />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/limpeza-dados" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <PermissionGate feature="clean-data">
-                                      <LimpezaDados />
-                                    </PermissionGate>
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/backup-restauracao" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <BackupRestauracao />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/planos" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <Planos />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/status" element={
-                                <SimpleProtectedRoute allowExpired>
-                                  <Layout>
-                                    <Status />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/statur" element={
-                                <SimpleProtectedRoute allowExpired>
-                                  <Layout>
-                                    <Status />
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/minha-api" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <PermissionGate feature="minha-api">
-                                      <MinhaApi />
-                                    </PermissionGate>
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
-                              <Route path="/maxplus" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <PermissionGate feature="maxplus">
-                                      <MaxPlus />
-                                    </PermissionGate>
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
+                              {/* Rotas do painel do cliente - Layout persistente compartilhado via Outlet */}
+                              <Route element={<SimpleProtectedRoute><Layout /></SimpleProtectedRoute>}>
+                                <Route path="/dashboard" element={<Dashboard />} />
+                                <Route path="/conteudos" element={<Conteudos />} />
+                                <Route path="/episodios" element={<Episodios />} />
+                                <Route path="/banners" element={<Banners />} />
+                                <Route path="/categorias" element={<Categorias />} />
+                                <Route path="/categorias-tv" element={<CategoriasTV />} />
+                                <Route path="/categorias-anime" element={<CategoriasAnime />} />
+                                <Route path="/duplicados" element={<Duplicados />} />
+                                <Route path="/duplicados-episodios" element={<DuplicadosEpisodios />} />
+                                <Route path="/duplicados-episodios-otimizado" element={<DuplicadosEpisodiosOtimizado />} />
+                                <Route path="/ferramentas-ia" element={<FerramentasIA />} />
+                                <Route path="/usuarios" element={<Usuarios />} />
+                                <Route path="/sessoes" element={<Sessoes />} />
+                                <Route path="/plataformas" element={<Plataformas />} />
+                                <Route path="/produtos" element={<Produtos />} />
+                                <Route path="/produto/:id" element={<ProdutoDetalhes />} />
+                                <Route path="/gerador-post" element={<PermissionGate feature="gerador-post"><GeradorPost type="post" /></PermissionGate>} />
+                                <Route path="/gerador-banner" element={<PermissionGate feature="gerador-banner"><GeradorPost type="banner" /></PermissionGate>} />
+                                <Route path="/carrinho" element={<Carrinho />} />
+                                <Route path="/checkout" element={<Checkout />} />
+                                <Route path="/suporte-ao-vivo" element={<SuporteAoVivo />} />
+                                <Route path="/atualizacao-series" element={<AtualizacaoSeries />} />
+                                <Route path="/jogos-dia" element={<PermissionGate feature="jogos-dia"><JogosDia /></PermissionGate>} />
+                                <Route path="/importacao-automatica" element={<ImportacaoAutomatica />} />
+                                <Route path="/miniseries" element={<Miniseries />} />
+                                <Route path="/substituicao-urls" element={<SubstituicaoURLs />} />
+                                <Route path="/configuracoes" element={<Configuracoes />} />
+                                <Route path="/plano2" element={<Plano2 />} />
+                                <Route path="/perfis" element={<Perfis />} />
+                                <Route path="/meus-aplicativos" element={<MeusAplicativos />} />
+                                <Route path="/meus-apps" element={<PermissionGate feature="meus-app"><MeusApp /></PermissionGate>} />
+                                <Route path="/meus-app" element={<PermissionGate feature="meus-app"><MeusApp /></PermissionGate>} />
+                                <Route path="/carrosseu" element={<Carrosseu />} />
+                                <Route path="/versao" element={<Versao />} />
+                                <Route path="/pedido" element={<Pedido />} />
+                                <Route path="/avaliacao" element={<Avaliacao />} />
+                                <Route path="/categoria-filmes" element={<CategoriaFilmes />} />
+                                <Route path="/categoria-series" element={<CategoriaSeries />} />
+                                <Route path="/categoria-dorama" element={<CategoriaDorama />} />
+                                <Route path="/categoria-animes" element={<CategoriaAnimes />} />
+                                <Route path="/categoria-novelas" element={<CategoriaNovelas />} />
+                                <Route path="/configuracoes-apis" element={<ConfiguracoesAPIs />} />
+                                <Route path="/configuracoes-seguranca" element={<ConfiguracoesSeguranca />} />
+                                <Route path="/configuracoes-auto-import" element={<ConfiguracoesAutoImport />} />
+                                <Route path="/recursos" element={<Recursos />} />
+                                <Route path="/importar-m3u" element={<ImportarM3U />} />
+                                <Route path="/gerar-m3u" element={<PermissionGate feature="gerador-m3u"><GeradorM3U /></PermissionGate>} />
+                                <Route path="/estatisticas" element={<Estatisticas />} />
+                                <Route path="/adicionar-conteudo" element={<AdicionarConteudo />} />
+                                <Route path="/importar-canais-tv" element={<ImportarCanaisTV />} />
+                                <Route path="/verificar-links" element={<VerificarLinks />} />
+                                <Route path="/importar-conteudo" element={<ImportarConteudo />} />
+                                <Route path="/precos" element={<Precos />} />
+                                <Route path="/precos-interno" element={<PrecosInterno />} />
+                                <Route path="/sistema-indicacao" element={<SistemaIndicacao />} />
+                                <Route path="/relatorios-visualizacao" element={<RelatoriosVisualizacao />} />
+                                <Route path="/perfil" element={<Perfil />} />
+                                <Route path="/historico-acoes" element={<PermissionGate feature="historico-acoes"><HistoricoAcoes /></PermissionGate>} />
+                                <Route path="/gestao-dispositivos" element={<PermissionGate feature="gestao-dispositivos"><GestaoDispositivos /></PermissionGate>} />
+                                <Route path="/ofertas" element={<Ofertas />} />
+                                <Route path="/oferta/:id" element={<OfertaDetalhes />} />
+                                <Route path="/limpeza-dados" element={<PermissionGate feature="clean-data"><LimpezaDados /></PermissionGate>} />
+                                <Route path="/backup-restauracao" element={<BackupRestauracao />} />
+                                <Route path="/planos" element={<Planos />} />
+                                <Route path="/status" element={<Status />} />
+                                <Route path="/statur" element={<Status />} />
+                                <Route path="/minha-api" element={<PermissionGate feature="minha-api"><MinhaApi /></PermissionGate>} />
+                                <Route path="/maxplus" element={<PermissionGate feature="maxplus"><MaxPlus /></PermissionGate>} />
+                                {/* Minhas Revendas — aba do master no painel (permissão de plano) */}
+                                <Route path="/minhas-revendas" element={<PermissionGate feature="minhas-revendas"><MinhasRevendas /></PermissionGate>} />
+                              </Route>
 
                               <Route path="/maxplus-import" element={<Navigate to="/maxplus" replace />} />
 
@@ -800,22 +315,12 @@ const App = () => {
                                 <Route index element={<Navigate to="/revendas-creditos/dashboard" replace />} />
                               </Route>
 
-                              {/* Minhas Revendas — aba do master no painel (permissão de plano) */}
-                              <Route path="/minhas-revendas" element={
-                                <SimpleProtectedRoute>
-                                  <Layout>
-                                    <PermissionGate feature="minhas-revendas">
-                                      <MinhasRevendas />
-                                    </PermissionGate>
-                                  </Layout>
-                                </SimpleProtectedRoute>
-                              } />
-
                               {/* Rota 404 - deve ser a última */}
                               <Route path="*" element={<NotFound />} />
                             </Routes>
                           </Suspense>
                         </BrowserRouter>
+                        </LojaCartProvider>
                           </M3UImportProvider>
                           </ZoomProvider>
                           </CustomizationProvider>

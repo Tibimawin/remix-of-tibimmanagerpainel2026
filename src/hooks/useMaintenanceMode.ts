@@ -13,46 +13,87 @@ interface MaintenanceState {
   lastUpdated: string;
 }
 
+const DEFAULT_MAINTENANCE_STATE: MaintenanceState = {
+  isActive: false,
+  message: 'Sistema em manutenção',
+  startTime: '',
+  estimatedEnd: '',
+  lastUpdatedBy: '',
+  lastUpdated: ''
+};
+
+const MAINTENANCE_CACHE_KEY = 'tibim-maintenance-cache';
+
+const readCachedMaintenance = (): MaintenanceState | null => {
+  try {
+    if (typeof window === 'undefined') return null;
+    const raw = sessionStorage.getItem(MAINTENANCE_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as MaintenanceState) : null;
+  } catch {
+    return null;
+  }
+};
+
+let sharedMaintenanceState: MaintenanceState | null = readCachedMaintenance();
+let sharedMaintenanceLoaded = sharedMaintenanceState !== null;
+let sharedUnsubscribe: (() => void) | null = null;
+const maintenanceListeners = new Set<(state: MaintenanceState) => void>();
+
+const ensureSharedMaintenanceListener = () => {
+  if (sharedUnsubscribe) return;
+  const maintenanceRef = doc(db, 'system', 'maintenance');
+  sharedUnsubscribe = onSnapshot(
+    maintenanceRef,
+    (snapshot) => {
+      const nextState: MaintenanceState = snapshot.exists()
+        ? (snapshot.data() as MaintenanceState)
+        : DEFAULT_MAINTENANCE_STATE;
+      sharedMaintenanceState = nextState;
+      sharedMaintenanceLoaded = true;
+      try {
+        sessionStorage.setItem(MAINTENANCE_CACHE_KEY, JSON.stringify(nextState));
+      } catch {
+        // noop
+      }
+      maintenanceListeners.forEach((cb) => cb(nextState));
+    },
+    (error) => {
+      logger.error('Erro ao escutar modo de manutenção', error);
+      if (!sharedMaintenanceState) {
+        sharedMaintenanceState = DEFAULT_MAINTENANCE_STATE;
+      }
+      sharedMaintenanceLoaded = true;
+      maintenanceListeners.forEach((cb) => cb(sharedMaintenanceState!));
+    }
+  );
+};
+
 export const useMaintenanceMode = () => {
-  const [maintenanceState, setMaintenanceState] = useState<MaintenanceState | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [maintenanceState, setMaintenanceState] = useState<MaintenanceState | null>(
+    () => sharedMaintenanceState ?? DEFAULT_MAINTENANCE_STATE
+  );
+  const [loading, setLoading] = useState(!sharedMaintenanceLoaded);
 
   useEffect(() => {
-    console.log('Configurando listener de modo de manutenção');
-    logger.info('Configurando listener de modo de manutenção');
-    
-    const maintenanceRef = doc(db, 'system', 'maintenance');
-    
-    const unsubscribe = onSnapshot(maintenanceRef, (doc) => {
-      console.log('Snapshot recebido:', doc.exists(), doc.data());
-      if (doc.exists()) {
-        const data = doc.data() as MaintenanceState;
-        console.log('Estado de manutenção:', data);
-        setMaintenanceState(data);
-        logger.debug('Estado de manutenção atualizado', data);
-      } else {
-        console.log('Documento não existe, criando estado padrão');
-        // Se não existe documento, criar um padrão
-        const defaultState: MaintenanceState = {
-          isActive: false,
-          message: 'Sistema em manutenção',
-          startTime: '',
-          estimatedEnd: '',
-          lastUpdatedBy: '',
-          lastUpdated: ''
-        };
-        setMaintenanceState(defaultState);
-      }
+    const listener = (nextState: MaintenanceState) => {
+      setMaintenanceState(nextState);
       setLoading(false);
-    }, (error) => {
-      console.error('Erro ao escutar modo de manutenção:', error);
-      logger.error('Erro ao escutar modo de manutenção', error);
+    };
+
+    maintenanceListeners.add(listener);
+    if (sharedMaintenanceState) {
+      setMaintenanceState(sharedMaintenanceState);
       setLoading(false);
-    });
+    }
+
+    ensureSharedMaintenanceListener();
 
     return () => {
-      logger.debug('Removendo listener de modo de manutenção');
-      unsubscribe();
+      maintenanceListeners.delete(listener);
+      if (maintenanceListeners.size === 0 && sharedUnsubscribe) {
+        sharedUnsubscribe();
+        sharedUnsubscribe = null;
+      }
     };
   }, []);
 

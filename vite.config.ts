@@ -188,6 +188,29 @@ const m3uDevProxyPlugin = () => ({
 
     server.middlewares.use(async (req: any, res: any, next: any) => {
       const url = req.url || "";
+      if (url.startsWith("/api/loja-img")) {
+        try {
+          // @ts-ignore
+          const mod = await import("./api/loja-img.js");
+          const handler = mod.default || mod;
+          const parsed = new URL(url, "http://localhost:3000");
+          const query: Record<string, string> = {};
+          parsed.searchParams.forEach((val, key) => {
+            query[key] = val;
+          });
+          req.query = query;
+          return await handler(req, res);
+        } catch (e: any) {
+          res.statusCode = 500;
+          res.setHeader("Content-Type", "application/json");
+          return res.end(JSON.stringify({ error: e?.message }));
+        }
+      }
+      next();
+    });
+
+    server.middlewares.use(async (req: any, res: any, next: any) => {
+      const url = req.url || "";
       if (
         url.startsWith("/player_api.php") ||
         url.startsWith("/get.php") ||

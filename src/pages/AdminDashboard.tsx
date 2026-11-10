@@ -4,7 +4,7 @@ import { FirebaseUserService, FirebaseUser } from '@/services/FirebaseUserServic
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Activity, AlertTriangle, Menu, Search, Filter, UserPlus, Users, Bell, DollarSign, Shield, Zap, Copy, Check } from 'lucide-react';
+import { Activity, AlertTriangle, Menu, Search, Filter, UserPlus, Users, Bell, DollarSign, Shield, Zap, Copy, Check, ShoppingBag } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 // Subcomponents lazy loaded for instantaneous navigation and minimal initial bundle
 const VisualMetricsDashboard = lazy(() => import('@/components/VisualMetricsDashboard'));
 const AdminProducts = lazy(() => import('@/components/AdminProducts'));
+const AdminLoja = lazy(() => import('@/components/admin/AdminLoja'));
 const AdminUsers = lazy(() => import('@/components/AdminUsers'));
 const AdminNotifications = lazy(() => import('@/components/AdminNotifications'));
 const AdminChat = lazy(() => import('@/components/AdminChat'));
@@ -451,6 +452,8 @@ const AdminDashboard = () => {
         }));
         return <VisualMetricsDashboard users={convertedUsers} logs={logs} />;
       }
+      case 'loja':
+        return <AdminLoja />;
       case 'products':
         return <AdminProducts />;
       case 'notifications':
@@ -625,6 +628,7 @@ const AdminDashboard = () => {
                   </span>
                   {[
                     { id: 'overview', label: 'Visão Geral', icon: Zap },
+                    { id: 'loja', label: 'Loja Pública', icon: ShoppingBag },
                     { id: 'users', label: 'Usuários & IMEI', icon: Users, badge: users.length ? String(users.length) : undefined },
                     { id: 'user-management', label: 'Cadastrar', icon: UserPlus },
                     { id: 'financial', label: 'Financeiro PIX', icon: DollarSign },

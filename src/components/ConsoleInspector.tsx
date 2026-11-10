@@ -41,15 +41,19 @@ export const ConsoleInspector: React.FC = () => {
 
   const logsEndRef = useRef<HTMLDivElement>(null);
 
-  // Inicializa interceptor e escuta logs
+  // Inicializa interceptor na montagem; só assina re-renders de logs quando o painel está aberto
   useEffect(() => {
     consoleInterceptor.init();
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
     const unsubscribe = consoleInterceptor.subscribe((newLogs, errors) => {
       setLogs(newLogs);
       setErrorCount(errors);
     });
     return () => unsubscribe();
-  }, []);
+  }, [isOpen]);
 
   // Atalho de teclado para abrir/fechar o console: Ctrl + Shift + L ou F12
   useEffect(() => {
