@@ -85,7 +85,7 @@ const MinimalistTemplate: React.FC<TemplateProps> = ({
   ).getFullYear() || '2026';
 
   return (
-    <div className="relative w-[490px] h-[780px] bg-[#0c0d11] overflow-hidden flex flex-col p-7 font-sans text-white shadow-2xl rounded-sm border border-neutral-800">
+    <div className="relative w-[490px] h-[780px] bg-[#0c0d11] overflow-hidden flex flex-col p-7 font-sans text-white shadow-2xl rounded-none border border-neutral-800">
       {/* Background Ambience */}
       <div
         className="absolute inset-0 z-0 scale-105"

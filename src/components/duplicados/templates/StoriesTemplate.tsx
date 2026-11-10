@@ -85,7 +85,7 @@ const StoriesTemplate: React.FC<TemplateProps> = ({
   ).getFullYear() || '2026';
 
   return (
-    <div className="relative w-[480px] h-[850px] bg-neutral-950 overflow-hidden flex flex-col p-6 font-sans text-white shadow-2xl rounded-2xl border border-white/10">
+    <div className="relative w-[480px] h-[850px] bg-neutral-950 overflow-hidden flex flex-col p-6 font-sans text-white shadow-2xl rounded-none border border-white/10">
       {/* Background Poster / Backdrop with Blur */}
       <div
         className="absolute inset-0 z-0 scale-110"

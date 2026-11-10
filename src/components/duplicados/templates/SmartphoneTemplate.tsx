@@ -81,7 +81,7 @@ const SmartphoneTemplate = ({
   };
 
   return (
-    <div className="relative w-[500px] h-[750px] bg-black overflow-hidden flex flex-col p-8 font-sans text-white shadow-2xl rounded-sm">
+    <div className="relative w-[500px] h-[750px] bg-black overflow-hidden flex flex-col p-8 font-sans text-white shadow-2xl rounded-none">
       {/* Background with Blur */}
       <div 
         className="absolute inset-0 z-0 scale-110"

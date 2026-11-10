@@ -30,7 +30,12 @@ import {
   Film,
   Pipette,
   Check,
-  RotateCcw
+  RotateCcw,
+  Zap,
+  Crown,
+  Clapperboard,
+  Award,
+  Layers
 } from 'lucide-react';
 import { tmdbService } from '@/services/TmdbService';
 import { TMDBSearchResult, TMDBDetails } from '@/types/importacao';
@@ -39,6 +44,11 @@ import SmartphoneTemplate from '@/components/duplicados/templates/SmartphoneTemp
 import CinematicTemplate from '@/components/duplicados/templates/CinematicTemplate';
 import StoriesTemplate from '@/components/duplicados/templates/StoriesTemplate';
 import MinimalistTemplate from '@/components/duplicados/templates/MinimalistTemplate';
+import CyberGlowTemplate from '@/components/duplicados/templates/CyberGlowTemplate';
+import StreamingUiTemplate from '@/components/duplicados/templates/StreamingUiTemplate';
+import EditorialCineTemplate from '@/components/duplicados/templates/EditorialCineTemplate';
+import FeedSquareTemplate from '@/components/duplicados/templates/FeedSquareTemplate';
+import VipBlackGoldTemplate from '@/components/duplicados/templates/VipBlackGoldTemplate';
 import VideoPostGenerator from '@/components/duplicados/VideoPostGenerator';
 import { toPng } from 'html-to-image';
 import { toast } from 'sonner';
@@ -170,9 +180,12 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
   // Zoom da pré-visualização (auto ajusta ao tamanho da coluna para evitar cortes)
   const [previewZoom, setPreviewZoom] = useState<'auto' | 60 | 80 | 100>('auto');
 
-  // States for customization (4 modelos de imagem)
-  const [selectedTemplate, setSelectedTemplate] = useState<'smartphone' | 'cinematic' | 'stories' | 'minimalist'>('smartphone');
+  // States for customization (9 modelos de imagem)
+  const [selectedTemplate, setSelectedTemplate] = useState<
+    'smartphone' | 'cinematic' | 'stories' | 'minimalist' | 'cyberglow' | 'streamui' | 'editorial' | 'feedsquare' | 'vipgold'
+  >('smartphone');
   const [logo, setLogo] = useState<string | null>(localStorage.getItem('gerador-post-logo'));
+  const [brandName, setBrandName] = useState(() => localStorage.getItem('gerador-post-brand-name') || 'INFINITY STREAM TV');
   const [logoSize, setLogoSize] = useState(100);
   const [logoPosition, setLogoPosition] = useState<'left' | 'center' | 'right'>('right');
   const [logoX, setLogoX] = useState(0);
@@ -200,6 +213,17 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
   const [synopsisColor, setSynopsisColor] = useState('#D1D5DB');
   const [availableColor, setAvailableColor] = useState('#9CA3AF');
   const BOTTOM_TEXT_COLOR_DEFAULTS = { titleColor: '#FFFFFF', infoColor: '#D1D5DB', synopsisColor: '#D1D5DB', availableColor: '#9CA3AF' };
+
+  // Resolução de exportação: 2 (Full HD 2x), 3 (Ultra HD 3x), 4 (Cinema 4K 4x)
+  const [exportQuality, setExportQuality] = useState<number>(() => {
+    const saved = localStorage.getItem('gerador-post-quality');
+    return saved ? Number(saved) : 3; // Padrão 3x Ultra HD (~1500px a 2400px)
+  });
+
+  const handleSetQuality = (quality: number) => {
+    setExportQuality(quality);
+    localStorage.setItem('gerador-post-quality', String(quality));
+  };
 
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -293,6 +317,11 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
     if (selectedTemplate === 'cinematic') return 0.72;
     if (selectedTemplate === 'stories') return 0.74;
     if (selectedTemplate === 'minimalist') return 0.78;
+    if (selectedTemplate === 'cyberglow') return 0.76;
+    if (selectedTemplate === 'streamui') return 0.74;
+    if (selectedTemplate === 'editorial') return 0.76;
+    if (selectedTemplate === 'feedsquare') return 0.75;
+    if (selectedTemplate === 'vipgold') return 0.76;
     return 0.78; // smartphone
   };
 
@@ -302,23 +331,50 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
     if (!previewRef.current) return;
 
     try {
-      toast.loading('Gerando imagem em alta resolução...', { id: 'download' });
-      const dataUrl = await toPng(previewRef.current, {
+      const qualityLabels: Record<number, string> = {
+        2: 'Full HD (2x)',
+        3: 'Ultra HD 2K (3x)',
+        4: 'Cinema 4K (4x)'
+      };
+      const currentQualityLabel = qualityLabels[exportQuality] || `${exportQuality}x`;
+
+      toast.loading(`Gerando arte em ${currentQualityLabel}...`, { id: 'download' });
+
+      // O nó alvo é o elemento do modelo em si (primeiro filho) para ignorar o scale() do contêiner pai
+      const targetNode = (previewRef.current.firstElementChild as HTMLElement) || previewRef.current;
+      const naturalWidth = targetNode.offsetWidth || 500;
+      const naturalHeight = targetNode.offsetHeight || 780;
+
+      const dataUrl = await toPng(targetNode, {
         cacheBust: true,
-        quality: 0.98,
-        pixelRatio: 2, // High resolution
-        skipFonts: true, // Prevents reading cross-origin CSSStyleSheet rules which triggers SecurityError
+        quality: 1,
+        pixelRatio: exportQuality, // 2x, 3x ou 4x gera resolução Full HD a Cinema 4K
+        width: naturalWidth,
+        height: naturalHeight,
+        canvasWidth: naturalWidth,
+        canvasHeight: naturalHeight,
+        skipFonts: true, // Previne SecurityError com stylesheets externas
+        backgroundColor: '#07090E', // Garante 100% de fundo sólido, eliminando cantos transparentes/brancos
+        style: {
+          transform: 'none',
+          transformOrigin: 'top left',
+          margin: '0',
+        },
       });
       
       const link = document.createElement('a');
-      link.download = `post-${selectedContent?.title || selectedContent?.name || 'gerador'}.png`;
+      const safeTitle = (selectedContent?.title || selectedContent?.name || 'gerador')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/gi, '_')
+        .substring(0, 30);
+      link.download = `post-${safeTitle}-${selectedTemplate}-${exportQuality}x.png`;
       link.href = dataUrl;
       link.click();
       
-      toast.success('Imagem baixada com sucesso!', { id: 'download' });
+      toast.success(`Imagem ${currentQualityLabel} baixada com sucesso!`, { id: 'download' });
     } catch (err) {
       console.error('Download error:', err);
-      toast.error('Erro ao gerar imagem', { id: 'download' });
+      toast.error('Erro ao gerar imagem em alta resolução', { id: 'download' });
     }
   };
 
@@ -339,14 +395,21 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
     return text.substring(0, length) + '...';
   };
 
+  const posterThumb = selectedContent?.poster_path
+    ? `https://image.tmdb.org/t/p/w200${selectedContent.poster_path}`
+    : null;
+  const backdropThumb = selectedContent?.backdrop_path
+    ? `https://image.tmdb.org/t/p/w300${selectedContent.backdrop_path}`
+    : (posterThumb || null);
+
   return (
     <PermissionGate feature={type === 'banner' ? 'gerador-banner' : 'gerador-post'}>
-      <div className="container mx-auto py-8 px-4 max-w-7xl animate-fade-in">
+      <div className="container mx-auto py-4 px-4 max-w-7xl animate-fade-in">
       {type === 'post' ? (
-        <div className="flex flex-col lg:flex-row gap-8">
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
           
-          {/* Left Column: Controls */}
-          <div className="w-full lg:w-1/3 space-y-6">
+          {/* Left Column: Controls (painel com rolagem independente que não move a preview) */}
+          <div className="w-full lg:w-[420px] lg:flex-shrink-0 space-y-6 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto lg:pr-2 lg:sticky lg:top-4 custom-scrollbar">
             <Card className="netflix-card border-primary/20 bg-black/40 backdrop-blur-md">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between gap-2">
@@ -445,7 +508,7 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                 onClick={() => setPostMode('image')}
               >
                 <ImageIcon className="w-3.5 h-3.5 mr-1.5" />
-                Post Imagem (4 Modelos)
+                Post Imagem (9 Modelos)
               </Button>
               <Button
                 type="button"
@@ -487,57 +550,384 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
               </TabsList>
 
               <TabsContent value="template" className="space-y-4 pt-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                  <span className="font-semibold text-white/90">9 Modelos Profissionais Disponíveis</span>
+                  <span className="text-[10px] text-primary font-bold">5 Novos Adicionados ✨</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2.5 max-h-[520px] overflow-y-auto pr-1 custom-scrollbar">
+                  {/* Modelo 1: Smartphone */}
                   <button
                     onClick={() => setSelectedTemplate('smartphone')}
                     className={cn(
-                      "group relative aspect-[9/12] border-2 rounded-lg overflow-hidden transition-all hover:scale-105",
-                      selectedTemplate === 'smartphone' ? "border-primary shadow-[0_0_15px_rgba(229,9,20,0.3)]" : "border-border/40 hover:border-primary/50"
+                      "group relative min-h-[195px] border-2 rounded-xl overflow-hidden transition-all hover:scale-[1.02] text-left p-2.5 flex flex-col justify-between",
+                      selectedTemplate === 'smartphone' ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(229,9,20,0.35)] ring-1 ring-primary/50" : "border-border/40 hover:border-primary/50 bg-muted/20"
                     )}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />
-                    <div className="absolute bottom-2 left-2 z-20 text-[10px] font-bold">1. Smartphone</div>
-                    <div className="w-full h-full bg-muted/20 flex items-center justify-center">
-                       <Smartphone size={30} className="text-white/30 group-hover:text-primary transition-colors" />
+                    <div className="flex justify-between items-center w-full">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-white/70">9:16</span>
+                      {selectedTemplate === 'smartphone' && <span className="text-[9px] font-black text-primary flex items-center gap-0.5"><Check size={11} /> ATIVO</span>}
+                    </div>
+                    {/* Visual Mockup Preview */}
+                    <div className="w-full h-24 rounded-lg overflow-hidden bg-neutral-950/90 border border-white/10 relative my-1.5 flex items-center justify-center p-1 group-hover:border-primary/40 transition-all shadow-inner">
+                      <div className="h-[84px] w-[48px] rounded-[9px] bg-neutral-900 border-2 border-neutral-700 shadow-md relative overflow-hidden flex flex-col justify-between p-0.5">
+                        <div className="w-3.5 h-1 bg-black rounded-full mx-auto" />
+                        <div className="flex-1 rounded-[3px] overflow-hidden relative bg-neutral-800 flex flex-col justify-end p-0.5">
+                          {posterThumb ? (
+                            <img src={posterThumb} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                          ) : (
+                            <div className="absolute inset-0 bg-gradient-to-t from-red-950 via-neutral-900 to-neutral-800" />
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                          <div className="relative z-10 w-full bg-red-600 rounded-[2px] py-0.2 text-[5px] font-black text-center text-white leading-tight">
+                            ASSISTA
+                          </div>
+                        </div>
+                        <div className="w-4 h-0.5 bg-white/40 rounded-full mx-auto mt-0.5" />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-black leading-tight text-white">1. Smartphone</div>
+                      <div className="text-[9px] text-muted-foreground">Mockup de celular</div>
                     </div>
                   </button>
+
+                  {/* Modelo 2: Cinemático */}
                   <button
                     onClick={() => setSelectedTemplate('cinematic')}
                     className={cn(
-                      "group relative aspect-[9/12] border-2 rounded-lg overflow-hidden transition-all hover:scale-105",
-                      selectedTemplate === 'cinematic' ? "border-primary shadow-[0_0_15px_rgba(229,9,20,0.3)]" : "border-border/40 hover:border-primary/50"
+                      "group relative min-h-[195px] border-2 rounded-xl overflow-hidden transition-all hover:scale-[1.02] text-left p-2.5 flex flex-col justify-between",
+                      selectedTemplate === 'cinematic' ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(229,9,20,0.35)] ring-1 ring-primary/50" : "border-border/40 hover:border-primary/50 bg-muted/20"
                     )}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />
-                    <div className="absolute bottom-2 left-2 z-20 text-[10px] font-bold">2. Cinemático</div>
-                    <div className="w-full h-full bg-muted/20 flex items-center justify-center">
-                       <Monitor size={30} className="text-white/30 group-hover:text-primary transition-colors" />
+                    <div className="flex justify-between items-center w-full">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-white/70">16:9</span>
+                      {selectedTemplate === 'cinematic' && <span className="text-[9px] font-black text-primary flex items-center gap-0.5"><Check size={11} /> ATIVO</span>}
+                    </div>
+                    {/* Visual Mockup Preview */}
+                    <div className="w-full h-24 rounded-lg overflow-hidden bg-neutral-950/90 border border-white/10 relative my-1.5 flex items-center justify-center p-1.5 group-hover:border-primary/40 transition-all shadow-inner">
+                      <div className="w-full h-[66px] rounded-[5px] bg-black border border-neutral-700/80 shadow-md relative overflow-hidden flex">
+                        <div className="w-[36%] h-full relative border-r border-white/10 overflow-hidden flex-shrink-0 bg-neutral-900">
+                          {posterThumb ? (
+                            <img src={posterThumb} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-b from-blue-950 to-neutral-900 flex items-center justify-center">
+                              <Film size={10} className="text-white/40" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 h-full relative p-1 flex flex-col justify-between overflow-hidden">
+                          {backdropThumb && (
+                            <img src={backdropThumb} alt="" className="absolute inset-0 w-full h-full object-cover opacity-35 filter blur-[0.5px]" />
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-transparent" />
+                          <div className="relative z-10 flex items-center gap-1">
+                            <span className="bg-red-600 text-white text-[5px] font-black px-1 rounded-[2px]">CINEMA</span>
+                            <span className="text-[5px] text-yellow-400">★★★★★</span>
+                          </div>
+                          <div className="relative z-10 space-y-0.5">
+                            <div className="h-1 w-4/5 bg-white/80 rounded-full" />
+                            <div className="h-0.5 w-1/2 bg-white/40 rounded-full" />
+                          </div>
+                          <div className="relative z-10 flex gap-0.5">
+                            <span className="text-[4px] bg-white/20 text-white px-0.5 rounded">4K</span>
+                            <span className="text-[4px] bg-white/20 text-white px-0.5 rounded">DUB</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-black leading-tight text-white">2. Cinemático</div>
+                      <div className="text-[9px] text-muted-foreground">Banner horizontal</div>
                     </div>
                   </button>
+
+                  {/* Modelo 3: Stories Neon */}
                   <button
                     onClick={() => setSelectedTemplate('stories')}
                     className={cn(
-                      "group relative aspect-[9/12] border-2 rounded-lg overflow-hidden transition-all hover:scale-105",
-                      selectedTemplate === 'stories' ? "border-primary shadow-[0_0_15px_rgba(229,9,20,0.3)]" : "border-border/40 hover:border-primary/50"
+                      "group relative min-h-[195px] border-2 rounded-xl overflow-hidden transition-all hover:scale-[1.02] text-left p-2.5 flex flex-col justify-between",
+                      selectedTemplate === 'stories' ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(229,9,20,0.35)] ring-1 ring-primary/50" : "border-border/40 hover:border-primary/50 bg-muted/20"
                     )}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />
-                    <div className="absolute bottom-2 left-2 z-20 text-[10px] font-bold">3. Stories Neon</div>
-                    <div className="w-full h-full bg-muted/20 flex items-center justify-center">
-                       <Flame size={30} className="text-white/30 group-hover:text-primary transition-colors" />
+                    <div className="flex justify-between items-center w-full">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-white/70">9:16</span>
+                      {selectedTemplate === 'stories' && <span className="text-[9px] font-black text-primary flex items-center gap-0.5"><Check size={11} /> ATIVO</span>}
+                    </div>
+                    {/* Visual Mockup Preview */}
+                    <div className="w-full h-24 rounded-lg overflow-hidden bg-neutral-950/90 border border-white/10 relative my-1.5 flex items-center justify-center p-1 group-hover:border-primary/40 transition-all shadow-inner">
+                      <div className="h-[84px] w-[48px] rounded-[6px] border border-pink-500/60 shadow-[0_0_8px_rgba(236,72,153,0.35)] bg-gradient-to-b from-purple-950/90 via-neutral-950 to-pink-950/90 relative overflow-hidden flex flex-col justify-between p-0.5">
+                        <div className="flex gap-0.5 w-full">
+                          <div className="h-[1.5px] flex-1 bg-white rounded-full" />
+                          <div className="h-[1.5px] flex-1 bg-white/40 rounded-full" />
+                          <div className="h-[1.5px] flex-1 bg-white/40 rounded-full" />
+                        </div>
+                        <div className="h-[46px] w-[32px] mx-auto rounded-[3px] overflow-hidden shadow-md border border-pink-400/60 relative my-auto">
+                          {posterThumb ? (
+                            <img src={posterThumb} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-b from-pink-600 to-purple-900" />
+                          )}
+                        </div>
+                        <div className="w-full bg-gradient-to-r from-pink-600 to-rose-500 rounded-[2px] py-0.2 text-[5px] font-black text-center text-white tracking-tighter">
+                          DISPONÍVEL
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-black leading-tight text-white">3. Stories Neon</div>
+                      <div className="text-[9px] text-muted-foreground">Stories Instagram</div>
                     </div>
                   </button>
+
+                  {/* Modelo 4: Cartaz IMAX */}
                   <button
                     onClick={() => setSelectedTemplate('minimalist')}
                     className={cn(
-                      "group relative aspect-[9/12] border-2 rounded-lg overflow-hidden transition-all hover:scale-105",
-                      selectedTemplate === 'minimalist' ? "border-primary shadow-[0_0_15px_rgba(229,9,20,0.3)]" : "border-border/40 hover:border-primary/50"
+                      "group relative min-h-[195px] border-2 rounded-xl overflow-hidden transition-all hover:scale-[1.02] text-left p-2.5 flex flex-col justify-between",
+                      selectedTemplate === 'minimalist' ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(229,9,20,0.35)] ring-1 ring-primary/50" : "border-border/40 hover:border-primary/50 bg-muted/20"
                     )}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />
-                    <div className="absolute bottom-2 left-2 z-20 text-[10px] font-bold">4. Cartaz IMAX</div>
-                    <div className="w-full h-full bg-muted/20 flex items-center justify-center">
-                       <Film size={30} className="text-white/30 group-hover:text-primary transition-colors" />
+                    <div className="flex justify-between items-center w-full">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-white/70">2:3</span>
+                      {selectedTemplate === 'minimalist' && <span className="text-[9px] font-black text-primary flex items-center gap-0.5"><Check size={11} /> ATIVO</span>}
+                    </div>
+                    {/* Visual Mockup Preview */}
+                    <div className="w-full h-24 rounded-lg overflow-hidden bg-neutral-950/90 border border-white/10 relative my-1.5 flex items-center justify-center p-1 group-hover:border-primary/40 transition-all shadow-inner">
+                      <div className="h-[84px] w-[52px] rounded-[4px] border border-neutral-700 bg-neutral-950 relative overflow-hidden flex flex-col justify-between p-0.5 shadow-md">
+                        <div className="text-center text-[5px] font-black tracking-widest text-amber-300 border-b border-amber-300/30 pb-0.5">
+                          IMAX EXPERIENCE
+                        </div>
+                        <div className="h-[46px] w-[32px] mx-auto rounded-[2px] overflow-hidden shadow-md border border-white/20 relative my-auto">
+                          {posterThumb ? (
+                            <img src={posterThumb} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-b from-neutral-800 to-black" />
+                          )}
+                        </div>
+                        <div className="space-y-0.5 text-center">
+                          <div className="h-0.5 w-7 bg-white/80 rounded-full mx-auto" />
+                          <div className="flex justify-center gap-0.5 text-[4px] text-amber-400">★★★★★</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-black leading-tight text-white">4. Cartaz IMAX</div>
+                      <div className="text-[9px] text-muted-foreground">Elegante minimalista</div>
+                    </div>
+                  </button>
+
+                  {/* Modelo 5: Cyber Glow (Novo) */}
+                  <button
+                    onClick={() => setSelectedTemplate('cyberglow')}
+                    className={cn(
+                      "group relative min-h-[195px] border-2 rounded-xl overflow-hidden transition-all hover:scale-[1.02] text-left p-2.5 flex flex-col justify-between",
+                      selectedTemplate === 'cyberglow' ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(229,9,20,0.35)] ring-1 ring-primary/50" : "border-border/40 hover:border-primary/50 bg-muted/20"
+                    )}
+                  >
+                    <div className="flex justify-between items-center w-full">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-white/70">9:14</span>
+                      <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-500 text-black">NOVO ✨</span>
+                    </div>
+                    {/* Visual Mockup Preview */}
+                    <div className="w-full h-24 rounded-lg overflow-hidden bg-neutral-950/90 border border-white/10 relative my-1.5 flex items-center justify-center p-1 group-hover:border-primary/40 transition-all shadow-inner">
+                      <div className="h-[84px] w-[52px] rounded-[4px] border border-cyan-400/70 shadow-[0_0_10px_rgba(6,182,212,0.4)] bg-[#07090E] relative overflow-hidden flex flex-col justify-between p-0.5">
+                        <div className="absolute top-0 left-0 w-1 h-1 border-t border-l border-cyan-400" />
+                        <div className="absolute top-0 right-0 w-1 h-1 border-t border-r border-cyan-400" />
+                        <div className="absolute bottom-0 left-0 w-1 h-1 border-b border-l border-cyan-400" />
+                        <div className="absolute bottom-0 right-0 w-1 h-1 border-b border-r border-cyan-400" />
+                        <div className="text-[5px] font-black tracking-tighter text-cyan-300 text-center flex items-center justify-center gap-0.5">
+                          <span className="w-1 h-1 bg-cyan-400 rounded-full" /> CYBER GLOW
+                        </div>
+                        <div className="h-[44px] w-[30px] mx-auto rounded-[3px] overflow-hidden shadow-[0_0_8px_rgba(6,182,212,0.5)] border border-cyan-300 relative my-auto">
+                          {posterThumb ? (
+                            <img src={posterThumb} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-b from-cyan-900 to-purple-950" />
+                          )}
+                        </div>
+                        <div className="flex justify-between items-center text-[4px] font-bold px-0.5">
+                          <span className="px-0.5 bg-cyan-500/30 text-cyan-200 rounded-[2px] border border-cyan-400/40">4K HDR</span>
+                          <span className="px-0.5 bg-amber-500/30 text-amber-200 rounded-[2px] border border-amber-400/40">DOLBY</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-black leading-tight text-white">5. Cyber Glow</div>
+                      <div className="text-[9px] text-muted-foreground">Ultra Neon 4K & HDR</div>
+                    </div>
+                  </button>
+
+                  {/* Modelo 6: Streaming UI (Novo) */}
+                  <button
+                    onClick={() => setSelectedTemplate('streamui')}
+                    className={cn(
+                      "group relative min-h-[195px] border-2 rounded-xl overflow-hidden transition-all hover:scale-[1.02] text-left p-2.5 flex flex-col justify-between",
+                      selectedTemplate === 'streamui' ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(229,9,20,0.35)] ring-1 ring-primary/50" : "border-border/40 hover:border-primary/50 bg-muted/20"
+                    )}
+                  >
+                    <div className="flex justify-between items-center w-full">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-white/70">2:3</span>
+                      <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-red-600 text-white">NOVO ✨</span>
+                    </div>
+                    {/* Visual Mockup Preview */}
+                    <div className="w-full h-24 rounded-lg overflow-hidden bg-neutral-950/90 border border-white/10 relative my-1.5 flex items-center justify-center p-1 group-hover:border-primary/40 transition-all shadow-inner">
+                      <div className="h-[84px] w-[54px] rounded-[5px] border border-neutral-700 bg-[#0A0D14] relative overflow-hidden flex flex-col justify-between shadow-md">
+                        <div className="h-[40px] w-full relative overflow-hidden bg-neutral-800">
+                          {backdropThumb ? (
+                            <img src={backdropThumb} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-b from-red-950 to-neutral-900" />
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#0A0D14] to-transparent" />
+                          <div className="absolute top-0.5 left-0.5 bg-red-600 text-white text-[4px] font-black px-1 rounded-full">
+                            STREAM+
+                          </div>
+                          <div className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 bg-white/90 rounded-full flex items-center justify-center text-black text-[5px]">
+                            ▶
+                          </div>
+                        </div>
+                        <div className="flex-1 p-0.5 flex flex-col justify-between bg-[#0A0D14]">
+                          <div className="space-y-0.5">
+                            <div className="h-0.5 w-4/5 bg-white/90 rounded-full" />
+                            <div className="h-0.5 w-1/2 bg-white/40 rounded-full" />
+                          </div>
+                          <div className="flex items-center gap-0.5">
+                            <span className="text-[4px] bg-red-600/30 text-red-300 font-bold px-0.5 rounded">TOP 10</span>
+                            <span className="text-[4px] text-white/50">2026</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-black leading-tight text-white">6. Streaming UI</div>
+                      <div className="text-[9px] text-muted-foreground">Estilo Netflix / Apple TV</div>
+                    </div>
+                  </button>
+
+                  {/* Modelo 7: Editorial Cine (Novo) */}
+                  <button
+                    onClick={() => setSelectedTemplate('editorial')}
+                    className={cn(
+                      "group relative min-h-[195px] border-2 rounded-xl overflow-hidden transition-all hover:scale-[1.02] text-left p-2.5 flex flex-col justify-between",
+                      selectedTemplate === 'editorial' ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(229,9,20,0.35)] ring-1 ring-primary/50" : "border-border/40 hover:border-primary/50 bg-muted/20"
+                    )}
+                  >
+                    <div className="flex justify-between items-center w-full">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-white/70">2:3</span>
+                      <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-purple-600 text-white">NOVO ✨</span>
+                    </div>
+                    {/* Visual Mockup Preview */}
+                    <div className="w-full h-24 rounded-lg overflow-hidden bg-neutral-950/90 border border-white/10 relative my-1.5 flex items-center justify-center p-1 group-hover:border-primary/40 transition-all shadow-inner">
+                      <div className="h-[84px] w-[52px] rounded-[4px] border border-purple-500/40 bg-[#0C0D12] relative overflow-hidden flex flex-col justify-between p-0.5 shadow-md">
+                        <div className="flex justify-between items-center border-b border-white/10 pb-0.5">
+                          <span className="text-[5px] font-serif font-black tracking-widest text-white">CINEPHILE</span>
+                          <span className="text-[4px] text-purple-400 font-mono">N° 42</span>
+                        </div>
+                        <div className="flex gap-1 items-center my-auto">
+                          <div className="w-[20px] h-[34px] rounded-[2px] overflow-hidden border border-white/20 flex-shrink-0 relative">
+                            {posterThumb ? (
+                              <img src={posterThumb} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full bg-purple-900" />
+                            )}
+                          </div>
+                          <div className="flex-1 space-y-0.5 overflow-hidden">
+                            <div className="h-0.5 w-full bg-white/90 rounded-full" />
+                            <div className="h-0.5 w-4/5 bg-white/40 rounded-full" />
+                            <div className="h-0.5 w-3/5 bg-white/30 rounded-full" />
+                          </div>
+                        </div>
+                        <div className="text-[4px] text-center text-amber-300 font-serif border-t border-white/10 pt-0.5">
+                          ★ OFFICIAL 2026 ★
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-black leading-tight text-white">7. Editorial Cine</div>
+                      <div className="text-[9px] text-muted-foreground">Revista & Festival</div>
+                    </div>
+                  </button>
+
+                  {/* Modelo 8: Feed 1:1 Quadrado (Novo) */}
+                  <button
+                    onClick={() => setSelectedTemplate('feedsquare')}
+                    className={cn(
+                      "group relative min-h-[195px] border-2 rounded-xl overflow-hidden transition-all hover:scale-[1.02] text-left p-2.5 flex flex-col justify-between",
+                      selectedTemplate === 'feedsquare' ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(229,9,20,0.35)] ring-1 ring-primary/50" : "border-border/40 hover:border-primary/50 bg-muted/20"
+                    )}
+                  >
+                    <div className="flex justify-between items-center w-full">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-white/70">1:1</span>
+                      <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-emerald-600 text-white">FEED 1:1</span>
+                    </div>
+                    {/* Visual Mockup Preview */}
+                    <div className="w-full h-24 rounded-lg overflow-hidden bg-neutral-950/90 border border-white/10 relative my-1.5 flex items-center justify-center p-1 group-hover:border-primary/40 transition-all shadow-inner">
+                      <div className="w-[70px] h-[70px] rounded-[5px] border border-emerald-500/40 bg-[#090B10] relative overflow-hidden flex flex-col justify-between p-0.5 shadow-md">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[5px] font-black text-white/90">POST 1:1</span>
+                          <span className="text-[4px] bg-emerald-500/30 text-emerald-300 font-bold px-0.5 rounded">FEED</span>
+                        </div>
+                        <div className="flex gap-1 items-center">
+                          <div className="w-[26px] h-[36px] rounded-[2px] overflow-hidden border border-white/20 flex-shrink-0 relative">
+                            {posterThumb ? (
+                              <img src={posterThumb} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full bg-emerald-950" />
+                            )}
+                          </div>
+                          <div className="flex-1 space-y-0.5">
+                            <div className="h-0.5 w-full bg-white/90 rounded-full" />
+                            <div className="h-0.5 w-3/4 bg-white/40 rounded-full" />
+                            <div className="text-[4px] text-emerald-400 font-bold">DISPONÍVEL</div>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center text-[4px] text-white/40 pt-0.5 border-t border-white/5">
+                          <span>Insta</span>
+                          <span>WhatsApp</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-black leading-tight text-white">8. Feed Quadrado</div>
+                      <div className="text-[9px] text-muted-foreground">Instagram & WhatsApp</div>
+                    </div>
+                  </button>
+
+                  {/* Modelo 9: VIP Black & Gold (Novo) */}
+                  <button
+                    onClick={() => setSelectedTemplate('vipgold')}
+                    className={cn(
+                      "group relative min-h-[195px] border-2 rounded-xl overflow-hidden transition-all hover:scale-[1.02] text-left p-2.5 flex flex-col justify-between",
+                      selectedTemplate === 'vipgold' ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(229,9,20,0.35)] ring-1 ring-primary/50" : "border-border/40 hover:border-primary/50 bg-muted/20"
+                    )}
+                  >
+                    <div className="flex justify-between items-center w-full">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-white/70">2:3</span>
+                      <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-400 text-black">VIP GOLD</span>
+                    </div>
+                    {/* Visual Mockup Preview */}
+                    <div className="w-full h-24 rounded-lg overflow-hidden bg-neutral-950/90 border border-white/10 relative my-1.5 flex items-center justify-center p-1 group-hover:border-primary/40 transition-all shadow-inner">
+                      <div className="h-[84px] w-[52px] rounded-[4px] border border-amber-400/80 shadow-[0_0_10px_rgba(245,158,11,0.4)] bg-gradient-to-b from-neutral-950 via-[#141005] to-black relative overflow-hidden flex flex-col justify-between p-0.5">
+                        <div className="flex justify-between items-center border-b border-amber-400/30 pb-0.5">
+                          <Crown size={7} className="text-amber-400" />
+                          <span className="text-[5px] font-black tracking-widest text-amber-300">VIP GOLD</span>
+                          <Crown size={7} className="text-amber-400" />
+                        </div>
+                        <div className="h-[44px] w-[30px] mx-auto rounded-[2px] overflow-hidden shadow-[0_0_8px_rgba(245,158,11,0.4)] border border-amber-400/80 relative my-auto">
+                          {posterThumb ? (
+                            <img src={posterThumb} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-b from-amber-950 to-neutral-950" />
+                          )}
+                        </div>
+                        <div className="w-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 text-black text-[5px] font-black text-center rounded-[2px] py-0.2 tracking-tighter">
+                          ACESSO VIP
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-black leading-tight text-white">9. VIP Black & Gold</div>
+                      <div className="text-[9px] text-muted-foreground">Luxo & Conversão</div>
                     </div>
                   </button>
                 </div>
@@ -1027,8 +1417,39 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
 
               <TabsContent value="logo" className="space-y-4 pt-4">
                 <div className="space-y-4">
+                  {/* Nome da Marca / App Editável */}
+                  <div className="space-y-2 p-3.5 rounded-lg border border-border/50 bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <Label className="font-semibold text-sm">Nome da Marca / App</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-[11px] px-2 text-muted-foreground hover:text-foreground"
+                        onClick={() => {
+                          setBrandName('INFINITY STREAM TV');
+                          localStorage.setItem('gerador-post-brand-name', 'INFINITY STREAM TV');
+                        }}
+                      >
+                        Padrão
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Texto exibido no topo da arte quando não houver imagem de logo
+                    </p>
+                    <Input
+                      value={brandName}
+                      onChange={(e) => {
+                        setBrandName(e.target.value);
+                        localStorage.setItem('gerador-post-brand-name', e.target.value);
+                      }}
+                      placeholder="Ex: INFINITY STREAM TV, MEU APP..."
+                      className="bg-muted/50 font-bold uppercase tracking-wider text-xs"
+                    />
+                  </div>
+
                   <div className="space-y-2">
-                    <Label>Logo da Marca</Label>
+                    <Label>Logo da Marca (Imagem)</Label>
                     <div className="flex flex-col gap-4">
                       {logo ? (
                         <div className="relative group rounded-lg overflow-hidden border border-border/40 bg-muted/20 p-4 flex items-center justify-center">
@@ -1261,33 +1682,84 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
             </Tabs>
 
             {postMode === 'image' && (
-              <>
+              <div className="space-y-3 pt-2">
+                {/* Seletor de Resolução / Qualidade */}
+                <div className="p-3 rounded-xl border border-border/50 bg-black/40 backdrop-blur-sm space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-primary" />
+                      <Label className="text-xs font-bold text-white">Resolução de Download</Label>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] text-primary border-primary/40 font-black uppercase">
+                      {exportQuality === 4 ? 'Cinema 4K (4x)' : exportQuality === 3 ? 'Ultra HD 2K (3x)' : 'Full HD (2x)'}
+                    </Badge>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={exportQuality === 2 ? 'default' : 'outline'}
+                      className={cn("text-[11px] h-8 font-bold", exportQuality === 2 ? "bg-primary text-white" : "border-border/60 hover:bg-muted/40 text-muted-foreground")}
+                      onClick={() => handleSetQuality(2)}
+                    >
+                      Full HD (2x)
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={exportQuality === 3 ? 'default' : 'outline'}
+                      className={cn("text-[11px] h-8 font-bold", exportQuality === 3 ? "bg-primary text-white" : "border-border/60 hover:bg-muted/40 text-muted-foreground")}
+                      onClick={() => handleSetQuality(3)}
+                    >
+                      Ultra HD (3x) ✨
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={exportQuality === 4 ? 'default' : 'outline'}
+                      className={cn("text-[11px] h-8 font-bold", exportQuality === 4 ? "bg-primary text-white" : "border-border/60 hover:bg-muted/40 text-muted-foreground")}
+                      onClick={() => handleSetQuality(4)}
+                    >
+                      Cinema 4K (4x) 🔥
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    {exportQuality === 4
+                      ? 'Resolução máxima ultra nítida (~2000px a 3200px): ideal para telões e impressões.'
+                      : exportQuality === 3
+                      ? 'Recomendado (~1500px a 2400px): máxima nitidez para Instagram e WhatsApp.'
+                      : 'Resolução padrão (~1000px a 1500px) com download mais leve e rápido.'}
+                  </p>
+                </div>
+
                 <Button 
-                  className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-bold"
+                  className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-black text-sm shadow-lg shadow-primary/25 transition-all hover:scale-[1.01]"
                   disabled={!selectedContent}
                   onClick={downloadImage}
                 >
                   <Download className="w-5 h-5 mr-2" />
-                  Baixar Imagem (PNG)
+                  Baixar em {exportQuality === 4 ? '4K Ultra HD' : exportQuality === 3 ? 'Ultra HD 2K' : 'Full HD'} (PNG)
                 </Button>
 
-                <div className="mt-4 flex gap-4 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-primary/20" />
-                    Preview em tempo real
+                <div className="flex justify-between items-center text-[11px] text-muted-foreground pt-0.5 px-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Fundo 100% Sólido (Sem cantos brancos)</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-primary/20" />
-                    Alta resolução (2x)
+                    <span className="font-bold text-white/80">
+                      {exportQuality === 4 ? 'Até 3200px' : exportQuality === 3 ? 'Até 2400px' : 'Até 1500px'}
+                    </span>
                   </div>
                 </div>
-              </>
+              </div>
             )}
           </div>
 
-          {/* Right Column: Preview */}
-          <div className="flex-1 flex justify-center items-start w-full">
-            <div className="sticky top-20 w-full flex flex-col items-center">
+          {/* Right Column: Preview (fixo no topo durante o scroll) */}
+          <div className="flex-1 w-full flex justify-center items-start lg:sticky lg:top-4 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto custom-scrollbar">
+            <div className="w-full flex flex-col items-center">
               
               {/* Barra de Controles da Pré-Visualização */}
               <div className="w-full flex items-center justify-between bg-black/40 backdrop-blur-md border border-border/40 rounded-xl px-4 py-2.5 mb-4 text-xs shadow-sm">
@@ -1299,7 +1771,12 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                       selectedTemplate === 'smartphone' ? '1. Smartphone (9:16)' :
                       selectedTemplate === 'cinematic' ? '2. Cinemático (16:9)' :
                       selectedTemplate === 'stories' ? '3. Stories Neon (9:16)' :
-                      '4. Cartaz IMAX (2:3)'
+                      selectedTemplate === 'minimalist' ? '4. Cartaz IMAX (2:3)' :
+                      selectedTemplate === 'cyberglow' ? '5. Cyber Glow (9:14)' :
+                      selectedTemplate === 'streamui' ? '6. Streaming UI (2:3)' :
+                      selectedTemplate === 'editorial' ? '7. Editorial Cine (2:3)' :
+                      selectedTemplate === 'feedsquare' ? '8. Feed Quadrado (1:1)' :
+                      '9. VIP Black & Gold (2:3)'
                     )}
                   </Badge>
                 </div>
@@ -1355,7 +1832,7 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                       transition: 'transform 0.2s ease-out',
                     }}
                   >
-                    <div ref={previewRef} className="flex justify-center items-center shadow-2xl rounded-2xl overflow-hidden">
+                    <div ref={previewRef} className="flex justify-center items-center shadow-2xl rounded-none overflow-hidden bg-black">
                       {selectedTemplate === 'smartphone' && (
                         <SmartphoneTemplate
                           selectedContent={selectedContent}
@@ -1478,6 +1955,166 @@ const GeradorPost = ({ type = 'post' }: { type?: 'post' | 'banner' }) => {
                           infoColor={infoColor}
                           synopsisColor={synopsisColor}
                           availableColor={availableColor}
+                        />
+                      )}
+                      {selectedTemplate === 'cyberglow' && (
+                        <CyberGlowTemplate
+                          selectedContent={selectedContent}
+                          backgroundBlur={backgroundBlur}
+                          overlayOpacity={overlayOpacity}
+                          logo={logo}
+                          logoPosition={logoPosition}
+                          logoSize={logoSize}
+                          logoX={logoX}
+                          logoY={logoY}
+                          featuredLabel={featuredLabel}
+                          showFeaturedLabel={showFeaturedLabel}
+                          accentColor={accentColor}
+                          posterWidth={posterWidth}
+                          posterHeight={posterHeight}
+                          statusLabel={statusLabel}
+                          showStatusLabel={showStatusLabel}
+                          statusHeight={statusHeight}
+                          statusFontSize={statusFontSize}
+                          statusPaddingX={statusPaddingX}
+                          statusX={statusX}
+                          statusY={statusY}
+                          statusAlign={statusAlign}
+                          showSynopsis={showSynopsis}
+                          synopsisLength={synopsisLength}
+                          titleColor={titleColor}
+                          infoColor={infoColor}
+                          synopsisColor={synopsisColor}
+                          availableColor={availableColor}
+                          brandName={brandName}
+                        />
+                      )}
+                      {selectedTemplate === 'streamui' && (
+                        <StreamingUiTemplate
+                          selectedContent={selectedContent}
+                          backgroundBlur={backgroundBlur}
+                          overlayOpacity={overlayOpacity}
+                          logo={logo}
+                          logoPosition={logoPosition}
+                          logoSize={logoSize}
+                          logoX={logoX}
+                          logoY={logoY}
+                          featuredLabel={featuredLabel}
+                          showFeaturedLabel={showFeaturedLabel}
+                          accentColor={accentColor}
+                          posterWidth={posterWidth}
+                          posterHeight={posterHeight}
+                          statusLabel={statusLabel}
+                          showStatusLabel={showStatusLabel}
+                          statusHeight={statusHeight}
+                          statusFontSize={statusFontSize}
+                          statusPaddingX={statusPaddingX}
+                          statusX={statusX}
+                          statusY={statusY}
+                          statusAlign={statusAlign}
+                          showSynopsis={showSynopsis}
+                          synopsisLength={synopsisLength}
+                          titleColor={titleColor}
+                          infoColor={infoColor}
+                          synopsisColor={synopsisColor}
+                          availableColor={availableColor}
+                          brandName={brandName}
+                        />
+                      )}
+                      {selectedTemplate === 'editorial' && (
+                        <EditorialCineTemplate
+                          selectedContent={selectedContent}
+                          backgroundBlur={backgroundBlur}
+                          overlayOpacity={overlayOpacity}
+                          logo={logo}
+                          logoPosition={logoPosition}
+                          logoSize={logoSize}
+                          logoX={logoX}
+                          logoY={logoY}
+                          featuredLabel={featuredLabel}
+                          showFeaturedLabel={showFeaturedLabel}
+                          accentColor={accentColor}
+                          posterWidth={posterWidth}
+                          posterHeight={posterHeight}
+                          statusLabel={statusLabel}
+                          showStatusLabel={showStatusLabel}
+                          statusHeight={statusHeight}
+                          statusFontSize={statusFontSize}
+                          statusPaddingX={statusPaddingX}
+                          statusX={statusX}
+                          statusY={statusY}
+                          statusAlign={statusAlign}
+                          showSynopsis={showSynopsis}
+                          synopsisLength={synopsisLength}
+                          titleColor={titleColor}
+                          infoColor={infoColor}
+                          synopsisColor={synopsisColor}
+                          availableColor={availableColor}
+                          brandName={brandName}
+                        />
+                      )}
+                      {selectedTemplate === 'feedsquare' && (
+                        <FeedSquareTemplate
+                          selectedContent={selectedContent}
+                          backgroundBlur={backgroundBlur}
+                          overlayOpacity={overlayOpacity}
+                          logo={logo}
+                          logoPosition={logoPosition}
+                          logoSize={logoSize}
+                          logoX={logoX}
+                          logoY={logoY}
+                          featuredLabel={featuredLabel}
+                          showFeaturedLabel={showFeaturedLabel}
+                          accentColor={accentColor}
+                          posterWidth={posterWidth}
+                          posterHeight={posterHeight}
+                          statusLabel={statusLabel}
+                          showStatusLabel={showStatusLabel}
+                          statusHeight={statusHeight}
+                          statusFontSize={statusFontSize}
+                          statusPaddingX={statusPaddingX}
+                          statusX={statusX}
+                          statusY={statusY}
+                          statusAlign={statusAlign}
+                          showSynopsis={showSynopsis}
+                          synopsisLength={synopsisLength}
+                          titleColor={titleColor}
+                          infoColor={infoColor}
+                          synopsisColor={synopsisColor}
+                          availableColor={availableColor}
+                          brandName={brandName}
+                        />
+                      )}
+                      {selectedTemplate === 'vipgold' && (
+                        <VipBlackGoldTemplate
+                          selectedContent={selectedContent}
+                          backgroundBlur={backgroundBlur}
+                          overlayOpacity={overlayOpacity}
+                          logo={logo}
+                          logoPosition={logoPosition}
+                          logoSize={logoSize}
+                          logoX={logoX}
+                          logoY={logoY}
+                          featuredLabel={featuredLabel}
+                          showFeaturedLabel={showFeaturedLabel}
+                          accentColor={accentColor}
+                          posterWidth={posterWidth}
+                          posterHeight={posterHeight}
+                          statusLabel={statusLabel}
+                          showStatusLabel={showStatusLabel}
+                          statusHeight={statusHeight}
+                          statusFontSize={statusFontSize}
+                          statusPaddingX={statusPaddingX}
+                          statusX={statusX}
+                          statusY={statusY}
+                          statusAlign={statusAlign}
+                          showSynopsis={showSynopsis}
+                          synopsisLength={synopsisLength}
+                          titleColor={titleColor}
+                          infoColor={infoColor}
+                          synopsisColor={synopsisColor}
+                          availableColor={availableColor}
+                          brandName={brandName}
                         />
                       )}
                     </div>

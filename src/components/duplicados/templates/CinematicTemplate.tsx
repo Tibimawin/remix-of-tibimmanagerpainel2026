@@ -81,7 +81,7 @@ const CinematicTemplate = ({
   };
 
   return (
-    <div className="relative w-[750px] h-[500px] bg-black overflow-hidden flex flex-col font-sans text-white shadow-2xl rounded-sm">
+    <div className="relative w-[750px] h-[500px] bg-black overflow-hidden flex flex-col font-sans text-white shadow-2xl rounded-none">
       {/* Background */}
       <div 
         className="absolute inset-0 z-0"
