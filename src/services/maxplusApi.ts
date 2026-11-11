@@ -103,14 +103,97 @@ const WORKING_VERCEL_ALIAS = (typeof window !== 'undefined' && window.location.o
   ? window.location.origin
   : (import.meta.env.VITE_VERCEL_PROXY_BASE || 'https://tibimmanagerpainel.shop');
 
+const CATALOG_CACHE_TTL_MS = 10 * 60 * 1000;
+const DETAILS_CACHE_TTL_MS = 15 * 60 * 1000;
+const MAXPLUS_STORAGE_PREFIX = 'maxplus_cache_v1:';
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const memoryCache = new Map<string, CacheEntry<any>>();
+const inFlightRequests = new Map<string, Promise<any>>();
+const catalogMemoryIndex = new Map<string, MaxPlusCatalogItem>();
+
+function indexCatalogItems(items: MaxPlusCatalogItem[]) {
+  if (!Array.isArray(items)) return;
+  for (const item of items) {
+    if (item?.link && item?.nome) {
+      catalogMemoryIndex.set(item.link, item);
+    }
+  }
+}
+
+export function searchLocalCatalogMemory(term: string): MaxPlusCatalogItem[] {
+  const clean = term
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+  if (!clean || clean.length < 2) return [];
+
+  const tokens = clean.split(/\s+/).filter(Boolean);
+  const results: MaxPlusCatalogItem[] = [];
+
+  for (const item of catalogMemoryIndex.values()) {
+    const titleNorm = (item.nome || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    const genreNorm = (item.genres || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    if (tokens.every((tk) => titleNorm.includes(tk) || genreNorm.includes(tk))) {
+      results.push(item);
+    }
+  }
+  return results;
+}
+
+function readCache<T>(key: string, ttlMs: number): T | null {
+  const mem = memoryCache.get(key);
+  if (mem && Date.now() - mem.timestamp < ttlMs) {
+    return mem.data as T;
+  }
+  try {
+    if (typeof window !== 'undefined') {
+      const raw = sessionStorage.getItem(`${MAXPLUS_STORAGE_PREFIX}${key}`);
+      if (raw) {
+        const parsed = JSON.parse(raw) as CacheEntry<T>;
+        if (parsed && Date.now() - parsed.timestamp < ttlMs) {
+          memoryCache.set(key, parsed);
+          return parsed.data;
+        }
+      }
+    }
+  } catch {
+    // noop
+  }
+  return null;
+}
+
+function writeCache<T>(key: string, data: T): void {
+  const entry: CacheEntry<T> = { data, timestamp: Date.now() };
+  memoryCache.set(key, entry);
+  try {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(`${MAXPLUS_STORAGE_PREFIX}${key}`, JSON.stringify(entry));
+    }
+  } catch {
+    // sessionStorage pode encher — memória segue funcionando
+  }
+}
+
 /**
- * Executa requisição para a API MaxPlus com múltiplas camadas de resiliência:
- * 1. Tenta proxy local (/api/maxplus-proxy ou /api/maxplus) - imune a CORS, Brave Shields e extensões.
- * 2. Tenta upstream direto (https://api-tibimmanagerpainel.vercel.app/api/maxplus) com credentials: 'omit'.
- * 3. Tenta alias Vercel (https://.../api/maxplus-proxy).
- * 4. Inclui retentativa automática (retry) em caso de falha transitória de rede.
+ * Executa requisição para a API MaxPlus com múltiplas camadas de resiliência,
+ * cache, deduplicação e suporte a cancelamento via AbortSignal.
  */
-async function executeMaxPlusRequest<T = any>(params: Record<string, string>): Promise<T> {
+async function executeMaxPlusRequest<T = any>(
+  params: Record<string, string>,
+  options?: { signal?: AbortSignal; skipHttpCache?: boolean }
+): Promise<T> {
   const searchParams = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value) searchParams.set(key, value);
@@ -119,7 +202,7 @@ async function executeMaxPlusRequest<T = any>(params: Record<string, string>): P
 
   // Candidatos de URL em ordem de resiliência
   const candidates: string[] = [
-    // 1. Proxy do mesmo host (Zero CORS, zero conflito com extensões)
+    // 1. Proxy do mesmo host (Zero CORS, CDN Vercel Edge cache)
     `/api/maxplus-proxy?${queryString}`,
     `/api/maxplus?${queryString}`,
     // 2. Upstream direto
@@ -131,45 +214,60 @@ async function executeMaxPlusRequest<T = any>(params: Record<string, string>): P
   let lastError: unknown = null;
 
   for (let c = 0; c < candidates.length; c++) {
+    if (options?.signal?.aborted) {
+      throw new DOMException('Requisição cancelada', 'AbortError');
+    }
+
     const candidateUrl = candidates[c];
     const isDirectUpstream = candidateUrl.startsWith(MAXPLUS_API_BASE);
     const maxTries = isDirectUpstream ? 2 : 1;
 
     for (let attempt = 1; attempt <= maxTries; attempt++) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 25000);
+      if (options?.signal?.aborted) {
+        throw new DOMException('Requisição cancelada', 'AbortError');
+      }
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 24000);
+      const onExternalAbort = () => controller.abort();
+      options?.signal?.addEventListener('abort', onExternalAbort, { once: true });
+
+      try {
         const response = await fetch(candidateUrl, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
           },
-          // 🛡️ CRÍTICO: 'omit' impede que extensões (ex: api-sniffer) ou o browser enviem credenciais
-          // que conflitem com o header 'Access-Control-Allow-Origin: *', gerando 'TypeError: Failed to fetch'
           credentials: 'omit',
           mode: 'cors',
-          cache: 'no-store',
+          cache: options?.skipHttpCache ? 'no-store' : 'default',
           signal: controller.signal,
         });
 
         clearTimeout(timeout);
+        options?.signal?.removeEventListener('abort', onExternalAbort);
 
         if (response.ok) {
           const json = await response.json();
           return json as T;
         }
 
-        // Se deu 404 no endpoint local inicial, pula rapidamente para o próximo candidato
+        // Se deu 404 no endpoint local inicial (ex: dev local sem API), pula rápido
         if (response.status === 404 && !isDirectUpstream) {
           break;
         }
 
         lastError = new Error(`Servidor retornou status HTTP ${response.status}`);
       } catch (err: any) {
+        clearTimeout(timeout);
+        options?.signal?.removeEventListener('abort', onExternalAbort);
+
+        if (options?.signal?.aborted) {
+          throw err;
+        }
         lastError = err;
         if (attempt < maxTries) {
-          await new Promise((r) => setTimeout(r, 600));
+          await new Promise((r) => setTimeout(r, 400));
         }
       }
     }
@@ -181,37 +279,75 @@ async function executeMaxPlusRequest<T = any>(params: Record<string, string>): P
 }
 
 /**
- * 1. fetchCatalog: busca lista de itens por categoria ou url
+ * 1. fetchCatalog: busca lista de itens por categoria ou url (com cache instantâneo)
  */
-export async function fetchCatalog(categoryUrl: string): Promise<MaxPlusCatalogItem[]> {
+export async function fetchCatalog(
+  categoryUrl: string,
+  options?: { signal?: AbortSignal; forceRefresh?: boolean }
+): Promise<MaxPlusCatalogItem[]> {
   if (isDemoSessionActive()) {
-    return DEMO_MAXPLUS_CATALOG.map((item) => ({
+    const demo = DEMO_MAXPLUS_CATALOG.map((item) => ({
       ...item,
       imagem: getOptimizedCardImageUrl(item.imagem),
     }));
+    indexCatalogItems(demo);
+    return demo;
   }
 
-  try {
-    const data = await executeMaxPlusRequest<MaxPlusCatalogItem[]>({ url: categoryUrl });
-
-    if (!Array.isArray(data)) {
-      console.warn('Resposta do catálogo não é um array:', data);
-      return [];
+  const cacheKey = `catalog:${categoryUrl}`;
+  if (!options?.forceRefresh) {
+    const cached = readCache<MaxPlusCatalogItem[]>(cacheKey, CATALOG_CACHE_TTL_MS);
+    if (cached) {
+      indexCatalogItems(cached);
+      return cached;
     }
-
-    return data.map((item) => ({
-      ...item,
-      imagem: getOptimizedCardImageUrl(item.imagem),
-    }));
-  } catch (error: unknown) {
-    console.error('Erro em fetchCatalog:', error);
-    const msg = error instanceof Error ? error.message : 'Erro ao conectar à API MaxPlus';
-    throw new Error(msg);
   }
+
+  const existingInFlight = inFlightRequests.get(cacheKey);
+  if (existingInFlight && !options?.signal) {
+    return existingInFlight;
+  }
+
+  const reqPromise = (async () => {
+    try {
+      const data = await executeMaxPlusRequest<MaxPlusCatalogItem[]>(
+        { url: categoryUrl },
+        { signal: options?.signal }
+      );
+
+      if (!Array.isArray(data)) {
+        console.warn('Resposta do catálogo não é um array:', data);
+        return [];
+      }
+
+      const normalized = data.map((item) => ({
+        ...item,
+        imagem: getOptimizedCardImageUrl(item.imagem),
+      }));
+
+      indexCatalogItems(normalized);
+      writeCache(cacheKey, normalized);
+      return normalized;
+    } catch (error: unknown) {
+      if ((error as any)?.name === 'AbortError') {
+        throw error;
+      }
+      console.error('Erro em fetchCatalog:', error);
+      const msg = error instanceof Error ? error.message : 'Erro ao conectar à API MaxPlus';
+      throw new Error(msg);
+    } finally {
+      inFlightRequests.delete(cacheKey);
+    }
+  })();
+
+  if (!options?.signal) {
+    inFlightRequests.set(cacheKey, reqPromise);
+  }
+  return reqPromise;
 }
 
 /**
- * 2. fetchDetails: busca detalhes completos do conteúdo (filme ou série)
+ * 2. fetchDetails: busca detalhes completos do conteúdo (filme ou série) com cache
  */
 export async function fetchDetails(contentUrl: string): Promise<MaxPlusContentDetails> {
   if (isDemoSessionActive() || String(contentUrl).startsWith('demo://')) {
@@ -245,10 +381,17 @@ export async function fetchDetails(contentUrl: string): Promise<MaxPlusContentDe
       throw new Error('URL de conteúdo inválida ou vazia');
     }
 
+    const cacheKey = `details:${cleanUrl}`;
+    const cached = readCache<MaxPlusContentDetails>(cacheKey, DETAILS_CACHE_TTL_MS);
+    if (cached) {
+      return cached;
+    }
+
     const data = await executeMaxPlusRequest<MaxPlusContentDetails>({ id: cleanUrl });
 
     if (data && typeof data === 'object') {
       data.imagem = upgradeToHighResTmdbImage(data.imagem);
+      writeCache(cacheKey, data);
     }
     return data;
   } catch (error: unknown) {
@@ -276,7 +419,7 @@ export async function fetchEpisode(episodeUrl: string): Promise<MaxPlusEpisodeRe
       throw new Error('URL de episódio inválida ou vazia');
     }
 
-    const data = await executeMaxPlusRequest<MaxPlusEpisodeResult>({ ep: cleanUrl });
+    const data = await executeMaxPlusRequest<MaxPlusEpisodeResult>({ ep: cleanUrl }, { skipHttpCache: true });
     return data;
   } catch (error: unknown) {
     console.error('Erro em fetchEpisode:', error);
@@ -288,10 +431,13 @@ export async function fetchEpisode(episodeUrl: string): Promise<MaxPlusEpisodeRe
 /**
  * Helper para buscar por termo de pesquisa
  */
-export async function searchMaxPlus(term: string): Promise<MaxPlusCatalogItem[]> {
+export async function searchMaxPlus(
+  term: string,
+  options?: { signal?: AbortSignal }
+): Promise<MaxPlusCatalogItem[]> {
   if (isDemoSessionActive()) {
     const t = term.toLowerCase().trim();
-    const filtered = DEMO_MAXPLUS_CATALOG.filter(item => 
+    const filtered = DEMO_MAXPLUS_CATALOG.filter(item =>
       item.nome.toLowerCase().includes(t) || (item.genres && item.genres.toLowerCase().includes(t))
     );
     return filtered.map((item) => ({
@@ -301,5 +447,5 @@ export async function searchMaxPlus(term: string): Promise<MaxPlusCatalogItem[]>
   }
 
   const searchUrl = `http://apps.zynner.site/pesquisar-2/?q=${encodeURIComponent(term)}`;
-  return fetchCatalog(searchUrl);
+  return fetchCatalog(searchUrl, { signal: options?.signal });
 }

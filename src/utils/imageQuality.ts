@@ -31,9 +31,9 @@ export function upgradeToHighResTmdbImage(url: string | null | undefined): strin
 }
 
 /**
- * Converte URLs de posters para uma resolução otimizada para CARDS e grades de catálogo (w500).
- * Isso garante carregamento instantâneo (30KB-60KB por imagem em vez de 5MB-15MB do 'original'),
- * nitidez máxima em telas Retina/4K e elimina travamentos e telas pretas durante a rolagem.
+ * Converte URLs de posters para uma resolução otimizada para CARDS e grades de catálogo (w342).
+ * Garante carregamento ultrarrápido (~15KB-25KB por imagem) com alta nitidez nas miniaturas da grade
+ * e evita telas vazias durante a rolagem, mantendo 'original' para o modal de detalhes e Baserow.
  */
 export function getOptimizedCardImageUrl(url: string | null | undefined): string {
   if (!url || typeof url !== 'string') return '';
@@ -41,14 +41,14 @@ export function getOptimizedCardImageUrl(url: string | null | undefined): string
   if (!trimmed) return '';
 
   if (trimmed.startsWith('/') && trimmed.match(/\.(jpg|jpeg|png|webp)$/i)) {
-    return `https://image.tmdb.org/t/p/w500${trimmed}`;
+    return `https://image.tmdb.org/t/p/w342${trimmed}`;
   }
 
   const tmdbRegex = /^(https?:\/\/)?(image\.tmdb\.org|media\.themoviedb\.org|themoviedb\.org)\/t\/p\/([^/]+)\/(.+)$/i;
   const match = trimmed.match(tmdbRegex);
   if (match) {
     const filename = match[4];
-    return `https://image.tmdb.org/t/p/w500/${filename}`;
+    return `https://image.tmdb.org/t/p/w342/${filename}`;
   }
 
   return trimmed;

@@ -13,9 +13,10 @@ interface MaxPlusCardProps {
   onQuickImport?: (item: MaxPlusCatalogItem) => void;
   isImporting?: boolean;
   isAlreadyImported?: boolean;
+  priority?: boolean;
 }
 
-export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
+const MaxPlusCardComponent: React.FC<MaxPlusCardProps> = ({
   item,
   isSelected,
   onToggleSelect,
@@ -23,6 +24,7 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
   onQuickImport,
   isImporting = false,
   isAlreadyImported = false,
+  priority = false,
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -33,23 +35,29 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
 
   const cardImageUrl = getOptimizedCardImageUrl(item.imagem);
 
+  // Se a URL mudar ou já estiver no cache do navegador, detecta instantaneamente
+  const handleImgRef = (img: HTMLImageElement | null) => {
+    if (img && img.complete && img.naturalWidth > 0 && !imageLoaded) {
+      setImageLoaded(true);
+    }
+  };
+
   return (
     <div
-      className={`group relative flex flex-col rounded-xl overflow-hidden transition-all duration-300 border bg-[#151722] hover:shadow-2xl hover:shadow-[#00d2ff]/10 hover:border-[#00d2ff]/50 ${
+      className={`group relative flex flex-col rounded-xl overflow-hidden transition-colors duration-200 border bg-[#151722] hover:shadow-xl hover:shadow-[#00d2ff]/10 hover:border-[#00d2ff]/50 ${
         isSelected 
           ? 'border-[#00d2ff] ring-2 ring-[#00d2ff]/40 shadow-lg shadow-[#00d2ff]/20' 
           : isAlreadyImported
           ? 'border-emerald-500/40 hover:border-emerald-400/70 shadow-sm shadow-emerald-500/10'
           : 'border-[#232738]'
       }`}
-      style={{ contain: 'content' }}
     >
       {/* Checkbox de seleção em lote */}
       <div 
         className="absolute top-2.5 left-2.5 z-20"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="bg-[#0b0c10]/80 backdrop-blur-md p-1.5 rounded-lg border border-[#232738] shadow-md hover:border-[#00d2ff]/80 transition-colors">
+        <div className="bg-[#0b0c10]/90 p-1.5 rounded-lg border border-[#232738] shadow-md hover:border-[#00d2ff]/80 transition-colors">
           <Checkbox
             checked={isSelected}
             onCheckedChange={() => onToggleSelect(item)}
@@ -61,7 +69,7 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
       {/* Badge de "Já no Banco" (quando já importado) */}
       {isAlreadyImported && (
         <div className="absolute top-2.5 left-11 z-20 pointer-events-none">
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black tracking-wider uppercase backdrop-blur-md shadow-lg bg-emerald-500 text-slate-950 border border-emerald-400">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black tracking-wider uppercase shadow-md bg-emerald-500 text-slate-950 border border-emerald-400">
             <Check className="w-3 h-3 text-slate-950 stroke-[3]" />
             No Banco
           </span>
@@ -71,10 +79,10 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
       {/* Badge de Tipo (Filme / Série) */}
       <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none">
         <span
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase backdrop-blur-md shadow-md border ${
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase shadow-md border ${
             isSeries
-              ? 'bg-[#6366f1]/90 text-white border-[#6366f1]/60'
-              : 'bg-[#00d2ff]/90 text-black border-[#00d2ff]/60 font-extrabold'
+              ? 'bg-[#6366f1] text-white border-[#6366f1]/60'
+              : 'bg-[#00d2ff] text-black border-[#00d2ff]/60 font-extrabold'
           }`}
         >
           {isSeries ? <Tv className="w-3 h-3" /> : <Film className="w-3 h-3" />}
@@ -87,26 +95,28 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
         className="relative aspect-[2/3] w-full overflow-hidden bg-[#181b2a] cursor-pointer"
         onClick={() => onOpenDetails(item)}
       >
-        {/* Shimmer / Skeleton Placeholder enquanto carrega a imagem */}
+        {/* Placeholder leve sem animate-pulse contínuo para rolagem fluida */}
         {!imageLoaded && !imageError && (
-          <div className="absolute inset-0 bg-[#161826] flex items-center justify-center animate-pulse">
-            <Film className="w-8 h-8 text-slate-700 opacity-40 animate-pulse" />
+          <div className="absolute inset-0 bg-[#181b2a] flex items-center justify-center">
+            <Film className="w-7 h-7 text-slate-700 opacity-35" />
           </div>
         )}
 
         {cardImageUrl && !imageError ? (
           <img
+            ref={handleImgRef}
             src={cardImageUrl}
             alt={item.nome}
-            loading="lazy"
+            loading={priority ? 'eager' : 'lazy'}
             decoding="async"
+            fetchPriority={priority ? 'high' : 'auto'}
             referrerPolicy="no-referrer"
             onLoad={() => setImageLoaded(true)}
             onError={() => {
               setImageError(true);
               setImageLoaded(true);
             }}
-            className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-105 group-hover:brightness-105 ${
+            className={`w-full h-full object-cover transition-opacity duration-200 group-hover:scale-105 ${
               imageLoaded ? 'opacity-100' : 'opacity-0'
             }`}
           />
@@ -118,17 +128,17 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
         )}
 
         {/* Gradiente escuro para contraste suave */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#151722] via-[#151722]/20 to-transparent opacity-80 group-hover:opacity-50 transition-opacity pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#151722] via-transparent to-transparent opacity-80 group-hover:opacity-50 transition-opacity pointer-events-none" />
 
         {/* Botão Hover rápido para ver detalhes */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/40 backdrop-blur-[2px]">
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/45">
           <Button
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
               onOpenDetails(item);
             }}
-            className="bg-[#00d2ff] hover:bg-[#00b8e6] text-slate-950 font-bold shadow-lg shadow-[#00d2ff]/30 text-xs gap-1.5 px-3.5 py-1.5 h-8 rounded-lg transform scale-95 group-hover:scale-100 transition-all"
+            className="bg-[#00d2ff] hover:bg-[#00b8e6] text-slate-950 font-bold shadow-lg shadow-[#00d2ff]/30 text-xs gap-1.5 px-3.5 py-1.5 h-8 rounded-lg"
           >
             <Sparkles className="w-3.5 h-3.5 text-slate-950" />
             Detalhes
@@ -170,7 +180,7 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
               onOpenDetails(item);
             }
           }}
-          className={`w-full text-xs h-7 gap-1.5 transition-all ${
+          className={`w-full text-xs h-7 gap-1.5 transition-colors ${
             isAlreadyImported
               ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-400 hover:text-emerald-200'
               : 'bg-[#0b0c10]/60 border-[#232738] hover:bg-[#00d2ff]/10 hover:border-[#00d2ff]/60 hover:text-[#00d2ff] text-slate-300'
@@ -192,3 +202,5 @@ export const MaxPlusCard: React.FC<MaxPlusCardProps> = ({
     </div>
   );
 };
+
+export const MaxPlusCard = React.memo(MaxPlusCardComponent);

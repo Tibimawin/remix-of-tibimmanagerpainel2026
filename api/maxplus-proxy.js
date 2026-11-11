@@ -77,7 +77,7 @@ export default async function handler(req, res) {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30000);
+        const timeout = setTimeout(() => controller.abort(), 22000);
 
         const upstreamRes = await fetch(targetUrl.toString(), {
           method: 'GET',
@@ -96,12 +96,12 @@ export default async function handler(req, res) {
 
         const data = await upstreamRes.json();
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        res.setHeader('Cache-Control', 'public, s-maxage=60, max-age=30');
+        res.setHeader('Cache-Control', 'public, s-maxage=300, max-age=120, stale-while-revalidate=900');
         return res.status(200).json(data);
       } catch (err) {
         lastError = err;
         if (attempt < maxAttempts) {
-          await new Promise((r) => setTimeout(r, 800));
+          await new Promise((r) => setTimeout(r, 400));
         }
       }
     }

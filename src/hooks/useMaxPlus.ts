@@ -3,6 +3,7 @@ import {
   fetchCatalog, 
   fetchDetails, 
   searchMaxPlus,
+  searchLocalCatalogMemory,
   MaxPlusCatalogItem, 
   MaxPlusContentDetails, 
   MAXPLUS_CATEGORIES 
@@ -19,7 +20,9 @@ export function useMaxPlus() {
 
   const [items, setItems] = useState<MaxPlusCatalogItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [searchingRemote, setSearchingRemote] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const fetchAbortRef = useRef<AbortController | null>(null);
 
   const [selectedCategoryUrl, setSelectedCategoryUrl] = useState<string>(MAXPLUS_CATEGORIES[0].url);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -188,10 +191,17 @@ export function useMaxPlus() {
     return items.filter(item => isItemImported(item.nome)).length;
   }, [items, isItemImported]);
 
-  // Carregar catálogo de uma categoria com suporte à paginação
+  // Carregar catálogo de uma categoria com suporte à paginação e cancelamento de requisições antigas
   const loadCategory = useCallback(async (categoryUrl: string, page: number = 1) => {
+    if (fetchAbortRef.current) {
+      fetchAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
+
     try {
       setLoading(true);
+      setSearchingRemote(false);
       setError(null);
       setSelectedCategoryUrl(categoryUrl);
       setCurrentPage(page);
@@ -205,7 +215,9 @@ export function useMaxPlus() {
         targetUrl = `${clean}/page/${page}/`;
       }
 
-      const data = await fetchCatalog(targetUrl);
+      const data = await fetchCatalog(targetUrl, { signal: controller.signal });
+      if (controller.signal.aborted) return;
+
       setItems(data);
       setHasMorePages(Array.isArray(data) && data.length >= 10);
 
@@ -214,13 +226,19 @@ export function useMaxPlus() {
         checkImportedStatusRef.current(data);
       }
     } catch (err: any) {
+      if (err?.name === 'AbortError' || controller.signal.aborted) {
+        return;
+      }
       console.error('Erro ao carregar categoria:', err);
       setError(err?.message || 'Falha ao carregar catálogo.');
       toast.error('Erro ao carregar catálogo do MaxPlus');
       setItems([]);
       setHasMorePages(false);
     } finally {
-      setLoading(false);
+      if (fetchAbortRef.current === controller) {
+        setLoading(false);
+        setSearchingRemote(false);
+      }
     }
   }, []);
 
@@ -233,36 +251,76 @@ export function useMaxPlus() {
     }
   }, [selectedCategoryUrl, loadCategory]);
 
-  // Buscar conteúdos
+  // Buscar conteúdos com resultados locais instantâneos + busca completa no servidor
   const handleSearch = useCallback(async (query: string) => {
     const term = query.trim();
     if (!term) return;
 
+    if (fetchAbortRef.current) {
+      fetchAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
+
+    const localMatches = searchLocalCatalogMemory(term);
+
     try {
-      setLoading(true);
       setError(null);
       setSelectedCategoryUrl('');
+      setSearchQuery(term);
       setCurrentPage(1);
       setHasMorePages(false);
       setSelectedItems([]);
 
-      const data = await searchMaxPlus(term);
-      setItems(data);
+      if (localMatches.length > 0) {
+        setItems(localMatches);
+        setLoading(false);
+        setSearchingRemote(true);
+      } else {
+        setItems([]);
+        setLoading(true);
+        setSearchingRemote(true);
+      }
 
-      if (data.length === 0) {
+      const remoteData = await searchMaxPlus(term, { signal: controller.signal });
+      if (controller.signal.aborted) return;
+
+      // Mescla resultados do servidor primeiro e mantém eventuais correspondências locais extras sem duplicar
+      const mergedMap = new Map<string, MaxPlusCatalogItem>();
+      remoteData.forEach((item) => {
+        if (item?.link) mergedMap.set(item.link, item);
+      });
+      localMatches.forEach((item) => {
+        if (item?.link && !mergedMap.has(item.link)) {
+          mergedMap.set(item.link, item);
+        }
+      });
+
+      const finalData = Array.from(mergedMap.values());
+      setItems(finalData);
+
+      if (finalData.length === 0) {
         toast.info(`Nenhum resultado encontrado para "${term}"`);
       } else {
-        toast.success(`${data.length} títulos encontrados para "${term}"`);
-        checkImportedStatus(data);
+        toast.success(`${finalData.length} títulos encontrados para "${term}"`);
+        checkImportedStatusRef.current(finalData);
       }
     } catch (err: any) {
+      if (err?.name === 'AbortError' || controller.signal.aborted) {
+        return;
+      }
       console.error('Erro na pesquisa:', err);
-      setError(err?.message || 'Falha ao buscar títulos.');
-      toast.error('Erro ao realizar busca no MaxPlus');
+      if (localMatches.length === 0) {
+        setError(err?.message || 'Falha ao buscar títulos.');
+        toast.error('Erro ao realizar busca no MaxPlus');
+      }
     } finally {
-      setLoading(false);
+      if (fetchAbortRef.current === controller) {
+        setLoading(false);
+        setSearchingRemote(false);
+      }
     }
-  }, [checkImportedStatus]);
+  }, []);
 
   // Abrir modal de detalhes limpo
   const openDetails = useCallback(async (item: MaxPlusCatalogItem) => {
@@ -479,6 +537,7 @@ export function useMaxPlus() {
     items,
     filteredItems,
     loading,
+    searchingRemote,
     error,
     selectedCategoryUrl,
     searchQuery,

@@ -40,6 +40,7 @@ const MaxPlus: React.FC = () => {
     items,
     filteredItems,
     loading,
+    searchingRemote,
     error,
     selectedCategoryUrl,
     searchQuery,
@@ -73,6 +74,31 @@ const MaxPlus: React.FC = () => {
 
   const [inputSearchTerm, setInputSearchTerm] = useState('');
   const [jumpPageInput, setJumpPageInput] = useState('');
+  const [visibleLimit, setVisibleLimit] = useState(30);
+  const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Reinicia o limite progressivo ao trocar categoria, pesquisa ou filtro
+  useEffect(() => {
+    setVisibleLimit(30);
+  }, [items, filterMode, searchQuery, selectedCategoryUrl]);
+
+  // Pré-carrega o próximo bloco de cards 700px antes do usuário chegar ao fim da grade
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el || visibleLimit >= filteredItems.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleLimit((prev) => Math.min(prev + 30, filteredItems.length));
+        }
+      },
+      { rootMargin: '700px 0px' }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [visibleLimit, filteredItems.length]);
 
   // Gerenciador do Teste de 24 Horas do MaxPlus
   const { isTrialActive, isTrialExpired, hasPermanentAccess, formattedRemaining } = useMaxPlusTrial();
@@ -223,7 +249,7 @@ const MaxPlus: React.FC = () => {
           </div>
           <Button
             type="submit"
-            disabled={loading || !inputSearchTerm.trim()}
+            disabled={!inputSearchTerm.trim()}
             className="bg-[#00d2ff] hover:bg-[#00b8e6] text-slate-950 font-bold px-4 h-10 rounded-xl shadow-md shadow-[#00d2ff]/20 text-xs"
           >
             Buscar
@@ -436,27 +462,47 @@ const MaxPlus: React.FC = () => {
           <span className="font-semibold text-slate-200">
             {activeCategory ? `Catálogo: ${activeCategory.name}` : searchQuery ? `Pesquisa: "${searchQuery}"` : 'Resultados'}
           </span>
-          <span>•</span>
-          <span>{items.length} títulos carregados</span>
-          
-          {items.length > 0 && (
+
+          {loading ? (
             <>
               <span>•</span>
-              <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                {importedCountOnScreen} no banco
-              </span>
-              <span>•</span>
-              <span className="text-slate-400 font-medium">
-                {pendingCountOnScreen} pendentes
+              <span className="inline-flex items-center gap-1.5 text-[#00d2ff]">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                {searchQuery ? `Buscando "${searchQuery}" no MaxPlus...` : 'Carregando catálogo...'}
               </span>
             </>
-          )}
+          ) : (
+            <>
+              <span>•</span>
+              <span>{items.length} títulos carregados</span>
 
-          {loadingImportedCheck && (
-            <span className="text-[11px] text-[#00d2ff] animate-pulse">
-              (Verificando banco...)
-            </span>
+              {items.length > 0 && (
+                <>
+                  <span>•</span>
+                  <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    {importedCountOnScreen} no banco
+                  </span>
+                  <span>•</span>
+                  <span className="text-slate-400 font-medium">
+                    {pendingCountOnScreen} pendentes
+                  </span>
+                </>
+              )}
+
+              {searchingRemote && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-[#00d2ff] bg-[#00d2ff]/10 border border-[#00d2ff]/30 px-2 py-0.5 rounded-full">
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                  Buscando mais resultados no servidor...
+                </span>
+              )}
+
+              {loadingImportedCheck && (
+                <span className="text-[11px] text-[#00d2ff] animate-pulse">
+                  (Verificando banco...)
+                </span>
+              )}
+            </>
           )}
 
           {/* Mini-Paginador Superior para a Categoria Ativa */}
@@ -486,7 +532,7 @@ const MaxPlus: React.FC = () => {
         </div>
 
         {/* Abas / Filtros Rápidos (Todos / No Banco / Pendentes) */}
-        {items.length > 0 && (
+        {!loading && items.length > 0 && (
           <div className="flex items-center gap-2">
             <div className="inline-flex bg-[#151722] p-1 rounded-xl border border-[#232738]">
               <button
@@ -563,24 +609,40 @@ const MaxPlus: React.FC = () => {
           </Button>
         </div>
       ) : filteredItems.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5">
-          {filteredItems.map((item, index) => {
-            const isSelected = selectedItems.some(i => i.link === item.link);
-            const isAlreadyImported = isItemImported(item.nome);
-            return (
-              <MaxPlusCard
-                key={`${item.link}-${index}`}
-                item={item}
-                isSelected={isSelected}
-                isAlreadyImported={isAlreadyImported}
-                onToggleSelect={toggleSelectItem}
-                onOpenDetails={openDetails}
-                onQuickImport={(i) => openDetails(i)}
-                isImporting={isImporting}
-              />
-            );
-          })}
-        </div>
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5">
+            {filteredItems.slice(0, visibleLimit).map((item, index) => {
+              const isSelected = selectedItems.some(i => i.link === item.link);
+              const isAlreadyImported = isItemImported(item.nome);
+              return (
+                <MaxPlusCard
+                  key={`${item.link}-${index}`}
+                  item={item}
+                  isSelected={isSelected}
+                  isAlreadyImported={isAlreadyImported}
+                  onToggleSelect={toggleSelectItem}
+                  onOpenDetails={openDetails}
+                  onQuickImport={openDetails}
+                  isImporting={isImporting}
+                  priority={index < 18}
+                />
+              );
+            })}
+          </div>
+
+          {visibleLimit < filteredItems.length && (
+            <div ref={loadMoreRef} className="flex flex-col items-center justify-center py-4 gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setVisibleLimit((prev) => Math.min(prev + 30, filteredItems.length))}
+                className="bg-[#151722] border-[#232738] text-slate-200 hover:border-[#00d2ff] hover:text-[#00d2ff] text-xs gap-2"
+              >
+                Mostrar mais ({filteredItems.length - visibleLimit} restantes)
+              </Button>
+            </div>
+          )}
+        </>
       ) : (
         <div className="flex flex-col items-center justify-center py-20 bg-[#151722]/60 border border-[#232738] rounded-2xl text-center space-y-3">
           <Film className="w-12 h-12 text-slate-600" />
