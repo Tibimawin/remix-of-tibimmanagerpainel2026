@@ -26,6 +26,8 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { UpdateNotificationModal } from "./components/UpdateNotificationModal";
 import { ConsoleInspector } from "./components/ConsoleInspector";
 import { M3UImportProvider } from "./contexts/M3UImportContext";
+import { MaxPlusImportProvider } from "./contexts/MaxPlusImportContext";
+import { MaxPlusFloatingProgress } from "./components/maxplus/MaxPlusFloatingProgress";
 import { AppNameProvider } from "./contexts/AppNameContext";
 import { LojaCartProvider } from "./contexts/LojaCartContext";
 
@@ -166,12 +168,14 @@ const App = () => {
                           <CustomizationProvider>
                           <ZoomProvider>
                           <M3UImportProvider>
+                          <MaxPlusImportProvider>
                           <AppWithMonitor />
                           <UpdateNotificationModal />
                           <ConsoleInspector />
                           <Sonner />
                           <LojaCartProvider>
                           <BrowserRouter>
+                            <MaxPlusFloatingProgress />
                             <Suspense fallback={<PageLoadingFallback />}>
                               <Routes>
                               {/* Rota inicial - página de apresentação */}
@@ -321,6 +325,7 @@ const App = () => {
                           </Suspense>
                         </BrowserRouter>
                         </LojaCartProvider>
+                          </MaxPlusImportProvider>
                           </M3UImportProvider>
                           </ZoomProvider>
                           </CustomizationProvider>

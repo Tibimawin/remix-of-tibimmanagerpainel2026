@@ -8,29 +8,43 @@ import {
   MaxPlusContentDetails, 
   MAXPLUS_CATEGORIES 
 } from '@/services/maxplusApi';
-import { MaxPlusImportEngine, ImportProgress, getTitleMatchVariants, normalizeTitle } from '@/services/maxplusImportEngine';
+import { getTitleMatchVariants, normalizeTitle } from '@/services/maxplusImportEngine';
 import { useConfig } from '@/contexts/ConfigContext';
-import { useBaserowService } from '@/services/BaserowService';
+import { useMaxPlusImport } from '@/contexts/MaxPlusImportContext';
 import { toast } from 'sonner';
-import { isDemoSessionActive } from '@/services/BaserowDemoData';
 
 export function useMaxPlus() {
-  const { config, isConfigured } = useConfig();
-  const baserowService = useBaserowService();
+  const { isConfigured } = useConfig();
+  const {
+    items,
+    setItems,
+    selectedCategoryUrl,
+    setSelectedCategoryUrl,
+    searchQuery,
+    setSearchQuery,
+    currentPage,
+    setCurrentPage,
+    hasMorePages,
+    setHasMorePages,
+    filterMode,
+    setFilterMode,
+    selectedItems,
+    setSelectedItems,
+    isImporting,
+    importProgress,
+    setImportProgress,
+    importedTitles,
+    setImportedTitles,
+    engine,
+    importMovie: contextImportMovie,
+    importSeries: contextImportSeries,
+    importSelectedBatch: contextImportSelectedBatch,
+  } = useMaxPlusImport();
 
-  const [items, setItems] = useState<MaxPlusCatalogItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(items.length === 0);
   const [searchingRemote, setSearchingRemote] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
-
-  const [selectedCategoryUrl, setSelectedCategoryUrl] = useState<string>(MAXPLUS_CATEGORIES[0].url);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [hasMorePages, setHasMorePages] = useState<boolean>(true);
-
-  // Seleção em lote
-  const [selectedItems, setSelectedItems] = useState<MaxPlusCatalogItem[]>([]);
 
   // Detalhes & Modal
   const [detailsModalOpen, setDetailsModalOpen] = useState<boolean>(false);
@@ -38,44 +52,7 @@ export function useMaxPlus() {
   const [currentDetails, setCurrentDetails] = useState<MaxPlusContentDetails | null>(null);
   const [selectedCatalogItem, setSelectedCatalogItem] = useState<MaxPlusCatalogItem | null>(null);
 
-  // Progresso de Importação
-  const [importProgress, setImportProgress] = useState<ImportProgress>({
-    active: false,
-    total: 0,
-    current: 0,
-    currentTitle: '',
-    stage: '',
-  });
-  const [isImporting, setIsImporting] = useState<boolean>(false);
-
-  // Detecção de Conteúdos já importados no Baserow com hidratação imediata
-  const conteudosId = config.tableIds?.conteudos || config.conteudosTableId || '';
-  const [importedTitles, setImportedTitles] = useState<Set<string>>(() => 
-    MaxPlusImportEngine.getKnownImportedTitles(conteudosId)
-  );
   const [loadingImportedCheck, setLoadingImportedCheck] = useState<boolean>(false);
-  const [filterMode, setFilterMode] = useState<'all' | 'imported' | 'pending'>('all');
-
-  // Hidratação quando a configuração de tabelas for carregada
-  useEffect(() => {
-    if (conteudosId) {
-      const stored = MaxPlusImportEngine.getKnownImportedTitles(conteudosId);
-      if (stored.size > 0) {
-        setImportedTitles(prev => {
-          const next = new Set(prev);
-          stored.forEach(t => next.add(t));
-          return next;
-        });
-      }
-    }
-  }, [conteudosId]);
-
-  // Instância do motor de importação
-  const engine = useMemo(() => {
-    const conteudosId = config.tableIds?.conteudos || config.conteudosTableId || '';
-    const episodiosId = config.tableIds?.episodios || config.episodiosTableId || '';
-    return new MaxPlusImportEngine(baserowService, conteudosId, episodiosId);
-  }, [config.tableIds?.conteudos, config.conteudosTableId, config.tableIds?.episodios, config.episodiosTableId, baserowService]);
 
   const engineRef = useRef(engine);
   engineRef.current = engine;
@@ -376,162 +353,43 @@ export function useMaxPlus() {
     });
   }, [items]);
 
-  // Importar Filme único
+  // Importar Filme único (roda em background global)
   const importMovie = useCallback(async (details: MaxPlusContentDetails, fallbackCat?: string) => {
-    if (!isConfiguredRef.current && !isDemoSessionActive()) {
-      toast.error('Configure as credenciais e tabelas do Baserow nas Configurações.');
-      return;
-    }
+    await contextImportMovie(details, fallbackCat);
+    lastCheckedFingerprintRef.current = '';
+    checkImportedStatusRef.current(undefined, true);
+  }, [contextImportMovie]);
 
-    try {
-      setIsImporting(true);
-      toast.loading(`Importando filme "${details.nome}"...`, { id: 'import-movie' });
-
-      const res = await engineRef.current.importMovie(details, fallbackCat);
-
-      // Marca o título imediatamente como importado no estado local com todas as variantes
-      const variants = getTitleMatchVariants(details.nome);
-      if (variants.length > 0) {
-        setImportedTitles(prev => {
-          const next = new Set(prev);
-          variants.forEach(v => next.add(v));
-          return next;
-        });
-      }
-
-      if (res?.updated) {
-        toast.success(`Filme "${details.nome}" atualizado no Baserow com sucesso!`, { id: 'import-movie' });
-      } else {
-        toast.success(`Filme "${details.nome}" importado com sucesso!`, { id: 'import-movie' });
-      }
-
-      // Re-sincroniza em background
-      lastCheckedFingerprintRef.current = '';
-      checkImportedStatusRef.current(undefined, true);
-    } catch (err: any) {
-      console.error('Erro ao importar filme:', err);
-      toast.error(`Falha ao importar filme: ${err?.message || 'Erro desconhecido'}`, { id: 'import-movie' });
-    } finally {
-      setIsImporting(false);
-    }
-  }, []);
-
-  // Importar Série única (com episódios)
+  // Importar Série única (roda em background global)
   const importSeries = useCallback(async (
-    details: MaxPlusContentDetails, 
+    details: MaxPlusContentDetails,
     fallbackCat?: string,
     selectedEps?: { seasonNum: number; episodeNum: number }[]
   ) => {
-    if (!isConfiguredRef.current && !isDemoSessionActive()) {
-      toast.error('Configure as credenciais e tabelas do Baserow nas Configurações.');
-      return;
-    }
+    await contextImportSeries(details, fallbackCat, selectedEps);
+    lastCheckedFingerprintRef.current = '';
+    checkImportedStatusRef.current(undefined, true);
+  }, [contextImportSeries]);
 
-    try {
-      setIsImporting(true);
-      toast.loading(`Iniciando importação de "${details.nome}"...`, { id: 'import-series' });
-
-      const result = await engineRef.current.importSeries(
-        details, 
-        fallbackCat, 
-        (progress) => setImportProgress(progress),
-        selectedEps
-      );
-
-      // Marca o título imediatamente como importado no estado local com todas as variantes
-      const variants = getTitleMatchVariants(details.nome);
-      if (variants.length > 0) {
-        setImportedTitles(prev => {
-          const next = new Set(prev);
-          variants.forEach(v => next.add(v));
-          return next;
-        });
-      }
-
-      const actionMsg = result.updated ? 'atualizada' : 'importada';
-      let epDetail = `${result.totalEpisodesImported} episódios processados`;
-      if (result.createdEpisodesCount > 0 && result.updatedEpisodesCount > 0) {
-        epDetail = `${result.createdEpisodesCount} novos episódios criados, ${result.updatedEpisodesCount} atualizados`;
-      } else if (result.updatedEpisodesCount > 0) {
-        epDetail = `${result.updatedEpisodesCount} episódios atualizados`;
-      } else if (result.createdEpisodesCount > 0) {
-        epDetail = `${result.createdEpisodesCount} episódios criados`;
-      }
-
-      toast.success(
-        `Série "${details.nome}" ${actionMsg} com sucesso! (${epDetail})`, 
-        { id: 'import-series', duration: 5500 }
-      );
-
-      // Re-sincroniza em background
-      lastCheckedFingerprintRef.current = '';
-      checkImportedStatusRef.current(undefined, true);
-    } catch (err: any) {
-      console.error('Erro ao importar série:', err);
-      toast.error(`Falha ao importar série: ${err?.message || 'Erro desconhecido'}`, { id: 'import-series' });
-    } finally {
-      setIsImporting(false);
-      setImportProgress({ active: false, total: 0, current: 0, currentTitle: '', stage: '' });
-    }
-  }, []);
-
-  // Importar itens selecionados em Lote (Batch)
+  // Importar itens selecionados em Lote (roda em background global)
   const importSelectedBatch = useCallback(async () => {
-    if (selectedItems.length === 0) {
-      toast.info('Selecione pelo menos um item para importar.');
-      return;
-    }
-    if (!isConfiguredRef.current && !isDemoSessionActive()) {
-      toast.error('Configure as credenciais e tabelas do Baserow nas Configurações.');
-      return;
-    }
+    await contextImportSelectedBatch(selectedItems);
+    lastCheckedFingerprintRef.current = '';
+    checkImportedStatusRef.current(undefined, true);
+  }, [contextImportSelectedBatch, selectedItems]);
 
-    try {
-      setIsImporting(true);
-      toast.loading(`Importando ${selectedItems.length} itens em lote...`, { id: 'import-batch' });
-
-      const result = await engineRef.current.importBatch(selectedItems, (progress) => {
-        setImportProgress(progress);
-      });
-
-      // Atualiza imediatamente todos os títulos importados no estado do React
-      if (result.succeededTitles && result.succeededTitles.length > 0) {
-        setImportedTitles(prev => {
-          const next = new Set(prev);
-          result.succeededTitles.forEach(title => {
-            const variants = getTitleMatchVariants(title);
-            variants.forEach(v => next.add(v));
-          });
-          return next;
-        });
-      }
-
-      toast.success(
-        `Lote concluído: ${result.succeeded} importados com sucesso${result.failed > 0 ? `, ${result.failed} falhas` : ''}!`,
-        { id: 'import-batch', duration: 6000 }
-      );
-      setSelectedItems([]);
-
-      // Re-sincroniza os itens importados após conclusão do lote
-      lastCheckedFingerprintRef.current = '';
-      checkImportedStatusRef.current(undefined, true);
-    } catch (err: any) {
-      console.error('Erro na importação em lote:', err);
-      toast.error(`Falha no lote: ${err?.message || 'Erro desconhecido'}`, { id: 'import-batch' });
-    } finally {
-      setIsImporting(false);
-      setImportProgress({ active: false, total: 0, current: 0, currentTitle: '', stage: '' });
-    }
-  }, [selectedItems]);
-
-  // Carrega categoria inicial apenas uma vez ao montar
+  // Carrega categoria inicial apenas se o catálogo ainda estiver vazio
   const mountedRef = useRef(false);
   useEffect(() => {
     if (!mountedRef.current) {
       mountedRef.current = true;
-      loadCategory(MAXPLUS_CATEGORIES[0].url);
+      if (items.length === 0) {
+        loadCategory(MAXPLUS_CATEGORIES[0].url);
+      } else {
+        setLoading(false);
+      }
     }
-  }, [loadCategory]);
+  }, [loadCategory, items.length]);
 
   return {
     items,
