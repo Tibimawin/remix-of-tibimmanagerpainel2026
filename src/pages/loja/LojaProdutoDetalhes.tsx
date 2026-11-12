@@ -15,7 +15,8 @@ import {
   Image as ImageIcon,
   Layers,
   Cpu,
-  Flame
+  Flame,
+  Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -350,6 +351,11 @@ const LojaProdutoDetalhes: React.FC = () => {
                     {product.badge}
                   </Badge>
                 )}
+                {product.liberarDemo && product.demoAppUrl && (
+                  <Badge className="bg-emerald-600 text-white font-black text-[10px] border-none">
+                    <Download className="w-3 h-3 mr-1" /> DEMO GRÁTIS
+                  </Badge>
+                )}
               </div>
 
               <div>
@@ -421,6 +427,18 @@ const LojaProdutoDetalhes: React.FC = () => {
                   <ShoppingCart className="w-4 h-4 mr-2" />
                   Adicionar ao Carrinho
                 </Button>
+
+                {product.liberarDemo && product.demoAppUrl && (
+                  <a
+                    href={product.demoAppUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full h-11 rounded-md border border-emerald-500/40 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 font-black text-sm inline-flex items-center justify-center transition-colors"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Baixar App Demo (Testar Grátis)
+                  </a>
+                )}
 
                 {whatsappNumber && (
                   <Button

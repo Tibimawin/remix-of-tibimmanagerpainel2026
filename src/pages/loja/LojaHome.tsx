@@ -12,7 +12,8 @@ import {
   ArrowRight,
   CheckCircle2,
   Package,
-  Flame
+  Flame,
+  Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -288,6 +289,11 @@ const LojaHome: React.FC = () => {
                             {product.badge}
                           </Badge>
                         )}
+                        {product.liberarDemo && product.demoAppUrl && (
+                          <Badge className="bg-emerald-600 text-white font-black text-[10px] border-none shadow-md">
+                            <Download className="w-3 h-3 mr-1" /> DEMO GRÁTIS
+                          </Badge>
+                        )}
                       </div>
                       {discountPct > 0 && (
                         <Badge className="bg-emerald-600 text-white font-black text-[10px] border-none shadow-md">
@@ -382,6 +388,18 @@ const LojaHome: React.FC = () => {
                           Comprar
                         </Button>
                       </div>
+
+                      {product.liberarDemo && product.demoAppUrl && (
+                        <a
+                          href={product.demoAppUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full h-9 rounded-md border border-emerald-500/35 bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-300 font-bold text-xs inline-flex items-center justify-center transition-colors"
+                        >
+                          <Download className="w-3.5 h-3.5 mr-1.5" />
+                          Baixar App Demo para Testar
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>

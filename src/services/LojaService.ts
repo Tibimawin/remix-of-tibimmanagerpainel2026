@@ -32,6 +32,8 @@ export interface LojaProduto {
   imagemPrincipal: string;
   galeriaImagens: string[];
   videoDemoUrl?: string;
+  liberarDemo?: boolean;
+  demoAppUrl?: string;
   recursos: string[];
   especificacoes: LojaSpec[];
   compatibilidade: string[];
@@ -101,8 +103,36 @@ export interface LojaImagemRecord {
   createdAt: string;
 }
 
-// Helper para comprimir imagem mantendo nitidez e tamanho compacto (<350KB)
-const compressImageToBase64 = (file: File, maxWidth = 1080, quality = 0.84): Promise<string> => {
+// Helper para comprimir imagem mantendo nitidez e tamanho compacto sem travar a UI
+const compressImageToBase64 = async (file: File, maxWidth = 960, quality = 0.80): Promise<string> => {
+  try {
+    if (typeof createImageBitmap === 'function') {
+      const bitmap = await createImageBitmap(file);
+      let width = bitmap.width;
+      let height = bitmap.height;
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(bitmap, 0, 0, width, height);
+        bitmap.close();
+        let dataUrl = canvas.toDataURL('image/webp', quality);
+        if (dataUrl.length > 600000) {
+          dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+        }
+        return dataUrl;
+      }
+      bitmap.close();
+    }
+  } catch {
+    // Fallback para FileReader + Image
+  }
+
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -124,8 +154,7 @@ const compressImageToBase64 = (file: File, maxWidth = 1080, quality = 0.84): Pro
         }
         ctx.drawImage(img, 0, 0, width, height);
         let dataUrl = canvas.toDataURL('image/webp', quality);
-        // Garante compatibilidade caso dataUrl ultrapasse 650KB
-        if (dataUrl.length > 650000) {
+        if (dataUrl.length > 600000) {
           dataUrl = canvas.toDataURL('image/jpeg', 0.72);
         }
         resolve(dataUrl);
@@ -217,6 +246,8 @@ export const LojaService = {
             imagemPrincipal: data.imagemPrincipal || '',
             galeriaImagens: Array.isArray(data.galeriaImagens) ? data.galeriaImagens : [],
             videoDemoUrl: data.videoDemoUrl || '',
+            liberarDemo: Boolean(data.liberarDemo),
+            demoAppUrl: data.demoAppUrl || '',
             recursos: Array.isArray(data.recursos) ? data.recursos : [],
             especificacoes: Array.isArray(data.especificacoes) ? data.especificacoes : [],
             compatibilidade: Array.isArray(data.compatibilidade) ? data.compatibilidade : [],
@@ -263,6 +294,8 @@ export const LojaService = {
         imagemPrincipal: data.imagemPrincipal || '',
         galeriaImagens: Array.isArray(data.galeriaImagens) ? data.galeriaImagens : [],
         videoDemoUrl: data.videoDemoUrl || '',
+        liberarDemo: Boolean(data.liberarDemo),
+        demoAppUrl: data.demoAppUrl || '',
         recursos: Array.isArray(data.recursos) ? data.recursos : [],
         especificacoes: Array.isArray(data.especificacoes) ? data.especificacoes : [],
         compatibilidade: Array.isArray(data.compatibilidade) ? data.compatibilidade : [],
