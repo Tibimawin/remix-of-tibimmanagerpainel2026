@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useBaserowService } from './BaserowService';
 import { makeProxyRequest } from '@/utils/proxyRequest';
 import { tmdbService } from './TmdbService';
@@ -1602,5 +1603,5 @@ export class AutoImportService {
 
 export const useAutoImportService = () => {
   const baserowService = useBaserowService();
-  return new AutoImportService(baserowService);
+  return useMemo(() => new AutoImportService(baserowService), [baserowService]);
 };

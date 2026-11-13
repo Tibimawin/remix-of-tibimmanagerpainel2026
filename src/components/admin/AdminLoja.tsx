@@ -16,7 +16,9 @@ import {
   MessageCircle,
   Sparkles,
   Copy,
-  Link2
+  Link2,
+  Key,
+  ShieldAlert
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,12 +29,14 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
   LojaService,
   LojaProduto,
   LojaConfig,
   LojaPedido,
+  LojaLicenca,
   LojaImagemRecord,
   DEFAULT_LOJA_CONFIG
 } from '@/services/LojaService';
@@ -41,10 +45,22 @@ import { AdminLojaProductModal } from './AdminLojaProductModal';
 export const AdminLoja: React.FC = () => {
   const [products, setProducts] = useState<LojaProduto[]>([]);
   const [orders, setOrders] = useState<LojaPedido[]>([]);
+  const [licenses, setLicenses] = useState<LojaLicenca[]>([]);
   const [uploadedImages, setUploadedImages] = useState<LojaImagemRecord[]>([]);
   const [config, setConfig] = useState<LojaConfig>(DEFAULT_LOJA_CONFIG);
   const [savingConfig, setSavingConfig] = useState(false);
   const [seeding, setSeeding] = useState(false);
+
+  // Filtros e busca de licenças
+  const [licenseSearch, setLicenseSearch] = useState('');
+  const [licenseFilter, setLicenseFilter] = useState<'todas' | 'ativa' | 'revogada'>('todas');
+
+  // Modal de Licença Manual
+  const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
+  const [manualProdId, setManualProdId] = useState('');
+  const [manualClienteNome, setManualClienteNome] = useState('');
+  const [manualClienteWhats, setManualClienteWhats] = useState('');
+  const [generatingLicense, setGeneratingLicense] = useState(false);
 
   // Modal de Produto (estado do formulário isolado em AdminLojaProductModal)
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -57,11 +73,13 @@ export const AdminLoja: React.FC = () => {
     const unsubCfg = LojaService.subscribeConfig(setConfig);
     const unsubOrders = LojaService.subscribeOrders(setOrders);
     const unsubImgs = LojaService.subscribeUploadedImages(setUploadedImages);
+    const unsubLics = LojaService.subscribeLicenses(setLicenses);
     return () => {
       unsubProds();
       unsubCfg();
       unsubOrders();
       unsubImgs();
+      unsubLics();
     };
   }, []);
 
@@ -74,6 +92,23 @@ export const AdminLoja: React.FC = () => {
     setEditingProduct(p);
     setIsModalOpen(true);
   };
+
+  const filteredLicenses = licenses.filter((lic) => {
+    const matchesFilter =
+      licenseFilter === 'todas' ||
+      (licenseFilter === 'ativa' && lic.status === 'ativa') ||
+      (licenseFilter === 'revogada' && lic.status === 'revogada');
+
+    const q = licenseSearch.trim().toLowerCase();
+    const matchesQuery =
+      !q ||
+      lic.chave.toLowerCase().includes(q) ||
+      lic.clienteNome.toLowerCase().includes(q) ||
+      lic.clienteWhatsapp.toLowerCase().includes(q) ||
+      lic.produtoNome.toLowerCase().includes(q);
+
+    return matchesFilter && matchesQuery;
+  });
 
   const copyLinkToClipboard = (url: string) => {
     const fullUrl = LojaService.getFullImageUrl(url);
@@ -120,6 +155,90 @@ export const AdminLoja: React.FC = () => {
 
   const handleToggleDestaque = async (p: LojaProduto) => {
     await LojaService.updateProduct(p.id, { destaque: !p.destaque });
+  };
+
+  const handleCreateManualLicense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualProdId) {
+      toast.error('Selecione o produto para a licença');
+      return;
+    }
+    if (!manualClienteNome.trim() || !manualClienteWhats.trim()) {
+      toast.error('Informe o nome e WhatsApp do cliente');
+      return;
+    }
+
+    const prod = products.find((p) => p.id === manualProdId);
+    if (!prod) return;
+
+    setGeneratingLicense(true);
+    try {
+      const novaChave = LojaService.generateLicenseKey();
+      const lic = await LojaService.createLicense({
+        chave: novaChave,
+        produtoId: prod.id,
+        produtoNome: prod.nome,
+        categoria: prod.categoria,
+        clienteNome: manualClienteNome.trim(),
+        clienteWhatsapp: manualClienteWhats.trim(),
+        status: 'ativa',
+        downloadUrl: prod.arquivoDownloadUrl || prod.demoAppUrl || '',
+        instrucoes: prod.instrucoesEntrega || ''
+      });
+
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const msg =
+        `Olá *${manualClienteNome.trim()}*! Aqui está sua *Chave de Licença Oficial* da ${config.nomeLoja}:\n\n` +
+        `📦 *Produto:* ${prod.nome}\n` +
+        `🔑 *Chave:* ${lic.chave}\n\n` +
+        `Para baixar seu aplicativo ou acessar seu conteúdo, consulte sua chave em:\n` +
+        `👉 ${origin}/loja/licenca?chave=${lic.chave}`;
+
+      navigator.clipboard.writeText(msg);
+      toast.success(`Licença ${lic.chave} gerada e mensagem copiada para o WhatsApp!`);
+
+      setIsLicenseModalOpen(false);
+      setManualProdId('');
+      setManualClienteNome('');
+      setManualClienteWhats('');
+    } catch {
+      toast.error('Erro ao gerar licença manual');
+    } finally {
+      setGeneratingLicense(false);
+    }
+  };
+
+  const handleToggleLicenseStatus = async (lic: LojaLicenca) => {
+    const next = lic.status === 'ativa' ? 'revogada' : 'ativa';
+    try {
+      await LojaService.updateLicenseStatus(lic.id, next);
+      toast.success(`Licença ${lic.chave} ${next === 'ativa' ? 'reativada' : 'revogada'}`);
+    } catch {
+      toast.error('Erro ao atualizar status da licença');
+    }
+  };
+
+  const handleDeleteLicense = async (id: string, chave: string) => {
+    if (!confirm(`Tem certeza que deseja excluir a licença ${chave}?`)) return;
+    try {
+      await LojaService.deleteLicense(id);
+      toast.success('Licença excluída com sucesso');
+    } catch {
+      toast.error('Erro ao excluir licença');
+    }
+  };
+
+  const copyLicenseWhatsAppMessage = (lic: LojaLicenca) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const msg =
+      `Olá *${lic.clienteNome}*! Segue sua *Chave de Licença Oficial* da ${config.nomeLoja}:\n\n` +
+      `📦 *Produto:* ${lic.produtoNome}\n` +
+      `🔑 *Chave de Ativação:* ${lic.chave}\n\n` +
+      `Acesse a loja oficial para baixar seu app ou acessar seu método:\n` +
+      `👉 ${origin}/loja/licenca?chave=${lic.chave}`;
+
+    navigator.clipboard.writeText(msg);
+    toast.success('Mensagem de suporte copiada para enviar no WhatsApp!');
   };
 
   const handleSeedDemos = async () => {
@@ -199,6 +318,9 @@ export const AdminLoja: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="pedidos" className="text-xs font-bold">
             <ClipboardList className="w-3.5 h-3.5 mr-1.5" /> Pedidos ({orders.length})
+          </TabsTrigger>
+          <TabsTrigger value="licencas" className="text-xs font-bold">
+            <Key className="w-3.5 h-3.5 mr-1.5 text-amber-400" /> Licenças Geradas ({licenses.length})
           </TabsTrigger>
           <TabsTrigger value="config" className="text-xs font-bold">
             <Settings className="w-3.5 h-3.5 mr-1.5" /> Configurar Vitrine
@@ -624,7 +746,242 @@ export const AdminLoja: React.FC = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ABA 4: LICENÇAS GERADAS */}
+        <TabsContent value="licencas" className="space-y-4 pt-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                value={licenseSearch}
+                onChange={(e) => setLicenseSearch(e.target.value)}
+                placeholder="Buscar chave, cliente ou produto..."
+                className="w-72 bg-slate-800 border-slate-700 text-xs h-9"
+              />
+              <div className="flex rounded-lg bg-slate-800 p-0.5 border border-slate-700">
+                {(['todas', 'ativa', 'revogada'] as const).map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => setLicenseFilter(st)}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded-md capitalize transition-colors ${
+                      licenseFilter === st ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              onClick={() => setIsLicenseModalOpen(true)}
+              className="bg-amber-600 hover:bg-amber-500 text-black font-bold h-9 text-xs"
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" />
+              Gerar Chave Manual para Cliente
+            </Button>
+          </div>
+
+          <Card className="bg-slate-900 border-slate-800">
+            <CardHeader className="pb-3 border-b border-slate-800">
+              <CardTitle className="text-sm font-bold text-white flex items-center justify-between">
+                <span>Total de Licenças Registradas ({filteredLicenses.length})</span>
+                <span className="text-xs text-slate-400 font-normal">
+                  Chaves geradas via Checkout ou pelo Administrador
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {filteredLicenses.length === 0 ? (
+                <div className="p-12 text-center text-slate-500 text-xs space-y-2">
+                  <Key className="w-8 h-8 mx-auto opacity-40 text-amber-400" />
+                  <p>Nenhuma licença encontrada.</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-slate-800 hover:bg-transparent">
+                      <TableHead className="text-xs">Chave de Licença</TableHead>
+                      <TableHead className="text-xs">Produto / Categoria</TableHead>
+                      <TableHead className="text-xs">Cliente / WhatsApp</TableHead>
+                      <TableHead className="text-xs">Data</TableHead>
+                      <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredLicenses.map((lic) => (
+                      <TableRow key={lic.id} className="border-slate-800 hover:bg-slate-800/40">
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-black text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-2 py-1 rounded select-all">
+                              {lic.chave}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-slate-400 hover:text-white"
+                              title="Copiar Chave"
+                              onClick={() => {
+                                navigator.clipboard.writeText(lic.chave);
+                                toast.success(`Chave ${lic.chave} copiada!`);
+                              }}
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-white max-w-[220px] truncate">
+                              {lic.produtoNome}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {lic.categoria}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="text-xs text-slate-200 font-medium">
+                              {lic.clienteNome || 'Cliente'}
+                            </span>
+                            {lic.clienteWhatsapp && (
+                              <a
+                                href={LojaService.formatWhatsappUrl(lic.clienteWhatsapp)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[11px] text-emerald-400 hover:underline flex items-center gap-1"
+                              >
+                                <MessageCircle className="w-3 h-3" />
+                                {lic.clienteWhatsapp}
+                              </a>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-400 whitespace-nowrap">
+                          {new Date(lic.criadoEm).toLocaleDateString('pt-BR')}
+                        </TableCell>
+                        <TableCell>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleLicenseStatus(lic)}
+                            className="cursor-pointer"
+                            title="Clique para alternar status da licença"
+                          >
+                            <Badge
+                              className={
+                                lic.status === 'ativa'
+                                  ? 'bg-emerald-900/60 text-emerald-300 border-emerald-500/40 text-[10px]'
+                                  : 'bg-red-900/60 text-red-300 border-red-500/40 text-[10px]'
+                              }
+                            >
+                              {lic.status === 'ativa' ? 'Ativa' : 'Revogada'}
+                            </Badge>
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 text-xs text-emerald-400 hover:bg-emerald-950/40"
+                              title="Copiar mensagem pronta para enviar ao cliente no WhatsApp"
+                              onClick={() => copyLicenseWhatsAppMessage(lic)}
+                            >
+                              <MessageCircle className="w-3.5 h-3.5 mr-1" />
+                              WhatsApp
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-950/30"
+                              title="Excluir licença"
+                              onClick={() => handleDeleteLicense(lic.id, lic.chave)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* MODAL DE GERAÇÃO MANUAL DE LICENÇA */}
+      <Dialog open={isLicenseModalOpen} onOpenChange={setIsLicenseModalOpen}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-400 font-bold">
+              <Key className="w-5 h-5" />
+              Gerar Chave de Licença Manual
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs">
+              Gere uma chave de licença oficial para qualquer produto da loja e copie a mensagem formatada para enviar ao cliente no WhatsApp.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateManualLicense} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Selecione o Produto da Loja *</Label>
+              <select
+                value={manualProdId}
+                onChange={(e) => setManualProdId(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-md p-2 text-xs text-white"
+                required
+              >
+                <option value="">Selecione um produto...</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome} ({p.categoria})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Nome do Cliente *</Label>
+              <Input
+                value={manualClienteNome}
+                onChange={(e) => setManualClienteNome(e.target.value)}
+                placeholder="Ex: Carlos Silva"
+                className="bg-slate-800 border-slate-700 text-xs"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">WhatsApp do Cliente *</Label>
+              <Input
+                value={manualClienteWhats}
+                onChange={(e) => setManualClienteWhats(e.target.value)}
+                placeholder="Ex: 244930717724 ou 11999999999"
+                className="bg-slate-800 border-slate-700 text-xs"
+                required
+              />
+            </div>
+
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300">
+              💡 Ao clicar no botão, a chave oficial (ex: <code>TIBIM-XXXX-XXXX-XXXX</code>) será gerada no banco de dados e a mensagem completa de entrega será automaticamente copiada para sua área de transferência.
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setIsLicenseModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={generatingLicense} className="bg-amber-600 hover:bg-amber-500 text-black font-bold text-xs">
+                {generatingLicense ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Key className="w-4 h-4 mr-1.5" />}
+                Gerar e Copiar Licença
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* MODAL DE CADASTRO / EDIÇÃO DE PRODUTO (ISOLADO PARA MÁXIMA LEVEZA) */}
       <AdminLojaProductModal

@@ -13,7 +13,9 @@ import {
   CheckCircle2,
   Package,
   Flame,
-  Download
+  Download,
+  Wand2,
+  Key
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -114,15 +116,26 @@ const LojaHome: React.FC = () => {
               Explorar Produtos e Layouts
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
+
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => navigate('/loja/licenca')}
+              className="h-12 px-6 font-bold text-sm text-amber-300 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 shadow-lg"
+            >
+              <Key className="w-4 h-4 mr-2 text-amber-400" />
+              Consultar Licença / Meus Apps
+            </Button>
           </div>
 
           {/* Atalhos visuais de plataformas */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl mx-auto mt-10">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 max-w-4xl mx-auto mt-10">
             {[
-              { icon: Smartphone, title: 'Apps Celular Android', cat: 'App Celular Android' },
-              { icon: Tv, title: 'Apps TV Box & Smart', cat: 'App Android TV / Box' },
+              { icon: Smartphone, title: 'Apps Celular', cat: 'App Celular Android' },
+              { icon: Tv, title: 'Apps TV Box', cat: 'App Android TV / Box' },
+              { icon: Wand2, title: 'Métodos & Tutoriais', cat: 'Métodos & Tutoriais' },
               { icon: Monitor, title: 'Painéis & Sistemas', cat: 'Painel Web / Sistema' },
-              { icon: Sparkles, title: 'Ver Tudo na Loja', cat: 'Todos' }
+              { icon: Sparkles, title: 'Ver Tudo', cat: 'Todos' }
             ].map((item) => {
               const Icon = item.icon;
               return (

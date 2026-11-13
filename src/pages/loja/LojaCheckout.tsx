@@ -12,7 +12,11 @@ import {
   Mail,
   Phone,
   FileText,
-  ShoppingBag
+  ShoppingBag,
+  Key,
+  Download,
+  ExternalLink,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { LojaLayout } from '@/components/loja/LojaLayout';
 import { useLojaCart } from '@/contexts/LojaCartContext';
-import { LojaService, LojaConfig, DEFAULT_LOJA_CONFIG } from '@/services/LojaService';
+import { LojaService, LojaConfig, LojaLicenca, DEFAULT_LOJA_CONFIG } from '@/services/LojaService';
 import { AsaasPaymentService } from '@/services/AsaasPaymentService';
 import { generateValidCPF, validateCPF } from '@/utils/cpfGenerator';
 import { db } from '@/config/firebase';
@@ -47,6 +51,7 @@ const LojaCheckout: React.FC = () => {
   const [step, setStep] = useState<'form' | 'pix' | 'confirmed'>('form');
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderId, setOrderId] = useState('');
+  const [generatedLicenses, setGeneratedLicenses] = useState<LojaLicenca[]>([]);
 
   const [pixData, setPixData] = useState<{ encodedImage: string; payload: string; expirationDate: string } | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -79,13 +84,23 @@ const LojaCheckout: React.FC = () => {
     return true;
   };
 
-  const buildWhatsappMessage = (id: string, statusLabel: string) => {
+  const buildWhatsappMessage = (id: string, statusLabel: string, licensesList: LojaLicenca[] = []) => {
     const itemsText = items
       .map(
         (i) =>
           `• ${i.quantity}x *${i.product.nome}* — R$ ${(i.product.preco * i.quantity).toFixed(2).replace('.', ',')}`
       )
       .join('\n');
+
+    let licensesText = '';
+    if (licensesList.length > 0) {
+      licensesText =
+        `\n\n🔑 *CHAVE(S) DE LICENÇA DO SEU PEDIDO:*\n` +
+        licensesList
+          .map((lic) => `• *${lic.produtoNome}*:\n  👉 \`${lic.chave}\``)
+          .join('\n') +
+        `\n\n💡 _Guarde sua chave de licença! Na loja você pode clicar em "Consultar Licença / Meus Apps" e inserir sua chave para baixar seu app ou acessar seu método/conteúdo._`;
+    }
 
     return encodeURIComponent(
       `🛒 *NOVO PEDIDO - ${config.nomeLoja}*\n` +
@@ -96,8 +111,36 @@ const LojaCheckout: React.FC = () => {
         (email.trim() ? `*E-mail:* ${email.trim()}\n` : '') +
         (observation.trim() ? `*Observações:* ${observation.trim()}\n` : '') +
         `\n*Itens do Pedido:*\n${itemsText}\n\n` +
-        `💰 *TOTAL: R$ ${subtotal.toFixed(2).replace('.', ',')}*`
+        `💰 *TOTAL: R$ ${subtotal.toFixed(2).replace('.', ',')}*` +
+        licensesText
     );
+  };
+
+  const generateLicensesForCart = async (orderIdRef: string): Promise<LojaLicenca[]> => {
+    const generated: LojaLicenca[] = [];
+    for (const item of items) {
+      for (let q = 0; q < item.quantity; q++) {
+        try {
+          const lic = await LojaService.createLicense({
+            chave: LojaService.generateLicenseKey(),
+            pedidoId: orderIdRef,
+            produtoId: item.product.id,
+            produtoNome: item.product.nome,
+            categoria: item.product.categoria || 'Aplicativos',
+            clienteNome: name.trim(),
+            clienteWhatsapp: whatsapp.trim(),
+            clienteEmail: email.trim(),
+            status: 'ativa',
+            downloadUrl: item.product.arquivoDownloadUrl || item.product.demoAppUrl || '',
+            instrucoes: item.product.instrucoesEntrega || ''
+          });
+          generated.push(lic);
+        } catch (e) {
+          console.warn('Erro ao gerar licença individual:', e);
+        }
+      }
+    }
+    return generated;
   };
 
   const handleOrderViaWhatsapp = async () => {
@@ -127,12 +170,17 @@ const LojaCheckout: React.FC = () => {
       });
 
       setOrderId(createdId);
-      const msg = buildWhatsappMessage(createdId, 'Aguardando Atendimento / Pagamento');
+
+      // Gerar chaves de licença únicas
+      const createdLicenses = await generateLicensesForCart(createdId);
+      setGeneratedLicenses(createdLicenses);
+
+      const msg = buildWhatsappMessage(createdId, 'Aguardando Atendimento / Pagamento', createdLicenses);
       window.open(LojaService.formatWhatsappUrl(whatsappNumber, msg), '_blank');
 
       clearCart();
       setStep('confirmed');
-      toast.success('Pedido registrado e aberto no WhatsApp!');
+      toast.success('Pedido registrado com Chave(s) de Licença e aberto no WhatsApp!');
     } catch (err) {
       console.error('Erro ao registrar pedido:', err);
       toast.error('Não foi possível registrar o pedido. Tente novamente.');
@@ -187,6 +235,10 @@ const LojaCheckout: React.FC = () => {
 
       setOrderId(createdOrderId);
       setPixData(qrData);
+
+      // Gerar chaves de licença já vinculadas ao pedido PIX
+      const pixLicenses = await generateLicensesForCart(createdOrderId);
+      setGeneratedLicenses(pixLicenses);
 
       try {
         await setDoc(doc(db, 'financialRecords', payment.id), {
@@ -248,28 +300,114 @@ const LojaCheckout: React.FC = () => {
     toast.success('Código PIX Copia e Cola copiado!');
   };
 
+  const copyLicenseKey = (key: string) => {
+    navigator.clipboard.writeText(key);
+    toast.success(`Chave de Licença ${key} copiada com sucesso!`);
+  };
+
   if (step === 'confirmed') {
     return (
       <LojaLayout>
-        <div className="container mx-auto max-w-2xl px-4 py-16 text-center space-y-6">
-          <div className="w-20 h-20 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-10 h-10" />
+        <div className="container mx-auto max-w-3xl px-4 py-12 space-y-6">
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+            <h1 className="text-3xl font-black text-white">Pedido Realizado com Sucesso!</h1>
+            <p className="text-sm text-white/60 max-w-lg mx-auto">
+              Seu pedido <span className="text-white font-bold">#{orderId.slice(0, 8).toUpperCase()}</span> foi registrado.
+              Abaixo estão suas <strong className="text-emerald-400">Chaves de Licença Oficiais</strong> geradas exclusivamente para seus produtos.
+            </p>
           </div>
-          <h1 className="text-3xl font-black text-white">Pedido Realizado com Sucesso!</h1>
-          <p className="text-sm text-white/60 leading-relaxed">
-            Seu pedido <span className="text-white font-bold">#{orderId.slice(0, 8).toUpperCase()}</span> foi
-            registrado. Nossa equipe entrará em contato pelo WhatsApp informado para concluir a entrega e
-            personalização.
-          </p>
 
-          <div className="flex flex-col sm:flex-row justify-center gap-3 pt-4">
+          {/* Cards com as Chaves de Licença Geradas */}
+          {generatedLicenses.length > 0 && (
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Key className="w-4 h-4 text-amber-400" />
+                  Chaves de Licença Geradas ({generatedLicenses.length})
+                </h3>
+                <span className="text-xs text-white/50">
+                  Guarde sua chave para ativação do App ou acesso ao Método
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3.5">
+                {generatedLicenses.map((lic, idx) => (
+                  <Card key={idx} className="bg-[#0B0E17] border-white/15 text-white shadow-xl overflow-hidden">
+                    <CardContent className="p-4 sm:p-5 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                        <div>
+                          <Badge variant="outline" className="text-[10px] uppercase font-bold border-emerald-500/30 text-emerald-400 bg-emerald-500/10 mb-1">
+                            {lic.categoria || 'Licença Oficial'}
+                          </Badge>
+                          <h4 className="text-base font-bold text-white leading-tight">
+                            {lic.produtoNome}
+                          </h4>
+                        </div>
+                        <Badge className="bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 w-fit text-xs font-bold">
+                          LICENÇA ATIVA
+                        </Badge>
+                      </div>
+
+                      {/* Caixa de Exibição da Chave de Licença */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-white/60">Chave de Licença do Produto:</Label>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 px-3 py-2.5 rounded-xl bg-black/60 border border-emerald-500/30 font-mono text-emerald-400 font-black text-sm tracking-wider select-all">
+                            {lic.chave}
+                          </div>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => copyLicenseKey(lic.chave)}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-10 px-3 shrink-0"
+                          >
+                            <Copy className="w-4 h-4 mr-1.5" /> Copiar
+                          </Button>
+                        </div>
+                      </div>
+
+                      {lic.instrucoes && (
+                        <p className="text-xs text-white/60 bg-white/5 p-2.5 rounded-lg border border-white/10">
+                          📌 <strong>Instruções:</strong> {lic.instrucoes}
+                        </p>
+                      )}
+
+                      {/* Botão de Download se configurado */}
+                      {lic.downloadUrl && (
+                        <div className="pt-1">
+                          <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-bold"
+                          >
+                            <a href={lic.downloadUrl} target="_blank" rel="noopener noreferrer">
+                              <Download className="w-3.5 h-3.5 mr-1.5" />
+                              Baixar Aplicativo / Material
+                            </a>
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Botões de Ação */}
+          <div className="flex flex-col sm:flex-row justify-center gap-3 pt-4 border-t border-white/10">
             {whatsappNumber && (
               <Button
                 size="lg"
                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
                 onClick={() => {
+                  const licSummary = generatedLicenses.map((l) => `${l.produtoNome}: ${l.chave}`).join(' | ');
                   const txt = encodeURIComponent(
-                    `Olá! Acabei de confirmar o pedido #${orderId.slice(0, 8).toUpperCase()} na ${config.nomeLoja} em nome de ${name}.`
+                    `Olá! Confirmei o pedido #${orderId.slice(0, 8).toUpperCase()} na ${config.nomeLoja} em nome de ${name}.\nMinha(s) Chave(s) de Licença: ${licSummary}`
                   );
                   window.open(LojaService.formatWhatsappUrl(whatsappNumber, txt), '_blank');
                 }}
@@ -278,7 +416,16 @@ const LojaCheckout: React.FC = () => {
                 Falar no WhatsApp sobre meu Pedido
               </Button>
             )}
-            <Button variant="outline" size="lg" className="border-white/20" onClick={() => navigate('/loja')}>
+            <Button
+              variant="outline"
+              size="lg"
+              className="border-white/20 bg-white/5 hover:bg-white/10 text-white font-bold"
+              onClick={() => navigate('/loja/licenca')}
+            >
+              <Key className="w-4 h-4 mr-2 text-amber-400" />
+              Consultar Licença / Meus Apps
+            </Button>
+            <Button variant="ghost" size="lg" className="text-white/60 hover:text-white" onClick={() => navigate('/loja')}>
               Voltar para a Loja
             </Button>
           </div>

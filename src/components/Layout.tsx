@@ -9,6 +9,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import ExpirationWarningBanner from './ExpirationWarningBanner';
 import SubscriptionExpiredBanner from './SubscriptionExpiredBanner';
 import { RouteFeatureGate } from './RouteFeatureGate';
+import { PageLoadingFallback } from './PageLoadingFallback';
 import { SeasonalThemeBanner, SeasonalThemeEffects } from './seasonal/SeasonalThemeWrapper';
 import { PlansPopup } from './PlansPopup';
 import { M3UProgressBar } from './M3UProgressBar';
@@ -204,16 +205,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             <ErrorBoundary>
               <RouteFeatureGate>
-                <Suspense
-                  fallback={
-                    <div className="flex items-center justify-center min-h-[50vh] w-full" aria-busy="true">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-                        <span className="text-xs text-muted-foreground font-medium animate-pulse">Carregando página...</span>
-                      </div>
-                    </div>
-                  }
-                >
+                <Suspense fallback={<PageLoadingFallback />}>
                   {children ?? <Outlet />}
                 </Suspense>
               </RouteFeatureGate>

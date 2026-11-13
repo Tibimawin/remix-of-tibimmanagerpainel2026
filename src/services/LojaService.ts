@@ -34,6 +34,8 @@ export interface LojaProduto {
   videoDemoUrl?: string;
   liberarDemo?: boolean;
   demoAppUrl?: string;
+  arquivoDownloadUrl?: string; // Link direto do APK ou do arquivo/método
+  instrucoesEntrega?: string; // Instruções de acesso/instalação para o cliente
   recursos: string[];
   especificacoes: LojaSpec[];
   compatibilidade: string[];
@@ -42,6 +44,24 @@ export interface LojaProduto {
   ordem: number;
   criadoEm: string;
   atualizadoEm: string;
+}
+
+export interface LojaLicenca {
+  id: string;
+  chave: string; // Ex: TIBIM-A8F2-4D91-7C3E
+  pedidoId?: string;
+  produtoId: string;
+  produtoNome: string;
+  categoria: string;
+  clienteNome: string;
+  clienteWhatsapp: string;
+  clienteEmail?: string;
+  status: 'ativa' | 'usada' | 'revogada';
+  downloadUrl?: string; // URL do APK ou material
+  instrucoes?: string;
+  notasAdmin?: string;
+  criadoEm: string;
+  atualizadoEm?: string;
 }
 
 export interface LojaConfig {
@@ -92,6 +112,7 @@ export const DEFAULT_LOJA_CONFIG: LojaConfig = {
 
 const COLLECTION_PRODUTOS = 'loja_produtos';
 const COLLECTION_PEDIDOS = 'loja_pedidos';
+const COLLECTION_LICENCAS = 'loja_licencas';
 const COLLECTION_IMAGENS = 'loja_imagens';
 const DOC_CONFIG_PATH = ['config', 'loja'] as const;
 
@@ -248,6 +269,8 @@ export const LojaService = {
             videoDemoUrl: data.videoDemoUrl || '',
             liberarDemo: Boolean(data.liberarDemo),
             demoAppUrl: data.demoAppUrl || '',
+            arquivoDownloadUrl: data.arquivoDownloadUrl || '',
+            instrucoesEntrega: data.instrucoesEntrega || '',
             recursos: Array.isArray(data.recursos) ? data.recursos : [],
             especificacoes: Array.isArray(data.especificacoes) ? data.especificacoes : [],
             compatibilidade: Array.isArray(data.compatibilidade) ? data.compatibilidade : [],
@@ -296,6 +319,8 @@ export const LojaService = {
         videoDemoUrl: data.videoDemoUrl || '',
         liberarDemo: Boolean(data.liberarDemo),
         demoAppUrl: data.demoAppUrl || '',
+        arquivoDownloadUrl: data.arquivoDownloadUrl || '',
+        instrucoesEntrega: data.instrucoesEntrega || '',
         recursos: Array.isArray(data.recursos) ? data.recursos : [],
         especificacoes: Array.isArray(data.especificacoes) ? data.especificacoes : [],
         compatibilidade: Array.isArray(data.compatibilidade) ? data.compatibilidade : [],
@@ -404,6 +429,150 @@ export const LojaService = {
     await updateDoc(doc(db, COLLECTION_PEDIDOS, id), { status });
   },
 
+  // ===============================
+  // SISTEMA DE CHAVES DE LICENÇA
+  // ===============================
+  generateLicenseKey(prefix = 'TIBIM'): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const segment = (len = 4) => {
+      let res = '';
+      for (let i = 0; i < len; i++) {
+        res += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return res;
+    };
+    return `${prefix}-${segment(4)}-${segment(4)}-${segment(4)}`;
+  },
+
+  async createLicense(data: Omit<LojaLicenca, 'id' | 'criadoEm'>): Promise<LojaLicenca> {
+    const now = new Date().toISOString();
+    const chave = (data.chave || this.generateLicenseKey()).trim().toUpperCase();
+    const licensePayload = {
+      ...data,
+      chave,
+      status: data.status || 'ativa',
+      criadoEm: now,
+      atualizadoEm: now
+    };
+
+    let docId = '';
+    try {
+      const docRef = await addDoc(collection(db, COLLECTION_LICENCAS), licensePayload);
+      docId = docRef.id;
+    } catch (err) {
+      console.warn('Erro ao salvar licença no Firestore, usando fallback local:', err);
+      docId = `local_${Date.now()}`;
+    }
+
+    const created: LojaLicenca = {
+      id: docId,
+      ...licensePayload
+    };
+
+    // Backup local para consulta instantânea mesmo offline ou sem permissão direta
+    try {
+      const stored = localStorage.getItem('loja_licencas_backup');
+      const list: LojaLicenca[] = stored ? JSON.parse(stored) : [];
+      list.unshift(created);
+      localStorage.setItem('loja_licencas_backup', JSON.stringify(list.slice(0, 100)));
+    } catch {
+      // non-blocking
+    }
+
+    return created;
+  },
+
+  async getLicenseByKey(rawKey: string): Promise<LojaLicenca | null> {
+    const cleanKey = (rawKey || '').trim().toUpperCase();
+    if (!cleanKey) return null;
+
+    try {
+      const q = query(collection(db, COLLECTION_LICENCAS), where('chave', '==', cleanKey));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const d = snap.docs[0];
+        return { id: d.id, ...d.data() } as LojaLicenca;
+      }
+    } catch (err) {
+      console.warn('Erro ao consultar Firestore, tentando backup local:', err);
+    }
+
+    // Fallback no cache local
+    try {
+      const stored = localStorage.getItem('loja_licencas_backup');
+      if (stored) {
+        const list: LojaLicenca[] = JSON.parse(stored);
+        const found = list.find((item) => item.chave.toUpperCase() === cleanKey);
+        if (found) return found;
+      }
+    } catch {
+      // ignore
+    }
+
+    return null;
+  },
+
+  subscribeLicenses(callback: (licenses: LojaLicenca[]) => void) {
+    const q = query(collection(db, COLLECTION_LICENCAS), orderBy('criadoEm', 'desc'));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const items: LojaLicenca[] = [];
+        snapshot.forEach((docSnap) => {
+          items.push({ id: docSnap.id, ...docSnap.data() } as LojaLicenca);
+        });
+        callback(items);
+      },
+      () => {
+        // Fallback local se permissão falhar
+        try {
+          const stored = localStorage.getItem('loja_licencas_backup');
+          callback(stored ? JSON.parse(stored) : []);
+        } catch {
+          callback([]);
+        }
+      }
+    );
+  },
+
+  async updateLicenseStatus(id: string, status: LojaLicenca['status']): Promise<void> {
+    if (!id.startsWith('local_')) {
+      await updateDoc(doc(db, COLLECTION_LICENCAS, id), {
+        status,
+        atualizadoEm: new Date().toISOString()
+      });
+    }
+    try {
+      const stored = localStorage.getItem('loja_licencas_backup');
+      if (stored) {
+        const list: LojaLicenca[] = JSON.parse(stored);
+        const idx = list.findIndex((x) => x.id === id);
+        if (idx >= 0) {
+          list[idx].status = status;
+          localStorage.setItem('loja_licencas_backup', JSON.stringify(list));
+        }
+      }
+    } catch {
+      // non-blocking
+    }
+  },
+
+  async deleteLicense(id: string): Promise<void> {
+    if (!id.startsWith('local_')) {
+      await deleteDoc(doc(db, COLLECTION_LICENCAS, id));
+    }
+    try {
+      const stored = localStorage.getItem('loja_licencas_backup');
+      if (stored) {
+        const list: LojaLicenca[] = JSON.parse(stored);
+        const filtered = list.filter((x) => x.id !== id);
+        localStorage.setItem('loja_licencas_backup', JSON.stringify(filtered));
+      }
+    } catch {
+      // non-blocking
+    }
+  },
+
   // Criar produtos modelo de demonstração (para o Admin testar e editar facilmente)
   async seedDemoProducts(): Promise<number> {
     const existing = await getDocs(collection(db, COLLECTION_PRODUTOS));
@@ -444,6 +613,38 @@ export const LojaService = {
         ordem: 1
       },
       {
+        nome: 'Método Exclusivo de Extração de Canais de TV (M3U / HLS / TS)',
+        subtitulo: 'Aprenda a capturar, testar e extrair fluxos de canais de TV ao vivo com alta estabilidade e ferramentas completas.',
+        descricao: 'Treinamento prático em vídeo e guia completo com scripts e ferramentas para extrair seus próprios canais de TV.',
+        descricaoCompleta: 'O Método Definitivo de Extração de Canais de TV ensina o passo a passo completo para você encontrar, capturar e estruturar transmissões de canais ao vivo em Full HD e 4K.\n\nVocê recebe ferramentas automatizadas de inspeção de tráfego, scripts de teste de estabilidade de sinal, gerador de lista M3U organizada por categorias e chave de licença vitalícia.\n\nIdeal para quem quer ter total autonomia sem depender de listas instáveis de terceiros.',
+        preco: 197.00,
+        precoOriginal: 350.00,
+        categoria: 'Métodos & Tutoriais',
+        badge: 'MÉTODO EXCLUSIVO',
+        imagemPrincipal: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1000&q=80',
+        galeriaImagens: [
+          'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1000&q=80',
+          'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1000&q=80'
+        ],
+        recursos: [
+          'Guia Passo a Passo em Vídeo + Apostila PDF',
+          'Ferramentas e Extensões prontas para captura de fluxos',
+          'Scripts de verificação de estabilidade (TS / HLS)',
+          'Como montar e categorizar sua lista M3U oficial',
+          'Chave de Licença individual com suporte no WhatsApp'
+        ],
+        especificacoes: [
+          { label: 'Formato', value: 'Guia Digital + Ferramentas + Vídeo' },
+          { label: 'Requisitos', value: 'PC Windows ou Celular Android' },
+          { label: 'Acesso', value: 'Vitalício com Chave de Licença' },
+          { label: 'Suporte', value: 'Atendimento exclusivo via WhatsApp' }
+        ],
+        compatibilidade: ['PC / Windows', 'Celular Android', 'Navegador Web'],
+        status: 'ativo',
+        destaque: true,
+        ordem: 2
+      },
+      {
         nome: 'Painel Gestor Streaming Pro (Web + Admin)',
         subtitulo: 'Painel completo com importação M3U/TMDB, Gerador de Posts 4K, Revendas e Integração PIX.',
         descricao: 'Sistema completo em nuvem para gerenciar conteúdos, usuários, revendedores e artes promocionais automaticamente.',
@@ -471,7 +672,7 @@ export const LojaService = {
         compatibilidade: ['Navegador Web', 'Desktop', 'Celular'],
         status: 'ativo',
         destaque: true,
-        ordem: 2
+        ordem: 3
       },
       {
         nome: 'Pack Identidade Visual + Artes Divulgação',
@@ -498,7 +699,7 @@ export const LojaService = {
         compatibilidade: ['Instagram', 'WhatsApp', 'Facebook'],
         status: 'ativo',
         destaque: false,
-        ordem: 3
+        ordem: 4
       }
     ];
 

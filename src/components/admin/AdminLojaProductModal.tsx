@@ -41,9 +41,11 @@ const CATEGORY_PRESETS = [
   { label: 'App Celular Android', icon: Smartphone },
   { label: 'App Android TV / Box', icon: Tv },
   { label: 'App TV + Celular', icon: Sparkles },
+  { label: 'Métodos & Tutoriais', icon: Wand2 },
   { label: 'Painel Web / Sistema', icon: Monitor },
   { label: 'Design & Artes', icon: Palette },
   { label: 'Scripts & Bots', icon: Bot },
+  { label: 'Cursos & Aulas', icon: Sparkles },
   { label: 'Servidores / Planos', icon: Package },
   { label: 'Outros Produtos', icon: ShoppingBag }
 ];
@@ -62,6 +64,57 @@ interface CopyTemplatePreset {
 }
 
 const COPY_TEMPLATES: CopyTemplatePreset[] = [
+  {
+    id: 'metodo_extracao_tv',
+    label: '📡 Método de Extração de Canais TV',
+    defaultNome: 'Método Exclusivo de Extração de Canais de TV (M3U / HLS / TS)',
+    subtitulo: 'Aprenda a capturar, testar e extrair fluxos de canais de TV ao vivo com alta estabilidade e ferramentas completas.',
+    categoria: 'Métodos & Tutoriais',
+    badge: 'MÉTODO EXCLUSIVO',
+    compatibilidade: ['PC / Windows', 'Celular Android', 'Navegador Web'],
+    recursos: [
+      'Guia prático em vídeo ensinando do zero a capturar transmissões de TV',
+      'Ferramentas de inspeção de tráfego de rede e tokens de canais',
+      'Scripts automáticos para testar e validar estabilidade do link (FHD/4K)',
+      'Como estruturar e categorizar sua própria lista M3U oficial',
+      'Chave de licença vitalícia com suporte direto via WhatsApp'
+    ],
+    especificacoes: [
+      { label: 'Formato', value: 'Guia Digital + Vídeo Tutorial + Scripts' },
+      { label: 'Requisitos', value: 'Computador Windows ou Celular Android' },
+      { label: 'Nível', value: 'Do iniciante ao avançado' },
+      { label: 'Entrega', value: 'Acesso imediato com Chave de Licença' },
+      { label: 'Suporte', value: 'Atendimento exclusivo via WhatsApp' }
+    ],
+    descricaoCompleta:
+      'Quer aprender a extrair seus próprios canais de TV ao vivo com máxima estabilidade e sem depender de listas instáveis de terceiros?\n\n' +
+      'Com este Método Exclusivo, você recebe todo o treinamento prático e as ferramentas necessárias para capturar, testar a estabilidade de sinal em Full HD e 4K, e montar sua própria lista M3U organizada por categorias.\n\n' +
+      'Você recebe sua Chave de Licença individual para consultar seus materiais e tirar dúvidas diretamente no nosso WhatsApp oficial!'
+  },
+  {
+    id: 'curso_streaming',
+    label: '🎓 Curso / Treinamento Completo',
+    defaultNome: 'Treinamento Especialista em Streaming & Servidores',
+    subtitulo: 'Treinamento completo para criar, gerenciar e escalar sua operação de canais e aplicativos.',
+    categoria: 'Cursos & Aulas',
+    badge: 'TREINAMENTO VIP',
+    compatibilidade: ['PC / Windows', 'Celular Android', 'Navegador Web'],
+    recursos: [
+      'Aulas gravadas com acesso vitalício',
+      'Configuração de servidores, DNS e proteção de links',
+      'Como criar e distribuir aplicativos Android para seus clientes',
+      'Estratégias de vendas e suporte automatizado',
+      'Chave de licença exclusiva com suporte via WhatsApp'
+    ],
+    especificacoes: [
+      { label: 'Acesso', value: 'Vitalício com Chave de Licença' },
+      { label: 'Aulas', value: 'Vídeos gravados em HD + Material de Apoio' },
+      { label: 'Suporte', value: 'Tira-dúvidas via WhatsApp' }
+    ],
+    descricaoCompleta:
+      'Domine o mercado de streaming do zero ao avançado!\n\n' +
+      'Aprenda como estruturar seus servidores, como personalizar e distribuir aplicativos Android TV e Mobile com a sua marca, e como gerenciar clientes e pagamentos com máxima segurança.'
+  },
   {
     id: 'app_mobile',
     label: '📱 App Celular Android',
@@ -236,6 +289,8 @@ export const AdminLojaProductModal: React.FC<AdminLojaProductModalProps> = React
   const [videoDemoUrl, setVideoDemoUrl] = useState('');
   const [liberarDemo, setLiberarDemo] = useState(false);
   const [demoAppUrl, setDemoAppUrl] = useState('');
+  const [arquivoDownloadUrl, setArquivoDownloadUrl] = useState('');
+  const [instrucoesEntrega, setInstrucoesEntrega] = useState('');
   const [recursos, setRecursos] = useState<string[]>([]);
   const [newRecurso, setNewRecurso] = useState('');
   const [especificacoes, setEspecificacoes] = useState<LojaSpec[]>([]);
@@ -263,6 +318,8 @@ export const AdminLojaProductModal: React.FC<AdminLojaProductModalProps> = React
       setVideoDemoUrl(editingProduct.videoDemoUrl || '');
       setLiberarDemo(Boolean(editingProduct.liberarDemo));
       setDemoAppUrl(editingProduct.demoAppUrl || '');
+      setArquivoDownloadUrl(editingProduct.arquivoDownloadUrl || '');
+      setInstrucoesEntrega(editingProduct.instrucoesEntrega || '');
       setRecursos(editingProduct.recursos || []);
       setNewRecurso('');
       setEspecificacoes(editingProduct.especificacoes || []);
@@ -287,6 +344,8 @@ export const AdminLojaProductModal: React.FC<AdminLojaProductModalProps> = React
       setVideoDemoUrl('');
       setLiberarDemo(false);
       setDemoAppUrl('');
+      setArquivoDownloadUrl('');
+      setInstrucoesEntrega('');
       setRecursos([]);
       setNewRecurso('');
       setEspecificacoes([]);
@@ -409,6 +468,8 @@ export const AdminLojaProductModal: React.FC<AdminLojaProductModalProps> = React
         videoDemoUrl: videoDemoUrl.trim(),
         liberarDemo,
         demoAppUrl: liberarDemo ? demoAppUrl.trim() : '',
+        arquivoDownloadUrl: arquivoDownloadUrl.trim(),
+        instrucoesEntrega: instrucoesEntrega.trim(),
         recursos,
         especificacoes,
         compatibilidade,
@@ -716,6 +777,45 @@ export const AdminLojaProductModal: React.FC<AdminLojaProductModalProps> = React
                 />
               </div>
             )}
+          </div>
+
+          {/* Entrega Digital & Liberação com Chave de Licença */}
+          <div className="p-4 rounded-xl bg-purple-950/25 border border-purple-500/30 space-y-3">
+            <div>
+              <Label className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                Entrega Digital & Acesso com Chave de Licença (Apps, Métodos, Cursos & Scripts)
+              </Label>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Ao comprar este produto, uma Chave de Licença exclusiva (ex: TIBIM-XXXX-XXXX-XXXX) é gerada automaticamente e enviada no WhatsApp. O cliente poderá consultar a chave na loja para baixar o app ou acessar o material.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-200">
+                  Link Oficial do Conteúdo (APK / Google Drive / Pasta / Link do Método)
+                </Label>
+                <Input
+                  value={arquivoDownloadUrl}
+                  onChange={(e) => setArquivoDownloadUrl(e.target.value)}
+                  placeholder="https://exemplo.com/app-oficial.apk ou link do Drive"
+                  className="bg-slate-900 border-purple-500/40 text-xs font-mono"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-200">
+                  Instruções para o Cliente (Exibidas na Consulta da Licença)
+                </Label>
+                <Input
+                  value={instrucoesEntrega}
+                  onChange={(e) => setInstrucoesEntrega(e.target.value)}
+                  placeholder="Ex: Instale o APK no seu aparelho e use sua chave para ativar."
+                  className="bg-slate-900 border-purple-500/40 text-xs"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Vídeo Demo + Destaque */}

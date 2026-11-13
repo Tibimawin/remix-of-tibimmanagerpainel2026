@@ -12,7 +12,8 @@ import {
   Zap,
   MessageCircle,
   Lock,
-  ExternalLink
+  ExternalLink,
+  Key
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -116,6 +117,17 @@ export const LojaLayout: React.FC<LojaLayoutProps> = ({ children }) => {
               )}
             </Button>
 
+            <Link to="/loja/licenca" title="Consultar Chave de Licença ou Baixar Meus Apps">
+              <Button
+                variant={location.pathname === '/loja/licenca' ? 'secondary' : 'outline'}
+                size="sm"
+                className="text-xs font-bold border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 h-9 px-3"
+              >
+                <Key className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
+                <span className="hidden sm:inline">Meus Apps / </span>Licença
+              </Button>
+            </Link>
+
             <Link to="/login" title="Acessar Painel do Cliente">
               <Button variant="ghost" size="sm" className="text-xs text-white/60 hover:text-white px-2.5 hidden sm:inline-flex">
                 <Lock className="w-3.5 h-3.5 mr-1.5" />
@@ -168,6 +180,10 @@ export const LojaLayout: React.FC<LojaLayoutProps> = ({ children }) => {
             <span>© {new Date().getFullYear()} {config.nomeLoja}. Todos os direitos reservados.</span>
             <div className="flex items-center gap-4">
               <Link to="/loja" className="hover:text-white transition-colors">Vitrine</Link>
+              <Link to="/loja/licenca" className="hover:text-amber-400 transition-colors text-amber-300 font-bold flex items-center gap-1">
+                <Key className="w-3 h-3 text-amber-400" />
+                Meus Apps / Licença
+              </Link>
               <Link to="/loja/carrinho" className="hover:text-white transition-colors">Carrinho</Link>
               <Link to="/login" className="hover:text-white transition-colors inline-flex items-center gap-1">
                 Área do Cliente <ExternalLink className="w-3 h-3" />

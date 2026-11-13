@@ -30,6 +30,8 @@ import { MaxPlusImportProvider } from "./contexts/MaxPlusImportContext";
 import { MaxPlusFloatingProgress } from "./components/maxplus/MaxPlusFloatingProgress";
 import { AppNameProvider } from "./contexts/AppNameContext";
 import { LojaCartProvider } from "./contexts/LojaCartContext";
+import ImportacaoAutomatica from "./pages/ImportacaoAutomatica";
+import Miniseries from "./pages/Miniseries";
 
 // 🚀 OTIMIZAÇÃO: Lazy Loading de todas as páginas para dividir o bundle de 5.2MB em micro-chunks
 const Apresentacao = lazy(() => import("./pages/Apresentacao"));
@@ -38,6 +40,7 @@ const LojaHome = lazy(() => import("./pages/loja/LojaHome"));
 const LojaProdutoDetalhes = lazy(() => import("./pages/loja/LojaProdutoDetalhes"));
 const LojaCarrinho = lazy(() => import("./pages/loja/LojaCarrinho"));
 const LojaCheckout = lazy(() => import("./pages/loja/LojaCheckout"));
+const LojaConsultaLicenca = lazy(() => import("./pages/loja/LojaConsultaLicenca"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Conteudos = lazy(() => import("./pages/Conteudos"));
 const Episodios = lazy(() => import("./pages/Episodios"));
@@ -65,8 +68,6 @@ const ResellerDashboard = lazy(() => import("./pages/revendas/ResellerDashboard"
 const ResellerComprarCreditos = lazy(() => import("./pages/revendas/ResellerComprarCreditos"));
 const ResellerLinhas = lazy(() => import("./pages/revendas/ResellerLinhas"));
 const ResellerGerarLinha = lazy(() => import("./pages/revendas/ResellerGerarLinha"));
-const ImportacaoAutomatica = lazy(() => import("./pages/ImportacaoAutomatica"));
-const Miniseries = lazy(() => import("./pages/Miniseries"));
 const AtualizacaoSeries = lazy(() => import("./pages/AtualizacaoSeries"));
 const JogosDia = lazy(() => import("./pages/JogosDia"));
 const Perfil = lazy(() => import("./pages/Perfil"));
@@ -186,6 +187,8 @@ const App = () => {
                               <Route path="/loja/produto/:id" element={<LojaProdutoDetalhes />} />
                               <Route path="/loja/carrinho" element={<LojaCarrinho />} />
                               <Route path="/loja/checkout" element={<LojaCheckout />} />
+                              <Route path="/loja/licenca" element={<LojaConsultaLicenca />} />
+                              <Route path="/loja/meus-apps" element={<LojaConsultaLicenca />} />
 
                               {/* Rota de preços públicos */}
                               <Route path="/precos-publico" element={<PrecosPublico />} />
